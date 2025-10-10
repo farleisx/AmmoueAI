@@ -214,7 +214,7 @@
                     await signInWithCustomToken(auth, initialAuthToken);
                     // Redirect immediately if already logged in via token
                     if (auth.currentUser) {
-                        window.location.href = 'dashboard.html'; // FIX: Reverted to simple filename for sandbox stability
+                        window.location.href = 'dashboard.html'; 
                         return; // Stop further execution
                     }
                 } else {
@@ -226,10 +226,9 @@
                 onAuthStateChanged(auth, (user) => {
                     if (user && !user.isAnonymous) {
                          // If a non-anonymous user is found, redirect them to the dashboard
-                        window.location.href = 'dashboard.html'; // FIX: Reverted to simple filename for sandbox stability
+                        window.location.href = 'dashboard.html'; 
                     }
                 });
-
 
             } catch (error) {
                 console.error("Firebase initialization failed:", error);
@@ -243,6 +242,12 @@
          */
         window.handleLogin = async function(event) {
             event.preventDefault();
+            
+            if (!auth) {
+                showMessage("Authentication service is not ready. Please wait a moment.", true);
+                return;
+            }
+
             setLoading(loginBtn, true);
 
             const email = document.getElementById('login-email').value;
@@ -255,7 +260,7 @@
                 
                 // Redirect on success
                 setTimeout(() => {
-                    window.location.href = 'dashboard.html'; // FIX: Reverted to simple filename for sandbox stability
+                    window.location.href = 'dashboard.html';
                 }, 1000);
 
             } catch (error) {
@@ -265,6 +270,8 @@
                     errorMessage = 'No account found with this email.';
                 } else if (error.code === 'auth/wrong-password') {
                     errorMessage = 'Invalid password.';
+                } else if (error.code === 'auth/invalid-credential') {
+                    errorMessage = 'Invalid credentials. Please check email and password.';
                 }
                 showMessage(errorMessage, true);
                 setLoading(loginBtn, false);
@@ -277,6 +284,12 @@
          */
         window.handleSignup = async function(event) {
             event.preventDefault();
+
+            if (!auth) {
+                showMessage("Authentication service is not ready. Please wait a moment.", true);
+                return;
+            }
+            
             setLoading(signupBtn, true);
 
             const email = document.getElementById('signup-email').value;
@@ -289,7 +302,7 @@
 
                 // Redirect on success
                 setTimeout(() => {
-                    window.location.href = 'dashboard.html'; // FIX: Reverted to simple filename for sandbox stability
+                    window.location.href = 'dashboard.html';
                 }, 1000);
 
             } catch (error) {
@@ -344,13 +357,10 @@
             }
         }
         
-        // Run initialization on load
-        window.onload = function() {
-            initializeAppAndAuth();
-            initializeForms();
-            // Ensure icons are created
-            lucide.createIcons();
-        };
+        // --- Run Initialization Immediately ---
+        initializeAppAndAuth();
+        initializeForms();
+        lucide.createIcons();
 
     </script>
 </body>
