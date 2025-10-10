@@ -21,9 +21,22 @@
         .bg-ammoue {
             background-color: #0d9488; /* Teal-700 for Ammoue branding */
         }
+        /* Custom styles for message box */
+        #message-box {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
     </style>
 </head>
 <body class="antialiased min-h-screen flex items-center justify-center p-4">
+
+    <!-- Message Box for alerts (replaces alert()) -->
+    <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold"></div>
 
     <!-- Auth Card Container -->
     <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 sm:p-10 border border-gray-100">
@@ -36,12 +49,12 @@
 
         <!-- Toggle Switch (Login/Sign Up) -->
         <div class="flex mb-6 p-1 bg-gray-100 rounded-xl shadow-inner">
-            <button id="login-tab" onclick="toggleForm('login')" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-colors duration-200">Log In</button>
-            <button id="signup-tab" onclick="toggleForm('signup')" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-colors duration-200">Sign Up</button>
+            <button id="login-tab" onclick="toggleForm('login')" type="button" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-colors duration-200">Log In</button>
+            <button id="signup-tab" onclick="toggleForm('signup')" type="button" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-colors duration-200">Sign Up</button>
         </div>
 
         <!-- Login Form -->
-        <form id="login-form" class="space-y-6">
+        <form id="login-form" class="space-y-6" onsubmit="handleLogin(event)">
             <h2 class="text-2xl font-bold text-gray-800 text-center mb-4">Welcome Back</h2>
 
             <div>
@@ -58,7 +71,7 @@
                 <a href="#" class="font-medium text-ammoue hover:text-teal-600">Forgot Password?</a>
             </div>
 
-            <button type="submit" class="w-full py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-lg shadow-teal-500/30 transform hover:scale-[1.01]">
+            <button type="submit" id="login-btn" class="w-full py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-lg shadow-teal-500/30 transform hover:scale-[1.01]">
                 Log In
             </button>
 
@@ -78,7 +91,7 @@
         </form>
 
         <!-- Sign Up Form (Initially Hidden) -->
-        <form id="signup-form" class="space-y-6 hidden">
+        <form id="signup-form" class="space-y-6 hidden" onsubmit="handleSignup(event)">
             <h2 class="text-2xl font-bold text-gray-800 text-center mb-4">Create Your Free Account</h2>
 
             <div>
@@ -98,7 +111,7 @@
                 </label>
             </div>
 
-            <button type="submit" class="w-full py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-lg shadow-teal-500/30 transform hover:scale-[1.01]">
+            <button type="submit" id="signup-btn" class="w-full py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-lg shadow-teal-500/30 transform hover:scale-[1.01]">
                 Sign Up & Generate Site
             </button>
             
@@ -118,24 +131,197 @@
         </form>
     </div>
 
-    <script>
-        // DOM elements
+    <!-- Firebase Initialization and Auth Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- MANDATORY GLOBAL VARIABLES ---
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        let auth;
+        let db;
+
+        // --- DOM Elements ---
         const loginForm = document.getElementById('login-form');
         const signupForm = document.getElementById('signup-form');
         const loginTab = document.getElementById('login-tab');
         const signupTab = document.getElementById('signup-tab');
+        const loginBtn = document.getElementById('login-btn');
+        const signupBtn = document.getElementById('signup-btn');
+
+        // --- Utility Functions ---
+
+        /**
+         * Displays a temporary, custom message box.
+         * @param {string} message - The message to display.
+         * @param {boolean} isError - True for error (red), false for success (green).
+         */
+        function showMessage(message, isError) {
+            const msgBox = document.getElementById('message-box');
+            msgBox.textContent = message;
+            
+            if (isError) {
+                msgBox.classList.remove('bg-green-500');
+                msgBox.classList.add('bg-red-500');
+            } else {
+                msgBox.classList.remove('bg-red-500');
+                msgBox.classList.add('bg-green-500');
+            }
+
+            msgBox.classList.remove('opacity-0');
+            msgBox.classList.add('opacity-100');
+
+            setTimeout(() => {
+                msgBox.classList.remove('opacity-100');
+                msgBox.classList.add('opacity-0');
+            }, 4000);
+        }
+
+        /**
+         * Toggles loading state on buttons.
+         */
+        function setLoading(button, isLoading) {
+            if (isLoading) {
+                button.disabled = true;
+                button.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Authenticating...';
+            } else {
+                button.disabled = false;
+                if (button.id === 'login-btn') {
+                    button.textContent = 'Log In';
+                } else if (button.id === 'signup-btn') {
+                    button.textContent = 'Sign Up & Generate Site';
+                }
+            }
+        }
+        
+        // --- Firebase Core Logic ---
+
+        /**
+         * Initializes Firebase and handles the mandatory custom token login.
+         */
+        async function initializeAppAndAuth() {
+            try {
+                // setLogLevel('debug'); // Uncomment for debugging
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                // MANDATORY: Use the custom token provided by the environment
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                    // Redirect immediately if already logged in via token
+                    if (auth.currentUser) {
+                        window.location.href = 'dashboard.html'; // FIX: Reverted to simple filename for sandbox stability
+                        return; // Stop further execution
+                    }
+                } else {
+                    // Fallback to anonymous sign-in if token is missing
+                    await signInAnonymously(auth);
+                }
+
+                // Check if a user is already logged in (e.g., from a prior email/password session)
+                onAuthStateChanged(auth, (user) => {
+                    if (user && !user.isAnonymous) {
+                         // If a non-anonymous user is found, redirect them to the dashboard
+                        window.location.href = 'dashboard.html'; // FIX: Reverted to simple filename for sandbox stability
+                    }
+                });
+
+
+            } catch (error) {
+                console.error("Firebase initialization failed:", error);
+                showMessage(`Initialization error. Check console. (${error.message})`, true);
+            }
+        }
+
+
+        /**
+         * Handles user login with email and password.
+         */
+        window.handleLogin = async function(event) {
+            event.preventDefault();
+            setLoading(loginBtn, true);
+
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+
+            try {
+                // Sign in with Firebase Auth
+                await signInWithEmailAndPassword(auth, email, password);
+                showMessage("Login successful! Redirecting...", false);
+                
+                // Redirect on success
+                setTimeout(() => {
+                    window.location.href = 'dashboard.html'; // FIX: Reverted to simple filename for sandbox stability
+                }, 1000);
+
+            } catch (error) {
+                console.error("Login failed:", error);
+                let errorMessage = 'Login failed. Please check your email and password.';
+                if (error.code === 'auth/user-not-found') {
+                    errorMessage = 'No account found with this email.';
+                } else if (error.code === 'auth/wrong-password') {
+                    errorMessage = 'Invalid password.';
+                }
+                showMessage(errorMessage, true);
+                setLoading(loginBtn, false);
+
+            }
+        }
+
+        /**
+         * Handles user sign-up with email and password.
+         */
+        window.handleSignup = async function(event) {
+            event.preventDefault();
+            setLoading(signupBtn, true);
+
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+
+            try {
+                // Create user with Firebase Auth
+                await createUserWithEmailAndPassword(auth, email, password);
+                showMessage("Account created successfully! Redirecting to dashboard...", false);
+
+                // Redirect on success
+                setTimeout(() => {
+                    window.location.href = 'dashboard.html'; // FIX: Reverted to simple filename for sandbox stability
+                }, 1000);
+
+            } catch (error) {
+                console.error("Sign-up failed:", error);
+                let errorMessage = 'Sign-up failed.';
+                if (error.code === 'auth/email-already-in-use') {
+                    errorMessage = 'This email is already in use.';
+                } else if (error.code === 'auth/weak-password') {
+                    errorMessage = 'Password should be at least 6 characters.';
+                }
+                showMessage(errorMessage, true);
+                setLoading(signupBtn, false);
+            }
+        }
+
+
+        // --- UI Toggling Logic ---
 
         // Initial state setup
         function initializeForms() {
             // Set login as active by default
             loginForm.classList.remove('hidden');
             signupForm.classList.add('hidden');
-            loginTab.classList.add('bg-white', 'shadow');
-            signupTab.classList.remove('bg-white', 'shadow');
+            // Update class lists to ensure correct initial styling
+            loginTab.classList.add('bg-white', 'shadow', 'text-ammoue');
+            loginTab.classList.remove('text-gray-500');
+            signupTab.classList.remove('bg-white', 'shadow', 'text-ammoue');
+            signupTab.classList.add('text-gray-500');
         }
 
         // Function to toggle between login and sign-up forms
-        function toggleForm(formType) {
+        window.toggleForm = function(formType) {
             if (formType === 'login') {
                 loginForm.classList.remove('hidden');
                 signupForm.classList.add('hidden');
@@ -159,10 +345,13 @@
         }
         
         // Run initialization on load
-        window.onload = initializeForms;
+        window.onload = function() {
+            initializeAppAndAuth();
+            initializeForms();
+            // Ensure icons are created
+            lucide.createIcons();
+        };
 
-        // Ensure icons are created
-        lucide.createIcons();
     </script>
 </body>
 </html>
