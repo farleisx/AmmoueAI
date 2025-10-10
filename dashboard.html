@@ -31,7 +31,7 @@
 </head>
 <body class="antialiased min-h-screen">
 
-    <!-- Loading Screen (Visible until auth state is confirmed by onAuthStateChanged) -->
+    <!-- Loading Screen (Visible until auth state is confirmed) -->
     <div id="loading-screen" class="loading-screen">
         <svg class="animate-spin h-8 w-8 text-ammoue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -100,15 +100,20 @@
 
     <!-- Firebase Initialization and Auth Logic -->
     <script type="module">
-        // Using recommended Firebase SDK v11.6.1 and mandatory Canvas global variables
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signInWithCustomToken, signInAnonymously, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // --- NOTE: We are using the hardcoded config from login.html for consistency ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+        import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
-        // --- MANDATORY GLOBAL VARIABLES ---
-        // Using Canvas environment globals for configuration and authentication token
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        // HARDCODED CONFIG from your login.html
+        const firebaseConfig = {
+            apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
+            authDomain: "ammoueai.firebaseapp.com",
+            projectId: "ammoueai",
+            storageBucket: "ammoueai.firebasestorage.app",
+            messagingSenderId: "135818868149",
+            appId: "1:135818868149:web:db9280baf9540a3339d5fc",
+        };
         
         let auth = null; 
         let db = null;   
@@ -133,40 +138,33 @@
         /**
          * Initializes Firebase services and sets up the critical auth listener.
          */
-        async function initializeAppAndAuth() {
+        function initializeAppAndAuth() {
             try {
                 const app = initializeApp(firebaseConfig);
                 auth = getAuth(app); 
                 db = getFirestore(app);
 
-                // 1. Mandatory initial sign-in attempt (for environment compatibility)
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-
-                // 2. CRITICAL: Authentication Gate using the listener
-                // We keep the loading screen active until this listener confirms the state.
+                // CRITICAL: Authentication Gate using the listener
+                // This listener immediately checks the local session created by login.html.
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         // **SUCCESS** - User is authenticated: Hide loading, show dashboard
-                        userEmailSpan.textContent = user.email || (user.isAnonymous ? "Guest User" : user.uid.substring(0, 8) + '...');
+                        userEmailSpan.textContent = user.email || user.uid.substring(0, 8) + '...';
                         loadingScreen.classList.add('hidden');
                         dashboardContent.classList.remove('hidden');
                         dashboardContent.classList.add('opacity-100');
                     } else {
                         // **FAILURE** - User is NOT authenticated: Redirect to login page
-                        console.log("User session invalid. Redirecting to login.html...");
+                        console.log("No valid session found. Redirecting to login.html...");
                         // This fires AFTER Firebase has checked the session, guaranteeing no race condition.
                         window.location.href = 'login.html';
                     }
                 });
 
             } catch (error) {
-                console.error("Firebase initialization or authentication failed:", error);
+                console.error("Firebase initialization failed:", error);
                 // Fail-safe: if init breaks, kick them to login
-                showMessage("Session error. Redirecting to login...", true);
+                showMessage("Initialization error. Redirecting to login...", true);
                 setTimeout(() => {
                     window.location.href = 'login.html'; 
                 }, 500); 
