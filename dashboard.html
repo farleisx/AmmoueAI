@@ -16,7 +16,8 @@
         }
         .text-ammoue { color: #0d9488; }
         .bg-ammoue { background-color: #0d9488; }
-        /* Placeholder for loading state */
+        
+        /* CRITICAL: Loading state overlay */
         .loading-screen {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -30,7 +31,7 @@
 </head>
 <body class="antialiased min-h-screen">
 
-    <!-- Loading Screen (Visible until auth state is confirmed) -->
+    <!-- Loading Screen (Visible until auth state is confirmed by onAuthStateChanged) -->
     <div id="loading-screen" class="loading-screen">
         <svg class="animate-spin h-8 w-8 text-ammoue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -42,7 +43,7 @@
     <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 opacity-0 transition-opacity duration-300 z-50"></div>
 
 
-    <!-- Main Dashboard Content (Hidden initially) -->
+    <!-- Main Dashboard Content (Hidden initially, shown only AFTER auth is confirmed) -->
     <div id="dashboard-content" class="min-h-screen hidden transition-opacity duration-500">
         <!-- Header/Navbar -->
         <nav class="bg-white shadow-md p-4 flex justify-between items-center sticky top-0 z-10">
@@ -68,7 +69,7 @@
                     <p class="text-sm text-gray-500 mt-1">Start generating a new website</p>
                 </div>
 
-                <!-- Existing Project Card 1 -->
+                <!-- Existing Project Card 1 (Mock Data) -->
                 <div class="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
                     <div class="flex justify-between items-start">
                         <h2 class="text-xl font-bold text-ammoue">E-Commerce Store</h2>
@@ -81,7 +82,7 @@
                     </button>
                 </div>
 
-                <!-- Existing Project Card 2 -->
+                <!-- Existing Project Card 2 (Mock Data) -->
                 <div class="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
                     <div class="flex justify-between items-start">
                         <h2 class="text-xl font-bold text-ammoue">Portfolio V3</h2>
@@ -105,7 +106,7 @@
         import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- MANDATORY GLOBAL VARIABLES ---
-        // Retrieving configuration and initial token securely from the environment.
+        // Using Canvas environment globals for configuration and authentication token
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         
@@ -119,76 +120,53 @@
         const msgBox = document.getElementById('message-box');
 
         // --- Utility Functions ---
-
-        /**
-         * Displays a temporary, custom message box.
-         * @param {string} message - The message to display.
-         * @param {boolean} isError - True for error (red), false for success (green).
-         */
         function showMessage(message, isError) {
-            if (!msgBox) return; // safety check
-            
+            if (!msgBox) return; 
             msgBox.textContent = message;
             
-            if (isError) {
-                msgBox.classList.remove('bg-green-500');
-                msgBox.classList.add('bg-red-500');
-            } else {
-                msgBox.classList.remove('bg-red-500');
-                msgBox.classList.add('bg-green-500');
-            }
-
-            msgBox.classList.remove('opacity-0');
+            msgBox.className = 'p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 z-50';
+            msgBox.classList.add(isError ? 'bg-red-500' : 'bg-green-500');
             msgBox.classList.add('opacity-100');
-
-            setTimeout(() => {
-                msgBox.classList.remove('opacity-100');
-                msgBox.classList.add('opacity-0');
-            }, 4000);
+            setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
         }
 
         /**
-         * Initializes Firebase services (Auth and Firestore) using the environment's config.
-         * Handles the mandatory custom token sign-in for the current environment.
+         * Initializes Firebase services and sets up the critical auth listener.
          */
         async function initializeAppAndAuth() {
             try {
-                // setLogLevel('debug'); // Uncomment for debugging
                 const app = initializeApp(firebaseConfig);
                 auth = getAuth(app); 
                 db = getFirestore(app);
 
-                // --- Environment-Specific Authentication ---
-                // Attempt to sign in using the provided custom token first.
+                // 1. Mandatory initial sign-in attempt (for environment compatibility)
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
-                    console.log("Signed in with Custom Token.");
                 } else {
-                    // Fallback to anonymous sign-in if no token is available
                     await signInAnonymously(auth);
-                    console.log("Signed in anonymously.");
                 }
 
-                // CRITICAL: Authentication check for the dashboard
+                // 2. CRITICAL: Authentication Gate using the listener
+                // We keep the loading screen active until this listener confirms the state.
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
-                        // User is authenticated: Show content and user details
-                        userEmailSpan.textContent = user.email || (user.isAnonymous ? "Guest User" : user.uid);
+                        // **SUCCESS** - User is authenticated: Hide loading, show dashboard
+                        userEmailSpan.textContent = user.email || (user.isAnonymous ? "Guest User" : user.uid.substring(0, 8) + '...');
                         loadingScreen.classList.add('hidden');
                         dashboardContent.classList.remove('hidden');
                         dashboardContent.classList.add('opacity-100');
                     } else {
-                        // User is NOT authenticated: Redirect to login page
-                        console.log("User not authenticated. Redirecting to login.html...");
+                        // **FAILURE** - User is NOT authenticated: Redirect to login page
+                        console.log("User session invalid. Redirecting to login.html...");
+                        // This fires AFTER Firebase has checked the session, guaranteeing no race condition.
                         window.location.href = 'login.html';
                     }
                 });
 
             } catch (error) {
                 console.error("Firebase initialization or authentication failed:", error);
-                
-                // REPLACED alert() with showMessage and delayed redirect
-                showMessage("Session expired or configuration error. Redirecting to login...", true);
+                // Fail-safe: if init breaks, kick them to login
+                showMessage("Session error. Redirecting to login...", true);
                 setTimeout(() => {
                     window.location.href = 'login.html'; 
                 }, 500); 
@@ -202,11 +180,11 @@
             if (auth) {
                 try {
                     await signOut(auth);
-                    console.log("User signed out.");
-                    // The onAuthStateChanged listener handles the redirect to login.html
+                    showMessage("You have been signed out.", false);
+                    // The onAuthStateChanged listener handles the subsequent redirect to login.html
                 } catch (error) {
                     console.error("Logout failed:", error);
-                    showMessage("Logout failed. Please try again.", true); // REPLACED alert()
+                    showMessage("Logout failed. Please try again.", true); 
                 }
             } else {
                 window.location.href = 'login.html';
