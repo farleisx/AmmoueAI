@@ -37,6 +37,10 @@
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
     </div>
+    
+    <!-- Message Box for alerts (replaces alert()) -->
+    <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 opacity-0 transition-opacity duration-300 z-50"></div>
+
 
     <!-- Main Dashboard Content (Hidden initially) -->
     <div id="dashboard-content" class="min-h-screen hidden transition-opacity duration-500">
@@ -112,6 +116,36 @@
         const loadingScreen = document.getElementById('loading-screen');
         const dashboardContent = document.getElementById('dashboard-content');
         const userEmailSpan = document.getElementById('user-email');
+        const msgBox = document.getElementById('message-box');
+
+        // --- Utility Functions ---
+
+        /**
+         * Displays a temporary, custom message box.
+         * @param {string} message - The message to display.
+         * @param {boolean} isError - True for error (red), false for success (green).
+         */
+        function showMessage(message, isError) {
+            if (!msgBox) return; // safety check
+            
+            msgBox.textContent = message;
+            
+            if (isError) {
+                msgBox.classList.remove('bg-green-500');
+                msgBox.classList.add('bg-red-500');
+            } else {
+                msgBox.classList.remove('bg-red-500');
+                msgBox.classList.add('bg-green-500');
+            }
+
+            msgBox.classList.remove('opacity-0');
+            msgBox.classList.add('opacity-100');
+
+            setTimeout(() => {
+                msgBox.classList.remove('opacity-100');
+                msgBox.classList.add('opacity-0');
+            }, 4000);
+        }
 
         /**
          * Initializes Firebase services (Auth and Firestore) using the environment's config.
@@ -152,10 +186,12 @@
 
             } catch (error) {
                 console.error("Firebase initialization or authentication failed:", error);
-                // NOTE: Using a custom modal/div instead of alert() here is best practice,
-                // but since we are redirecting immediately, alert() is used to notify before navigation.
-                alert("Session expired or configuration error. Please log in again.");
-                window.location.href = 'login.html'; 
+                
+                // REPLACED alert() with showMessage and delayed redirect
+                showMessage("Session expired or configuration error. Redirecting to login...", true);
+                setTimeout(() => {
+                    window.location.href = 'login.html'; 
+                }, 500); 
             }
         }
 
@@ -170,7 +206,7 @@
                     // The onAuthStateChanged listener handles the redirect to login.html
                 } catch (error) {
                     console.error("Logout failed:", error);
-                    alert("Logout failed. Please try again.");
+                    showMessage("Logout failed. Please try again.", true); // REPLACED alert()
                 }
             } else {
                 window.location.href = 'login.html';
