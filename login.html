@@ -133,16 +133,24 @@
 
     <!-- Firebase Initialization and Auth Logic -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithCustomToken, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // Updated Imports to Firebase SDK v12.4.0
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+        import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
-        // --- MANDATORY GLOBAL VARIABLES ---
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        // --- FIREBASE CONFIGURATION (Hardcoded with user's data) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
+            authDomain: "ammoueai.firebaseapp.com",
+            projectId: "ammoueai",
+            storageBucket: "ammoueai.firebasestorage.app",
+            messagingSenderId: "135818868149",
+            appId: "1:135818868149:web:db9280baf9540a3339d5fc",
+            // measurementId: "G-RQSK9680SD" // Analytics is optional and removed for core functionality
+        };
         
-        let auth;
-        let db;
+        let auth = null; // Initialize auth to null explicitly
+        let db = null;   // Initialize db to null explicitly
 
         // --- DOM Elements ---
         const loginForm = document.getElementById('login-form');
@@ -200,39 +208,32 @@
         // --- Firebase Core Logic ---
 
         /**
-         * Initializes Firebase and handles the mandatory custom token login.
+         * Initializes Firebase services (Auth and Firestore) using the hardcoded config.
          */
         async function initializeAppAndAuth() {
             try {
                 // setLogLevel('debug'); // Uncomment for debugging
                 const app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
+                auth = getAuth(app); 
                 db = getFirestore(app);
 
-                // MANDATORY: Use the custom token provided by the environment
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                    // Redirect immediately if already logged in via token
-                    if (auth.currentUser) {
-                        window.location.href = 'dashboard.html'; 
-                        return; // Stop further execution
-                    }
-                } else {
-                    // Fallback to anonymous sign-in if token is missing
-                    await signInAnonymously(auth);
-                }
-
-                // Check if a user is already logged in (e.g., from a prior email/password session)
+                // Optional check: If a user is already logged in (from a previous session), redirect.
                 onAuthStateChanged(auth, (user) => {
-                    if (user && !user.isAnonymous) {
-                         // If a non-anonymous user is found, redirect them to the dashboard
+                    if (user) {
+                         // If any user is found, redirect them to the dashboard
                         window.location.href = 'dashboard.html'; 
                     }
                 });
 
+                // NOTE: We no longer use initialAuthToken or anonymous sign-in since 
+                // we are using a hardcoded configuration for standard email/password flow.
+
             } catch (error) {
+                // If initialization fails, catch the error, log it, and set auth/db to null.
                 console.error("Firebase initialization failed:", error);
-                showMessage(`Initialization error. Check console. (${error.message})`, true);
+                showMessage(`Firebase initialization failed. Check your console for details.`, true);
+                auth = null; // Crucial: ensure subsequent calls fail gracefully
+                db = null;
             }
         }
 
@@ -243,8 +244,9 @@
         window.handleLogin = async function(event) {
             event.preventDefault();
             
+            // CRITICAL CHECK: Prevent TypeError if auth failed to initialize
             if (!auth) {
-                showMessage("Authentication service is not ready. Please wait a moment.", true);
+                showMessage("Authentication service failed to load. Please try refreshing the page.", true);
                 return;
             }
 
@@ -285,8 +287,9 @@
         window.handleSignup = async function(event) {
             event.preventDefault();
 
+            // CRITICAL CHECK: Prevent TypeError if auth failed to initialize
             if (!auth) {
-                showMessage("Authentication service is not ready. Please wait a moment.", true);
+                showMessage("Authentication service failed to load. Please try refreshing the page.", true);
                 return;
             }
             
@@ -358,6 +361,7 @@
         }
         
         // --- Run Initialization Immediately ---
+        // This is necessary to fix the click delay issue reported previously.
         initializeAppAndAuth();
         initializeForms();
         lucide.createIcons();
