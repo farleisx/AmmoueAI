@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "AI website generator backend.",
   "main": "api/generate.js",
+  "type": "module",
   "scripts": {
     "start": "node api/generate.js"
   },
