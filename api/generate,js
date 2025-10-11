@@ -1,0 +1,83 @@
+/**
+ * Serverless function (e.g., Vercel, Netlify) to handle website generation requests.
+ * This file is executed on the server/edge function, securing the Gemini API key.
+ * It expects a POST request with a 'prompt' in the request body.
+ * * NOTE: The API_KEY must be configured as an environment variable (e.g., GEMINI_API_KEY)
+ * when deploying this serverless function.
+ */
+
+// Use an environment variable for the API Key in a production environment
+const API_KEY = process.env.GEMINI_API_KEY;
+const API_MODEL = "gemini-2.5-flash-preview-05-20";
+const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${API_MODEL}:generateContent?key=${API_KEY}`;
+
+// System instruction for the Gemini model
+const systemInstruction = `You are a world-class AI web developer. Your sole purpose is to create a complete, professional, single-file HTML website based on the user's prompt. 
+    The output MUST be a single, self-contained HTML file.
+    The HTML MUST include the necessary viewport meta tag for responsiveness: <meta name="viewport" content="width=device-width, initial-scale=1.0">.
+    The HTML MUST load the latest Tailwind CSS via CDN: <script src="https://cdn.tailwindcss.com"></script>.
+    All styling MUST use Tailwind CSS classes. Do NOT use <style> tags, external CSS files, or <script> tags for JavaScript libraries except the Tailwind CDN.
+    Use modern, responsive design principles (flex/grid, responsive prefixes like sm:, md:, lg:).
+    The design must be aesthetically beautiful, professional, and fully functional on mobile and desktop.
+    The output should contain NOTHING but the raw HTML code, starting with <!DOCTYPE html>. Do not wrap the code in markdown blocks or add any other explanatory text.
+`;
+
+/**
+ * Handles the incoming request (e.g., Vercel's req/res pattern).
+ * @param {Object} req - The request object.
+ * @param {Object} res - The response object.
+ */
+module.exports = async (req, res) => {
+    // 1. Basic checks
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method Not Allowed. Use POST.' });
+    }
+
+    if (!API_KEY) {
+        return res.status(500).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
+    }
+
+    try {
+        // 2. Parse request body for the user's prompt
+        const { prompt } = req.body;
+
+        if (!prompt || typeof prompt !== 'string') {
+            return res.status(400).json({ error: 'Missing or invalid "prompt" in request body.' });
+        }
+
+        const userQuery = `Generate a beautiful, single-file HTML website with Tailwind CSS based on this description: ${prompt}`;
+
+        // 3. Construct the API payload
+        const payload = {
+            contents: [{ parts: [{ text: userQuery }] }],
+            systemInstruction: { parts: [{ text: systemInstruction }] },
+        };
+
+        // 4. Call the Gemini API
+        const geminiResponse = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!geminiResponse.ok) {
+            const errorText = await geminiResponse.text();
+            console.error('Gemini API Error:', geminiResponse.status, errorText);
+            return res.status(geminiResponse.status).json({ error: 'Failed to generate content from AI.', details: errorText });
+        }
+
+        const result = await geminiResponse.json();
+        const generatedText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (!generatedText) {
+            return res.status(500).json({ error: 'AI generated no text content.' });
+        }
+
+        // 5. Respond with the generated HTML code
+        res.status(200).json({ htmlCode: generatedText.trim() });
+
+    } catch (error) {
+        console.error('Serverless function error:', error.message);
+        res.status(500).json({ error: 'Internal server error during generation.' });
+    }
+};
