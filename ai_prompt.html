@@ -67,7 +67,7 @@
         <textarea id="ai-prompt" rows="6" class="w-full p-4 border-2 border-ammoue/30 rounded-2xl focus:ring-ammoue focus:border-ammoue transition duration-150 shadow-md" placeholder="e.g., 'A vibrant landing page for a dog grooming salon called Paws & Claws, focusing on luxury services and online booking.'"></textarea>
 
         <div class="mt-6 flex justify-end space-x-4">
-            <!-- NEW: Dashboard Button -->
+            <!-- NEW: Dashboard Button (Will be implemented in a future step) -->
             <a href="dashboard.html" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300 flex items-center">
                 <i data-lucide="layout-dashboard" class="w-4 h-4 mr-1"></i> Dashboard
             </a>
@@ -111,28 +111,40 @@
     <!-- Firebase and AI Generation Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-        
-        // --- FIREBASE CONFIGURATION ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
-            authDomain: "ammoueai.firebaseapp.com",
-            projectId: "ammoueai",
-            storageBucket: "ammoueai.firebasestorage.app",
-            messagingSenderId: "135818868149",
-            appId: "1:135818868149:web:db9280baf9540a3339d5fc",
-        };
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+
+        // --- CANVAS GLOBAL VARIABLES (MANDATORY USE) ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-ammoue-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { /* Placeholder Config */ };
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         
         // --- Initialize Firebase and Auth ---
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app); 
+        const db = getFirestore(app); // Initialize Firestore
+        let currentUserId = null; 
         
+        // Function to handle custom sign-in
+        async function authenticateUser() {
+            try {
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    // Fallback to anonymous sign-in
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Firebase Auth failed during initial sign-in:", error);
+            }
+        }
+
         // --- DOM Elements ---
         const loadingState = document.getElementById('loading-state');
         const mainContent = document.getElementById('main-content');
         const logoutBtn = document.getElementById('logout-btn');
         const generateBtn = document.getElementById('generate-btn');
-        const downloadBtn = document.getElementById('download-btn'); // New element
+        const downloadBtn = document.getElementById('download-btn'); 
         const promptInput = document.getElementById('ai-prompt');
         const outputDiv = document.getElementById('generation-output');
         const outputCode = document.getElementById('output-code');
@@ -240,11 +252,46 @@
         }
 
 
+        // --- FIRESTORE SAVE LOGIC ---
+
+        /**
+         * Gets the Firestore collection reference for the current user's projects.
+         */
+        function getProjectsCollectionRef() {
+            if (!currentUserId) {
+                console.error("Cannot get collection ref: User ID is missing.");
+                return null;
+            }
+            // Private data path: /artifacts/{appId}/users/{userId}/projects
+            return collection(db, 'artifacts', appId, 'users', currentUserId, 'projects');
+        }
+
+        /**
+         * Saves the generated project data to Firestore.
+         */
+        async function saveProject(prompt, htmlCode) {
+            const projectsRef = getProjectsCollectionRef();
+            if (!projectsRef) return;
+
+            try {
+                const docRef = await addDoc(projectsRef, {
+                    prompt: prompt,
+                    htmlCode: htmlCode,
+                    createdAt: serverTimestamp(),
+                });
+                console.log("Project saved with ID:", docRef.id);
+                showMessage("Project successfully saved!", false);
+            } catch (e) {
+                console.error("Error adding document: ", e);
+                showMessage("Failed to save project.", true);
+            }
+        }
+
+
         // --- AI Generation Logic (Non-Streaming) ---
 
         /**
          * Handles the generation process by calling the secure Vercel API endpoint.
-         * NOTE: The endpoint is updated to .mjs to match the most stable backend path.
          */
         async function handleGeneration() {
             const prompt = promptInput.value.trim();
@@ -255,11 +302,11 @@
 
             setLoading(true);
             outputDiv.classList.add('hidden');
-            outputCode.textContent = ''; // Clear previous output
-            downloadBtn.disabled = true; // Ensure download button is disabled at start
+            outputCode.textContent = ''; 
+            downloadBtn.disabled = true; 
             
-            // CRITICAL FIX: Use the .mjs endpoint path to match the stable backend function
-            const apiEndpoint = '/api/generate.js'; 
+            // Using the stable .mjs endpoint path
+            const apiEndpoint = '/api/generate.mjs'; 
             console.log(`Attempting to call AI endpoint: ${apiEndpoint}`);
 
             const payload = {
@@ -275,7 +322,6 @@
                         body: JSON.stringify(payload)
                     });
 
-                    // Check for network errors/non-200 status
                     if (!response.ok) {
                         const errorBody = await response.json().catch(() => ({}));
                         const errorMessage = errorBody.error || response.statusText || "Unknown server error.";
@@ -283,21 +329,18 @@
                         throw new Error(`API Proxy Error [Status: ${response.status}]: ${errorMessage}`);
                     }
 
-                    // Parse the JSON response
                     const result = await response.json();
-
-                    // We expect the response key to be 'htmlCode' from the Vercel function
                     const generatedHtml = result.htmlCode; 
                     
                     if (generatedHtml) {
                         outputCode.textContent = generatedHtml.trim();
-                        
-                        // Set the preview button data
                         previewBtn.dataset.html = generatedHtml.trim();
-
                         outputDiv.classList.remove('hidden');
-                        downloadBtn.disabled = false; // Enable download on success
-                        showMessage("HTML generated successfully! Copy the code or preview the result.", false);
+                        downloadBtn.disabled = false;
+                        
+                        // --- CRITICAL: AUTO-SAVE PROJECT HERE ---
+                        await saveProject(prompt, generatedHtml);
+                        
                         break; // Exit loop on success
                     } else {
                         console.error(`Attempt ${attempt + 1} Response Structure Error: 'htmlCode' missing in result.`, result);
@@ -321,10 +364,16 @@
 
         // --- Authentication Guard and Event Listeners ---
 
+        // Start the authentication process right away
+        authenticateUser();
+
         onAuthStateChanged(auth, (user) => {
-            console.log("Auth state resolved. User:", user ? user.email : "none");
+            console.log("Auth state resolved. User:", user ? user.uid : "none");
 
             if (user) {
+                // Set the global user ID once authenticated
+                currentUserId = user.uid;
+
                 // User is logged in: Show the content
                 loadingState.style.pointerEvents = 'none';
                 loadingState.classList.add('hidden');
@@ -334,7 +383,7 @@
                 if (!listenersAttached) {
                     generateBtn.addEventListener('click', handleGeneration);
                     copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
-                    downloadBtn.addEventListener('click', handleDownload); // Attach download handler
+                    downloadBtn.addEventListener('click', handleDownload); 
                     previewBtn.addEventListener('click', handlePreview);
                     
                     logoutBtn.addEventListener('click', async () => {
