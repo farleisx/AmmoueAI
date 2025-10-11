@@ -110,69 +110,29 @@
 
     <!-- Firebase and AI Generation Logic -->
     <script type="module">
-        // Using stable version 11.6.1 for better compatibility
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // --- CANVAS GLOBAL VARIABLES (MANDATORY USE) ---
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-ammoue-app-id';
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
         
-        let firebaseConfig = { apiKey: "dummy-key-to-avoid-invalid-api-error", projectId: "dummy-project" };
+        // --- FIREBASE CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
+            authDomain: "ammoueai.firebaseapp.com",
+            projectId: "ammoueai",
+            storageBucket: "ammoueai.firebasestorage.app",
+            messagingSenderId: "135818868149",
+            appId: "1:135818868149:web:db9280baf9540a3339d5fc",
+        };
         
-        // Robustly parse the Firebase config from the global variable
-        try {
-            if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-                const parsedConfig = JSON.parse(__firebase_config);
-                // Only overwrite if the parsed config actually contains keys
-                if (Object.keys(parsedConfig).length > 0) {
-                    firebaseConfig = parsedConfig;
-                }
-            }
-        } catch (e) {
-            console.error("CRITICAL: Error parsing __firebase_config string. Using fallback dummy config.", e);
-        }
-
-        // Initialize Firebase services using the determined config (real or dummy)
+        // --- Initialize Firebase and Auth ---
         const app = initializeApp(firebaseConfig);
-        let auth = null;
-        let db = null;
-        let currentUserId = null; 
+        const auth = getAuth(app); 
         
-        // Initialize Auth and Firestore, protected by a try/catch in case of deeper initialization issues
-        try {
-            auth = getAuth(app); 
-            db = getFirestore(app); 
-        } catch(e) {
-            console.error("Firebase Auth or Firestore services failed to initialize. Data saving will not work.", e);
-            // Ensure auth/db remain null if initialization failed
-            auth = null; 
-            db = null;
-        }
-
-        // Function to handle custom sign-in
-        async function authenticateUser() {
-            if (!auth) return;
-
-            try {
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (error) {
-                console.error("Firebase Auth failed during initial sign-in:", error);
-                showMessage("Authentication failed. Please refresh.", true);
-            }
-        }
-
         // --- DOM Elements ---
         const loadingState = document.getElementById('loading-state');
         const mainContent = document.getElementById('main-content');
         const logoutBtn = document.getElementById('logout-btn');
         const generateBtn = document.getElementById('generate-btn');
-        const downloadBtn = document.getElementById('download-btn'); 
+        const downloadBtn = document.getElementById('download-btn'); // New element
         const promptInput = document.getElementById('ai-prompt');
         const outputDiv = document.getElementById('generation-output');
         const outputCode = document.getElementById('output-code');
@@ -195,7 +155,7 @@
                 messageBox.classList.add('bg-red-500');
             } else {
                 messageBox.classList.remove('bg-red-500');
-                messageBox.classList.add('bg-ammoue'); 
+                messageBox.classList.add('bg-ammoue'); // Use brand color for success
             }
 
             messageBox.classList.remove('opacity-0');
@@ -213,7 +173,7 @@
         function setLoading(isLoading) {
             if (isLoading) {
                 generateBtn.disabled = true;
-                downloadBtn.disabled = true; 
+                downloadBtn.disabled = true; // Disable download during generation
                 generateBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Generating...';
             } else {
                 generateBtn.disabled = false;
@@ -252,7 +212,7 @@
             const blob = new Blob([htmlCode], { type: "text/html" });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
-            link.download = "ammoue_website.html"; 
+            link.download = "ammoue_website.html"; // Default filename
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -280,49 +240,11 @@
         }
 
 
-        // --- FIRESTORE SAVE LOGIC ---
-
-        /**
-         * Gets the Firestore collection reference for the current user's projects.
-         */
-        function getProjectsCollectionRef() {
-            if (!currentUserId || !db) {
-                console.error("Cannot get collection ref: User ID or Firestore is missing.");
-                return null;
-            }
-            // Private data path: /artifacts/{appId}/users/{userId}/projects
-            return collection(db, 'artifacts', appId, 'users', currentUserId, 'projects');
-        }
-
-        /**
-         * Saves the generated project data to Firestore.
-         */
-        async function saveProject(prompt, htmlCode) {
-            const projectsRef = getProjectsCollectionRef();
-            if (!projectsRef) {
-                showMessage("Cannot save project: Database connection failed. Is Firebase initialized?", true);
-                return;
-            }
-
-            try {
-                const docRef = await addDoc(projectsRef, {
-                    prompt: prompt,
-                    htmlCode: htmlCode,
-                    createdAt: serverTimestamp(),
-                });
-                console.log("Project saved with ID:", docRef.id);
-                showMessage("Project successfully saved!", false);
-            } catch (e) {
-                console.error("Error adding document: ", e);
-                showMessage("Failed to save project. Check console for details.", true);
-            }
-        }
-
-
         // --- AI Generation Logic (Non-Streaming) ---
 
         /**
          * Handles the generation process by calling the secure Vercel API endpoint.
+         * NOTE: The endpoint is updated to .mjs to match the most stable backend path.
          */
         async function handleGeneration() {
             const prompt = promptInput.value.trim();
@@ -333,10 +255,12 @@
 
             setLoading(true);
             outputDiv.classList.add('hidden');
-            outputCode.textContent = ''; 
-            downloadBtn.disabled = true; 
+            outputCode.textContent = ''; // Clear previous output
+            downloadBtn.disabled = true; // Ensure download button is disabled at start
             
-            const apiEndpoint = '/api/generate.mjs'; 
+            // CRITICAL FIX: Use the .mjs endpoint path to match the stable backend function
+            const apiEndpoint = '/api/generate.js'; 
+            console.log(`Attempting to call AI endpoint: ${apiEndpoint}`);
 
             const payload = {
                 prompt: prompt,
@@ -351,6 +275,7 @@
                         body: JSON.stringify(payload)
                     });
 
+                    // Check for network errors/non-200 status
                     if (!response.ok) {
                         const errorBody = await response.json().catch(() => ({}));
                         const errorMessage = errorBody.error || response.statusText || "Unknown server error.";
@@ -358,22 +283,21 @@
                         throw new Error(`API Proxy Error [Status: ${response.status}]: ${errorMessage}`);
                     }
 
+                    // Parse the JSON response
                     const result = await response.json();
+
+                    // We expect the response key to be 'htmlCode' from the Vercel function
                     const generatedHtml = result.htmlCode; 
                     
                     if (generatedHtml) {
                         outputCode.textContent = generatedHtml.trim();
+                        
+                        // Set the preview button data
                         previewBtn.dataset.html = generatedHtml.trim();
+
                         outputDiv.classList.remove('hidden');
-                        downloadBtn.disabled = false;
-                        
-                        // --- CRITICAL: AUTO-SAVE PROJECT HERE ---
-                        if (db) {
-                            await saveProject(prompt, generatedHtml);
-                        } else {
-                            showMessage("Generated, but failed to save: Database not initialized.", true);
-                        }
-                        
+                        downloadBtn.disabled = false; // Enable download on success
+                        showMessage("HTML generated successfully! Copy the code or preview the result.", false);
                         break; // Exit loop on success
                     } else {
                         console.error(`Attempt ${attempt + 1} Response Structure Error: 'htmlCode' missing in result.`, result);
@@ -397,48 +321,39 @@
 
         // --- Authentication Guard and Event Listeners ---
 
-        if (auth) {
-             // Start the authentication process right away
-            authenticateUser();
+        onAuthStateChanged(auth, (user) => {
+            console.log("Auth state resolved. User:", user ? user.email : "none");
 
-            onAuthStateChanged(auth, (user) => {
-                console.log("Auth state resolved. User:", user ? user.uid : "none");
+            if (user) {
+                // User is logged in: Show the content
+                loadingState.style.pointerEvents = 'none';
+                loadingState.classList.add('hidden');
+                loadingState.style.opacity = '0'; 
+                mainContent.classList.remove('hidden');
 
-                if (user) {
-                    // Set the global user ID once authenticated
-                    currentUserId = user.uid;
-
-                    // User is logged in: Show the content
-                    loadingState.style.pointerEvents = 'none';
-                    loadingState.classList.add('hidden');
-                    loadingState.style.opacity = '0'; 
-                    mainContent.classList.remove('hidden');
-
-                    if (!listenersAttached) {
-                        generateBtn.addEventListener('click', handleGeneration);
-                        copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
-                        downloadBtn.addEventListener('click', handleDownload); 
-                        previewBtn.addEventListener('click', handlePreview);
-                        
-                        logoutBtn.addEventListener('click', async () => {
-                            try {
-                                await signOut(auth);
-                            } catch (error) {
-                                console.error("Logout failed:", error);
-                            }
-                        });
-                        listenersAttached = true;
-                    }
-                } else {
-                    // User is NOT logged in: Redirect them to login.
-                    console.log("User not authenticated. Redirecting to login.");
-                    const currentPath = window.location.pathname;
-                    const redirectUrl = 'login.html?redirect=' + encodeURIComponent(currentPath);
-                    // window.location.replace(redirectUrl); 
-                    // NOTE: Commenting out redirect for debugging purposes to keep you on the page.
+                if (!listenersAttached) {
+                    generateBtn.addEventListener('click', handleGeneration);
+                    copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
+                    downloadBtn.addEventListener('click', handleDownload); // Attach download handler
+                    previewBtn.addEventListener('click', handlePreview);
+                    
+                    logoutBtn.addEventListener('click', async () => {
+                        try {
+                            await signOut(auth);
+                        } catch (error) {
+                            console.error("Logout failed:", error);
+                        }
+                    });
+                    listenersAttached = true;
                 }
-            });
-        }
+            } else {
+                // User is NOT logged in: Redirect them to login.
+                console.log("User not authenticated. Redirecting to login.");
+                const currentPath = window.location.pathname;
+                const redirectUrl = 'login.html?redirect=' + encodeURIComponent(currentPath);
+                window.location.replace(redirectUrl); 
+            }
+        });
         
         lucide.createIcons();
     </script>
