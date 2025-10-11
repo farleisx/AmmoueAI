@@ -3,11 +3,5 @@
     "api/generate.js": {
       "runtime": "node@20"
     }
-  },
-  "builds": [
-    {
-      "src": "api/generate.js",
-      "use": "@vercel/node"
-    }
-  ]
+  }
 }
