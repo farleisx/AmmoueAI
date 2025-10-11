@@ -300,16 +300,17 @@
 
             if (user) {
                 // User is logged in: Show the content
-                // 1. Show main content immediately
-                mainContent.classList.remove('hidden');
                 
-                // 2. Hide loading screen with a fade-out effect for smooth transition
-                // We add 'opacity-0' to start the fade, and then 'hidden' after the transition completes (300ms defined in CSS).
-                loadingState.style.opacity = '0';
-                setTimeout(() => {
-                    loadingState.classList.add('hidden');
-                    console.log("UI Transition: Main content shown & Loading screen removed."); 
-                }, 300);
+                // 1. Hide loading screen immediately to prevent UI blocking.
+                // We prioritize functionality over the 300ms fade-out delay to ensure interactivity.
+                loadingState.classList.add('hidden');
+                loadingState.style.opacity = '0'; // Keep opacity change for faster visual removal
+                
+                // 2. Show main content immediately
+                mainContent.classList.remove('hidden');
+
+                console.log("UI Transition: Main content shown & Loading screen removed immediately for interactivity.");
+                
 
                 // Attach event listeners only once the user is confirmed
                 if (!listenersAttached) {
