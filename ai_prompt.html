@@ -223,7 +223,9 @@
                     } else {
                         // Redirect unauthenticated users to the login page
                         console.warn("User not authenticated, redirecting to login.");
-                        window.location.href = 'login.html'; 
+                        // FIX: Redirect to login.html, passing the current page's path as a redirect parameter
+                        // This allows login.html to send the user back to this form after successful login.
+                        window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.pathname);
                     }
                 });
 
