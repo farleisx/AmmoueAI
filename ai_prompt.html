@@ -30,6 +30,8 @@
             z-index: 1000;
             opacity: 0;
             transition: opacity 0.3s ease-in-out;
+            min-width: 300px;
+            text-align: center;
         }
     </style>
 </head>
@@ -39,7 +41,7 @@
     <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold"></div>
     
     <!-- Navbar -->
-    <header class="bg-white shadow-md">
+    <header class="bg-white shadow-md sticky top-0 z-10">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
             <!-- Logo -->
             <a href="dashboard.html" class="flex items-center space-x-2">
@@ -83,7 +85,7 @@
                 </div>
                 
                 <!-- Submission Button -->
-                <button type="submit" id="generate-btn" class="w-full py-4 text-xl font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-xl shadow-teal-500/30 transform hover:scale-[1.005] flex items-center justify-center">
+                <button type="submit" id="generate-btn" class="w-full py-4 text-xl font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-xl shadow-teal-500/30 flex items-center justify-center">
                     <i data-lucide="zap" class="w-6 h-6 mr-3"></i>
                     Generate Website
                 </button>
@@ -97,8 +99,9 @@
         </div>
     </main>
 
-    <!-- Firebase and Gemini API Logic -->
+    <!-- Firebase and API Logic -->
     <script type="module">
+        // --- Firebase Imports (using v11.6.1) ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -107,14 +110,14 @@
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        const apiKey = ""; // API key is left empty as per instructions
-
-        // --- Firebase & API Constants ---
-        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+        
+        // --- API Constants ---
+        // This is the local endpoint for the serverless function (api/generate.js)
+        const API_ENDPOINT = '/api/generate'; 
         const MAX_RETRIES = 5;
-
+        
+        // --- Global State ---
         let db, auth, userId = null;
-        let app;
         let isAuthReady = false;
 
         // --- DOM Elements ---
@@ -122,16 +125,14 @@
         const statusMessage = document.getElementById('status-message');
         const websiteTitleInput = document.getElementById('website-title');
         const promptInput = document.getElementById('prompt-input');
+        const msgBox = document.getElementById('message-box');
         
         // --- Utility Functions ---
 
         /**
          * Displays a temporary, custom message box.
-         * @param {string} message - The message to display.
-         * @param {boolean} isError - True for error (red), false for success (green).
          */
         function showMessage(message, isError) {
-            const msgBox = document.getElementById('message-box');
             msgBox.textContent = message;
             
             if (isError) {
@@ -177,6 +178,10 @@
             try {
                 const response = await fetch(url, options);
                 if (!response.ok) {
+                    if (response.status === 429 || response.status >= 500 && retries < MAX_RETRIES - 1) {
+                         // Exponential backoff for transient errors
+                         throw new Error(`Transient HTTP error! status: ${response.status}`);
+                    }
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 return response;
@@ -198,7 +203,7 @@
         async function initializeAppAndAuth() {
             try {
                 // setLogLevel('debug'); // Uncomment for debugging
-                app = initializeApp(firebaseConfig);
+                const app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
 
@@ -214,7 +219,7 @@
                     if (user) {
                         userId = user.uid;
                         isAuthReady = true;
-                        console.log("User authenticated:", userId);
+                        console.log("User authenticated, ready for generation.");
                     } else {
                         // Redirect unauthenticated users to the login page
                         console.warn("User not authenticated, redirecting to login.");
@@ -224,36 +229,22 @@
 
             } catch (error) {
                 console.error("Firebase initialization or authentication failed:", error);
-                showMessage(`Initialization error. Please check console.`, true);
+                showMessage(`Initialization error. Redirecting to login...`, true);
+                setTimeout(() => { window.location.href = 'login.html'; }, 500);
             }
         }
 
         // --- Website Generation Logic ---
 
         /**
-         * Calls the Gemini API to generate the website HTML.
+         * Calls the serverless function /api/generate to generate the website HTML.
          * @param {string} prompt - The user's detailed description.
          * @returns {string} The generated HTML code.
          */
         async function callGemini(prompt) {
-            setLoading(true, '1. Sending request to AI...');
+            setLoading(true, '1. Sending request to AI server...');
 
-            const systemInstruction = `You are a world-class AI web developer. Your sole purpose is to create a complete, professional, single-file HTML website based on the user's prompt. 
-                The output MUST be a single, self-contained HTML file.
-                The HTML MUST include the necessary viewport meta tag for responsiveness.
-                The HTML MUST load the latest Tailwind CSS via CDN: <script src="https://cdn.tailwindcss.com"></script>.
-                All styling MUST use Tailwind CSS classes. Do NOT use <style> tags or external CSS files.
-                Use modern, responsive design principles (flex/grid, responsive prefixes like sm:, md:, lg:).
-                Make the website beautiful, aesthetic, and fully functional on mobile and desktop.
-                The output should contain NOTHING but the raw HTML code, starting with <!DOCTYPE html>. Do not wrap the code in markdown blocks or add any other explanatory text.
-            `;
-
-            const userQuery = `Generate a single-file HTML website with Tailwind CSS based on this description: ${prompt}`;
-
-            const payload = {
-                contents: [{ parts: [{ text: userQuery }] }],
-                systemInstruction: { parts: [{ text: systemInstruction }] },
-            };
+            const payload = { prompt: prompt };
 
             const options = {
                 method: 'POST',
@@ -261,26 +252,29 @@
                 body: JSON.stringify(payload)
             };
 
-            const response = await fetchWithRetry(API_URL, options);
+            // Call the secure serverless function endpoint
+            const response = await fetchWithRetry(API_ENDPOINT, options);
             const result = await response.json();
-
-            const generatedText = result.candidates?.[0]?.content?.parts?.[0]?.text;
             
-            if (!generatedText) {
-                throw new Error("AI failed to generate content or response was malformed.");
+            // The serverless function returns a JSON object with { htmlCode: '...' }
+            const generatedHtml = result.htmlCode;
+
+            if (!generatedHtml) {
+                // If there's an error object, display the detailed message
+                if (result.error) {
+                    throw new Error(`Server Error: ${result.error}`);
+                }
+                throw new Error("Serverless function failed to return HTML code.");
             }
 
-            return generatedText.trim();
+            return generatedHtml;
         }
 
         /**
          * Saves the generated website to Firestore.
-         * @param {string} title - User-defined title.
-         * @param {string} prompt - User's original prompt.
-         * @param {string} htmlCode - The generated website HTML.
          */
         async function saveWebsite(title, prompt, htmlCode) {
-            setLoading(true, '2. Saving website to database...');
+            setLoading(true, '2. Saving website to your projects...');
 
             if (!db || !userId) {
                 throw new Error("Database or user ID not ready for saving.");
@@ -319,28 +313,29 @@
             }
 
             try {
-                // 1. Call the AI
+                // 1. Call the AI via the serverless function endpoint
                 const htmlCode = await callGemini(prompt);
                 
                 // 2. Save the result to Firestore
                 await saveWebsite(title, prompt, htmlCode);
 
                 // 3. Success notification and redirect
-                setLoading(true, '3. Success! Redirecting...');
+                setLoading(true, '3. Success! Redirecting to Dashboard...');
                 showMessage("Website generated and saved successfully!", false);
                 
-                // Redirect back to dashboard with a status flag for the notification
                 setTimeout(() => {
-                    // This is the correct, Vercel-ready path
+                    // Redirect back to dashboard to see the new project listed
                     window.location.href = 'dashboard.html?status=new_site';
                 }, 1500);
 
             } catch (error) {
                 console.error("Website generation failed:", error);
-                let displayError = "Generation failed. Please try a different prompt or check console.";
-                if (error.message.includes('API failed')) {
-                    displayError = "AI API call failed. Check your network or service status.";
+                
+                let displayError = "Generation failed. Check the console for error details.";
+                if (error.message.includes('Server Error:')) {
+                     displayError = error.message;
                 }
+                
                 showMessage(displayError, true);
                 setLoading(false);
             }
@@ -351,7 +346,6 @@
         // Initialize Firebase immediately
         initializeAppAndAuth(); 
         
-        // Use DOMContentLoaded to ensure the body is loaded before accessing elements and icons
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
         });
