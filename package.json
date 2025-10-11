@@ -8,6 +8,5 @@
   },
   "dependencies": {
     "@google/genai": "^0.1.0" 
-    // Add any other dependencies you might need here
   }
 }
