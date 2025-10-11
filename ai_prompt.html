@@ -1,361 +1,361 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ammoue | AI Site Generator</title>
-    <!-- Load Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f8fafc;
-        }
-        .text-ammoue { color: #0d9488; }
-        .bg-ammoue { background-color: #0d9488; }
-        /* Style to ensure the loading screen covers the whole view */
-        #loading-state {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background-color: #fff;
-            z-index: 100;
-            /* Added transition for smoother removal */
-            transition: opacity 0.3s ease-in-out; 
-        }
-        /* Custom styles for message box */
-        #message-box {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
-            opacity: 0;
-            transition: opacity 0.3s ease-in-out;
-        }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ammoue | AI Site Generator</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        .text-ammoue { color: #0d9488; }
+        .bg-ammoue { background-color: #0d9488; }
+        /* Style to ensure the loading screen covers the whole view */
+        #loading-state {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #fff;
+            z-index: 100;
+            /* Added transition for smoother removal */
+            transition: opacity 0.3s ease-in-out; 
+        }
+        /* Custom styles for message box */
+        #message-box {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+    </style>
 </head>
 <body class="antialiased min-h-screen">
 
-    <!-- Message Box for alerts (replaces alert()) -->
-    <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold"></div>
+    <!-- Message Box for alerts (replaces alert()) -->
+    <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold"></div>
 
-    <!-- 1. LOADING STATE (Visible until Auth Check is Complete) -->
-    <div id="loading-state">
-        <div class="flex flex-col items-center">
-            <svg class="animate-spin h-8 w-8 text-ammoue mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <p class="text-gray-600 font-medium">Verifying session...</p>
-        </div>
-    </div>
+    <!-- 1. LOADING STATE (Visible until Auth Check is Complete) -->
+    <div id="loading-state">
+        <div class="flex flex-col items-center">
+            <svg class="animate-spin h-8 w-8 text-ammoue mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="text-gray-600 font-medium">Verifying session...</p>
+        </div>
+    </div>
 
-    <!-- 2. MAIN CONTENT (Hidden until Auth Check is Complete) -->
-    <div id="main-content" class="max-w-4xl mx-auto p-6 lg:p-10 hidden">
-        <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Generate Your AI Website</h1>
-        <p class="text-xl text-gray-500 mb-8">Tell Ammoue exactly what website you want to generate (e.g., 'A modern portfolio site for a UX designer with a dark theme').</p>
+    <!-- 2. MAIN CONTENT (Hidden until Auth Check is Complete) -->
+    <div id="main-content" class="max-w-4xl mx-auto p-6 lg:p-10 hidden">
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Generate Your AI Website</h1>
+        <p class="text-xl text-gray-500 mb-8">Tell Ammoue exactly what website you want to generate (e.g., 'A modern portfolio site for a UX designer with a dark theme').</p>
 
-        <textarea id="ai-prompt" rows="6" class="w-full p-4 border-2 border-ammoue/30 rounded-2xl focus:ring-ammoue focus:border-ammoue transition duration-150 shadow-md" placeholder="e.g., 'A vibrant landing page for a dog grooming salon called Paws & Claws, focusing on luxury services and online booking.'"></textarea>
+        <textarea id="ai-prompt" rows="6" class="w-full p-4 border-2 border-ammoue/30 rounded-2xl focus:ring-ammoue focus:border-ammoue transition duration-150 shadow-md" placeholder="e.g., 'A vibrant landing page for a dog grooming salon called Paws & Claws, focusing on luxury services and online booking.'"></textarea>
 
-        <div class="mt-6 flex justify-end space-x-4">
-            <!-- NEW: Dashboard Button -->
-            <a href="dashboard.html" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300 flex items-center">
-                <i data-lucide="layout-dashboard" class="w-4 h-4 mr-1"></i> Dashboard
-            </a>
-            <button id="logout-btn" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300">
-                Log Out
-            </button>
-            <button id="generate-btn" class="px-8 py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-lg shadow-teal-500/30 transform hover:scale-[1.01]">
-                Generate HTML Code
-            </button>
-        </div>
+        <div class="mt-6 flex justify-end space-x-4">
+            <!-- NEW: Dashboard Button -->
+            <a href="dashboard.html" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300 flex items-center">
+                <i data-lucide="layout-dashboard" class="w-4 h-4 mr-1"></i> Dashboard
+            </a>
+            <button id="logout-btn" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300">
+                Log Out
+            </button>
+            <button id="generate-btn" class="px-8 py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-lg shadow-teal-500/30 transform hover:scale-[1.01]">
+                Generate HTML Code
+            </button>
+        </div>
 
-        <div id="generation-output" class="mt-12 p-6 bg-white border border-gray-100 rounded-2xl shadow-lg hidden">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-2xl font-bold text-gray-800 flex items-center">
-                    <i data-lucide="code" class="w-5 h-5 mr-2 text-ammoue"></i>
-                    Generated HTML Code
-                </h3>
-                <!-- Download and Copy Button Group -->
-                <div class="flex space-x-3">
-                    <button id="copy-btn" class="text-sm font-medium text-ammoue hover:text-teal-600 flex items-center transition duration-200">
-                        <i data-lucide="copy" class="w-4 h-4 mr-1"></i> Copy Code
-                    </button>
-                    <button id="download-btn" disabled class="text-sm font-medium text-blue-600 hover:text-blue-700 disabled:text-gray-400 flex items-center transition duration-200">
-                        <i data-lucide="download" class="w-4 h-4 mr-1"></i> Download HTML
-                    </button>
-                </div>
-            </div>
-            
-            <!-- Code Block for Display -->
-            <pre class="bg-gray-100 p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm">
-                <code id="output-code" class="whitespace-pre"></code>
-            </pre>
-            
-            <!-- Preview Button (Optional, if you want to render the raw HTML) -->
-            <button id="preview-btn" class="mt-4 px-6 py-2 text-base font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300">
-                Preview Site (Will open in a new tab)
-            </button>
-        </div>
-    </div>
+        <div id="generation-output" class="mt-12 p-6 bg-white border border-gray-100 rounded-2xl shadow-lg hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold text-gray-800 flex items-center">
+                    <i data-lucide="code" class="w-5 h-5 mr-2 text-ammoue"></i>
+                    Generated HTML Code
+                </h3>
+                <button id="copy-btn" class="text-sm font-medium text-ammoue hover:text-teal-600 flex items-center transition duration-200">
+                    <i data-lucide="copy" class="w-4 h-4 mr-1"></i> Copy Code
+                </button>
+            </div>
+            
+            <!-- Code Block for Display -->
+            <pre class="bg-gray-100 p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm">
+                <code id="output-code" class="whitespace-pre"></code>
+            </pre>
+            
+            <!-- Preview Button (Optional, if you want to render the raw HTML) -->
+            <button id="preview-btn" class="mt-4 px-6 py-2 text-base font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300">
+                Preview Site (Will open in a new tab)
+            </button>
+        </div>
+    </div>
 
-    <!-- Firebase and AI Generation Logic -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-        
-        // --- FIREBASE CONFIGURATION ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
-            authDomain: "ammoueai.firebaseapp.com",
-            projectId: "ammoueai",
-            storageBucket: "ammoueai.firebasestorage.app",
-            messagingSenderId: "135818868149",
-            appId: "1:135818868149:web:db9280baf9540a3339d5fc",
-        };
-        
-        // --- Initialize Firebase and Auth ---
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app); 
-        
-        // --- DOM Elements ---
-        const loadingState = document.getElementById('loading-state');
-        const mainContent = document.getElementById('main-content');
-        const logoutBtn = document.getElementById('logout-btn');
-        const generateBtn = document.getElementById('generate-btn');
-        const downloadBtn = document.getElementById('download-btn'); // New element
-        const promptInput = document.getElementById('ai-prompt');
-        const outputDiv = document.getElementById('generation-output');
-        const outputCode = document.getElementById('output-code');
-        const copyBtn = document.getElementById('copy-btn');
-        const previewBtn = document.getElementById('preview-btn');
-        const messageBox = document.getElementById('message-box');
+    <!-- Firebase and AI Generation Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+        import { getFirestore } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
-        let listenersAttached = false; 
+        // --- FIREBASE CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
+            authDomain: "ammoueai.firebaseapp.com",
+            projectId: "ammoueai",
+            storageBucket: "ammoueai.firebasestorage.app",
+            messagingSenderId: "135818868149",
+            appId: "1:135818868149:web:db9280baf9540a3339d5fc",
+        };
+        
+        // --- Initialize Firebase and Auth ---
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app); 
+        
+        // --- DOM Elements ---
+        const loadingState = document.getElementById('loading-state');
+        const mainContent = document.getElementById('main-content');
+        const logoutBtn = document.getElementById('logout-btn');
+        const generateBtn = document.getElementById('generate-btn');
+        const promptInput = document.getElementById('ai-prompt');
+        const outputDiv = document.getElementById('generation-output');
+        const outputCode = document.getElementById('output-code');
+        const copyBtn = document.getElementById('copy-btn');
+        const previewBtn = document.getElementById('preview-btn');
+        const messageBox = document.getElementById('message-box');
 
-        // --- Utility Functions ---
-
-        /**
-         * Displays a temporary, custom message box.
-         */
-        function showMessage(message, isError) {
-            messageBox.textContent = message;
-            
-            if (isError) {
-                messageBox.classList.remove('bg-green-500', 'bg-ammoue');
-                messageBox.classList.add('bg-red-500');
-            } else {
-                messageBox.classList.remove('bg-red-500');
-                messageBox.classList.add('bg-ammoue'); // Use brand color for success
-            }
-
-            messageBox.classList.remove('opacity-0');
-            messageBox.classList.add('opacity-100');
-
-            setTimeout(() => {
-                messageBox.classList.remove('opacity-100');
-                messageBox.classList.add('opacity-0');
-            }, 4000);
-        }
-
-        /**
-         * Sets the loading state on the generate button.
-         */
-        function setLoading(isLoading) {
-            if (isLoading) {
-                generateBtn.disabled = true;
-                downloadBtn.disabled = true; // Disable download during generation
-                generateBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Generating...';
-            } else {
-                generateBtn.disabled = false;
-                generateBtn.innerHTML = 'Generate HTML Code';
-            }
-        }
-
-        /**
-         * Utility function to copy text to clipboard.
-         */
-        function copyToClipboard(text) {
-            try {
-                const textarea = document.createElement('textarea');
-                textarea.value = text;
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-                showMessage("Code copied to clipboard!", false);
-            } catch (err) {
-                console.error('Failed to copy text:', err);
-                showMessage("Failed to copy code.", true);
-            }
-        }
-        
-        /**
-         * Handles downloading the generated HTML content.
-         */
-        function handleDownload() {
-            const htmlCode = outputCode.textContent;
-            if (!htmlCode) {
-                showMessage("No HTML code available to download.", true);
-                return;
-            }
-
-            const blob = new Blob([htmlCode], { type: "text/html" });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = "ammoue_website.html"; // Default filename
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            showMessage("Download started!", false);
-        }
-        
-        /**
-         * Opens the generated HTML in a new window for a live preview.
-         */
-        function handlePreview() {
-            const htmlContent = previewBtn.dataset.html;
-            if (!htmlContent) {
-                showMessage("No HTML code available to preview.", true);
-                return;
-            }
-
-            const previewWindow = window.open('', '_blank');
-            if (!previewWindow) {
-                 showMessage("Pop-ups must be enabled to view the preview.", true);
-                 return;
-            }
-
-            previewWindow.document.write(htmlContent);
-            previewWindow.document.close();
-        }
+        // Flag to ensure listeners are only attached once after successful authentication
+        let listenersAttached = false; 
 
 
-        // --- AI Generation Logic (Non-Streaming) ---
+        // --- Utility Functions ---
 
-        /**
-         * Handles the generation process by calling the secure Vercel API endpoint.
-         * NOTE: The endpoint is updated to .mjs to match the most stable backend path.
-         */
-        async function handleGeneration() {
-            const prompt = promptInput.value.trim();
-            if (prompt.length < 10) {
-                showMessage("Please provide a more detailed prompt (at least 10 characters).", true);
-                return;
-            }
+        /**
+         * Displays a temporary, custom message box.
+         * @param {string} message - The message to display.
+         * @param {boolean} isError - True for error (red), false for success (green/blue).
+         */
+        function showMessage(message, isError) {
+            messageBox.textContent = message;
+            
+            if (isError) {
+                messageBox.classList.remove('bg-green-500', 'bg-ammoue');
+                messageBox.classList.add('bg-red-500');
+            } else {
+                messageBox.classList.remove('bg-red-500');
+                messageBox.classList.add('bg-ammoue'); // Use brand color for success
+            }
 
-            setLoading(true);
-            outputDiv.classList.add('hidden');
-            outputCode.textContent = ''; // Clear previous output
-            downloadBtn.disabled = true; // Ensure download button is disabled at start
-            
-            // CRITICAL FIX: Use the .mjs endpoint path to match the stable backend function
-            const apiEndpoint = '/api/generate.js'; 
-            console.log(`Attempting to call AI endpoint: ${apiEndpoint}`);
+            messageBox.classList.remove('opacity-0');
+            messageBox.classList.add('opacity-100');
 
-            const payload = {
-                prompt: prompt,
-            };
+            setTimeout(() => {
+                messageBox.classList.remove('opacity-100');
+                messageBox.classList.add('opacity-0');
+            }, 4000);
+        }
 
-            const maxRetries = 3;
-            for (let attempt = 0; attempt < maxRetries; attempt++) {
-                try {
-                    const response = await fetch(apiEndpoint, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
+        /**
+         * Sets the loading state on the generate button.
+         */
+        function setLoading(isLoading) {
+            if (isLoading) {
+                generateBtn.disabled = true;
+                generateBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Generating...';
+            } else {
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = 'Generate HTML Code';
+            }
+        }
 
-                    // Check for network errors/non-200 status
-                    if (!response.ok) {
-                        const errorBody = await response.json().catch(() => ({}));
-                        const errorMessage = errorBody.error || response.statusText || "Unknown server error.";
-                        console.error(`Attempt ${attempt + 1} Server Error: Status ${response.status}`, errorMessage);
-                        throw new Error(`API Proxy Error [Status: ${response.status}]: ${errorMessage}`);
-                    }
+        /**
+         * Utility function to copy text to clipboard.
+         */
+        function copyToClipboard(text) {
+            try {
+                // Use document.execCommand('copy') for better compatibility in iframe environments
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showMessage("Code copied to clipboard!", false);
+            } catch (err) {
+                console.error('Failed to copy text:', err);
+                showMessage("Failed to copy code.", true);
+            }
+        }
+        
+        /**
+         * Opens the generated HTML in a new window for a live preview.
+         */
+        function handlePreview() {
+            const htmlContent = previewBtn.dataset.html;
+            if (!htmlContent) {
+                showMessage("No HTML code available to preview.", true);
+                return;
+            }
 
-                    // Parse the JSON response
-                    const result = await response.json();
+            // Create a new window or tab
+            const previewWindow = window.open('', '_blank');
+            if (!previewWindow) {
+                 showMessage("Pop-ups must be enabled to view the preview.", true);
+                 return;
+            }
 
-                    // We expect the response key to be 'htmlCode' from the Vercel function
-                    const generatedHtml = result.htmlCode; 
-                    
-                    if (generatedHtml) {
-                        outputCode.textContent = generatedHtml.trim();
-                        
-                        // Set the preview button data
-                        previewBtn.dataset.html = generatedHtml.trim();
-
-                        outputDiv.classList.remove('hidden');
-                        downloadBtn.disabled = false; // Enable download on success
-                        showMessage("HTML generated successfully! Copy the code or preview the result.", false);
-                        break; // Exit loop on success
-                    } else {
-                        console.error(`Attempt ${attempt + 1} Response Structure Error: 'htmlCode' missing in result.`, result);
-                        throw new Error("API response missing 'htmlCode' content.");
-                    }
-
-                } catch (error) {
-                    console.error(`Attempt ${attempt + 1} failed:`, error.message);
-                    if (attempt === maxRetries - 1) {
-                        showMessage("Generation failed after multiple retries. Please check Vercel logs and ensure your GEMINI_API_KEY is configured.", true);
-                    } else {
-                        const delay = Math.pow(2, attempt) * 1000;
-                        await new Promise(resolve => setTimeout(resolve, delay));
-                    }
-                }
-            }
-
-            setLoading(false);
-        }
+            // Write the generated HTML content directly to the new window
+            previewWindow.document.write(htmlContent);
+            previewWindow.document.close();
+        }
 
 
-        // --- Authentication Guard and Event Listeners ---
+        // --- AI Generation Logic ---
 
-        onAuthStateChanged(auth, (user) => {
-            console.log("Auth state resolved. User:", user ? user.email : "none");
+        /**
+         * Handles the generation process by calling the secure Vercel API endpoint.
+         */
+        async function handleGeneration() {
+            const prompt = promptInput.value.trim();
+            if (prompt.length < 10) {
+                showMessage("Please provide a more detailed prompt (at least 10 characters).", true);
+                return;
+            }
 
-            if (user) {
-                // User is logged in: Show the content
-                loadingState.style.pointerEvents = 'none';
-                loadingState.classList.add('hidden');
-                loadingState.style.opacity = '0'; 
-                mainContent.classList.remove('hidden');
+            setLoading(true);
+            outputDiv.classList.add('hidden');
+            outputCode.textContent = ''; // Clear previous output
+            
+            // The frontend now calls the secure Vercel API route
+            const apiEndpoint = '/api/generate'; 
+            console.log(`Attempting to call AI endpoint: ${apiEndpoint}`);
 
-                if (!listenersAttached) {
-                    generateBtn.addEventListener('click', handleGeneration);
-                    copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
-                    downloadBtn.addEventListener('click', handleDownload); // Attach download handler
-                    previewBtn.addEventListener('click', handlePreview);
-                    
-                    logoutBtn.addEventListener('click', async () => {
-                        try {
-                            await signOut(auth);
-                        } catch (error) {
-                            console.error("Logout failed:", error);
-                        }
-                    });
-                    listenersAttached = true;
-                }
-            } else {
-                // User is NOT logged in: Redirect them to login.
-                console.log("User not authenticated. Redirecting to login.");
-                const currentPath = window.location.pathname;
-                const redirectUrl = 'login.html?redirect=' + encodeURIComponent(currentPath);
-                window.location.replace(redirectUrl); 
-            }
-        });
-        
-        lucide.createIcons();
-    </script>
+            // Payload structure expected by the Vercel Serverless Function
+            const payload = {
+                prompt: prompt,
+            };
+
+            const maxRetries = 3;
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                try {
+                    const response = await fetch(apiEndpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    // Parse the JSON response first
+                    const result = await response.json();
+
+                    if (!response.ok || result.error) {
+                        const errorMessage = result.error || response.statusText || "Unknown error during generation.";
+                        console.error(`Attempt ${attempt + 1} Server Error:`, errorMessage, result);
+                        throw new Error(`API Proxy Error [Status: ${response.status}]: ${errorMessage}`);
+                    }
+
+                    // We expect the response key to be 'htmlCode' from the Vercel function
+                    const generatedHtml = result.htmlCode; 
+                    
+                    if (generatedHtml) {
+                        // Sanitize and display the HTML code in the <pre> block
+                        outputCode.textContent = generatedHtml.trim();
+                        
+                        // Set the preview button data
+                        previewBtn.dataset.html = generatedHtml.trim();
+
+                        outputDiv.classList.remove('hidden');
+                        showMessage("HTML generated successfully! Copy the code or preview the result.", false);
+                        break; // Exit loop on success
+                    } else {
+                        console.error(`Attempt ${attempt + 1} Response Structure Error: 'htmlCode' missing in result.`, result);
+                        throw new Error("API response missing 'htmlCode' content.");
+                    }
+
+                } catch (error) {
+                    // This catches network errors or the errors thrown above
+                    console.error(`Attempt ${attempt + 1} failed:`, error.message);
+                    if (attempt === maxRetries - 1) {
+                        // Show a clear message to the user after all retries fail
+                        showMessage("Generation failed after multiple retries. Please ensure your Vercel backend service is deployed and has the API key correctly configured.", true);
+                    } else {
+                        // Exponential backoff
+                        const delay = Math.pow(2, attempt) * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    }
+                }
+            }
+
+            setLoading(false);
+        }
+
+
+        // --- Authentication Guard and Event Listeners ---
+
+        /**
+         * The crucial Auth Guard that waits for the user's status.
+         */
+        onAuthStateChanged(auth, (user) => {
+            // Log that the auth state is known, regardless of user status.
+            console.log("Auth state resolved. User:", user ? user.email : "none");
+
+            if (user) {
+                // User is logged in: Show the content
+                
+                // CRITICAL FIX: Disable pointer events on the overlay immediately
+                loadingState.style.pointerEvents = 'none';
+
+                // 1. Hide loading screen immediately
+                loadingState.classList.add('hidden');
+                loadingState.style.opacity = '0'; 
+                
+                // 2. Show main content immediately
+                mainContent.classList.remove('hidden');
+
+                console.log("UI Transition: Main content shown & Loading screen removed immediately for interactivity.");
+                
+
+                // Attach event listeners only once the user is confirmed
+                if (!listenersAttached) {
+                    generateBtn.addEventListener('click', handleGeneration);
+                    copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
+                    previewBtn.addEventListener('click', handlePreview);
+                    
+                    // Move logout listener inside the authenticated block for clarity and synchronization
+                    logoutBtn.addEventListener('click', async () => {
+                        try {
+                            await signOut(auth);
+                            // The onAuthStateChanged listener will handle the redirect after sign out.
+                        } catch (error) {
+                            console.error("Logout failed:", error);
+                        }
+                    });
+                    listenersAttached = true;
+                    console.log("Event listeners successfully attached.");
+                }
+
+
+            } else {
+                // User is NOT logged in: Redirect them to login.
+                console.log("User not authenticated. Redirecting to login.");
+                const currentPath = window.location.pathname;
+                
+                const redirectUrl = 'login.html?redirect=' + encodeURIComponent(currentPath);
+                
+                window.location.replace(redirectUrl); 
+            }
+        });
+        
+        lucide.createIcons();
+    </script>
 </body>
 </html>
