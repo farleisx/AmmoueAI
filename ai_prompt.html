@@ -301,10 +301,12 @@
             if (user) {
                 // User is logged in: Show the content
                 
-                // 1. Hide loading screen immediately to prevent UI blocking.
-                // We prioritize functionality over the 300ms fade-out delay to ensure interactivity.
+                // CRITICAL FIX: Disable pointer events on the overlay immediately
+                loadingState.style.pointerEvents = 'none';
+
+                // 1. Hide loading screen immediately
                 loadingState.classList.add('hidden');
-                loadingState.style.opacity = '0'; // Keep opacity change for faster visual removal
+                loadingState.style.opacity = '0'; 
                 
                 // 2. Show main content immediately
                 mainContent.classList.remove('hidden');
