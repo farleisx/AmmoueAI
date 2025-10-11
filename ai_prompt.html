@@ -28,6 +28,8 @@
             justify-content: center;
             background-color: #fff;
             z-index: 100;
+            /* Added transition for smoother removal */
+            transition: opacity 0.3s ease-in-out; 
         }
         /* Custom styles for message box */
         #message-box {
@@ -290,13 +292,21 @@
          * The crucial Auth Guard that waits for the user's status.
          */
         onAuthStateChanged(auth, (user) => {
-            // Remove the loading screen once the auth state is known
-            loadingState.classList.add('hidden');
+            // Log that the auth state is known, regardless of user status.
+            console.log("Auth state resolved. User:", user ? user.email : "none");
 
             if (user) {
                 // User is logged in: Show the content
+                // 1. Show main content immediately
                 mainContent.classList.remove('hidden');
-                console.log("User is authenticated:", user.email, "UI Transition: Main content shown."); // Added confirmation log
+                
+                // 2. Hide loading screen with a fade-out effect for smooth transition
+                // We add 'opacity-0' to start the fade, and then 'hidden' after the transition completes (300ms defined in CSS).
+                loadingState.style.opacity = '0';
+                setTimeout(() => {
+                    loadingState.classList.add('hidden');
+                    console.log("UI Transition: Main content shown & Loading screen removed."); 
+                }, 300);
 
                 // Attach event listeners only once the user is confirmed
                 generateBtn.addEventListener('click', handleGeneration);
@@ -309,7 +319,6 @@
                 console.log("User not authenticated. Redirecting to login.");
                 const currentPath = window.location.pathname;
                 
-                // FIXED: Removed the non-functional text from the redirect URL
                 const redirectUrl = 'login.html?redirect=' + encodeURIComponent(currentPath);
                 
                 window.location.replace(redirectUrl); 
