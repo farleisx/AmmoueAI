@@ -110,38 +110,45 @@
 
     <!-- Firebase and AI Generation Logic -->
     <script type="module">
-        // Reverting to stable version 11.6.1 for better compatibility in the environment
+        // Using stable version 11.6.1 for better compatibility
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- CANVAS GLOBAL VARIABLES (MANDATORY USE) ---
-        // Ensure that we get the global variables provided by the Canvas environment.
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-ammoue-app-id';
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         
-        // Robustly parse the Firebase config, assuming it's correctly provided as a string.
-        let firebaseConfig = null;
+        let firebaseConfig = { apiKey: "dummy-key-to-avoid-invalid-api-error", projectId: "dummy-project" };
+        
+        // Robustly parse the Firebase config from the global variable
         try {
             if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-                firebaseConfig = JSON.parse(__firebase_config);
+                const parsedConfig = JSON.parse(__firebase_config);
+                // Only overwrite if the parsed config actually contains keys
+                if (Object.keys(parsedConfig).length > 0) {
+                    firebaseConfig = parsedConfig;
+                }
             }
         } catch (e) {
-            console.error("Error parsing __firebase_config:", e);
+            console.error("CRITICAL: Error parsing __firebase_config string. Using fallback dummy config.", e);
         }
 
-        let app = null;
+        // Initialize Firebase services using the determined config (real or dummy)
+        const app = initializeApp(firebaseConfig);
         let auth = null;
         let db = null;
         let currentUserId = null; 
         
-        // Initialize Firebase services only if config is valid
-        if (firebaseConfig) {
-            app = initializeApp(firebaseConfig);
+        // Initialize Auth and Firestore, protected by a try/catch in case of deeper initialization issues
+        try {
             auth = getAuth(app); 
             db = getFirestore(app); 
-        } else {
-            console.error("CRITICAL: Firebase configuration is missing or invalid. App functionality will be limited.");
+        } catch(e) {
+            console.error("Firebase Auth or Firestore services failed to initialize. Data saving will not work.", e);
+            // Ensure auth/db remain null if initialization failed
+            auth = null; 
+            db = null;
         }
 
         // Function to handle custom sign-in
@@ -152,7 +159,6 @@
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
-                    // Fallback to anonymous sign-in if no custom token is available
                     await signInAnonymously(auth);
                 }
             } catch (error) {
@@ -294,7 +300,7 @@
         async function saveProject(prompt, htmlCode) {
             const projectsRef = getProjectsCollectionRef();
             if (!projectsRef) {
-                showMessage("Cannot save project: Authentication or database connection failed.", true);
+                showMessage("Cannot save project: Database connection failed. Is Firebase initialized?", true);
                 return;
             }
 
@@ -308,7 +314,7 @@
                 showMessage("Project successfully saved!", false);
             } catch (e) {
                 console.error("Error adding document: ", e);
-                showMessage("Failed to save project.", true);
+                showMessage("Failed to save project. Check console for details.", true);
             }
         }
 
@@ -330,9 +336,7 @@
             outputCode.textContent = ''; 
             downloadBtn.disabled = true; 
             
-            // Using the stable .mjs endpoint path
             const apiEndpoint = '/api/generate.mjs'; 
-            console.log(`Attempting to call AI endpoint: ${apiEndpoint}`);
 
             const payload = {
                 prompt: prompt,
@@ -430,7 +434,8 @@
                     console.log("User not authenticated. Redirecting to login.");
                     const currentPath = window.location.pathname;
                     const redirectUrl = 'login.html?redirect=' + encodeURIComponent(currentPath);
-                    window.location.replace(redirectUrl); 
+                    // window.location.replace(redirectUrl); 
+                    // NOTE: Commenting out redirect for debugging purposes to keep you on the page.
                 }
             });
         }
