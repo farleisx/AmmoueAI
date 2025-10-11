@@ -3,23 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ammoue | AI Prompt</title>
+    <title>Ammoue | AI Site Generator</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Load Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        /* Custom Font Setup */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f8fafc; /* Light gray background */
+            background-color: #f8fafc;
         }
-        .text-ammoue {
-            color: #0d9488; /* Teal-700 for Ammoue branding */
-        }
-        .bg-ammoue {
-            background-color: #0d9488; /* Teal-700 for Ammoue branding */
+        .text-ammoue { color: #0d9488; }
+        .bg-ammoue { background-color: #0d9488; }
+        /* Style to ensure the loading screen covers the whole view */
+        #loading-state {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #fff;
+            z-index: 100;
         }
         /* Custom styles for message box */
         #message-box {
@@ -30,328 +38,237 @@
             z-index: 1000;
             opacity: 0;
             transition: opacity 0.3s ease-in-out;
-            min-width: 300px;
-            text-align: center;
         }
     </style>
 </head>
-<body class="antialiased min-h-screen flex flex-col">
+<body class="antialiased min-h-screen">
 
     <!-- Message Box for alerts (replaces alert()) -->
     <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold"></div>
-    
-    <!-- Navbar -->
-    <header class="bg-white shadow-md sticky top-0 z-10">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
-            <!-- Logo -->
-            <a href="dashboard.html" class="flex items-center space-x-2">
-                <span class="text-2xl font-extrabold text-ammoue">Ammoue</span>
-                <span class="text-sm font-medium text-gray-500">Generator</span>
-            </a>
-            
-            <!-- User/Action Menu -->
-            <button onclick="window.history.back()" class="text-sm text-gray-500 hover:text-gray-700 transition group flex items-center">
-                <i data-lucide="x" class="w-5 h-5 mr-1 group-hover:text-gray-700"></i>
-                <span class="hidden sm:inline">Cancel</span>
+
+    <!-- 1. LOADING STATE (Visible until Auth Check is Complete) -->
+    <div id="loading-state">
+        <div class="flex flex-col items-center">
+            <svg class="animate-spin h-8 w-8 text-ammoue mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="text-gray-600 font-medium">Verifying session...</p>
+        </div>
+    </div>
+
+    <!-- 2. MAIN CONTENT (Hidden until Auth Check is Complete) -->
+    <div id="main-content" class="max-w-4xl mx-auto p-6 lg:p-10 hidden">
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Generate Your AI Website</h1>
+        <p class="text-xl text-gray-500 mb-8">Tell Ammoue what you want to build in plain English.</p>
+
+        <textarea id="ai-prompt" rows="6" class="w-full p-4 border-2 border-ammoue/30 rounded-2xl focus:ring-ammoue focus:border-ammoue transition duration-150 shadow-md" placeholder="e.g., 'A vibrant landing page for a dog grooming salon called Paws & Claws, focusing on luxury services and online booking.'"></textarea>
+
+        <div class="mt-6 flex justify-end space-x-4">
+            <button id="logout-btn" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300">
+                Log Out
+            </button>
+            <button id="generate-btn" class="px-8 py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-lg shadow-teal-500/30 transform hover:scale-[1.01]">
+                Generate Site Draft
             </button>
         </div>
-    </header>
 
-    <!-- Main Content Area -->
-    <main class="flex-grow p-4 md:p-8 flex justify-center items-start">
-        <div class="w-full max-w-4xl bg-white rounded-2xl shadow-xl p-6 md:p-10 border border-gray-100">
-
-            <div class="mb-8 text-center">
-                <h1 class="text-3xl font-bold text-gray-900 flex items-center justify-center">
-                    <i data-lucide="lightbulb" class="w-7 h-7 mr-3 text-ammoue"></i>
-                    Describe Your Dream Website
-                </h1>
-                <p class="text-gray-500 mt-2">The more detail you provide, the better the result will be.</p>
-            </div>
-
-            <!-- AI Prompt Form -->
-            <form id="ai-prompt-form" onsubmit="handleGeneration(event)" class="space-y-6">
-                
-                <!-- Website Title Input -->
-                <div>
-                    <label for="website-title" class="block text-lg font-semibold text-gray-700 mb-2">Project Title</label>
-                    <input type="text" id="website-title" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-ammoue focus:border-ammoue transition duration-150 text-lg" placeholder="e.g., 'A modern portfolio for a photographer'">
-                </div>
-
-                <!-- Prompt Textarea -->
-                <div>
-                    <label for="prompt-input" class="block text-lg font-semibold text-gray-700 mb-2">Detailed Description</label>
-                    <textarea id="prompt-input" rows="8" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-ammoue focus:border-ammoue transition duration-150 text-lg resize-y" placeholder="e.g., 'A single-page website for a high-end coffee shop called 'The Daily Grind.' It should have a dark, minimalist design, a section for their menu, a photo gallery, and a contact form. Use a warm color palette (browns, creams, gold). Must be fully responsive.'"></textarea>
-                </div>
-                
-                <!-- Submission Button -->
-                <button type="submit" id="generate-btn" class="w-full py-4 text-xl font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-xl shadow-teal-500/30 flex items-center justify-center">
-                    <i data-lucide="zap" class="w-6 h-6 mr-3"></i>
-                    Generate Website
-                </button>
-            </form>
-
-            <!-- Status Indicator -->
-            <div id="status-message" class="hidden mt-8 p-4 bg-teal-50 border-l-4 border-ammoue text-teal-800 rounded-lg text-center font-medium">
-                <p>Generating website structure and content. This might take a moment...</p>
-            </div>
-
+        <div id="generation-output" class="mt-12 p-6 bg-white border border-gray-100 rounded-2xl shadow-lg hidden">
+            <h3 class="text-2xl font-bold text-gray-800 mb-3 flex items-center">
+                <i data-lucide="zap" class="w-5 h-5 mr-2 text-ammoue"></i>
+                Generation Result
+            </h3>
+            <p id="output-text" class="text-gray-600"></p>
         </div>
-    </main>
+    </div>
 
-    <!-- Firebase and API Logic -->
+    <!-- Firebase and AI Generation Logic -->
     <script type="module">
-        // --- Firebase Imports (using v11.6.1) ---
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+        import { getFirestore } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
-        // --- MANDATORY GLOBAL VARIABLES ---
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        // --- FIREBASE CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
+            authDomain: "ammoueai.firebaseapp.com",
+            projectId: "ammoueai",
+            storageBucket: "ammoueai.firebasestorage.app",
+            messagingSenderId: "135818868149",
+            appId: "1:135818868149:web:db9280baf9540a3339d5fc",
+        };
         
-        // --- API Constants ---
-        // This is the local endpoint for the serverless function (api/generate.js)
-        const API_ENDPOINT = '/api/generate'; 
-        const MAX_RETRIES = 5;
+        // --- Initialize Firebase and Auth ---
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app); 
         
-        // --- Global State ---
-        let db, auth, userId = null;
-        let isAuthReady = false;
-
         // --- DOM Elements ---
+        const loadingState = document.getElementById('loading-state');
+        const mainContent = document.getElementById('main-content');
+        const logoutBtn = document.getElementById('logout-btn');
         const generateBtn = document.getElementById('generate-btn');
-        const statusMessage = document.getElementById('status-message');
-        const websiteTitleInput = document.getElementById('website-title');
-        const promptInput = document.getElementById('prompt-input');
-        const msgBox = document.getElementById('message-box');
-        
+        const promptInput = document.getElementById('ai-prompt');
+        const outputDiv = document.getElementById('generation-output');
+        const outputText = document.getElementById('output-text');
+        const messageBox = document.getElementById('message-box');
+
+
         // --- Utility Functions ---
 
         /**
          * Displays a temporary, custom message box.
+         * @param {string} message - The message to display.
+         * @param {boolean} isError - True for error (red), false for success (green/blue).
          */
         function showMessage(message, isError) {
-            msgBox.textContent = message;
+            messageBox.textContent = message;
             
             if (isError) {
-                msgBox.classList.remove('bg-green-500');
-                msgBox.classList.add('bg-red-500');
+                messageBox.classList.remove('bg-green-500', 'bg-ammoue');
+                messageBox.classList.add('bg-red-500');
             } else {
-                msgBox.classList.remove('bg-red-500');
-                msgBox.classList.add('bg-green-500');
+                messageBox.classList.remove('bg-red-500');
+                messageBox.classList.add('bg-ammoue'); // Use brand color for success
             }
 
-            msgBox.classList.remove('opacity-0');
-            msgBox.classList.add('opacity-100');
+            messageBox.classList.remove('opacity-0');
+            messageBox.classList.add('opacity-100');
 
             setTimeout(() => {
-                msgBox.classList.remove('opacity-100');
-                msgBox.classList.add('opacity-0');
+                messageBox.classList.remove('opacity-100');
+                messageBox.classList.add('opacity-0');
             }, 4000);
         }
 
         /**
-         * Toggles loading state on the button and shows the status message.
+         * Sets the loading state on the generate button.
          */
-        function setLoading(isLoading, message = 'Generating Website...') {
+        function setLoading(isLoading) {
             if (isLoading) {
                 generateBtn.disabled = true;
-                generateBtn.classList.add('opacity-70', 'cursor-not-allowed');
-                generateBtn.innerHTML = '<svg class="animate-spin h-6 w-6 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>' + message;
-                statusMessage.textContent = message;
-                statusMessage.classList.remove('hidden');
+                generateBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Generating...';
             } else {
                 generateBtn.disabled = false;
-                generateBtn.classList.remove('opacity-70', 'cursor-not-allowed');
-                generateBtn.innerHTML = '<i data-lucide="zap" class="w-6 h-6 mr-3"></i> Generate Website';
-                statusMessage.classList.add('hidden');
-            }
-            lucide.createIcons(); // Re-create icons on button change
-        }
-
-        /**
-         * Retries the API call with exponential backoff.
-         */
-        async function fetchWithRetry(url, options, retries = 0) {
-            try {
-                const response = await fetch(url, options);
-                if (!response.ok) {
-                    if (response.status === 429 || response.status >= 500 && retries < MAX_RETRIES - 1) {
-                         // Exponential backoff for transient errors
-                         throw new Error(`Transient HTTP error! status: ${response.status}`);
-                    }
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response;
-            } catch (error) {
-                if (retries < MAX_RETRIES) {
-                    const delay = Math.pow(2, retries) * 1000; // 1s, 2s, 4s, 8s, 16s
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                    return fetchWithRetry(url, options, retries + 1);
-                }
-                throw error;
+                generateBtn.innerHTML = 'Generate Site Draft';
             }
         }
 
-        // --- Firebase Core Logic ---
+
+        // --- AI Generation Logic ---
 
         /**
-         * Initializes Firebase and handles user authentication.
+         * Handles the generation process by calling the Gemini API.
          */
-        async function initializeAppAndAuth() {
-            try {
-                // setLogLevel('debug'); // Uncomment for debugging
-                const app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-
-                // Sign in using the provided custom token or anonymously
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-
-                // Set up Auth State Listener
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        userId = user.uid;
-                        isAuthReady = true;
-                        console.log("User authenticated, ready for generation.");
-                    } else {
-                        // Redirect unauthenticated users to the login page
-                        console.warn("User not authenticated, redirecting to login.");
-                        // FIX: Redirect to login.html, passing the current page's path as a redirect parameter
-                        // This allows login.html to send the user back to this form after successful login.
-                        window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.pathname);
-                    }
-                });
-
-            } catch (error) {
-                console.error("Firebase initialization or authentication failed:", error);
-                showMessage(`Initialization error. Redirecting to login...`, true);
-                setTimeout(() => { window.location.href = 'login.html'; }, 500);
+        async function handleGeneration() {
+            const prompt = promptInput.value.trim();
+            if (prompt.length < 10) {
+                showMessage("Please provide a more detailed prompt (at least 10 characters).", true);
+                return;
             }
-        }
 
-        // --- Website Generation Logic ---
+            setLoading(true);
+            outputDiv.classList.add('hidden');
+            outputText.innerHTML = '';
+            
+            // Define the system instruction for the AI model
+            const systemPrompt = "You are Ammoue AI, a world-class website design generator. Based on the user's prompt, generate a cohesive, single paragraph description of the type of website, its primary goal, and a list of 5 key sections/components it should have, formatted as a markdown list. Focus on generating an outline that a developer could use to build a website.";
+            
+            const userQuery = `Generate a website outline for the following idea: ${prompt}`;
+            
+            // --- Gemini API Call Setup ---
+            const apiKey = ""; // Leave as-is
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
-        /**
-         * Calls the serverless function /api/generate to generate the website HTML.
-         * @param {string} prompt - The user's detailed description.
-         * @returns {string} The generated HTML code.
-         */
-        async function callGemini(prompt) {
-            setLoading(true, '1. Sending request to AI server...');
-
-            const payload = { prompt: prompt };
-
-            const options = {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                // Use Google Search for grounding the content
+                tools: [{ "google_search": {} }], 
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
             };
 
-            // Call the secure serverless function endpoint
-            const response = await fetchWithRetry(API_ENDPOINT, options);
-            const result = await response.json();
-            
-            // The serverless function returns a JSON object with { htmlCode: '...' }
-            const generatedHtml = result.htmlCode;
+            const maxRetries = 3;
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
 
-            if (!generatedHtml) {
-                // If there's an error object, display the detailed message
-                if (result.error) {
-                    throw new Error(`Server Error: ${result.error}`);
+                    if (!response.ok) {
+                        throw new Error(`API returned status ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    const generatedText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    
+                    if (generatedText) {
+                        // Display the generated text
+                        outputText.innerHTML = generatedText.replace(/\n/g, '<br>');
+                        outputDiv.classList.remove('hidden');
+                        showMessage("Site outline generated successfully!", false);
+                        break; // Exit loop on success
+                    } else {
+                        throw new Error("API response missing generated text.");
+                    }
+
+                } catch (error) {
+                    console.error(`Attempt ${attempt + 1} failed:`, error);
+                    if (attempt === maxRetries - 1) {
+                        showMessage("Failed to generate site outline after multiple retries. Try a different prompt.", true);
+                    } else {
+                        // Exponential backoff
+                        const delay = Math.pow(2, attempt) * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    }
                 }
-                throw new Error("Serverless function failed to return HTML code.");
             }
 
-            return generatedHtml;
+            setLoading(false);
         }
 
-        /**
-         * Saves the generated website to Firestore.
-         */
-        async function saveWebsite(title, prompt, htmlCode) {
-            setLoading(true, '2. Saving website to your projects...');
 
-            if (!db || !userId) {
-                throw new Error("Database or user ID not ready for saving.");
-            }
-
-            // Path: /artifacts/{appId}/users/{userId}/websites
-            const collectionRef = collection(db, `artifacts/${appId}/users/${userId}/websites`);
-
-            await addDoc(collectionRef, {
-                title: title,
-                prompt: prompt,
-                htmlCode: htmlCode,
-                createdAt: Date.now(),
-                status: 'Draft' // Default status
-            });
-        }
-
+        // --- Authentication Guard and Event Listeners ---
 
         /**
-         * Main handler for the form submission.
+         * The crucial Auth Guard that waits for the user's status.
          */
-        window.handleGeneration = async function(event) {
-            event.preventDefault();
-            
-            if (!isAuthReady) {
-                showMessage("Authentication not ready. Please wait a moment.", true);
-                return;
+        onAuthStateChanged(auth, (user) => {
+            // Remove the loading screen once the auth state is known
+            loadingState.classList.add('hidden');
+
+            if (user) {
+                // User is logged in: Show the content
+                mainContent.classList.remove('hidden');
+                console.log("User is authenticated:", user.email);
+
+                // Attach event listeners only once the user is confirmed
+                generateBtn.addEventListener('click', handleGeneration);
+
+            } else {
+                // User is NOT logged in: Redirect them to login, passing the current page as the redirect destination.
+                console.log("User not authenticated. Redirecting to login.");
+                
+                const currentPath = window.location.pathname;
+                const redirectUrl = 'login.html?redirect=' + encodeURIComponent(currentPath);
+                
+                window.location.replace(redirectUrl); 
             }
-
-            const title = websiteTitleInput.value.trim();
-            const prompt = promptInput.value.trim();
-
-            if (!title || !prompt) {
-                showMessage("Please provide both a title and a description.", true);
-                return;
-            }
-
-            try {
-                // 1. Call the AI via the serverless function endpoint
-                const htmlCode = await callGemini(prompt);
-                
-                // 2. Save the result to Firestore
-                await saveWebsite(title, prompt, htmlCode);
-
-                // 3. Success notification and redirect
-                setLoading(true, '3. Success! Redirecting to Dashboard...');
-                showMessage("Website generated and saved successfully!", false);
-                
-                setTimeout(() => {
-                    // Redirect back to dashboard to see the new project listed
-                    window.location.href = 'dashboard.html?status=new_site';
-                }, 1500);
-
-            } catch (error) {
-                console.error("Website generation failed:", error);
-                
-                let displayError = "Generation failed. Check the console for error details.";
-                if (error.message.includes('Server Error:')) {
-                     displayError = error.message;
-                }
-                
-                showMessage(displayError, true);
-                setLoading(false);
-            }
-        };
-
-
-        // --- Initialization and Load Handlers ---
-        // Initialize Firebase immediately
-        initializeAppAndAuth(); 
-        
-        document.addEventListener('DOMContentLoaded', () => {
-            lucide.createIcons();
         });
 
+        // --- Event Listener for Log Out ---
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+                // The onAuthStateChanged listener will handle the redirect after sign out.
+            } catch (error) {
+                console.error("Logout failed:", error);
+            }
+        });
+        
+        lucide.createIcons();
     </script>
 </body>
 </html>
