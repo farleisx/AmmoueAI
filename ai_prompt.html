@@ -67,6 +67,10 @@
         <textarea id="ai-prompt" rows="6" class="w-full p-4 border-2 border-ammoue/30 rounded-2xl focus:ring-ammoue focus:border-ammoue transition duration-150 shadow-md" placeholder="e.g., 'A vibrant landing page for a dog grooming salon called Paws & Claws, focusing on luxury services and online booking.'"></textarea>
 
         <div class="mt-6 flex justify-end space-x-4">
+            <!-- NEW: Dashboard Button -->
+            <a href="dashboard.html" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300 flex items-center">
+                <i data-lucide="layout-dashboard" class="w-4 h-4 mr-1"></i> Dashboard
+            </a>
             <button id="logout-btn" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300">
                 Log Out
             </button>
@@ -234,6 +238,7 @@
             
             // The frontend now calls the secure Vercel API route
             const apiEndpoint = '/api/generate'; 
+            console.log(`Attempting to call AI endpoint: ${apiEndpoint}`);
 
             // Payload structure expected by the Vercel Serverless Function
             const payload = {
@@ -249,11 +254,13 @@
                         body: JSON.stringify(payload)
                     });
 
+                    // Parse the JSON response first
                     const result = await response.json();
 
                     if (!response.ok || result.error) {
-                        const errorMessage = result.error || "Unknown error during generation.";
-                        throw new Error(`API Proxy Error: ${errorMessage}`);
+                        const errorMessage = result.error || response.statusText || "Unknown error during generation.";
+                        console.error(`Attempt ${attempt + 1} Server Error:`, errorMessage, result);
+                        throw new Error(`API Proxy Error [Status: ${response.status}]: ${errorMessage}`);
                     }
 
                     // We expect the response key to be 'htmlCode' from the Vercel function
@@ -270,13 +277,16 @@
                         showMessage("HTML generated successfully! Copy the code or preview the result.", false);
                         break; // Exit loop on success
                     } else {
+                        console.error(`Attempt ${attempt + 1} Response Structure Error: 'htmlCode' missing in result.`, result);
                         throw new Error("API response missing 'htmlCode' content.");
                     }
 
                 } catch (error) {
-                    console.error(`Attempt ${attempt + 1} failed:`, error);
+                    // This catches network errors or the errors thrown above
+                    console.error(`Attempt ${attempt + 1} failed:`, error.message);
                     if (attempt === maxRetries - 1) {
-                        showMessage("Failed to generate code. Check server logs and environment variables.", true);
+                        // Show a clear message to the user after all retries fail
+                        showMessage("Generation failed after multiple retries. Please ensure your Vercel backend service is deployed and has the API key correctly configured.", true);
                     } else {
                         // Exponential backoff
                         const delay = Math.pow(2, attempt) * 1000;
