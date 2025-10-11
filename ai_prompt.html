@@ -130,6 +130,9 @@
         const previewBtn = document.getElementById('preview-btn');
         const messageBox = document.getElementById('message-box');
 
+        // Flag to ensure listeners are only attached once after successful authentication
+        let listenersAttached = false; 
+
 
         // --- Utility Functions ---
 
@@ -169,6 +172,47 @@
                 generateBtn.disabled = false;
                 generateBtn.innerHTML = 'Generate HTML Code';
             }
+        }
+
+        /**
+         * Utility function to copy text to clipboard.
+         */
+        function copyToClipboard(text) {
+            try {
+                // Use document.execCommand('copy') for better compatibility in iframe environments
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showMessage("Code copied to clipboard!", false);
+            } catch (err) {
+                console.error('Failed to copy text:', err);
+                showMessage("Failed to copy code.", true);
+            }
+        }
+        
+        /**
+         * Opens the generated HTML in a new window for a live preview.
+         */
+        function handlePreview() {
+            const htmlContent = previewBtn.dataset.html;
+            if (!htmlContent) {
+                showMessage("No HTML code available to preview.", true);
+                return;
+            }
+
+            // Create a new window or tab
+            const previewWindow = window.open('', '_blank');
+            if (!previewWindow) {
+                 showMessage("Pop-ups must be enabled to view the preview.", true);
+                 return;
+            }
+
+            // Write the generated HTML content directly to the new window
+            previewWindow.document.write(htmlContent);
+            previewWindow.document.close();
         }
 
 
@@ -248,47 +292,6 @@
         // --- Authentication Guard and Event Listeners ---
 
         /**
-         * Utility function to copy text to clipboard.
-         */
-        function copyToClipboard(text) {
-            try {
-                // Use document.execCommand('copy') for better compatibility in iframe environments
-                const textarea = document.createElement('textarea');
-                textarea.value = text;
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-                showMessage("Code copied to clipboard!", false);
-            } catch (err) {
-                console.error('Failed to copy text:', err);
-                showMessage("Failed to copy code.", true);
-            }
-        }
-        
-        /**
-         * Opens the generated HTML in a new window for a live preview.
-         */
-        function handlePreview() {
-            const htmlContent = previewBtn.dataset.html;
-            if (!htmlContent) {
-                showMessage("No HTML code available to preview.", true);
-                return;
-            }
-
-            // Create a new window or tab
-            const previewWindow = window.open('', '_blank');
-            if (!previewWindow) {
-                 showMessage("Pop-ups must be enabled to view the preview.", true);
-                 return;
-            }
-
-            // Write the generated HTML content directly to the new window
-            previewWindow.document.write(htmlContent);
-            previewWindow.document.close();
-        }
-
-        /**
          * The crucial Auth Guard that waits for the user's status.
          */
         onAuthStateChanged(auth, (user) => {
@@ -309,9 +312,23 @@
                 }, 300);
 
                 // Attach event listeners only once the user is confirmed
-                generateBtn.addEventListener('click', handleGeneration);
-                copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
-                previewBtn.addEventListener('click', handlePreview);
+                if (!listenersAttached) {
+                    generateBtn.addEventListener('click', handleGeneration);
+                    copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
+                    previewBtn.addEventListener('click', handlePreview);
+                    
+                    // Move logout listener inside the authenticated block for clarity and synchronization
+                    logoutBtn.addEventListener('click', async () => {
+                        try {
+                            await signOut(auth);
+                            // The onAuthStateChanged listener will handle the redirect after sign out.
+                        } catch (error) {
+                            console.error("Logout failed:", error);
+                        }
+                    });
+                    listenersAttached = true;
+                    console.log("Event listeners successfully attached.");
+                }
 
 
             } else {
@@ -322,16 +339,6 @@
                 const redirectUrl = 'login.html?redirect=' + encodeURIComponent(currentPath);
                 
                 window.location.replace(redirectUrl); 
-            }
-        });
-
-        // --- Event Listener for Log Out ---
-        logoutBtn.addEventListener('click', async () => {
-            try {
-                await signOut(auth);
-                // The onAuthStateChanged listener will handle the redirect after sign out.
-            } catch (error) {
-                console.error("Logout failed:", error);
             }
         });
         
