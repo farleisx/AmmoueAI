@@ -29,7 +29,12 @@ export default async function handler(req, res) {
 
     // 2. Initial API Key Check
     if (!ai) {
-        return res.status(500).json({ error: 'AI service not initialized. Check GEMINI_API_KEY environment variable.' });
+        // Added clearer error instructions for the user to check setup
+        return res.status(500).json({ 
+            error: 'AI service not initialized.', 
+            details: 'The GEMINI_API_KEY environment variable is likely missing or empty.',
+            action: 'Please confirm the GEMINI_API_KEY is correctly set in your Vercel project settings and the deployment is refreshed.'
+        });
     }
 
     try {
@@ -73,7 +78,7 @@ export default async function handler(req, res) {
 
     } catch (error) {
         console.error('Gemini API Error:', error);
-        // Return a 500 status for any internal API errors
+        // This catch block handles errors during the AI call itself, returning JSON
         res.status(500).json({ error: 'Failed to generate content from AI service.', details: error.message });
     }
 }
