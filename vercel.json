@@ -1,14 +1,12 @@
 {
   "functions": {
-    // This tells Vercel that all .js files inside the 'api' directory 
-    // should be treated as Node.js serverless functions.
+   
     "api/**/*.js": {
       "runtime": "nodejs18.x"
     }
   },
   "build": {
-    // This section is a reminder to Vercel about your environment variable,
-    // though the variable must still be set in the Vercel dashboard UI.
+  
     "env": {
       "GEMINI_API_KEY": "@gemini_api_key" 
     }
