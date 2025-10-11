@@ -60,7 +60,7 @@
     <!-- 2. MAIN CONTENT (Hidden until Auth Check is Complete) -->
     <div id="main-content" class="max-w-4xl mx-auto p-6 lg:p-10 hidden">
         <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Generate Your AI Website</h1>
-        <p class="text-xl text-gray-500 mb-8">Tell Ammoue what you want to build in plain English.</p>
+        <p class="text-xl text-gray-500 mb-8">Tell Ammoue exactly what website you want to generate (e.g., 'A modern portfolio site for a UX designer with a dark theme').</p>
 
         <textarea id="ai-prompt" rows="6" class="w-full p-4 border-2 border-ammoue/30 rounded-2xl focus:ring-ammoue focus:border-ammoue transition duration-150 shadow-md" placeholder="e.g., 'A vibrant landing page for a dog grooming salon called Paws & Claws, focusing on luxury services and online booking.'"></textarea>
 
@@ -69,16 +69,30 @@
                 Log Out
             </button>
             <button id="generate-btn" class="px-8 py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-lg shadow-teal-500/30 transform hover:scale-[1.01]">
-                Generate Site Draft
+                Generate HTML Code
             </button>
         </div>
 
         <div id="generation-output" class="mt-12 p-6 bg-white border border-gray-100 rounded-2xl shadow-lg hidden">
-            <h3 class="text-2xl font-bold text-gray-800 mb-3 flex items-center">
-                <i data-lucide="zap" class="w-5 h-5 mr-2 text-ammoue"></i>
-                Generation Result
-            </h3>
-            <p id="output-text" class="text-gray-600"></p>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold text-gray-800 flex items-center">
+                    <i data-lucide="code" class="w-5 h-5 mr-2 text-ammoue"></i>
+                    Generated HTML Code
+                </h3>
+                <button id="copy-btn" class="text-sm font-medium text-ammoue hover:text-teal-600 flex items-center transition duration-200">
+                    <i data-lucide="copy" class="w-4 h-4 mr-1"></i> Copy Code
+                </button>
+            </div>
+            
+            <!-- Code Block for Display -->
+            <pre class="bg-gray-100 p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm">
+                <code id="output-code" class="whitespace-pre"></code>
+            </pre>
+            
+            <!-- Preview Button (Optional, if you want to render the raw HTML) -->
+            <button id="preview-btn" class="mt-4 px-6 py-2 text-base font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300">
+                Preview Site (Will open in a new tab)
+            </button>
         </div>
     </div>
 
@@ -109,7 +123,9 @@
         const generateBtn = document.getElementById('generate-btn');
         const promptInput = document.getElementById('ai-prompt');
         const outputDiv = document.getElementById('generation-output');
-        const outputText = document.getElementById('output-text');
+        const outputCode = document.getElementById('output-code');
+        const copyBtn = document.getElementById('copy-btn');
+        const previewBtn = document.getElementById('preview-btn');
         const messageBox = document.getElementById('message-box');
 
 
@@ -149,7 +165,7 @@
                 generateBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Generating...';
             } else {
                 generateBtn.disabled = false;
-                generateBtn.innerHTML = 'Generate Site Draft';
+                generateBtn.innerHTML = 'Generate HTML Code';
             }
         }
 
@@ -168,14 +184,14 @@
 
             setLoading(true);
             outputDiv.classList.add('hidden');
-            outputText.innerHTML = '';
+            outputCode.textContent = ''; // Clear previous output
             
             // The frontend now calls the secure Vercel API route
             const apiEndpoint = '/api/generate'; 
 
-            // Payload structure expected by the Vercel Serverless Function (see vercel_api_proxy.md)
+            // Payload structure expected by the Vercel Serverless Function
             const payload = {
-                userQuery: `Generate a website outline for the following idea: ${prompt}`,
+                prompt: prompt,
             };
 
             const maxRetries = 3;
@@ -187,28 +203,34 @@
                         body: JSON.stringify(payload)
                     });
 
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(`API Proxy returned status ${response.status}: ${errorData.error}`);
+                    const result = await response.json();
+
+                    if (!response.ok || result.error) {
+                        const errorMessage = result.error || "Unknown error during generation.";
+                        throw new Error(`API Proxy Error: ${errorMessage}`);
                     }
 
-                    const result = await response.json();
-                    const generatedText = result.generatedText; // Expecting { generatedText: "..." } from the proxy
+                    // We expect the response key to be 'htmlCode' from the Vercel function
+                    const generatedHtml = result.htmlCode; 
                     
-                    if (generatedText) {
-                        // Display the generated text
-                        outputText.innerHTML = generatedText.replace(/\n/g, '<br>');
+                    if (generatedHtml) {
+                        // Sanitize and display the HTML code in the <pre> block
+                        outputCode.textContent = generatedHtml.trim();
+                        
+                        // Set the preview button data
+                        previewBtn.dataset.html = generatedHtml.trim();
+
                         outputDiv.classList.remove('hidden');
-                        showMessage("Site outline generated successfully!", false);
+                        showMessage("HTML generated successfully! Copy the code or preview the result.", false);
                         break; // Exit loop on success
                     } else {
-                        throw new Error("API response missing generated text.");
+                        throw new Error("API response missing 'htmlCode' content.");
                     }
 
                 } catch (error) {
                     console.error(`Attempt ${attempt + 1} failed:`, error);
                     if (attempt === maxRetries - 1) {
-                        showMessage("Failed to generate site outline. Check Vercel logs for API key or proxy errors.", true);
+                        showMessage("Failed to generate code. Check server logs and environment variables.", true);
                     } else {
                         // Exponential backoff
                         const delay = Math.pow(2, attempt) * 1000;
@@ -224,6 +246,47 @@
         // --- Authentication Guard and Event Listeners ---
 
         /**
+         * Utility function to copy text to clipboard.
+         */
+        function copyToClipboard(text) {
+            try {
+                // Use document.execCommand('copy') for better compatibility in iframe environments
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showMessage("Code copied to clipboard!", false);
+            } catch (err) {
+                console.error('Failed to copy text:', err);
+                showMessage("Failed to copy code.", true);
+            }
+        }
+        
+        /**
+         * Opens the generated HTML in a new window for a live preview.
+         */
+        function handlePreview() {
+            const htmlContent = previewBtn.dataset.html;
+            if (!htmlContent) {
+                showMessage("No HTML code available to preview.", true);
+                return;
+            }
+
+            // Create a new window or tab
+            const previewWindow = window.open('', '_blank');
+            if (!previewWindow) {
+                 showMessage("Pop-ups must be enabled to view the preview.", true);
+                 return;
+            }
+
+            // Write the generated HTML content directly to the new window
+            previewWindow.document.write(htmlContent);
+            previewWindow.document.close();
+        }
+
+        /**
          * The crucial Auth Guard that waits for the user's status.
          */
         onAuthStateChanged(auth, (user) => {
@@ -233,16 +296,20 @@
             if (user) {
                 // User is logged in: Show the content
                 mainContent.classList.remove('hidden');
-                console.log("User is authenticated:", user.email);
+                console.log("User is authenticated:", user.email, "UI Transition: Main content shown."); // Added confirmation log
 
                 // Attach event listeners only once the user is confirmed
                 generateBtn.addEventListener('click', handleGeneration);
+                copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
+                previewBtn.addEventListener('click', handlePreview);
+
 
             } else {
-                // User is NOT logged in: Redirect them to login, passing the current page as the redirect destination.
+                // User is NOT logged in: Redirect them to login.
                 console.log("User not authenticated. Redirecting to login.");
-                
                 const currentPath = window.location.pathname;
+                
+                // FIXED: Removed the non-functional text from the redirect URL
                 const redirectUrl = 'login.html?redirect=' + encodeURIComponent(currentPath);
                 
                 window.location.replace(redirectUrl); 
