@@ -42,7 +42,7 @@
     <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 sm:p-10 border border-gray-100">
 
         <!-- Logo/Header -->
-        <a href="ammoue_landing_page.html" class="flex flex-col items-center mb-8">
+        <a href="index.html" class="flex flex-col items-center mb-8">
             <span class="text-4xl font-extrabold text-ammoue">Ammoue</span>
             <p class="text-sm text-gray-500 mt-1">AI Website Builder</p>
         </a>
@@ -150,7 +150,7 @@
         };
         
         let auth = null; // Initialize auth to null explicitly
-        let db = null;   // Initialize db to null explicitly
+        let db = null;  // Initialize db to null explicitly
 
         // --- DOM Elements ---
         const loginForm = document.getElementById('login-form');
@@ -205,6 +205,25 @@
             }
         }
         
+        /**
+         * Extracts the redirect path from the URL query parameters.
+         * Defaults to 'dashboard.html' if no 'redirect' parameter is found.
+         */
+        function getRedirectPath() {
+            const params = new URLSearchParams(window.location.search);
+            const redirectPath = params.get('redirect') ? decodeURIComponent(params.get('redirect')) : 'dashboard.html';
+            return redirectPath.startsWith('/') ? redirectPath.substring(1) : redirectPath;
+        }
+
+        /**
+         * Redirects the user to the path specified in the 'redirect' URL parameter, 
+         * or to 'dashboard.html' by default.
+         */
+        function redirectToNextPage() {
+            const path = getRedirectPath();
+            window.location.href = path;
+        }
+        
         // --- Firebase Core Logic ---
 
         /**
@@ -217,16 +236,13 @@
                 auth = getAuth(app); 
                 db = getFirestore(app);
 
-                // Optional check: If a user is already logged in (from a previous session), redirect.
+                // If a user is already logged in (from a previous session), redirect to their intended destination.
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
-                         // If any user is found, redirect them to the dashboard
-                        window.location.href = 'dashboard.html'; 
+                        // Redirect to the path specified in the URL, or dashboard.html by default
+                        setTimeout(redirectToNextPage, 50);
                     }
                 });
-
-                // NOTE: We no longer use initialAuthToken or anonymous sign-in since 
-                // we are using a hardcoded configuration for standard email/password flow.
 
             } catch (error) {
                 // If initialization fails, catch the error, log it, and set auth/db to null.
@@ -261,9 +277,7 @@
                 showMessage("Login successful! Redirecting...", false);
                 
                 // Redirect on success
-                setTimeout(() => {
-                    window.location.href = 'dashboard.html';
-                }, 1000);
+                setTimeout(redirectToNextPage, 1000);
 
             } catch (error) {
                 console.error("Login failed:", error);
@@ -301,12 +315,10 @@
             try {
                 // Create user with Firebase Auth
                 await createUserWithEmailAndPassword(auth, email, password);
-                showMessage("Account created successfully! Redirecting to dashboard...", false);
+                showMessage("Account created successfully! Redirecting to the site builder...", false);
 
                 // Redirect on success
-                setTimeout(() => {
-                    window.location.href = 'dashboard.html';
-                }, 1000);
+                setTimeout(redirectToNextPage, 1000);
 
             } catch (error) {
                 console.error("Sign-up failed:", error);
@@ -322,29 +334,39 @@
         }
 
 
-        // --- UI Toggling Logic ---
+        // --- UI Toggling Logic (FIXED) ---
 
-        // Initial state setup
+        /**
+         * Sets the initial state to the Log In form.
+         */
         function initializeForms() {
-            // Set login as active by default
+            // Display only the Login form initially
             loginForm.classList.remove('hidden');
             signupForm.classList.add('hidden');
-            // Update class lists to ensure correct initial styling
+            
+            // Set Login tab as active (white, shadow, teal text)
             loginTab.classList.add('bg-white', 'shadow', 'text-ammoue');
             loginTab.classList.remove('text-gray-500');
+            
+            // Set Signup tab as inactive (gray text)
             signupTab.classList.remove('bg-white', 'shadow', 'text-ammoue');
             signupTab.classList.add('text-gray-500');
         }
 
-        // Function to toggle between login and sign-up forms
+        /**
+         * Function to toggle between login and sign-up forms, updating button styling.
+         * @param {string} formType - 'login' or 'signup'.
+         */
         window.toggleForm = function(formType) {
             if (formType === 'login') {
                 loginForm.classList.remove('hidden');
                 signupForm.classList.add('hidden');
                 
+                // Activate Login Tab
                 loginTab.classList.add('bg-white', 'shadow', 'text-ammoue');
                 loginTab.classList.remove('text-gray-500');
 
+                // Deactivate Signup Tab
                 signupTab.classList.remove('bg-white', 'shadow', 'text-ammoue');
                 signupTab.classList.add('text-gray-500');
 
@@ -352,16 +374,17 @@
                 loginForm.classList.add('hidden');
                 signupForm.classList.remove('hidden');
 
+                // Activate Signup Tab
                 signupTab.classList.add('bg-white', 'shadow', 'text-ammoue');
                 signupTab.classList.remove('text-gray-500');
 
+                // Deactivate Login Tab
                 loginTab.classList.remove('bg-white', 'shadow', 'text-ammoue');
                 loginTab.classList.add('text-gray-500');
             }
         }
         
         // --- Run Initialization Immediately ---
-        // This is necessary to fix the click delay issue reported previously.
         initializeAppAndAuth();
         initializeForms();
         lucide.createIcons();
