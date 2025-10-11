@@ -157,7 +157,7 @@
         // --- AI Generation Logic ---
 
         /**
-         * Handles the generation process by calling the Gemini API.
+         * Handles the generation process by calling the secure Vercel API endpoint.
          */
         async function handleGeneration() {
             const prompt = promptInput.value.trim();
@@ -170,39 +170,30 @@
             outputDiv.classList.add('hidden');
             outputText.innerHTML = '';
             
-            // Define the system instruction for the AI model
-            const systemPrompt = "You are Ammoue AI, a world-class website design generator. Based on the user's prompt, generate a cohesive, single paragraph description of the type of website, its primary goal, and a list of 5 key sections/components it should have, formatted as a markdown list. Focus on generating an outline that a developer could use to build a website.";
-            
-            const userQuery = `Generate a website outline for the following idea: ${prompt}`;
-            
-            // --- Gemini API Call Setup ---
-            const apiKey = ""; // Leave as-is
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            // The frontend now calls the secure Vercel API route
+            const apiEndpoint = '/api/generate'; 
 
+            // Payload structure expected by the Vercel Serverless Function (see vercel_api_proxy.md)
             const payload = {
-                contents: [{ parts: [{ text: userQuery }] }],
-                // Use Google Search for grounding the content
-                tools: [{ "google_search": {} }], 
-                systemInstruction: {
-                    parts: [{ text: systemPrompt }]
-                },
+                userQuery: `Generate a website outline for the following idea: ${prompt}`,
             };
 
             const maxRetries = 3;
             for (let attempt = 0; attempt < maxRetries; attempt++) {
                 try {
-                    const response = await fetch(apiUrl, {
+                    const response = await fetch(apiEndpoint, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
 
                     if (!response.ok) {
-                        throw new Error(`API returned status ${response.status}`);
+                        const errorData = await response.json();
+                        throw new Error(`API Proxy returned status ${response.status}: ${errorData.error}`);
                     }
 
                     const result = await response.json();
-                    const generatedText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    const generatedText = result.generatedText; // Expecting { generatedText: "..." } from the proxy
                     
                     if (generatedText) {
                         // Display the generated text
@@ -217,7 +208,7 @@
                 } catch (error) {
                     console.error(`Attempt ${attempt + 1} failed:`, error);
                     if (attempt === maxRetries - 1) {
-                        showMessage("Failed to generate site outline after multiple retries. Try a different prompt.", true);
+                        showMessage("Failed to generate site outline. Check Vercel logs for API key or proxy errors.", true);
                     } else {
                         // Exponential backoff
                         const delay = Math.pow(2, attempt) * 1000;
