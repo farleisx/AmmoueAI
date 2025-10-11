@@ -67,7 +67,7 @@
         <textarea id="ai-prompt" rows="6" class="w-full p-4 border-2 border-ammoue/30 rounded-2xl focus:ring-ammoue focus:border-ammoue transition duration-150 shadow-md" placeholder="e.g., 'A vibrant landing page for a dog grooming salon called Paws & Claws, focusing on luxury services and online booking.'"></textarea>
 
         <div class="mt-6 flex justify-end space-x-4">
-            <!-- NEW: Dashboard Button (Will be implemented in a future step) -->
+            <!-- NEW: Dashboard Button -->
             <a href="dashboard.html" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300 flex items-center">
                 <i data-lucide="layout-dashboard" class="w-4 h-4 mr-1"></i> Dashboard
             </a>
@@ -110,32 +110,54 @@
 
     <!-- Firebase and AI Generation Logic -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+        // Reverting to stable version 11.6.1 for better compatibility in the environment
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- CANVAS GLOBAL VARIABLES (MANDATORY USE) ---
+        // Ensure that we get the global variables provided by the Canvas environment.
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-ammoue-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { /* Placeholder Config */ };
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         
-        // --- Initialize Firebase and Auth ---
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app); 
-        const db = getFirestore(app); // Initialize Firestore
+        // Robustly parse the Firebase config, assuming it's correctly provided as a string.
+        let firebaseConfig = null;
+        try {
+            if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                firebaseConfig = JSON.parse(__firebase_config);
+            }
+        } catch (e) {
+            console.error("Error parsing __firebase_config:", e);
+        }
+
+        let app = null;
+        let auth = null;
+        let db = null;
         let currentUserId = null; 
         
+        // Initialize Firebase services only if config is valid
+        if (firebaseConfig) {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app); 
+            db = getFirestore(app); 
+        } else {
+            console.error("CRITICAL: Firebase configuration is missing or invalid. App functionality will be limited.");
+        }
+
         // Function to handle custom sign-in
         async function authenticateUser() {
+            if (!auth) return;
+
             try {
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
-                    // Fallback to anonymous sign-in
+                    // Fallback to anonymous sign-in if no custom token is available
                     await signInAnonymously(auth);
                 }
             } catch (error) {
                 console.error("Firebase Auth failed during initial sign-in:", error);
+                showMessage("Authentication failed. Please refresh.", true);
             }
         }
 
@@ -167,7 +189,7 @@
                 messageBox.classList.add('bg-red-500');
             } else {
                 messageBox.classList.remove('bg-red-500');
-                messageBox.classList.add('bg-ammoue'); // Use brand color for success
+                messageBox.classList.add('bg-ammoue'); 
             }
 
             messageBox.classList.remove('opacity-0');
@@ -185,7 +207,7 @@
         function setLoading(isLoading) {
             if (isLoading) {
                 generateBtn.disabled = true;
-                downloadBtn.disabled = true; // Disable download during generation
+                downloadBtn.disabled = true; 
                 generateBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Generating...';
             } else {
                 generateBtn.disabled = false;
@@ -224,7 +246,7 @@
             const blob = new Blob([htmlCode], { type: "text/html" });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
-            link.download = "ammoue_website.html"; // Default filename
+            link.download = "ammoue_website.html"; 
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -258,8 +280,8 @@
          * Gets the Firestore collection reference for the current user's projects.
          */
         function getProjectsCollectionRef() {
-            if (!currentUserId) {
-                console.error("Cannot get collection ref: User ID is missing.");
+            if (!currentUserId || !db) {
+                console.error("Cannot get collection ref: User ID or Firestore is missing.");
                 return null;
             }
             // Private data path: /artifacts/{appId}/users/{userId}/projects
@@ -271,7 +293,10 @@
          */
         async function saveProject(prompt, htmlCode) {
             const projectsRef = getProjectsCollectionRef();
-            if (!projectsRef) return;
+            if (!projectsRef) {
+                showMessage("Cannot save project: Authentication or database connection failed.", true);
+                return;
+            }
 
             try {
                 const docRef = await addDoc(projectsRef, {
@@ -339,7 +364,11 @@
                         downloadBtn.disabled = false;
                         
                         // --- CRITICAL: AUTO-SAVE PROJECT HERE ---
-                        await saveProject(prompt, generatedHtml);
+                        if (db) {
+                            await saveProject(prompt, generatedHtml);
+                        } else {
+                            showMessage("Generated, but failed to save: Database not initialized.", true);
+                        }
                         
                         break; // Exit loop on success
                     } else {
@@ -364,45 +393,47 @@
 
         // --- Authentication Guard and Event Listeners ---
 
-        // Start the authentication process right away
-        authenticateUser();
+        if (auth) {
+             // Start the authentication process right away
+            authenticateUser();
 
-        onAuthStateChanged(auth, (user) => {
-            console.log("Auth state resolved. User:", user ? user.uid : "none");
+            onAuthStateChanged(auth, (user) => {
+                console.log("Auth state resolved. User:", user ? user.uid : "none");
 
-            if (user) {
-                // Set the global user ID once authenticated
-                currentUserId = user.uid;
+                if (user) {
+                    // Set the global user ID once authenticated
+                    currentUserId = user.uid;
 
-                // User is logged in: Show the content
-                loadingState.style.pointerEvents = 'none';
-                loadingState.classList.add('hidden');
-                loadingState.style.opacity = '0'; 
-                mainContent.classList.remove('hidden');
+                    // User is logged in: Show the content
+                    loadingState.style.pointerEvents = 'none';
+                    loadingState.classList.add('hidden');
+                    loadingState.style.opacity = '0'; 
+                    mainContent.classList.remove('hidden');
 
-                if (!listenersAttached) {
-                    generateBtn.addEventListener('click', handleGeneration);
-                    copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
-                    downloadBtn.addEventListener('click', handleDownload); 
-                    previewBtn.addEventListener('click', handlePreview);
-                    
-                    logoutBtn.addEventListener('click', async () => {
-                        try {
-                            await signOut(auth);
-                        } catch (error) {
-                            console.error("Logout failed:", error);
-                        }
-                    });
-                    listenersAttached = true;
+                    if (!listenersAttached) {
+                        generateBtn.addEventListener('click', handleGeneration);
+                        copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
+                        downloadBtn.addEventListener('click', handleDownload); 
+                        previewBtn.addEventListener('click', handlePreview);
+                        
+                        logoutBtn.addEventListener('click', async () => {
+                            try {
+                                await signOut(auth);
+                            } catch (error) {
+                                console.error("Logout failed:", error);
+                            }
+                        });
+                        listenersAttached = true;
+                    }
+                } else {
+                    // User is NOT logged in: Redirect them to login.
+                    console.log("User not authenticated. Redirecting to login.");
+                    const currentPath = window.location.pathname;
+                    const redirectUrl = 'login.html?redirect=' + encodeURIComponent(currentPath);
+                    window.location.replace(redirectUrl); 
                 }
-            } else {
-                // User is NOT logged in: Redirect them to login.
-                console.log("User not authenticated. Redirecting to login.");
-                const currentPath = window.location.pathname;
-                const redirectUrl = 'login.html?redirect=' + encodeURIComponent(currentPath);
-                window.location.replace(redirectUrl); 
-            }
-        });
+            });
+        }
         
         lucide.createIcons();
     </script>
