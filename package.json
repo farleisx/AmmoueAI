@@ -1,5 +1,6 @@
 {
   "type": "module",
+  "main": "api/generate.js",
   "dependencies": {
     "@google/genai": "^0.1.0"
   }
