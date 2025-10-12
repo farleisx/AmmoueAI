@@ -60,40 +60,17 @@
         <main class="p-8 max-w-6xl mx-auto">
             <h1 class="text-4xl font-bold text-gray-800 mb-6">Your Sites & Projects</h1>
             
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 <!-- Create New Site Card - CONFIRMED CORRECT LINK: 'ai_prompt.html' -->
                 <div onclick="window.location.href='ai_prompt.html'" 
-                     class="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:border-ammoue transition duration-300 cursor-pointer hover:shadow-lg h-full">
+                    class="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:border-ammoue transition duration-300 cursor-pointer hover:shadow-lg h-full">
                     <i data-lucide="plus-circle" class="w-12 h-12 text-gray-400 mb-3"></i>
                     <p class="text-lg font-semibold text-gray-700">Create New AI Site</p>
                     <p class="text-sm text-gray-500 mt-1">Start generating a new website</p>
                 </div>
+                
+                <!-- Existing Project cards removed as requested -->
 
-                <!-- Existing Project Card 1 (Mock Data) -->
-                <div class="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-                    <div class="flex justify-between items-start">
-                        <h2 class="text-xl font-bold text-ammoue">E-Commerce Store</h2>
-                        <i data-lucide="external-link" class="w-5 h-5 text-gray-500 cursor-pointer hover:text-ammoue"></i>
-                    </div>
-                    <p class="text-sm text-gray-500 mt-1">Last edited: 2 hours ago</p>
-                    <p class="mt-4 text-gray-700 text-sm line-clamp-2">A clean and fast site for selling handmade goods online.</p>
-                    <button class="mt-4 w-full py-2 text-sm font-semibold rounded-xl text-ammoue border border-ammoue hover:bg-teal-50/50 transition">
-                        Edit Project
-                    </button>
-                </div>
-
-                <!-- Existing Project Card 2 (Mock Data) -->
-                <div class="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-                    <div class="flex justify-between items-start">
-                        <h2 class="text-xl font-bold text-ammoue">Portfolio V3</h2>
-                        <i data-lucide="external-link" class="w-5 h-5 text-gray-500 cursor-pointer hover:text-ammoue"></i>
-                    </div>
-                    <p class="text-sm text-gray-500 mt-1">Last edited: Yesterday</p>
-                    <p class="mt-4 text-gray-700 text-sm line-clamp-2">My professional portfolio for web development clients.</p>
-                    <button class="mt-4 w-full py-2 text-sm font-semibold rounded-xl text-ammoue border border-ammoue hover:bg-teal-50/50 transition">
-                        Edit Project
-                    </button>
-                </div>
             </div>
         </main>
     </div>
