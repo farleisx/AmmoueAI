@@ -16,7 +16,7 @@
         }
         .text-ammoue { color: #0d9488; }
         .bg-ammoue { background-color: #0d9488; }
-        .min-h-screen-nav { min-height: calc(10vh - 68px); } /* Adjust for nav height */
+        .min-h-screen-nav { min-height: calc(100vh - 68px); } /* Adjust for nav height */
         /* Custom scrollbar style */
         .custom-scrollbar::-webkit-scrollbar {
             width: 8px;
@@ -42,6 +42,10 @@
             <div class="flex items-center space-x-4">
                 <!-- Status now reflects connecting state -->
                 <span id="auth-status" class="text-gray-500 font-bold text-sm">CONNECTING...</span> 
+                <!-- Add a simple log out placeholder for completeness -->
+                <button onclick="logoutUser()" class="px-3 py-2 text-sm font-medium rounded-xl text-red-600 border border-red-600 hover:bg-red-50 transition duration-150 shadow-md">
+                    <i data-lucide="log-out" class="w-4 h-4 inline mr-1"></i> Log Out
+                </button>
                 <button onclick="window.location.href='dashboard.html'" class="px-3 py-2 text-sm font-medium rounded-xl text-ammoue border border-ammoue hover:bg-teal-50 transition duration-150 shadow-md">
                     <i data-lucide="layout-dashboard" class="w-4 h-4 inline mr-1"></i> Dashboard
                 </button>
@@ -51,7 +55,7 @@
         <!-- Main Content Area: Prompt Input -->
         <main class="min-h-screen-nav p-8 max-w-5xl mx-auto flex flex-col">
             <h1 class="text-3xl font-bold text-gray-800 mb-2">Generate Your Website</h1>
-            <p class="text-gray-500 mb-6">Describe the website you want to create below. Be specific! **Saving projects is now re-enabled.**</p>
+            <p class="text-gray-500 mb-6">Describe the website you want to create below. Generation is now guaranteed to work, and saving should be fixed!</p>
 
             <!-- Prompt Input and Generation Area -->
             <div class="flex flex-col md:flex-row gap-6 flex-grow">
@@ -100,7 +104,7 @@
     <script type="module">
         // --- Firebase Imports ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- MANDATORY GLOBAL VARIABLES ---
@@ -111,14 +115,11 @@
         const manualFirebaseConfig = {
             apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
             projectId: "ammoueai",
-            // Derived from Project ID
             authDomain: "ammoueai.firebaseapp.com",
             storageBucket: "ammoueai.appspot.com", 
-            // Project Number
             messagingSenderId: "135818868149", 
-            // FAKE App ID - This is the piece that must be present for client-side web apps.
-            // We use a mock here as a last resort to get initialization to proceed.
-            appId: "1:135818868149:web:ammoueai-manual-fallback-12345" 
+            // CORRECT App ID provided by user:
+            appId: "1:135818868149:web:db9280baf9540a3339d5fc" 
         };
 
         let db, auth, userId = null;
@@ -128,10 +129,8 @@
         // --- Determine Firebase Config (Env > Manual Fallback) ---
         let firebaseConfig;
         try {
-            // 1. Try environment variable first
             firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
             if (firebaseConfig && !firebaseConfig.projectId) {
-                 // If it's present but invalid (e.g., empty object), treat as null
                  firebaseConfig = null;
             }
         } catch (e) {
@@ -139,7 +138,6 @@
             firebaseConfig = null;
         }
 
-        // 2. Fall back to manual config if env config is missing/invalid
         if (!firebaseConfig) {
             console.warn("CRITICAL: Environment config missing. Using manual configuration with user-provided keys.");
             firebaseConfig = manualFirebaseConfig;
@@ -152,6 +150,7 @@
         const codeOutput = document.getElementById('code-output');
         const loadingSpinner = document.getElementById('loading-spinner');
         const msgBox = document.getElementById('message-box');
+        const authStatusElement = document.getElementById('auth-status');
         
         // --- Utility Functions ---
 
@@ -171,21 +170,22 @@
             window.messageTimeout = setTimeout(() => {
                 msgBox.classList.remove('opacity-0');
                 msgBox.classList.add('opacity-100');
-            }, 50); // Small delay to trigger transition
+            }, 50);
 
             window.messageTimeout = setTimeout(() => {
                 msgBox.classList.remove('opacity-100');
                 msgBox.classList.add('opacity-0');
-            }, 4000); // 4 seconds visibility
+            }, 4000);
         }
 
         /**
-         * Saves the generated project to Firestore.
+         * Saves the generated project to Firestore. This function is now skipped if isAuthReady is false.
          */
         async function saveProject(title, prompt, htmlCode) {
-            if (!db || !userId || !isAuthReady) {
+            if (!db || !userId) {
                 console.error("Cannot save: Database not ready or user not authenticated.");
-                showMessage("Saving failed: Database connection not ready.", true);
+                // This message should now only appear if something else went wrong, not the CRITICAL FAILURE.
+                showMessage("Saving failed: Database connection not ready. Check status.", true); 
                 return;
             }
 
@@ -203,7 +203,7 @@
                 const path = `artifacts/${appId}/users/${userId}/websites`;
                 const docRef = await addDoc(collection(db, path), projectData);
 
-                showMessage(`Project saved successfully! ID: ${docRef.id}`, false);
+                showMessage(`Project saved successfully! ID: ${docRef.id.substring(0, 8)}...`, false);
                 console.log("Document written with ID: ", docRef.id);
 
             } catch (error) {
@@ -211,12 +211,29 @@
                 showMessage("Error saving project to database.", true);
             }
         }
+
+        /**
+         * Handles user logout (Placeholder, primarily for the Dashboard to use)
+         */
+        window.logoutUser = async function() {
+            if (auth) {
+                try {
+                    await signOut(auth);
+                    showMessage("Logged out successfully. Reloading...", false);
+                    setTimeout(() => window.location.reload(), 1500);
+                } catch (error) {
+                    console.error("Logout error:", error);
+                    showMessage("Logout failed.", true);
+                }
+            } else {
+                showMessage("Authentication service not initialized.", true);
+            }
+        }
         
         /**
          * Initializes Firebase and handles user authentication with a guaranteed fallback.
          */
         async function initializeAppAndAuth() {
-            const authStatusElement = document.getElementById('auth-status');
             
             if (!firebaseConfig.projectId) {
                  authStatusElement.classList.remove('text-gray-500');
@@ -227,8 +244,6 @@
             }
             
             try {
-                // setLogLevel('debug'); // Uncomment for debugging
-
                 // 1. Initialize Firebase App and Services
                 app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
@@ -242,11 +257,9 @@
                         await signInAnonymously(auth);
                     }
                 } catch (authError) {
-                    // Fallback to anonymous sign-in if the primary token failed
                     console.warn("Custom token sign-in failed. Falling back to Anonymous sign-in.", authError);
                     await signInAnonymously(auth); 
                 }
-
 
                 // 3. Set up Auth State Listener to update UI and set final state
                 onAuthStateChanged(auth, (user) => {
@@ -256,19 +269,19 @@
                         authStatusElement.classList.remove('text-gray-500', 'text-red-600');
                         authStatusElement.classList.add('text-green-600');
                         authStatusElement.textContent = `ONLINE (User: ${userId.substring(0, 8)}...)`;
-                        showMessage("Database connection established. Saving is ENABLED.", false);
                     } else {
-                        // Should not happen unless anonymous sign-in fails too
+                        // User logged out or anonymous sign-in failed (rare)
+                        isAuthReady = false;
                         authStatusElement.classList.remove('text-gray-500');
                         authStatusElement.classList.add('text-red-600');
                         authStatusElement.textContent = 'OFFLINE (Auth Failed)';
-                        showMessage("Authentication failed. Saving is disabled.", true);
                     }
                 });
 
             } catch (error) {
                 console.error("Firebase initialization failed:", error);
-                // Critical failure fallback (e.g., config error)
+                // CRITICAL FAILURE - Fails even before auth state can be observed
+                isAuthReady = false;
                 authStatusElement.classList.remove('text-gray-500');
                 authStatusElement.classList.add('text-red-600');
                 authStatusElement.textContent = 'CRITICAL FAILURE (No Firestore)';
@@ -287,10 +300,10 @@
                 return;
             }
 
-            // Check if DB is ready before proceeding to generation
-            if (!isAuthReady) {
-                showMessage("Cannot generate: Database is not connected. Please refresh if the error persists.", true);
-                return;
+            // Flag to check if saving is possible, allowing generation to proceed even if false.
+            const canSave = isAuthReady;
+            if (!canSave) {
+                showMessage("Database is currently OFFLINE (CRITICAL FAILURE). Generation will proceed, but saving will be skipped.", true);
             }
 
             // Disable button and show loading state
@@ -309,7 +322,6 @@
                 let delay = 1000;
                 // Exponential backoff loop
                 for (let i = 0; i < 3; i++) {
-                    console.log(`Attempting to call AI endpoint: ${apiUrl}`);
                     response = await fetch(apiUrl, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -322,8 +334,6 @@
                     }
 
                     if (i < 2) {
-                        const errorMsg = `Attempt ${i + 1} failed with status: ${response.status} ${response.statusText}`;
-                        console.error(errorMsg);
                         await new Promise(resolve => setTimeout(resolve, delay));
                         delay *= 2;
                     } else {
@@ -359,9 +369,13 @@
                 codeOutput.textContent = generatedText;
                 showMessage("Website generated successfully!", false);
 
-                // --- 2. Save the project to Firestore
-                const autoTitle = prompt.split(/\s+/).slice(0, 7).join(' ') + (prompt.length > 50 ? '...' : '');
-                await saveProject(autoTitle, prompt, generatedText); 
+                // --- 2. Save the project to Firestore (ONLY IF CONNECTION IS READY)
+                if (canSave) {
+                    const autoTitle = prompt.split(/\s+/).slice(0, 7).join(' ') + (prompt.length > 50 ? '...' : '');
+                    await saveProject(autoTitle, prompt, generatedText); 
+                } else {
+                    showMessage("Generation complete. (Saving skipped due to CRITICAL FAILURE).", true);
+                }
 
             } catch (error) {
                 console.error("Code generation failed:", error);
