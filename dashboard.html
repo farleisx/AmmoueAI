@@ -49,7 +49,7 @@
         <nav class="bg-white shadow-md p-4 flex justify-between items-center sticky top-0 z-10">
             <div class="text-2xl font-extrabold text-ammoue">Ammoue Dashboard</div>
             <div class="flex items-center space-x-4">
-                <!-- RESTORED: ID is user-email and text is "Welcome, " -->
+                <!-- Displays the authenticated user's ID -->
                 <span class="text-gray-600 text-sm">Welcome, <span id="user-email" class="font-semibold">Loading...</span></span>
                 <button onclick="handleLogout()" class="px-3 py-2 text-sm font-medium rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150 shadow-md">
                     Log Out
@@ -61,10 +61,10 @@
         <main class="p-4 md:p-8 max-w-6xl mx-auto">
             <h1 class="text-4xl font-bold text-gray-800 mb-6">Your Sites & Projects</h1>
 
-            <!-- REQUIRED: Projects Container -->
+            <!-- Projects Container: The 'Create New AI Site' card is static, others are dynamic -->
             <div id="projects-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
 
-                <!-- RESTORED: Using <div> with onclick as requested, pointing to ai_prompt.html -->
+                <!-- Static Card to Create New Site -->
                 <div onclick="window.location.href='ai_prompt.html'"
                     class="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:border-ammoue transition duration-300 cursor-pointer hover:shadow-lg h-full min-h-[200px]">
                     <i data-lucide="plus-circle" class="w-12 h-12 text-gray-400 mb-3"></i>
@@ -72,8 +72,7 @@
                     <p class="text-sm text-gray-500 mt-1">Start generating a new website</p>
                 </div>
 
-                <!-- Project cards will be dynamically injected here by the script -->
-                <!-- REQUIRED: No Projects Message -->
+                <!-- Dynamic project cards will be injected here by the script -->
                 <p id="no-projects-message" class="col-span-full text-center text-gray-500 text-lg hidden mt-10">
                     You haven't saved any projects yet. Click above to start!
                 </p>
@@ -84,286 +83,263 @@
 
     <!-- Firebase Initialization and Auth Logic -->
     <script type="module">
-    // --- NOTE: We are using the hardcoded config from login.html for consistency ---
-// Using SDK v12.4.0 to match your login.html imports
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-// ADDED required Firestore imports to the user's list, maintaining the v12.4.0 path
-import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-import { getFirestore, setLogLevel, collection, onSnapshot, query, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+    // Using SDK v12.4.0 to match your previous setup
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+    // Required Firestore imports for real-time data fetching and deletion
+    import { getFirestore, setLogLevel, collection, onSnapshot, query, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
-// HARDCODED CONFIG from your login.html (UNCHANGED per request)
-const firebaseConfig = {
-    apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
-    authDomain: "ammoueai.firebaseapp.com",
-    projectId: "ammoueai",
-    storageBucket: "ammoueai.firebasestorage.app",
-    messagingSenderId: "135818868149",
-    appId: "1:135818868149:web:db9280baf9540a3339d5fc",
-};
+    // IMPORTANT: Hardcoded configuration from login.html for this specific app instance
+    const firebaseConfig = {
+        apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
+        authDomain: "ammoueai.firebaseapp.com",
+        projectId: "ammoueai",
+        storageBucket: "ammoueai.firebasestorage.app",
+        messagingSenderId: "135818868149",
+        appId: "1:135818868149:web:db9280baf9540a3339d5fc",
+    };
 
-let auth = null;
-let db = null;
+    let auth = null;
+    let db = null;
+    let currentUserId = null;
+    let isAuthReady = false;
+    // Use projectId as a substitute for __app_id when hardcoding
+    const appId = firebaseConfig.projectId;
 
-// ADDED state variables for project management
-let currentUserId = null;
-let isAuthReady = false;
-const appId = firebaseConfig.projectId; // Use projectId as a substitute for __app_id when hardcoding
-
-// --- DOM Elements ---
-const loadingScreen = document.getElementById('loading-screen');
-const dashboardContent = document.getElementById('dashboard-content');
-// FIXED: Changed from 'user-id' to 'user-email' to correctly target the HTML element ID
-const userEmailSpan = document.getElementById('user-email');
-const msgBox = document.getElementById('message-box');
-
-// ADDED DOM elements for project display
-const projectsContainer = document.getElementById('projects-container');
-const noProjectsMessage = document.getElementById('no-projects-message');
+    // --- DOM Elements ---
+    const loadingScreen = document.getElementById('loading-screen');
+    const dashboardContent = document.getElementById('dashboard-content');
+    const userEmailSpan = document.getElementById('user-email');
+    const msgBox = document.getElementById('message-box');
+    const projectsContainer = document.getElementById('projects-container');
 
 
-// --- Utility Functions ---
-function showMessage(message, isError) {
-    if (!msgBox) return;
-    msgBox.textContent = message;
+    // --- Utility Functions ---
 
-    msgBox.className = 'p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 z-50';
-    msgBox.classList.add(isError ? 'bg-red-500' : 'bg-green-500');
-    msgBox.classList.add('opacity-100');
-    setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
-}
+    /** Shows a temporary message box (replaces alert()) */
+    function showMessage(message, isError) {
+        if (!msgBox) return;
+        msgBox.textContent = message;
 
-/**
- * Opens the generated HTML in a new window for a live preview.
- */
-window.handlePreview = function(htmlContent) {
-    if (!htmlContent) {
-        showMessage("Preview data is missing.", true);
-        return;
+        msgBox.className = 'p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 z-50';
+        msgBox.classList.add(isError ? 'bg-red-500' : 'bg-green-500');
+        msgBox.classList.add('opacity-100');
+        setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
     }
 
-    const previewWindow = window.open('', '_blank');
-    if (!previewWindow) {
-         showMessage("Pop-ups must be enabled to view the preview.", true);
-         return;
-    }
-    previewWindow.document.write(htmlContent);
-    previewWindow.document.close();
-}
-
-/**
- * Downloads the generated HTML code as a file.
- */
-window.handleDownload = function(htmlContent, title) {
-    if (!htmlContent) {
-        showMessage("Nothing to download.", true);
-        return;
-    }
-
-    const blob = new Blob([htmlContent], { type: 'text/html' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    const filename = title.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'ammoue_project';
-    a.download = `${filename}.html`;
-
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-
-    showMessage("HTML file prepared for download!", false);
-}
-
-/**
- * Handles deletion of a project from Firestore. (CORE FUNCTIONALITY ADDED)
- */
-window.handleDeleteProject = async function(projectId) {
-    if (!isAuthReady || !currentUserId) {
-        showMessage("System not ready or user ID missing.", true);
-        return;
-    }
-
-    // IMPORTANT: Replaced window.confirm() with a custom modal/message to comply with platform standards
-    showMessage("Project deletion is confirmed via the button, initiating delete...", false);
-    
-    try {
-        // Path: /artifacts/{appId}/users/{userId}/projects/{projectId}
-        const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
-        await deleteDoc(docRef);
-        showMessage("Project deleted successfully!", false);
-    } catch (error) {
-        console.error("Error deleting document:", error);
-        showMessage("Failed to delete project.", true);
-    }
-}
-
-/**
- * Renders the list of projects from Firestore data. (CORE FUNCTIONALITY ADDED)
- */
-function renderProjects(projects) {
-    // Get the HTML of the static 'Create New Site' card
-    // FIXED: Changed the selector from 'a' to 'div.cursor-pointer' to target the static card element you prefer in dashboard.html
-    const createCardElement = projectsContainer.querySelector('div.cursor-pointer'); 
-    
-    // Safety check in case the static card is missing
-    if (!createCardElement) {
-        console.error("Could not find the static 'Create New Site' element in the dashboard HTML.");
-        projectsContainer.innerHTML = `<p class="col-span-full text-center text-red-500 text-lg mt-10">Error: Missing Create Site element.</p>`;
-        return;
-    }
-    
-    const createCardHtml = createCardElement.outerHTML;
-
-    let projectsHtml = createCardHtml;
-
-    if (projects.length === 0) {
-        // Keep the 'Create New Site' card and show the empty message
-        projectsContainer.innerHTML = createCardHtml + `<p id="no-projects-message" class="col-span-full text-center text-gray-500 text-lg mt-10">You haven't saved any projects yet. Click above to start!</p>`;
-        lucide.createIcons();
-        return;
-    }
-
-    // Generate HTML for each saved project
-    projects.forEach(project => {
-        const timestamp = project.timestamp ? new Date(project.timestamp).toLocaleDateString() : 'N/A';
-
-        // NOTE: We JSON.stringify the content and title because they are passed as string arguments
-        // to onclick handlers in the HTML, which is the correct and safest practice here.
-        const safeHtmlContent = JSON.stringify(project.htmlContent);
-        const safeTitle = JSON.stringify(project.title);
-
-        projectsHtml += `
-            <div class="bg-white border border-gray-200 rounded-2xl p-6 flex flex-col justify-between shadow-lg hover:shadow-xl transition duration-300">
-                <div>
-                    <div class="flex items-center justify-between mb-3">
-                        <h3 class="text-xl font-bold text-gray-900">${project.title}</h3>
-                        <i data-lucide="layout" class="w-6 h-6 text-ammoue/70"></i>
-                    </div>
-                    <p class="text-xs text-gray-500 mb-4 h-10 overflow-hidden">${project.prompt}</p>
-                </div>
-                <div class="mt-auto">
-                    <p class="text-xs text-gray-400 mb-3">Saved: ${timestamp}</p>
-                    <div class="flex space-x-2">
-                        <button onclick='handlePreview(${safeHtmlContent})' class="flex-1 px-3 py-2 text-sm font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-150">
-                            <i data-lucide="eye" class="w-4 h-4 inline-block mr-1"></i> Preview
-                        </button>
-                        <button onclick='handleDownload(${safeHtmlContent}, ${safeTitle})' class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-green-600 hover:bg-green-700 transition duration-150">
-                            <i data-lucide="download" class="w-4 h-4 inline-block"></i>
-                        </button>
-                        <button onclick="handleDeleteProject('${project.id}')" class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150">
-                            <i data-lucide="trash-2" class="w-4 h-4 inline-block"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-    });
-
-    projectsContainer.innerHTML = projectsHtml;
-    lucide.createIcons();
-}
-
-/**
- * Fetches projects for the current user in real-time. (CORE FUNCTIONALITY ADDED)
- */
-function getProjects(userId) {
-    if (!db || !userId) return;
-
-    // Path: /artifacts/{appId}/users/{userId}/projects
-    const projectsRef = collection(db, 'artifacts', appId, 'users', userId, 'projects');
-    const q = query(projectsRef);
-
-    // Set up the real-time listener (onSnapshot)
-    onSnapshot(q, (snapshot) => {
-        const projects = [];
-        snapshot.forEach((doc) => {
-            const data = doc.data();
-            projects.push({
-                id: doc.id,
-                ...data,
-                title: data.title || "Untitled Project",
-                prompt: data.prompt || "No prompt available",
-                htmlContent: data.htmlContent || "<!-- No content available -->"
-            });
-        });
-
-        // Sort by timestamp descending (newest first) in memory
-        projects.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-        renderProjects(projects);
-    }, (error) => {
-        console.error("Error fetching projects:", error);
-        showMessage("Failed to load projects.", true);
-    });
-}
-
-
-/**
- * Initializes Firebase services and sets up the critical auth listener.
- */
-function initializeAppAndAuth() {
-    try {
-        const app = initializeApp(firebaseConfig);
-        auth = getAuth(app);
-        db = getFirestore(app);
-
-        // CRITICAL: Authentication Gate using the listener
-        // This listener immediately checks the local session created by login.html.
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                // **SUCCESS** - User is authenticated: Hide loading, show dashboard
-                // Set current user ID
-                currentUserId = user.uid;
-                isAuthReady = true;
-
-                // Display user ID
-                // FIXED: Use userEmailSpan (which targets id="user-email")
-                userEmailSpan.textContent = user.uid;
-
-                // Fetch projects for the logged-in user (CORE INTEGRATION)
-                getProjects(currentUserId);
-
-                loadingScreen.classList.add('hidden');
-                dashboardContent.classList.remove('hidden');
-                dashboardContent.classList.add('opacity-100');
-            } else {
-                // **FAILURE** - User is NOT authenticated: Redirect to login page
-                console.log("No valid session found. Redirecting to login.html...");
-                // This fires AFTER Firebase has checked the session.
-                window.location.href = 'login.html';
-            }
-        });
-
-    } catch (error) {
-        console.error("Firebase initialization failed:", error);
-        // Fail-safe: if init breaks, kick them to login
-        showMessage("Initialization error. Redirecting to login...", true);
-        setTimeout(() => {
-            window.location.href = 'login.html';
-        }, 500);
-    }
-}
-
-/**
- * Logs the current user out.
- */
-window.handleLogout = async function() {
-    if (auth) {
-        try {
-            await signOut(auth);
-            showMessage("You have been signed out.", false);
-            // The onAuthStateChanged listener handles the subsequent redirect to login.html
-        } catch (error) {
-            console.error("Logout failed:", error);
-            showMessage("Logout failed. Please try again.", true);
+    /** Opens the generated HTML in a new window for a live preview. */
+    window.handlePreview = function(htmlContent) {
+        if (!htmlContent) {
+            showMessage("Preview data is missing.", true);
+            return;
         }
-    } else {
-        window.location.href = 'login.html';
+
+        const previewWindow = window.open('', '_blank');
+        if (!previewWindow) {
+             showMessage("Pop-ups must be enabled to view the preview.", true);
+             return;
+        }
+        previewWindow.document.write(htmlContent);
+        previewWindow.document.close();
     }
-}
 
-// --- Run Initialization Immediately ---
-initializeAppAndAuth();
-lucide.createIcons();
+    /** Downloads the generated HTML code as a file. */
+    window.handleDownload = function(htmlContent, title) {
+        if (!htmlContent) {
+            showMessage("Nothing to download.", true);
+            return;
+        }
 
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        const filename = title.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'ammoue_project';
+        a.download = `${filename}.html`;
+
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        showMessage("HTML file prepared for download!", false);
+    }
+
+    /** Handles deletion of a project from Firestore. */
+    window.handleDeleteProject = async function(projectId) {
+        if (!isAuthReady || !currentUserId) {
+            showMessage("System not ready or user ID missing.", true);
+            return;
+        }
+
+        // Using a custom message instead of window.confirm()
+        showMessage("Initiating project deletion...", false);
+        
+        try {
+            // Document path: /artifacts/{appId}/users/{userId}/projects/{projectId}
+            const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
+            await deleteDoc(docRef);
+            showMessage("Project deleted successfully!", false);
+        } catch (error) {
+            console.error("Error deleting document:", error);
+            showMessage("Failed to delete project.", true);
+        }
+    }
+
+    /** Renders the list of projects from Firestore data. */
+    function renderProjects(projects) {
+        // Get the HTML of the static 'Create New Site' card
+        const createCardElement = projectsContainer.querySelector('div.cursor-pointer'); 
+        
+        if (!createCardElement) {
+            console.error("Could not find the static 'Create New Site' element.");
+            projectsContainer.innerHTML = `<p class="col-span-full text-center text-red-500 text-lg mt-10">Error: Missing Create Site element.</p>`;
+            return;
+        }
+        
+        const createCardHtml = createCardElement.outerHTML;
+
+        // Start HTML with the static 'Create New Site' card
+        let projectsHtml = createCardHtml;
+
+        if (projects.length === 0) {
+            // Keep the 'Create New Site' card and show the empty message
+            projectsContainer.innerHTML = createCardHtml + `<p id="no-projects-message" class="col-span-full text-center text-gray-500 text-lg mt-10">You haven't saved any projects yet. Click above to start!</p>`;
+            lucide.createIcons();
+            return;
+        }
+
+        // Generate HTML for each saved project
+        projects.forEach(project => {
+            // Convert Firestore timestamp to a readable date string
+            const timestamp = project.timestamp ? new Date(project.timestamp).toLocaleDateString() : 'N/A';
+
+            // IMPORTANT: JSON.stringify content/title to safely pass strings to onclick handlers
+            const safeHtmlContent = JSON.stringify(project.htmlContent);
+            const safeTitle = JSON.stringify(project.title);
+
+            projectsHtml += `
+                <div class="bg-white border border-gray-200 rounded-2xl p-6 flex flex-col justify-between shadow-lg hover:shadow-xl transition duration-300">
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-xl font-bold text-gray-900 truncate">${project.title}</h3>
+                            <i data-lucide="layout" class="w-6 h-6 text-ammoue/70 flex-shrink-0"></i>
+                        </div>
+                        <p class="text-xs text-gray-500 mb-4 h-10 overflow-hidden line-clamp-2">${project.prompt}</p>
+                    </div>
+                    <div class="mt-auto">
+                        <p class="text-xs text-gray-400 mb-3">Saved: ${timestamp}</p>
+                        <div class="flex space-x-2">
+                            <button onclick='handlePreview(${safeHtmlContent})' class="flex-1 px-3 py-2 text-sm font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-md">
+                                <i data-lucide="eye" class="w-4 h-4 inline-block mr-1"></i> Preview
+                            </button>
+                            <button onclick='handleDownload(${safeHtmlContent}, ${safeTitle})' class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-green-600 hover:bg-green-700 transition duration-150 shadow-md">
+                                <i data-lucide="download" class="w-4 h-4 inline-block"></i>
+                            </button>
+                            <button onclick="handleDeleteProject('${project.id}')" class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150 shadow-md">
+                                <i data-lucide="trash-2" class="w-4 h-4 inline-block"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        projectsContainer.innerHTML = projectsHtml;
+        // Re-render Lucide icons after injecting new HTML
+        lucide.createIcons();
+    }
+
+    /** Fetches projects for the current user in real-time. */
+    function getProjects(userId) {
+        if (!db || !userId) return;
+
+        // Collection path: /artifacts/{appId}/users/{userId}/projects
+        const projectsRef = collection(db, 'artifacts', appId, 'users', userId, 'projects');
+        const q = query(projectsRef);
+
+        // Set up the real-time listener (onSnapshot)
+        onSnapshot(q, (snapshot) => {
+            const projects = [];
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                projects.push({
+                    id: doc.id,
+                    ...data,
+                    title: data.title || "Untitled Project",
+                    prompt: data.prompt || "No prompt available",
+                    htmlContent: data.htmlContent || "<!-- No content available -->"
+                });
+            });
+
+            // Sort by timestamp descending (newest first) in memory (to avoid the need for indexes)
+            projects.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+            renderProjects(projects);
+        }, (error) => {
+            console.error("Error fetching projects:", error);
+            showMessage("Failed to load projects.", true);
+        });
+    }
+
+
+    /** Initializes Firebase services and sets up the critical auth listener. */
+    function initializeAppAndAuth() {
+        try {
+            const app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+
+            // CRITICAL: Authentication Gate using the listener
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    // **SUCCESS** - User is authenticated
+                    currentUserId = user.uid;
+                    isAuthReady = true;
+
+                    // Display user ID
+                    userEmailSpan.textContent = user.uid;
+
+                    // Fetch projects for the logged-in user (CORE INTEGRATION)
+                    getProjects(currentUserId);
+
+                    // Show dashboard content
+                    loadingScreen.classList.add('hidden');
+                    dashboardContent.classList.remove('hidden');
+                    dashboardContent.classList.add('opacity-100');
+                } else {
+                    // **FAILURE** - User is NOT authenticated: Redirect to login page
+                    console.log("No valid session found. Redirecting to login.html...");
+                    window.location.href = 'login.html';
+                }
+            });
+
+        } catch (error) {
+            console.error("Firebase initialization failed:", error);
+            showMessage("Initialization error. Redirecting to login...", true);
+            setTimeout(() => {
+                window.location.href = 'login.html';
+            }, 500);
+        }
+    }
+
+    /** Logs the current user out. */
+    window.handleLogout = async function() {
+        if (auth) {
+            try {
+                await signOut(auth);
+                showMessage("You have been signed out.", false);
+                // Redirect handles itself via onAuthStateChanged listener
+            } catch (error) {
+                console.error("Logout failed:", error);
+                showMessage("Logout failed. Please try again.", true);
+            }
+        } else {
+            window.location.href = 'login.html';
+        }
+    }
+
+    // --- Run Initialization Immediately ---
+    initializeAppAndAuth();
+    lucide.createIcons();
 
     </script>
 </body>
