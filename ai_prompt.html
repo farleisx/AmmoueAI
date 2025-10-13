@@ -16,7 +16,7 @@
         }
         .text-ammoue { color: #0d9488; }
         .bg-ammoue { background-color: #0d9488; }
-        .min-h-screen-nav { min-height: calc(100vh - 68px); } /* Adjust for nav height */
+        .min-h-screen-nav { min-height: calc(10vh - 68px); } /* Adjust for nav height */
         /* Custom scrollbar style */
         .custom-scrollbar::-webkit-scrollbar {
             width: 8px;
@@ -48,7 +48,7 @@
     <!-- Main Content Area: Prompt Input -->
     <main class="min-h-screen-nav p-8 max-w-5xl mx-auto flex flex-col">
         <h1 class="text-3xl font-bold text-gray-800 mb-2">Generate Your Website</h1>
-        <p class="text-gray-500 mb-6">Describe the website you want to create below. Be specific!</p>
+        <p class="text-gray-500 mb-6">Describe the website you want to create below. Be specific! All successful generations are automatically saved.</p>
 
         <!-- Prompt Input and Generation Area -->
         <div class="flex flex-col md:flex-row gap-6 flex-grow">
@@ -96,7 +96,7 @@
     <script type="module">
         // Using recommended Firebase SDK v11.6.1 and mandatory Canvas global variables
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         // --- MANDATORY GLOBAL VARIABLES ---
@@ -164,39 +164,41 @@
 
         /**
          * Initializes Firebase services and checks authentication state.
+         * The primary change is relying on auth.currentUser after the sign-in attempt 
+         * instead of a potentially race-prone onAuthStateChanged listener.
          */
         async function initializeAuth() {
             return new Promise(async (resolve, reject) => {
                 try {
                     const app = initializeApp(firebaseConfig);
                     auth = getAuth(app); 
-                    db = getFirestore(app); // Initialize DB here
+                    db = getFirestore(app); // Initialize DB
 
-                    // 1. Attempt initial sign-in
+                    // 1. Attempt initial mandatory sign-in using token or anonymously
                     if (initialAuthToken) {
                         await signInWithCustomToken(auth, initialAuthToken);
                     } else {
                         await signInAnonymously(auth);
                     }
 
-                    // 2. Set up the state listener (The security gate)
-                    onAuthStateChanged(auth, (user) => {
-                        if (user) {
-                            // User authenticated: Resolve the promise and update UI
-                            currentUserId = user.uid; // Set the current user ID
-                            authStatusSpan.textContent = `User: ${user.email || (user.isAnonymous ? "Guest" : user.uid.substring(0, 8) + '...')}`;
-                            resolve(user);
-                        } else {
-                            // User not authenticated: Redirect to login.html
-                            console.error("User not authenticated. Redirecting to login.html...");
-                            window.location.href = 'login.html';
-                            reject("Unauthenticated"); // Reject the promise
-                        }
-                    });
+                    // 2. Check the final authentication state synchronously
+                    const user = auth.currentUser;
 
+                    if (user) {
+                        // User successfully authenticated/re-authenticated
+                        currentUserId = user.uid;
+                        authStatusSpan.textContent = `User: ${user.email || (user.isAnonymous ? "Guest" : user.uid.substring(0, 8) + '...')}`;
+                        resolve(user);
+                    } else {
+                        // This should technically be caught by the outer catch, but is a safe guard
+                        throw new Error("Sign-in attempt completed, but no user found.");
+                    }
                 } catch (error) {
-                    console.error("Firebase initialization failed:", error);
+                    // This catches any error thrown by the sign-in methods or the explicit throw above
+                    console.error("Firebase initialization or sign-in failed:", error);
                     showMessage("Authentication failed. Redirecting to login...", true);
+                    
+                    // Delay the redirect slightly to ensure the message is seen
                     setTimeout(() => {
                         window.location.href = 'login.html'; 
                     }, 500);
@@ -209,6 +211,11 @@
          * Core function to call the Gemini API for code generation via Vercel and automatically save.
          */
         window.generateSite = async function() {
+            if (!currentUserId) {
+                 showMessage("Please wait for authentication to complete before generating.", true);
+                 return;
+            }
+
             const prompt = promptInput.value.trim();
             if (!prompt) {
                 showMessage("Please enter a description for your website.", true);
@@ -222,13 +229,14 @@
             codeOutput.textContent = ''; // Clear previous output
             
             const apiUrl = '/api/generate'; 
-            const userQuery = `Generate a single-file HTML website for the following description: ${prompt}`;
+            const userQuery = `Generate a single-file HTML website using Tailwind CSS for the following description: ${prompt}`;
             const payload = { prompt: userQuery };
             
             let finalResponse;
             try {
                 let response;
                 let delay = 1000;
+                // Exponential backoff loop
                 for (let i = 0; i < 3; i++) {
                     console.log(`Attempting to call AI endpoint: ${apiUrl}`);
                     response = await fetch(apiUrl, {
@@ -252,6 +260,7 @@
                     }
                 }
                 
+                // --- Robust JSON Parsing and Error Checking ---
                 const responseText = await finalResponse.text();
                 
                 if (!responseText) {
@@ -279,7 +288,7 @@
                 codeOutput.textContent = generatedText;
                 
                 // --- 2. Automatically save the project to Firestore
-                const autoTitle = prompt.split(/\s+/).slice(0, 7).join(' ') + '...';
+                const autoTitle = prompt.split(/\s+/).slice(0, 7).join(' ') + (prompt.length > 50 ? '...' : '');
                 await saveProject(autoTitle, prompt, generatedText); 
 
             } catch (error) {
