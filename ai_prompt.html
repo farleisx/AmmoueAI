@@ -32,61 +32,73 @@
 </head>
 <body class="antialiased min-h-screen">
 
-    <!-- Header/Navbar -->
-    <nav class="bg-white shadow-md p-4 flex justify-between items-center sticky top-0 z-10">
-        <div class="text-2xl font-extrabold text-ammoue">
-            <a href="dashboard.html">Ammoue AI Generator</a>
-        </div>
-        <div class="flex items-center space-x-4">
-            <span id="auth-status" class="text-gray-500 text-sm"></span>
-            <button onclick="window.location.href='dashboard.html'" class="px-3 py-2 text-sm font-medium rounded-xl text-ammoue border border-ammoue hover:bg-teal-50 transition duration-150 shadow-md">
-                <i data-lucide="layout-dashboard" class="w-4 h-4 inline mr-1"></i> Dashboard
-            </button>
-        </div>
-    </nav>
+    <!-- Loading State: Visible initially, hidden on successful auth -->
+    <div id="loader-overlay" class="fixed inset-0 bg-gray-50 flex flex-col items-center justify-center z-50 transition-opacity duration-300">
+        <svg class="animate-spin h-10 w-10 text-ammoue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <p class="mt-4 text-gray-700 font-medium">Checking authentication...</p>
+    </div>
 
-    <!-- Main Content Area: Prompt Input -->
-    <main class="min-h-screen-nav p-8 max-w-5xl mx-auto flex flex-col">
-        <h1 class="text-3xl font-bold text-gray-800 mb-2">Generate Your Website</h1>
-        <p class="text-gray-500 mb-6">Describe the website you want to create below. Be specific! All successful generations are automatically saved.</p>
-
-        <!-- Prompt Input and Generation Area -->
-        <div class="flex flex-col md:flex-row gap-6 flex-grow">
-            <!-- Left Column: Input and Controls -->
-            <div class="md:w-1/2 flex flex-col space-y-4">
-                <div class="bg-white p-6 rounded-2xl shadow-xl border border-gray-100 flex-grow">
-                    <label for="prompt-input" class="block text-lg font-semibold text-gray-700 mb-2">Website Description:</label>
-                    <textarea 
-                        id="prompt-input" 
-                        rows="12" 
-                        placeholder="e.g., A minimalist single-page website for a coffee shop called 'The Daily Grind'. It should have a dark mode, a menu section with 5 items, and a contact form at the bottom." 
-                        class="w-full p-3 border border-gray-300 rounded-xl focus:ring-ammoue focus:border-ammoue transition duration-150 custom-scrollbar"
-                    ></textarea>
-                </div>
-
-                <button onclick="generateSite()" id="generate-button" class="w-full py-3 text-lg font-bold rounded-2xl text-white bg-ammoue hover:bg-teal-700 transition duration-200 shadow-lg flex items-center justify-center disabled:opacity-50">
-                    <i data-lucide="zap" class="w-5 h-5 inline mr-2"></i> 
-                    Generate HTML Website
+    <!-- Main App Container: Hidden until successful auth -->
+    <div id="app-container" class="opacity-0 transition-opacity duration-300">
+        <!-- Header/Navbar -->
+        <nav class="bg-white shadow-md p-4 flex justify-between items-center sticky top-0 z-10">
+            <div class="text-2xl font-extrabold text-ammoue">
+                <a href="dashboard.html">Ammoue AI Generator</a>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span id="auth-status" class="text-gray-500 text-sm"></span>
+                <button onclick="window.location.href='dashboard.html'" class="px-3 py-2 text-sm font-medium rounded-xl text-ammoue border border-ammoue hover:bg-teal-50 transition duration-150 shadow-md">
+                    <i data-lucide="layout-dashboard" class="w-4 h-4 inline mr-1"></i> Dashboard
                 </button>
             </div>
+        </nav>
 
-            <!-- Right Column: Output / Live Preview -->
-            <div class="md:w-1/2 flex flex-col space-y-4">
-                <h2 class="text-xl font-bold text-gray-800">Generated Code Preview</h2>
-                <div id="result-container" class="bg-gray-800 p-4 rounded-2xl shadow-xl flex-grow overflow-auto custom-scrollbar">
-                    <pre id="code-output" class="text-sm text-green-300 whitespace-pre-wrap"><code>// The generated HTML code will appear here...</code></pre>
-                    <div id="loading-spinner" class="hidden text-center text-white py-12">
-                        <svg class="animate-spin h-8 w-8 text-white mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <p class="mt-3">Generating site structure and content...</p>
+        <!-- Main Content Area: Prompt Input -->
+        <main class="min-h-screen-nav p-8 max-w-5xl mx-auto flex flex-col">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Generate Your Website</h1>
+            <p class="text-gray-500 mb-6">Describe the website you want to create below. Be specific! All successful generations are automatically saved.</p>
+
+            <!-- Prompt Input and Generation Area -->
+            <div class="flex flex-col md:flex-row gap-6 flex-grow">
+                <!-- Left Column: Input and Controls -->
+                <div class="md:w-1/2 flex flex-col space-y-4">
+                    <div class="bg-white p-6 rounded-2xl shadow-xl border border-gray-100 flex-grow">
+                        <label for="prompt-input" class="block text-lg font-semibold text-gray-700 mb-2">Website Description:</label>
+                        <textarea 
+                            id="prompt-input" 
+                            rows="12" 
+                            placeholder="e.g., A minimalist single-page website for a coffee shop called 'The Daily Grind'. It should have a dark mode, a menu section with 5 items, and a contact form at the bottom." 
+                            class="w-full p-3 border border-gray-300 rounded-xl focus:ring-ammoue focus:border-ammoue transition duration-150 custom-scrollbar"
+                        ></textarea>
+                    </div>
+
+                    <button onclick="generateSite()" id="generate-button" class="w-full py-3 text-lg font-bold rounded-2xl text-white bg-ammoue hover:bg-teal-700 transition duration-200 shadow-lg flex items-center justify-center disabled:opacity-50">
+                        <i data-lucide="zap" class="w-5 h-5 inline mr-2"></i> 
+                        Generate HTML Website
+                    </button>
+                </div>
+
+                <!-- Right Column: Output / Live Preview -->
+                <div class="md:w-1/2 flex flex-col space-y-4">
+                    <h2 class="text-xl font-bold text-gray-800">Generated Code Preview</h2>
+                    <div id="result-container" class="bg-gray-800 p-4 rounded-2xl shadow-xl flex-grow overflow-auto custom-scrollbar">
+                        <pre id="code-output" class="text-sm text-green-300 whitespace-pre-wrap"><code>// The generated HTML code will appear here...</code></pre>
+                        <div id="loading-spinner" class="hidden text-center text-white py-12">
+                            <svg class="animate-spin h-8 w-8 text-white mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <p class="mt-3">Generating site structure and content...</p>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-    </main>
+        </main>
+    </div>
     
     <!-- Custom Message Box for non-blocking notifications -->
     <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 opacity-0 transition-opacity duration-300 z-50"></div>
@@ -95,7 +107,7 @@
     <!-- Firebase/Gemini Logic -->
     <script type="module">
         // Using recommended Firebase SDK v11.6.1 and mandatory Canvas global variables
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { initializeApp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
@@ -115,6 +127,9 @@
         const loadingSpinner = document.getElementById('loading-spinner');
         const authStatusSpan = document.getElementById('auth-status');
         const msgBox = document.getElementById('message-box');
+        const appContainer = document.getElementById('app-container');
+        const loaderOverlay = document.getElementById('loader-overlay');
+
 
         // --- Utility Functions ---
 
@@ -164,47 +179,58 @@
 
         /**
          * Initializes Firebase services and checks authentication state.
-         * The primary change is relying on auth.currentUser after the sign-in attempt 
-         * instead of a potentially race-prone onAuthStateChanged listener.
+         * Hides the app content until authentication is confirmed.
          */
         async function initializeAuth() {
-            return new Promise(async (resolve, reject) => {
-                try {
-                    const app = initializeApp(firebaseConfig);
-                    auth = getAuth(app); 
-                    db = getFirestore(app); // Initialize DB
+            // Enable Firebase debug logging BEFORE initialization
+            setLogLevel('debug'); 
+            console.log("Firebase logging enabled (Level: Debug). Check console for auth details.");
 
-                    // 1. Attempt initial mandatory sign-in using token or anonymously
-                    if (initialAuthToken) {
-                        await signInWithCustomToken(auth, initialAuthToken);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
+            try {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app); 
+                db = getFirestore(app); // Initialize DB
 
-                    // 2. Check the final authentication state synchronously
-                    const user = auth.currentUser;
-
-                    if (user) {
-                        // User successfully authenticated/re-authenticated
-                        currentUserId = user.uid;
-                        authStatusSpan.textContent = `User: ${user.email || (user.isAnonymous ? "Guest" : user.uid.substring(0, 8) + '...')}`;
-                        resolve(user);
-                    } else {
-                        // This should technically be caught by the outer catch, but is a safe guard
-                        throw new Error("Sign-in attempt completed, but no user found.");
-                    }
-                } catch (error) {
-                    // This catches any error thrown by the sign-in methods or the explicit throw above
-                    console.error("Firebase initialization or sign-in failed:", error);
-                    showMessage("Authentication failed. Redirecting to login...", true);
-                    
-                    // Delay the redirect slightly to ensure the message is seen
-                    setTimeout(() => {
-                        window.location.href = 'login.html'; 
-                    }, 500);
-                    reject(error);
+                // 1. Attempt initial mandatory sign-in using token or anonymously
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
                 }
-            });
+
+                // 2. Check the final authentication state synchronously
+                const user = auth.currentUser;
+
+                if (user) {
+                    // Success: Hide loader, show app
+                    currentUserId = user.uid;
+                    authStatusSpan.textContent = `User: ${user.email || (user.isAnonymous ? "Guest" : user.uid.substring(0, 8) + '...')}`;
+                    loaderOverlay.style.opacity = '0';
+                    setTimeout(() => {
+                         loaderOverlay.classList.add('hidden');
+                         appContainer.style.opacity = '1';
+                    }, 300);
+                    return user;
+
+                } else {
+                    // Should not happen if sign-in succeeded, but acts as a final fail-safe
+                    throw new Error("Sign-in attempt completed, but no user found.");
+                }
+            } catch (error) {
+                // Failure: Log error and redirect
+                console.error("Authentication failed, preparing to redirect to login.html:", error);
+                
+                // Keep the app container hidden and hide the loader
+                loaderOverlay.classList.add('hidden'); 
+
+                showMessage("Authentication required. Redirecting to login...", true);
+                
+                // Delay the redirect slightly to ensure the error message is visible in the console
+                setTimeout(() => {
+                    window.location.href = 'login.html'; 
+                }, 1000); 
+                throw error;
+            }
         }
         
         /**
@@ -309,9 +335,9 @@
         
         // --- Run Initialization Immediately ---
         initializeAuth().then(() => {
-            console.log("Authentication ready. App initialized.");
+            console.log("Authentication successful and app content displayed.");
         }).catch(err => {
-            console.log("Authentication failed to initialize.");
+            // The catch block handles the redirect, no further action needed here.
         });
 
         lucide.createIcons();
