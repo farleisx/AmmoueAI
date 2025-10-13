@@ -49,6 +49,7 @@
     <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold"></div>
 
     <!-- 1. LOADING STATE (Visible until Auth Check is Complete) -->
+    <!-- This overlay is dynamically hidden/shown by the script below -->
     <div id="loading-state">
         <div class="flex flex-col items-center">
             <svg class="animate-spin h-8 w-8 text-ammoue mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -67,12 +68,8 @@
         <textarea id="ai-prompt" rows="6" class="w-full p-4 border-2 border-ammoue/30 rounded-2xl focus:ring-ammoue focus:border-ammoue transition duration-150 shadow-md" placeholder="e.g., 'A vibrant landing page for a dog grooming salon called Paws & Claws, focusing on luxury services and online booking.'"></textarea>
 
         <div class="mt-6 flex justify-end space-x-4">
-            <!-- NEW Save Project Button -->
-            <button id="save-btn" class="px-6 py-3 text-base font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300 flex items-center disabled:opacity-50" disabled>
-                <i data-lucide="save" class="w-4 h-4 mr-1"></i> Save Draft
-            </button>
             <!-- Dashboard Button -->
-            <a id="dashboard-link" href="dashboard.html" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300 flex items-center">
+            <a href="dashboard.html" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300 flex items-center">
                 <i data-lucide="layout-dashboard" class="w-4 h-4 mr-1"></i> Dashboard
             </a>
             <button id="logout-btn" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300">
@@ -105,7 +102,7 @@
                     Preview Site (Will open in a new tab)
                 </button>
                 
-                <!-- Download Button -->
+                <!-- NEW Download Button -->
                 <button id="download-btn" class="ml-4 px-6 py-2 text-base font-semibold rounded-xl text-white bg-green-600 hover:bg-green-700 transition duration-300 flex items-center justify-center">
                     <i data-lucide="download" class="w-5 h-5 mr-2"></i> Download HTML
                 </button>
@@ -114,57 +111,48 @@
     </div>
 
     <!-- Firebase and AI Generation Logic -->
-    <script type="module">
-        // --- MANDATORY FIREBASE IMPORTS (v11.6.1) ---
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+   <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+        import { getFirestore } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
-        // --- GLOBAL CONFIGURATION (MANDATORY INJECTED VARIABLES) ---
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
+        // --- FIREBASE CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
+            authDomain: "ammoueai.firebaseapp.com",
+            projectId: "ammoueai",
+            storageBucket: "ammoueai.firebasestorage.app",
+            messagingSenderId: "135818868149",
+            appId: "1:135818868149:web:db9280baf9540a3339d5fc",
+        };
+        
         // --- Initialize Firebase and Auth ---
         const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
+        const auth = getAuth(app); 
         
         // --- DOM Elements ---
         const loadingState = document.getElementById('loading-state');
         const mainContent = document.getElementById('main-content');
         const logoutBtn = document.getElementById('logout-btn');
         const generateBtn = document.getElementById('generate-btn');
-        const saveBtn = document.getElementById('save-btn'); // NEW: Save Button
         const promptInput = document.getElementById('ai-prompt');
         const outputDiv = document.getElementById('generation-output');
         const outputCode = document.getElementById('output-code');
         const copyBtn = document.getElementById('copy-btn');
         const previewBtn = document.getElementById('preview-btn');
         const messageBox = document.getElementById('message-box');
-        const downloadBtn = document.getElementById('download-btn');
+        const downloadBtn = document.getElementById('download-btn'); // ADDED: Download Button Element
 
         // Flag to ensure listeners are only attached once after successful authentication
-        let listenersAttached = false;
-        let userId = null; // To store the authenticated user ID
-        const DRAFT_DOC_ID = 'current_draft'; // Fixed document ID for the working draft
+        let listenersAttached = false; 
+
 
         // --- Utility Functions ---
 
         /**
-         * Generates the path for the current user's draft document in Firestore.
-         */
-        function getDraftDocRef() {
-            if (!userId) {
-                console.error("User ID is not set. Cannot get Firestore reference.");
-                return null;
-            }
-            // Private data path: /artifacts/{appId}/users/{userId}/generated_sites/current_draft
-            return doc(db, `artifacts/${appId}/users/${userId}/generated_sites/${DRAFT_DOC_ID}`);
-        }
-
-        /**
          * Displays a temporary, custom message box.
+         * @param {string} message - The message to display.
+         * @param {boolean} isError - True for error (red), false for success (green/blue).
          */
         function showMessage(message, isError) {
             messageBox.textContent = message;
@@ -204,6 +192,7 @@
          */
         function copyToClipboard(text) {
             try {
+                // Use document.execCommand('copy') for better compatibility in iframe environments
                 const textarea = document.createElement('textarea');
                 textarea.value = text;
                 document.body.appendChild(textarea);
@@ -227,12 +216,14 @@
                 return;
             }
 
+            // Create a new window or tab
             const previewWindow = window.open('', '_blank');
             if (!previewWindow) {
                  showMessage("Pop-ups must be enabled to view the preview.", true);
                  return;
             }
 
+            // Write the generated HTML content directly to the new window
             previewWindow.document.write(htmlContent);
             previewWindow.document.close();
         }
@@ -240,19 +231,22 @@
         /**
          * Downloads the generated HTML code as a file.
          */
-        function handleDownload() {
+        function handleDownload() { // ADDED: handleDownload function
             const code = outputCode.textContent;
             if (!code) {
                 showMessage("Nothing to download. Please generate code first.", true);
                 return;
             }
 
+            // Create a Blob from the code content
             const blob = new Blob([code], { type: 'text/html' });
             
+            // Create a temporary anchor element
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = 'ammoue_generated_site.html'; 
+            a.download = 'ammoue_generated_site.html'; // Suggested filename
             
+            // Append to body, click it, and remove it
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -260,85 +254,11 @@
             showMessage("HTML file prepared for download!", false);
         }
 
-        // --- FIRESTORE PERSISTENCE LOGIC ---
-
-        /**
-         * Saves the current prompt and generated code to Firestore as the user's draft.
-         */
-        async function handleSave() {
-            const draftRef = getDraftDocRef();
-            const htmlCode = outputCode.textContent;
-            const prompt = promptInput.value.trim();
-
-            if (!draftRef) {
-                showMessage("Error: User session not ready to save.", true);
-                return;
-            }
-            
-            if (!htmlCode && prompt.length === 0) {
-                showMessage("Nothing to save.", false);
-                return;
-            }
-
-            saveBtn.disabled = true;
-            saveBtn.innerHTML = '<svg class="animate-spin h-4 w-4 mr-1 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Saving...';
-            
-            const draftData = {
-                prompt: prompt,
-                htmlCode: htmlCode,
-                timestamp: Date.now()
-            };
-
-            try {
-                await setDoc(draftRef, draftData);
-                showMessage("Draft saved successfully!", false);
-            } catch (error) {
-                console.error("Failed to save draft:", error);
-                showMessage("Failed to save draft. Check console for details.", true);
-            } finally {
-                saveBtn.disabled = false;
-                saveBtn.innerHTML = '<i data-lucide="save" class="w-4 h-4 mr-1"></i> Save Draft';
-                lucide.createIcons(); // Re-render icon
-            }
-        }
-
-        /**
-         * Loads the user's last saved draft from Firestore on page load.
-         */
-        async function loadDraft() {
-            const draftRef = getDraftDocRef();
-            if (!draftRef) return;
-
-            try {
-                const docSnap = await getDoc(draftRef);
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    promptInput.value = data.prompt || '';
-                    
-                    if (data.htmlCode) {
-                        outputCode.textContent = data.htmlCode;
-                        previewBtn.dataset.html = data.htmlCode;
-                        outputDiv.classList.remove('hidden');
-                        showMessage("Loaded previous draft!", false);
-                    } else {
-                        outputDiv.classList.add('hidden');
-                        showMessage("Loaded previous prompt.", false);
-                    }
-                } else {
-                    console.log("No previous draft found for this user.");
-                    outputDiv.classList.add('hidden');
-                }
-            } catch (error) {
-                console.error("Failed to load draft:", error);
-                showMessage("Failed to load previous draft.", true);
-            }
-        }
-
 
         // --- AI Generation Logic ---
 
         /**
-         * Handles the generation process by calling the Gemini API.
+         * Handles the generation process by calling the secure Vercel API endpoint.
          */
         async function handleGeneration() {
             const prompt = promptInput.value.trim();
@@ -351,61 +271,59 @@
             outputDiv.classList.add('hidden');
             outputCode.textContent = ''; // Clear previous output
             
-            // System instruction to guide the model to output a single, complete HTML file
-            const systemPrompt = "You are an expert AI site generator. Based ONLY on the user's request, generate a single, complete, modern, responsive HTML file that uses Tailwind CSS (via its CDN link) and includes all necessary CSS and JavaScript within that single file. The output MUST be only the raw HTML code, starting with <!DOCTYPE html> and ending with </html>. Make it look beautiful and fully responsive, designed for mobile first.";
-            const userQuery = `Generate an HTML website based on this prompt: ${prompt}`;
-            
-            const apiKey = ""; 
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            // The frontend now calls the secure Vercel API route
+            const apiEndpoint = '/api/generate'; 
+            console.log(`Attempting to call AI endpoint: ${apiEndpoint}`);
 
+            // Payload structure expected by the Vercel Serverless Function
             const payload = {
-                contents: [{ parts: [{ text: userQuery }] }],
-                systemInstruction: {
-                    parts: [{ text: systemPrompt }]
-                },
+                prompt: prompt,
             };
 
             const maxRetries = 3;
             for (let attempt = 0; attempt < maxRetries; attempt++) {
                 try {
-                    const response = await fetch(apiUrl, {
+                    const response = await fetch(apiEndpoint, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
 
+                    // Parse the JSON response first
                     const result = await response.json();
 
-                    if (!response.ok) {
-                        const errorMessage = result.error?.message || response.statusText || "Unknown API error.";
-                        throw new Error(`API Error [Status: ${response.status}]: ${errorMessage}`);
+                    if (!response.ok || result.error) {
+                        const errorMessage = result.error || response.statusText || "Unknown error during generation.";
+                        console.error(`Attempt ${attempt + 1} Server Error:`, errorMessage, result);
+                        throw new Error(`API Proxy Error [Status: ${response.status}]: ${errorMessage}`);
                     }
 
-                    const generatedHtml = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    // We expect the response key to be 'htmlCode' from the Vercel function
+                    const generatedHtml = result.htmlCode; 
                     
                     if (generatedHtml) {
-                        // Sanitize and display the HTML code
+                        // Sanitize and display the HTML code in the <pre> block
                         outputCode.textContent = generatedHtml.trim();
                         
                         // Set the preview button data
                         previewBtn.dataset.html = generatedHtml.trim();
 
                         outputDiv.classList.remove('hidden');
-                        showMessage("HTML generated successfully! Now saving the draft...", false);
-                        
-                        // IMPLICIT SAVE: Automatically save the new generation as the current draft
-                        await handleSave(); 
-
+                        showMessage("HTML generated successfully! Copy the code or preview the result.", false);
                         break; // Exit loop on success
                     } else {
-                        throw new Error("API response missing generated content.");
+                        console.error(`Attempt ${attempt + 1} Response Structure Error: 'htmlCode' missing in result.`, result);
+                        throw new Error("API response missing 'htmlCode' content.");
                     }
 
                 } catch (error) {
+                    // This catches network errors or the errors thrown above
                     console.error(`Attempt ${attempt + 1} failed:`, error.message);
                     if (attempt === maxRetries - 1) {
-                        showMessage(`Generation failed: ${error.message}. Please try again later.`, true);
+                        // Show a clear message to the user after all retries fail
+                        showMessage("Generation failed after multiple retries. Please ensure your Vercel backend service is deployed and has the API key correctly configured.", true);
                     } else {
+                        // Exponential backoff
                         const delay = Math.pow(2, attempt) * 1000;
                         await new Promise(resolve => setTimeout(resolve, delay));
                     }
@@ -419,59 +337,40 @@
         // --- Authentication Guard and Event Listeners ---
 
         /**
-         * Authenticates the user using the initial custom token or anonymously.
-         */
-        async function authenticateUser() {
-            try {
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (error) {
-                console.error("Firebase Authentication failed:", error);
-            }
-        }
-        
-        // Initial authentication call
-        authenticateUser();
-
-
-        /**
          * The crucial Auth Guard that waits for the user's status.
          */
         onAuthStateChanged(auth, (user) => {
-            console.log("Auth state resolved. User:", user ? user.uid : "none");
+            // Log that the auth state is known, regardless of user status.
+            console.log("Auth state resolved. User:", user ? user.email : "none");
 
             if (user) {
-                // User is logged in: Set user ID, load draft, and show content
-                userId = user.uid; // Set global userId
+                // User is logged in: Show the content
                 
-                // CRITICAL: Disable pointer events on the overlay immediately
+                // CRITICAL FIX: Disable pointer events on the overlay immediately
                 loadingState.style.pointerEvents = 'none';
 
                 // 1. Hide loading screen immediately
                 loadingState.classList.add('hidden');
-                loadingState.style.opacity = '0';
+                loadingState.style.opacity = '0'; 
                 
                 // 2. Show main content immediately
                 mainContent.classList.remove('hidden');
 
-                // 3. Load previous draft (handles persistence)
-                loadDraft();
+                console.log("UI Transition: Main content shown & Loading screen removed immediately for interactivity.");
                 
-                // 4. Attach event listeners only once
+
+                // Attach event listeners only once the user is confirmed
                 if (!listenersAttached) {
                     generateBtn.addEventListener('click', handleGeneration);
-                    saveBtn.addEventListener('click', handleSave); // NEW: Save listener
                     copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
                     previewBtn.addEventListener('click', handlePreview);
-                    downloadBtn.addEventListener('click', handleDownload);
+                    downloadBtn.addEventListener('click', handleDownload); // ADDED: Download Listener
                     
+                    // Move logout listener inside the authenticated block for clarity and synchronization
                     logoutBtn.addEventListener('click', async () => {
                         try {
                             await signOut(auth);
-                            // Redirect handled by the 'else' block below
+                            // The onAuthStateChanged listener will handle the redirect after sign out.
                         } catch (error) {
                             console.error("Logout failed:", error);
                         }
@@ -482,13 +381,13 @@
 
 
             } else {
-                // User is NOT logged in (after a sign out or initial check with no token): Redirect them to login.
-                if (userId !== null) { // Only redirect if we were previously logged in or if it's the final unauthenticated state
-                    console.log("User not authenticated. Redirecting to login.");
-                    const currentPath = window.location.pathname;
-                    const redirectUrl = 'login.html?redirect=' + encodeURIComponent(currentPath);
-                    window.location.replace(redirectUrl);
-                }
+                // User is NOT logged in: Redirect them to login.
+                console.log("User not authenticated. Redirecting to login.");
+                const currentPath = window.location.pathname;
+                
+                const redirectUrl = 'login.html?redirect=' + encodeURIComponent(currentPath);
+                
+                window.location.replace(redirectUrl); 
             }
         });
         
