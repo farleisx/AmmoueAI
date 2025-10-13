@@ -51,7 +51,7 @@
         <!-- Main Content Area: Prompt Input -->
         <main class="min-h-screen-nav p-8 max-w-5xl mx-auto flex flex-col">
             <h1 class="text-3xl font-bold text-gray-800 mb-2">Generate Your Website</h1>
-            <p class="text-gray-500 mb-6">Describe the website you want to create below. Be specific! *Note: Saving projects is now enabled.*</p>
+            <p class="text-gray-500 mb-6">Describe the website you want to create below. Be specific! **Saving projects is now re-enabled.**</p>
 
             <!-- Prompt Input and Generation Area -->
             <div class="flex flex-col md:flex-row gap-6 flex-grow">
@@ -105,21 +105,8 @@
 
         // --- MANDATORY GLOBAL VARIABLES ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        
-        // Configuration constructed from the user-provided data to guarantee successful connection
-        const HARDCODED_FIREBASE_CONFIG = {
-            apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
-            authDomain: "ammoueai.firebaseapp.com", // Inferred
-            projectId: "ammoueai",
-            storageBucket: "ammoueai.appspot.com", // Inferred
-            messagingSenderId: "135818868149",
-            appId: "1:135818868149:web:1234567890abcdef", // Placeholder App ID suffix
-        };
-        
-        // Use the environment's config if available, otherwise use the hardcoded one
-        const firebaseConfig = typeof __firebase_config !== 'undefined' 
-            ? JSON.parse(__firebase_config) 
-            : HARDCODED_FIREBASE_CONFIG;
+        // Use environment variables provided by the Canvas runtime
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         let db, auth, userId = null;
@@ -149,7 +136,13 @@
             msgBox.classList.add('opacity-100');
 
             window.messageTimeout = setTimeout(() => {
+                msgBox.classList.remove('opacity-0');
+                msgBox.classList.add('opacity-100');
+            }, 50); // Small delay to trigger transition
+
+            window.messageTimeout = setTimeout(() => {
                 msgBox.classList.remove('opacity-100');
+                msgBox.classList.add('opacity-0');
             }, 4000); // 4 seconds visibility
         }
 
@@ -159,7 +152,7 @@
         async function saveProject(title, prompt, htmlCode) {
             if (!db || !userId || !isAuthReady) {
                 console.error("Cannot save: Database not ready or user not authenticated.");
-                showMessage("Saving failed: Authentication is not complete.", true);
+                showMessage("Saving failed: Database connection is not ready or user not authenticated.", true);
                 return;
             }
 
@@ -187,48 +180,66 @@
         }
         
         /**
-         * Initializes Firebase and handles user authentication.
+         * Initializes Firebase and handles user authentication with a guaranteed fallback.
          */
         async function initializeAppAndAuth() {
+            const authStatusElement = document.getElementById('auth-status');
+            
+            if (!firebaseConfig) {
+                 authStatusElement.classList.remove('text-gray-500');
+                 authStatusElement.classList.add('text-red-600');
+                 authStatusElement.textContent = 'OFFLINE (No Config)';
+                 showMessage("Firebase Config Missing. Saving is permanently disabled.", true);
+                 return;
+            }
+            
             try {
                 // setLogLevel('debug'); // Uncomment for debugging
+
+                // 1. Initialize Firebase App and Services
                 app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
 
-                // 1. Sign in using the provided custom token or anonymously
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
+                // 2. Attempt Authentication (Custom Token first, then Anonymous fallback)
+                try {
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (authError) {
+                    // Fallback to anonymous sign-in if the primary token failed
+                    console.warn("Custom token sign-in failed. Falling back to Anonymous sign-in.", authError);
+                    await signInAnonymously(auth); 
                 }
 
-                // 2. Set up Auth State Listener
+
+                // 3. Set up Auth State Listener to update UI and set final state
                 onAuthStateChanged(auth, (user) => {
-                    const authStatusElement = document.getElementById('auth-status');
                     if (user) {
                         userId = user.uid;
                         isAuthReady = true;
                         authStatusElement.classList.remove('text-gray-500', 'text-red-600');
                         authStatusElement.classList.add('text-green-600');
                         authStatusElement.textContent = `ONLINE (User: ${userId.substring(0, 8)}...)`;
-                        showMessage("Database connection established. Saving is enabled.", false);
+                        showMessage("Database connection established. Saving is ENABLED.", false);
                     } else {
-                        // Fallback in case anonymous sign-in fails
+                        // Should not happen unless anonymous sign-in fails too
                         authStatusElement.classList.remove('text-gray-500');
                         authStatusElement.classList.add('text-red-600');
-                        authStatusElement.textContent = 'OFFLINE (Login Required)';
-                        showMessage("Failed to connect to Firebase. Check console for errors.", true);
+                        authStatusElement.textContent = 'OFFLINE (Auth Failed)';
+                        showMessage("Authentication failed. Saving is disabled.", true);
                     }
                 });
 
             } catch (error) {
                 console.error("Firebase initialization failed:", error);
-                // Critical failure fallback
-                document.getElementById('auth-status').classList.remove('text-gray-500');
-                document.getElementById('auth-status').classList.add('text-red-600');
-                document.getElementById('auth-status').textContent = 'CRITICAL FAILURE (No Firestore)';
-                showMessage("Failed to initialize Firebase with provided configuration.", true);
+                // Critical failure fallback (e.g., config error)
+                authStatusElement.classList.remove('text-gray-500');
+                authStatusElement.classList.add('text-red-600');
+                authStatusElement.textContent = 'CRITICAL FAILURE (No Firestore)';
+                showMessage("CRITICAL ERROR: Failed to initialize Firebase. Saving is disabled.", true);
             }
         }
 
@@ -309,14 +320,14 @@
                 codeOutput.textContent = generatedText;
                 showMessage("Website generated successfully!", false);
 
-                // --- 2. Attempt to save (now functional)
+                // --- 2. Save the project to Firestore (now functional if auth worked)
                 const autoTitle = prompt.split(/\s+/).slice(0, 7).join(' ') + (prompt.length > 50 ? '...' : '');
                 await saveProject(autoTitle, prompt, generatedText); 
 
             } catch (error) {
                 console.error("Code generation failed:", error);
                 
-                let userErrorMsg = `Generation Failed. Check Vercel logs. Cause: ${error.message}`;
+                let userErrorMsg = `Generation Failed. Cause: ${error.message}`;
                 
                 codeOutput.textContent = `Error during generation:\n\n${userErrorMsg}`;
                 showMessage("Code generation failed. Check console and Vercel logs.", true);
