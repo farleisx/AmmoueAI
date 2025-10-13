@@ -105,13 +105,46 @@
 
         // --- MANDATORY GLOBAL VARIABLES ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        // Use environment variables provided by the Canvas runtime
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // --- MANUAL FALLBACK CONFIGURATION (Using user-provided keys) ---
+        const manualFirebaseConfig = {
+            apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
+            projectId: "ammoueai",
+            // Derived from Project ID
+            authDomain: "ammoueai.firebaseapp.com",
+            storageBucket: "ammoueai.appspot.com", 
+            // Project Number
+            messagingSenderId: "135818868149", 
+            // FAKE App ID - This is the piece that must be present for client-side web apps.
+            // We use a mock here as a last resort to get initialization to proceed.
+            appId: "1:135818868149:web:ammoueai-manual-fallback-12345" 
+        };
 
         let db, auth, userId = null;
         let app;
         let isAuthReady = false;
+
+        // --- Determine Firebase Config (Env > Manual Fallback) ---
+        let firebaseConfig;
+        try {
+            // 1. Try environment variable first
+            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+            if (firebaseConfig && !firebaseConfig.projectId) {
+                 // If it's present but invalid (e.g., empty object), treat as null
+                 firebaseConfig = null;
+            }
+        } catch (e) {
+            console.error("Error parsing __firebase_config from environment. Falling back to manual configuration.", e);
+            firebaseConfig = null;
+        }
+
+        // 2. Fall back to manual config if env config is missing/invalid
+        if (!firebaseConfig) {
+            console.warn("CRITICAL: Environment config missing. Using manual configuration with user-provided keys.");
+            firebaseConfig = manualFirebaseConfig;
+        }
+
 
         // --- DOM Elements ---
         const promptInput = document.getElementById('prompt-input');
@@ -152,7 +185,7 @@
         async function saveProject(title, prompt, htmlCode) {
             if (!db || !userId || !isAuthReady) {
                 console.error("Cannot save: Database not ready or user not authenticated.");
-                showMessage("Saving failed: Database connection is not ready or user not authenticated.", true);
+                showMessage("Saving failed: Database connection not ready.", true);
                 return;
             }
 
@@ -185,11 +218,11 @@
         async function initializeAppAndAuth() {
             const authStatusElement = document.getElementById('auth-status');
             
-            if (!firebaseConfig) {
+            if (!firebaseConfig.projectId) {
                  authStatusElement.classList.remove('text-gray-500');
                  authStatusElement.classList.add('text-red-600');
-                 authStatusElement.textContent = 'OFFLINE (No Config)';
-                 showMessage("Firebase Config Missing. Saving is permanently disabled.", true);
+                 authStatusElement.textContent = 'OFFLINE (No Project ID)';
+                 showMessage("Firebase Config Missing Project ID. Saving is permanently disabled.", true);
                  return;
             }
             
@@ -251,6 +284,12 @@
             const prompt = promptInput.value.trim();
             if (!prompt) {
                 showMessage("Please enter a description for your website.", true);
+                return;
+            }
+
+            // Check if DB is ready before proceeding to generation
+            if (!isAuthReady) {
+                showMessage("Cannot generate: Database is not connected. Please refresh if the error persists.", true);
                 return;
             }
 
@@ -320,7 +359,7 @@
                 codeOutput.textContent = generatedText;
                 showMessage("Website generated successfully!", false);
 
-                // --- 2. Save the project to Firestore (now functional if auth worked)
+                // --- 2. Save the project to Firestore
                 const autoTitle = prompt.split(/\s+/).slice(0, 7).join(' ') + (prompt.length > 50 ? '...' : '');
                 await saveProject(autoTitle, prompt, generatedText); 
 
