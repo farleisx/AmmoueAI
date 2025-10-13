@@ -16,107 +16,117 @@
         }
         .text-ammoue { color: #0d9488; }
         .bg-ammoue { background-color: #0d9488; }
-        /* Style to ensure the loading screen covers the whole view */
-        #loading-state {
+
+        /* Loading state overlay */
+        .loading-screen {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #f8fafc;
             display: flex;
             align-items: center;
             justify-content: center;
-            background-color: #fff;
-            z-index: 100;
-            /* Added transition for smoother removal */
-            transition: opacity 0.3s ease-in-out; 
+            z-index: 50;
         }
-        /* Custom styles for message box */
-        #message-box {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
-            opacity: 0;
-            transition: opacity 0.3s ease-in-out;
-        }
+        /* Custom scrollbar for the code block */
+        #html-output-code::-webkit-scrollbar { width: 6px; }
+        #html-output-code::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
     </style>
 </head>
 <body class="antialiased min-h-screen">
 
+    <!-- Loading Screen (Visible until auth state is confirmed) -->
+    <div id="loading-screen" class="loading-screen">
+        <svg class="animate-spin h-8 w-8 text-ammoue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+    </div>
+
     <!-- Message Box for alerts (replaces alert()) -->
-    <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold"></div>
+    <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 opacity-0 transition-opacity duration-300 z-50"></div>
 
-    <!-- 1. LOADING STATE (Visible until Auth Check is Complete) -->
-    <!-- This overlay is dynamically hidden/shown by the script below -->
-    <div id="loading-state">
-        <div class="flex flex-col items-center">
-            <svg class="animate-spin h-8 w-8 text-ammoue mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <p class="text-gray-600 font-medium">Verifying session...</p>
-        </div>
-    </div>
 
-    <!-- 2. MAIN CONTENT (Hidden until Auth Check is Complete) -->
-    <div id="main-content" class="max-w-4xl mx-auto p-6 lg:p-10 hidden">
-        <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Generate Your AI Website</h1>
-        <p class="text-xl text-gray-500 mb-8">Tell Ammoue exactly what website you want to generate (e.g., 'A modern portfolio site for a UX designer with a dark theme').</p>
-
-        <textarea id="ai-prompt" rows="6" class="w-full p-4 border-2 border-ammoue/30 rounded-2xl focus:ring-ammoue focus:border-ammoue transition duration-150 shadow-md" placeholder="e.g., 'A vibrant landing page for a dog grooming salon called Paws & Claws, focusing on luxury services and online booking.'"></textarea>
-
-        <div class="mt-6 flex justify-end space-x-4">
-            <!-- Dashboard Button -->
-            <a href="dashboard.html" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300 flex items-center">
-                <i data-lucide="layout-dashboard" class="w-4 h-4 mr-1"></i> Dashboard
-            </a>
-            <button id="logout-btn" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300">
-                Log Out
-            </button>
-            <button id="generate-btn" class="px-8 py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-lg shadow-teal-500/30 transform hover:scale-[1.01]">
-                Generate HTML Code
-            </button>
-        </div>
-
-        <div id="generation-output" class="mt-12 p-6 bg-white border border-gray-100 rounded-2xl shadow-lg hidden">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-2xl font-bold text-gray-800 flex items-center">
-                    <i data-lucide="code" class="w-5 h-5 mr-2 text-ammoue"></i>
-                    Generated HTML Code
-                </h3>
-                <button id="copy-btn" class="text-sm font-medium text-ammoue hover:text-teal-600 flex items-center transition duration-200">
-                    <i data-lucide="copy" class="w-4 h-4 mr-1"></i> Copy Code
+    <!-- Main Content (Hidden initially, shown only AFTER auth is confirmed) -->
+    <div id="main-content" class="min-h-screen hidden transition-opacity duration-500">
+        <!-- Header/Navbar -->
+        <nav class="bg-white shadow-md p-4 flex justify-between items-center sticky top-0 z-10">
+            <div class="text-2xl font-extrabold text-ammoue">AI Site Generator</div>
+            <div class="flex items-center space-x-4">
+                <a href="dashboard.html" class="px-3 py-2 text-sm font-medium rounded-xl text-gray-700 bg-gray-100 hover:bg-gray-200 transition duration-150 shadow-sm">
+                    <i data-lucide="layout-grid" class="w-4 h-4 inline-block mr-1"></i> Dashboard
+                </a>
+                <button onclick="handleLogout()" class="px-3 py-2 text-sm font-medium rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150 shadow-md">
+                    Log Out
                 </button>
             </div>
-            
-            <!-- Code Block for Display -->
-            <pre class="bg-gray-100 p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm">
-                <code id="output-code" class="whitespace-pre"></code>
-            </pre>
-            
-            <div class="flex mt-4">
-                <!-- Preview Button -->
-                <button id="preview-btn" class="px-6 py-2 text-base font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300">
-                    Preview Site (Will open in a new tab)
-                </button>
+        </nav>
+
+        <!-- Main Generation Area -->
+        <main class="p-4 md:p-8 max-w-7xl mx-auto">
+            <h1 class="text-3xl font-bold text-gray-800 mb-6">Describe Your Dream Website</h1>
+
+            <!-- Input and Action Controls -->
+            <div class="bg-white p-6 rounded-2xl shadow-xl mb-8">
+                <label for="prompt-input" class="block text-lg font-semibold text-gray-700 mb-3">Prompt:</label>
+                <textarea id="prompt-input" rows="4"
+                    class="w-full p-4 border border-gray-300 rounded-xl focus:ring-ammoue focus:border-ammoue resize-none transition duration-150"
+                    placeholder="E.g., A single-page, fully responsive website for a modern coffee shop called 'The Daily Grind'. Use dark mode with subtle gold accents, a large hero image, and a simple menu with prices."></textarea>
                 
-                <!-- NEW Download Button -->
-                <button id="download-btn" class="ml-4 px-6 py-2 text-base font-semibold rounded-xl text-white bg-green-600 hover:bg-green-700 transition duration-300 flex items-center justify-center">
-                    <i data-lucide="download" class="w-5 h-5 mr-2"></i> Download HTML
-                </button>
+                <div class="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 mt-4">
+                    <button id="generate-button" onclick="handleGenerate()"
+                        class="flex-1 px-6 py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-150 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center">
+                        <i data-lucide="sparkles" class="w-5 h-5 inline-block mr-2"></i> Generate Site
+                    </button>
+                    <input type="text" id="project-title" placeholder="Project Title (e.g., Coffee Shop Site)"
+                           class="sm:w-1/3 p-3 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500">
+                    <button id="save-button" onclick="handleSaveProject()"
+                        class="sm:w-1/4 px-6 py-3 text-lg font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center" disabled>
+                        <i data-lucide="save" class="w-5 h-5 inline-block mr-2"></i> Save Project
+                    </button>
+                </div>
             </div>
-        </div>
+            
+            <!-- Output Area -->
+            <div id="output-area" class="space-y-6 hidden">
+                <h2 class="text-2xl font-bold text-gray-800">Generated Code & Preview</h2>
+
+                <!-- Tabs for Code and Preview -->
+                <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+                    <div class="flex border-b border-gray-200">
+                        <button id="tab-code" onclick="switchTab('code')" class="px-6 py-3 text-sm font-semibold border-b-2 border-ammoue text-ammoue transition duration-150">HTML Code</button>
+                        <button id="tab-preview" onclick="switchTab('preview')" class="px-6 py-3 text-sm font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition duration-150">Live Preview</button>
+                    </div>
+
+                    <!-- Code Block -->
+                    <div id="content-code" class="p-4" style="height: 500px;">
+                        <pre id="html-output-code" class="bg-gray-50 p-4 rounded-xl text-xs overflow-auto h-full text-gray-800 border border-gray-200"></pre>
+                    </div>
+
+                    <!-- Live Preview Iframe -->
+                    <div id="content-preview" class="p-4 hidden bg-gray-100" style="height: 500px;">
+                        <iframe id="html-output-preview" class="w-full h-full bg-white border border-gray-300 rounded-xl shadow-inner"></iframe>
+                    </div>
+                </div>
+
+                <!-- Source Information -->
+                <div id="source-info" class="p-4 bg-gray-100 rounded-xl text-sm text-gray-600 hidden">
+                    <p class="font-semibold mb-2 flex items-center"><i data-lucide="link" class="w-4 h-4 mr-2"></i> Grounding Sources:</p>
+                    <ul id="source-list" class="list-disc pl-5 space-y-1">
+                        <!-- Sources will be injected here -->
+                    </ul>
+                </div>
+            </div>
+        </main>
     </div>
 
-    <!-- Firebase and AI Generation Logic -->
-   <script type="module">
+    <!-- Firebase and AI Logic -->
+    <script type="module">
+        // Using SDK v12.4.0 to match dashboard.html imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-        import { getFirestore } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
-        // --- FIREBASE CONFIGURATION ---
+        // IMPORTANT: Hardcoded configuration from login.html/dashboard.html for consistency
         const firebaseConfig = {
             apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
             authDomain: "ammoueai.firebaseapp.com",
@@ -126,272 +136,278 @@
             appId: "1:135818868149:web:db9280baf9540a3339d5fc",
         };
         
-        // --- Initialize Firebase and Auth ---
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app); 
-        
+        // --- Firebase Globals ---
+        let auth = null;
+        let db = null;
+        let currentUserId = null;
+        const appId = firebaseConfig.projectId; // Use projectId as a substitute for __app_id
+
+        // --- API Globals ---
+        // CORRECTED: Using the secure internal proxy endpoint which resolves to 
+        // /api/generate on the same domain (e.g., Vercel Serverless Function).
+        const apiUrl = '/api/generate'; 
+
         // --- DOM Elements ---
-        const loadingState = document.getElementById('loading-state');
+        const loadingScreen = document.getElementById('loading-screen');
         const mainContent = document.getElementById('main-content');
-        const logoutBtn = document.getElementById('logout-btn');
-        const generateBtn = document.getElementById('generate-btn');
-        const promptInput = document.getElementById('ai-prompt');
-        const outputDiv = document.getElementById('generation-output');
-        const outputCode = document.getElementById('output-code');
-        const copyBtn = document.getElementById('copy-btn');
-        const previewBtn = document.getElementById('preview-btn');
-        const messageBox = document.getElementById('message-box');
-        const downloadBtn = document.getElementById('download-btn'); // ADDED: Download Button Element
+        const msgBox = document.getElementById('message-box');
+        const promptInput = document.getElementById('prompt-input');
+        const generateButton = document.getElementById('generate-button');
+        const saveButton = document.getElementById('save-button');
+        const outputArea = document.getElementById('output-area');
+        const htmlOutputCode = document.getElementById('html-output-code');
+        const htmlOutputPreview = document.getElementById('html-output-preview');
+        const projectTitleInput = document.getElementById('project-title');
+        const sourceInfo = document.getElementById('source-info');
+        const sourceList = document.getElementById('source-list');
 
-        // Flag to ensure listeners are only attached once after successful authentication
-        let listenersAttached = false; 
-
+        let lastGeneratedHtml = '';
+        let lastUserPrompt = '';
 
         // --- Utility Functions ---
 
-        /**
-         * Displays a temporary, custom message box.
-         * @param {string} message - The message to display.
-         * @param {boolean} isError - True for error (red), false for success (green/blue).
-         */
         function showMessage(message, isError) {
-            messageBox.textContent = message;
-            
-            if (isError) {
-                messageBox.classList.remove('bg-green-500', 'bg-ammoue');
-                messageBox.classList.add('bg-red-500');
-            } else {
-                messageBox.classList.remove('bg-red-500');
-                messageBox.classList.add('bg-ammoue'); // Use brand color for success
-            }
+            if (!msgBox) return;
+            msgBox.textContent = message;
 
-            messageBox.classList.remove('opacity-0');
-            messageBox.classList.add('opacity-100');
-
-            setTimeout(() => {
-                messageBox.classList.remove('opacity-100');
-                messageBox.classList.add('opacity-0');
-            }, 4000);
+            msgBox.className = 'p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 z-50';
+            msgBox.classList.add(isError ? 'bg-red-500' : 'bg-green-500');
+            msgBox.classList.add('opacity-100');
+            setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
         }
 
-        /**
-         * Sets the loading state on the generate button.
-         */
-        function setLoading(isLoading) {
-            if (isLoading) {
-                generateBtn.disabled = true;
-                generateBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Generating...';
-            } else {
-                generateBtn.disabled = false;
-                generateBtn.innerHTML = 'Generate HTML Code';
-            }
+        function setGenerating(isGenerating) {
+            generateButton.disabled = isGenerating;
+            saveButton.disabled = isGenerating || !lastGeneratedHtml;
+            generateButton.innerHTML = isGenerating ? 
+                '<svg class="animate-spin h-5 w-5 text-white mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Generating...' : 
+                '<i data-lucide="sparkles" class="w-5 h-5 inline-block mr-2"></i> Generate Site';
+            lucide.createIcons(); // Re-render icons after button text change
         }
 
-        /**
-         * Utility function to copy text to clipboard.
-         */
-        function copyToClipboard(text) {
-            try {
-                // Use document.execCommand('copy') for better compatibility in iframe environments
-                const textarea = document.createElement('textarea');
-                textarea.value = text;
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-                showMessage("Code copied to clipboard!", false);
-            } catch (err) {
-                console.error('Failed to copy text:', err);
-                showMessage("Failed to copy code.", true);
+        /** Switches between Code and Live Preview tabs */
+        window.switchTab = function(tab) {
+            const tabCode = document.getElementById('tab-code');
+            const tabPreview = document.getElementById('tab-preview');
+            const contentCode = document.getElementById('content-code');
+            const contentPreview = document.getElementById('content-preview');
+
+            tabCode.classList.remove('border-ammoue', 'text-ammoue');
+            tabPreview.classList.remove('border-ammoue', 'text-ammoue');
+            tabCode.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700');
+            tabPreview.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700');
+
+            if (tab === 'code') {
+                tabCode.classList.add('border-ammoue', 'text-ammoue');
+                tabCode.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700');
+                contentCode.classList.remove('hidden');
+                contentPreview.classList.add('hidden');
+            } else {
+                tabPreview.classList.add('border-ammoue', 'text-ammoue');
+                tabPreview.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700');
+                contentCode.classList.add('hidden');
+                contentPreview.classList.remove('hidden');
             }
         }
         
-        /**
-         * Opens the generated HTML in a new window for a live preview.
-         */
-        function handlePreview() {
-            const htmlContent = previewBtn.dataset.html;
-            if (!htmlContent) {
-                showMessage("No HTML code available to preview.", true);
-                return;
+        /** Renders the generated HTML into the code block and iframe preview */
+        function renderOutput(html, sources) {
+            lastGeneratedHtml = html;
+            
+            // 1. Update Code Block
+            htmlOutputCode.textContent = html;
+            
+            // 2. Update Live Preview Iframe
+            htmlOutputPreview.contentDocument.open();
+            htmlOutputPreview.contentDocument.write(html);
+            htmlOutputPreview.contentDocument.close();
+
+            // 3. Update Sources (Grounding data is typically handled server-side when using a proxy, 
+            // but we keep the structure here just in case the proxy forwards it.)
+            if (sources && sources.length > 0) {
+                sourceList.innerHTML = sources.map(s => 
+                    `<li><a href="${s.uri}" target="_blank" class="text-blue-600 hover:text-blue-800 truncate block">${s.title}</a></li>`
+                ).join('');
+                sourceInfo.classList.remove('hidden');
+            } else {
+                sourceInfo.classList.add('hidden');
             }
 
-            // Create a new window or tab
-            const previewWindow = window.open('', '_blank');
-            if (!previewWindow) {
-                 showMessage("Pop-ups must be enabled to view the preview.", true);
-                 return;
-            }
-
-            // Write the generated HTML content directly to the new window
-            previewWindow.document.write(htmlContent);
-            previewWindow.document.close();
+            outputArea.classList.remove('hidden');
+            saveButton.disabled = false;
         }
-
-        /**
-         * Downloads the generated HTML code as a file.
-         */
-        function handleDownload() { // ADDED: handleDownload function
-            const code = outputCode.textContent;
-            if (!code) {
-                showMessage("Nothing to download. Please generate code first.", true);
+        
+        /** Calls the proxied /api/generate endpoint to generate the HTML content */
+        window.handleGenerate = async function() {
+            const userQuery = promptInput.value.trim();
+            if (!userQuery) {
+                showMessage("Please enter a description for your website.", true);
                 return;
             }
-
-            // Create a Blob from the code content
-            const blob = new Blob([code], { type: 'text/html' });
+            lastUserPrompt = userQuery;
+            lastGeneratedHtml = '';
+            setGenerating(true);
+            outputArea.classList.add('hidden'); // Hide output while generating
             
-            // Create a temporary anchor element
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = 'ammoue_generated_site.html'; // Suggested filename
+            // System instruction to enforce single-file HTML and Tailwind CSS usage
+            const systemPrompt = `You are an expert front-end developer. Your task is to generate a complete, beautiful, and fully responsive single-file HTML web page based on the user's description. You must use Tailwind CSS for all styling, which is loaded via the CDN script tag. The final output MUST be only the raw HTML code, starting with <!DOCTYPE html> and ending with </html>. Do NOT include markdown code fences (like \`\`\`html) in the final response. Ensure the design is modern, visually appealing, and works perfectly on mobile and desktop. Use the 'Inter' font.`;
             
-            // Append to body, click it, and remove it
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            
-            showMessage("HTML file prepared for download!", false);
-        }
-
-
-        // --- AI Generation Logic ---
-
-        /**
-         * Handles the generation process by calling the secure Vercel API endpoint.
-         */
-        async function handleGeneration() {
-            const prompt = promptInput.value.trim();
-            if (prompt.length < 10) {
-                showMessage("Please provide a more detailed prompt (at least 10 characters).", true);
-                return;
-            }
-
-            setLoading(true);
-            outputDiv.classList.add('hidden');
-            outputCode.textContent = ''; // Clear previous output
-            
-            // The frontend now calls the secure Vercel API route
-            const apiEndpoint = '/api/generate'; 
-            console.log(`Attempting to call AI endpoint: ${apiEndpoint}`);
-
-            // Payload structure expected by the Vercel Serverless Function
+            // Payload structure for the proxied endpoint
             const payload = {
-                prompt: prompt,
+                model: 'gemini-2.5-flash-preview-05-20',
+                prompt: userQuery,
+                systemInstruction: systemPrompt,
+                tools: [{ "google_search": {} }],
             };
 
-            const maxRetries = 3;
-            for (let attempt = 0; attempt < maxRetries; attempt++) {
+            const maxRetries = 5;
+            let delay = 1000;
+
+            for (let i = 0; i < maxRetries; i++) {
                 try {
-                    const response = await fetch(apiEndpoint, {
+                    const response = await fetch(apiUrl, { // Using the secure local path
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
 
-                    // Parse the JSON response first
+                    if (!response.ok) {
+                        if (response.status === 429 && i < maxRetries - 1) {
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            delay *= 2;
+                            continue;
+                        }
+                        throw new Error(`Proxy API call failed with status: ${response.status}`);
+                    }
+
+                    // Assuming the proxied endpoint returns a clean JSON object 
+                    // with 'text' and potentially 'sources'.
                     const result = await response.json();
-
-                    if (!response.ok || result.error) {
-                        const errorMessage = result.error || response.statusText || "Unknown error during generation.";
-                        console.error(`Attempt ${attempt + 1} Server Error:`, errorMessage, result);
-                        throw new Error(`API Proxy Error [Status: ${response.status}]: ${errorMessage}`);
-                    }
-
-                    // We expect the response key to be 'htmlCode' from the Vercel function
-                    const generatedHtml = result.htmlCode; 
                     
-                    if (generatedHtml) {
-                        // Sanitize and display the HTML code in the <pre> block
-                        outputCode.textContent = generatedHtml.trim();
-                        
-                        // Set the preview button data
-                        previewBtn.dataset.html = generatedHtml.trim();
+                    if (result && result.text) {
+                        const htmlText = result.text;
+                        const sources = result.sources || []; // Assuming sources are forwarded if available
 
-                        outputDiv.classList.remove('hidden');
-                        showMessage("HTML generated successfully! Copy the code or preview the result.", false);
-                        break; // Exit loop on success
+                        renderOutput(htmlText, sources);
+                        showMessage("Website generated successfully!", false);
+                        setGenerating(false);
+                        return; // Exit function on success
                     } else {
-                        console.error(`Attempt ${attempt + 1} Response Structure Error: 'htmlCode' missing in result.`, result);
-                        throw new Error("API response missing 'htmlCode' content.");
+                        throw new Error("Proxy API response was empty or malformed.");
                     }
-
                 } catch (error) {
-                    // This catches network errors or the errors thrown above
-                    console.error(`Attempt ${attempt + 1} failed:`, error.message);
-                    if (attempt === maxRetries - 1) {
-                        // Show a clear message to the user after all retries fail
-                        showMessage("Generation failed after multiple retries. Please ensure your Vercel backend service is deployed and has the API key correctly configured.", true);
-                    } else {
-                        // Exponential backoff
-                        const delay = Math.pow(2, attempt) * 1000;
-                        await new Promise(resolve => setTimeout(resolve, delay));
+                    console.error("Generate API Error:", error);
+                    if (i === maxRetries - 1) {
+                         showMessage(`Failed to generate content after ${maxRetries} tries. ${error.message}`, true);
+                         setGenerating(false);
+                         return; // Exit function after final failure
                     }
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    delay *= 2;
                 }
             }
-
-            setLoading(false);
         }
 
-
-        // --- Authentication Guard and Event Listeners ---
-
         /**
-         * The crucial Auth Guard that waits for the user's status.
+         * Saves the generated project to Firestore.
          */
-        onAuthStateChanged(auth, (user) => {
-            // Log that the auth state is known, regardless of user status.
-            console.log("Auth state resolved. User:", user ? user.email : "none");
-
-            if (user) {
-                // User is logged in: Show the content
-                
-                // CRITICAL FIX: Disable pointer events on the overlay immediately
-                loadingState.style.pointerEvents = 'none';
-
-                // 1. Hide loading screen immediately
-                loadingState.classList.add('hidden');
-                loadingState.style.opacity = '0'; 
-                
-                // 2. Show main content immediately
-                mainContent.classList.remove('hidden');
-
-                console.log("UI Transition: Main content shown & Loading screen removed immediately for interactivity.");
-                
-
-                // Attach event listeners only once the user is confirmed
-                if (!listenersAttached) {
-                    generateBtn.addEventListener('click', handleGeneration);
-                    copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
-                    previewBtn.addEventListener('click', handlePreview);
-                    downloadBtn.addEventListener('click', handleDownload); // ADDED: Download Listener
-                    
-                    // Move logout listener inside the authenticated block for clarity and synchronization
-                    logoutBtn.addEventListener('click', async () => {
-                        try {
-                            await signOut(auth);
-                            // The onAuthStateChanged listener will handle the redirect after sign out.
-                        } catch (error) {
-                            console.error("Logout failed:", error);
-                        }
-                    });
-                    listenersAttached = true;
-                    console.log("Event listeners successfully attached.");
-                }
-
-
-            } else {
-                // User is NOT logged in: Redirect them to login.
-                console.log("User not authenticated. Redirecting to login.");
-                const currentPath = window.location.pathname;
-                
-                const redirectUrl = 'login.html?redirect=' + encodeURIComponent(currentPath);
-                
-                window.location.replace(redirectUrl); 
+        window.handleSaveProject = async function() {
+            if (!lastGeneratedHtml) {
+                showMessage("Nothing to save. Please generate a site first.", true);
+                return;
             }
-        });
-        
+
+            const title = projectTitleInput.value.trim() || 'Untitled AI Project';
+            
+            // Disable button during save process
+            saveButton.disabled = true;
+            saveButton.textContent = "Saving...";
+
+            try {
+                // 1. Define the collection path for the current authenticated user's projects
+                // Path: /artifacts/{appId}/users/{userId}/projects
+                const projectsCollectionRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'projects');
+
+                // 2. Create the project document data
+                const projectData = {
+                    title: title,
+                    prompt: lastUserPrompt,
+                    htmlContent: lastGeneratedHtml,
+                    timestamp: new Date().toISOString() // Use ISO string for consistent sorting
+                };
+
+                // 3. Save the document to Firestore
+                await addDoc(projectsCollectionRef, projectData);
+
+                showMessage(`Project "${title}" saved successfully!`, false);
+                projectTitleInput.value = ''; // Clear title input after saving
+
+            } catch (error) {
+                console.error("Error saving project to Firestore:", error);
+                showMessage("Failed to save project. Check console for details.", true);
+            } finally {
+                // Re-enable the button and restore text
+                saveButton.textContent = "Save Project";
+                saveButton.disabled = false; 
+                lucide.createIcons();
+            }
+        }
+
+        /** Initializes Firebase services and sets up the critical auth listener. */
+        function initializeAppAndAuth() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                // CRITICAL: Authentication Gate using the listener
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        // **SUCCESS** - User is authenticated
+                        currentUserId = user.uid;
+
+                        // Show main content
+                        loadingScreen.classList.add('hidden');
+                        mainContent.classList.remove('hidden');
+                        mainContent.classList.add('opacity-100');
+                        saveButton.disabled = true; // Initially disabled until content is generated
+                    } else {
+                        // **FAILURE** - User is NOT authenticated: Redirect to login page
+                        console.log("No valid session found. Redirecting to login.html...");
+                        window.location.href = 'login.html';
+                    }
+                });
+
+            } catch (error) {
+                console.error("Firebase initialization failed:", error);
+                showMessage("Initialization error. Redirecting to login...", true);
+                setTimeout(() => {
+                    window.location.href = 'login.html';
+                }, 500);
+            }
+        }
+
+        /** Logs the current user out. */
+        window.handleLogout = async function() {
+            if (auth) {
+                try {
+                    await signOut(auth);
+                    showMessage("You have been signed out.", false);
+                    // The onAuthStateChanged listener handles the subsequent redirect to login.html
+                } catch (error) {
+                    console.error("Logout failed:", error);
+                    showMessage("Logout failed. Please try again.", true);
+                }
+            } else {
+                window.location.href = 'login.html';
+            }
+        }
+
+        // --- Run Initialization Immediately ---
+        initializeAppAndAuth();
         lucide.createIcons();
+        switchTab('code'); // Default to showing the code tab
+
     </script>
 </body>
 </html>
