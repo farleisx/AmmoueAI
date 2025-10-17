@@ -226,12 +226,33 @@
             previewWindow.document.close();
         }
 
-        // *** Auto-Save Logic (runs after successful generation) ***
-        async function autoSaveProject(htmlContent, userPrompt) {
-            if (!currentUserId || !htmlContent) {
-                console.error("Auto-save failed: Missing user ID or content.");
-                return;
-            }
+      // *** Auto-Save Logic (runs after successful generation) ***
+async function autoSaveProject(htmlContent, userPrompt) {
+    if (!currentUserId || !htmlContent) {
+        console.error("Auto-save failed: Missing user ID or content.");
+        return;
+    }
+
+    // ⭐ CRITICAL FIX: Clean the prompt data before saving it to Firestore ⭐
+    const cleanedPrompt = userPrompt.replace(/\\n/g, '\n');
+    
+    try {
+        // Secure Nested Path: /artifacts/{appId}/users/{userId}/projects
+        const projectsRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'projects');
+
+        await addDoc(projectsRef, {
+            prompt: cleanedPrompt, // <--- USE THE CLEANED PROMPT HERE
+            htmlContent: htmlContent,
+            createdAt: serverTimestamp(), 
+        });
+
+        console.log("Project auto-saved successfully.");
+
+    } catch (error) {
+        console.error("Error during auto-save:", error);
+        showMessage("Warning: Failed to auto-save project.", true);
+    }
+}
             
             try {
                 // Secure Nested Path: /artifacts/{appId}/users/{userId}/projects
