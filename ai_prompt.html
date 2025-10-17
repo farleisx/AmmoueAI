@@ -99,279 +99,327 @@
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-        // Imports for Firestore Auto-Saving
-        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+   <script type="module">
+    // Using SDK v12.4.0 to match your previous setup
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+    import { getFirestore, collection, onSnapshot, query, deleteDoc, doc, Timestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+
+    // IMPORTANT: Hardcoded configuration from login.html for this specific app instance
+    const firebaseConfig = {
+        apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
+        authDomain: "ammoueai.firebaseapp.com",
+        projectId: "ammoueai",
+        storageBucket: "ammoueai.firebasestorage.app",
+        messagingSenderId: "135818868149",
+        appId: "1:135818868149:web:db9280baf9540a3339d5fc",
+    };
+
+    let auth = null;
+    let db = null;
+    let currentUserId = null;
+    let isAuthReady = false;
+    const appId = firebaseConfig.projectId;
+
+    // --- DOM Elements ---
+    const loadingScreen = document.getElementById('loading-screen');
+    const dashboardContent = document.getElementById('dashboard-content');
+    const userEmailSpan = document.getElementById('user-email');
+    const msgBox = document.getElementById('message-box');
+    const projectsContainer = document.getElementById('projects-container');
+
+
+    // --- Utility Functions ---
+
+    /**
+     * Converts raw code (like HTML or JS) into a displayable string
+     * by escaping HTML special characters.
+     */
+    function escapeHtml(unsafe) {
+        if (!unsafe) return '';
+        return unsafe.replace(/&/g, "&amp;")
+                     .replace(/</g, "&lt;")
+                     .replace(/>/g, "&gt;")
+                     .replace(/"/g, "&quot;")
+                     .replace(/'/g, "&#039;");
+    }
+
+    /** Shows a temporary message box (replaces alert()) */
+    function showMessage(message, isError) {
+        if (!msgBox) return;
+        msgBox.textContent = message;
+
+        msgBox.className = 'p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 z-50';
+        msgBox.classList.add(isError ? 'bg-red-500' : 'bg-green-500');
+        msgBox.classList.add('opacity-100');
+        setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
+    }
+
+    /** Opens the generated HTML in a new window for a live preview. 
+     * // **FIXED/UPDATED** to decode Base64 content
+     */
+    window.handlePreview = function(encodedHtmlContent) {
+        if (!encodedHtmlContent) {
+            showMessage("Preview data is missing.", true);
+            return;
+        }
+
+        // Decode the Base64 string back to HTML content
+        const htmlContent = atob(encodedHtmlContent); 
+
+        const previewWindow = window.open('', '_blank');
+        if (!previewWindow) {
+             showMessage("Pop-ups must be enabled to view the preview.", true);
+             return;
+        }
+        previewWindow.document.write(htmlContent);
+        previewWindow.document.close();
+    }
+
+    /** Downloads the generated HTML code as a file. 
+     * // **FIXED/UPDATED** to decode Base64 content and parse title
+     */
+    window.handleDownload = function(encodedHtmlContent, title) {
+        if (!encodedHtmlContent) {
+            showMessage("Nothing to download.", true);
+            return;
+        }
         
-        // --- FIREBASE CONFIGURATION ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
-            authDomain: "ammoueai.firebaseapp.com",
-            projectId: "ammoueai",
-            storageBucket: "ammoueai.firebasestorage.app",
-            messagingSenderId: "135818868149",
-            appId: "1:135818868149:web:db9280baf9540a3339d5fc",
-        };
+        // Decode the Base64 string back to HTML content
+        const htmlContent = atob(encodedHtmlContent); 
         
-        // --- Initialize Firebase and Services ---
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app); // Firestore initialization
-        const appId = firebaseConfig.projectId; // App ID for nested path
-        let currentUserId = null; // Stores the logged-in user's UID
+        // Title was JSON.stringify'd, so parse it back
+        const cleanTitle = JSON.parse(title); 
 
-        // --- DOM Elements ---
-        const loadingState = document.getElementById('loading-state');
-        const mainContent = document.getElementById('main-content');
-        const logoutBtn = document.getElementById('logout-btn');
-        const generateBtn = document.getElementById('generate-btn');
-        const downloadBtn = document.getElementById('download-btn');
-        const promptInput = document.getElementById('ai-prompt');
-        const outputDiv = document.getElementById('generation-output');
-        const outputCode = document.getElementById('output-code');
-        const copyBtn = document.getElementById('copy-btn');
-        const previewBtn = document.getElementById('preview-btn');
-        const messageBox = document.getElementById('message-box');
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        const filename = cleanTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'ammoue_project';
+        a.download = `${filename}.html`;
 
-        let listenersAttached = false;
-        let latestHtmlContent = ''; 
-        let latestPrompt = ''; 
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
 
-        // --- Utility Functions ---
+        showMessage("HTML file prepared for download!", false);
+    }
 
-        /** Displays a temporary, custom message box. */
-        function showMessage(message, isError) {
-            messageBox.textContent = message;
+    /** Handles deletion of a project from Firestore. */
+    window.handleDeleteProject = async function(projectId) {
+        if (!isAuthReady || !currentUserId) {
+            showMessage("System not ready or user ID missing.", true);
+            return;
+        }
+
+        // Simple confirmation before delete
+        if (!confirm("Are you sure you want to delete this project? This cannot be undone.")) {
+            return;
+        }
+
+        showMessage("Initiating project deletion...", false);
+        
+        try {
+            // Document path: /artifacts/{appId}/users/{userId}/projects/{projectId}
+            const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
+            await deleteDoc(docRef);
+            showMessage("Project deleted successfully!", false);
+        } catch (error) {
+            console.error("Error deleting document:", error);
+            showMessage("Failed to delete project.", true);
+        }
+    }
+
+    /** Renders the list of projects from Firestore data. */
+    function renderProjects(projects) {
+        // Get the HTML of the static 'Create New Site' card
+        const createCardElement = projectsContainer.querySelector('div.cursor-pointer');
+        
+        if (!createCardElement) {
+            console.error("Could not find the static 'Create New Site' element.");
+            projectsContainer.innerHTML = `<p class="col-span-full text-center text-red-500 text-lg mt-10">Error: Missing Create Site element.</p>`;
+            return;
+        }
+        
+        const createCardHtml = createCardElement.outerHTML;
+
+        // Start HTML with the static 'Create New Site' card
+        let projectsHtml = createCardHtml;
+
+        if (projects.length === 0) {
+            // Keep the 'Create New Site' card and show the empty message
+            projectsContainer.innerHTML = createCardHtml + `<p id="no-projects-message" class="col-span-full text-center text-gray-500 text-lg mt-10">You haven't saved any projects yet. Click above to start!</p>`;
+            lucide.createIcons();
+            return;
+        }
+
+        // Generate HTML for each saved project
+        projects.forEach(project => {
             
-            if (isError) {
-                messageBox.classList.remove('bg-green-500', 'bg-ammoue');
-                messageBox.classList.add('bg-red-500');
-            } else {
-                messageBox.classList.remove('bg-red-500');
-                messageBox.classList.add('bg-ammoue');
-            }
-
-            messageBox.classList.remove('opacity-0');
-            messageBox.classList.add('opacity-100');
-
-            setTimeout(() => {
-                messageBox.classList.remove('opacity-100');
-                messageBox.classList.add('opacity-0');
-            }, 4000);
-        }
-
-        /** Sets the loading state on the generate button. */
-        function setLoading(isLoading) {
-            if (isLoading) {
-                generateBtn.disabled = true;
-                downloadBtn.disabled = true; 
-                generateBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Generating...';
-            } else {
-                generateBtn.disabled = false;
-                generateBtn.innerHTML = 'Generate HTML Code';
-            }
-        }
-
-        /** Utility function to copy text to clipboard. */
-        function copyToClipboard(text) {
-            try {
-                const textarea = document.createElement('textarea');
-                textarea.value = text;
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-                showMessage("Code copied to clipboard!", false);
-            } catch (err) {
-                console.error('Failed to copy text:', err);
-                showMessage("Failed to copy code.", true);
-            }
-        }
-        
-        /** Handles downloading the generated HTML content. */
-        function handleDownload() {
-            const htmlCode = outputCode.textContent;
-            if (!htmlCode) {
-                showMessage("No HTML code available to download.", true);
-                return;
-            }
-
-            const blob = new Blob([htmlCode], { type: "text/html" });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = "ammoue_website.html"; 
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            showMessage("Download started!", false);
-        }
-        
-        /** Opens the generated HTML in a new window for a live preview. */
-        function handlePreview() {
-            const htmlContent = previewBtn.dataset.html;
-            if (!htmlContent) {
-                showMessage("No HTML code available to preview.", true);
-                return;
-            }
-
-            const previewWindow = window.open('', '_blank');
-            if (!previewWindow) {
-                 showMessage("Pop-ups must be enabled to view the preview.", true);
-                 return;
-            }
-
-            previewWindow.document.write(htmlContent);
-            previewWindow.document.close();
-        }
-
-        // *** Auto-Save Logic (runs after successful generation) ***
-        async function autoSaveProject(htmlContent, userPrompt) {
-            if (!currentUserId || !htmlContent) {
-                console.error("Auto-save failed: Missing user ID or content.");
-                return;
-            }
+            // **FIX: Clean the prompt by replacing the literal '\n' sequences with real line breaks**
+            const cleanPrompt = project.prompt.replace(/\\n/g, '\n');
             
-            // ⭐ CRITICAL FIX: Clean the prompt data before saving it to Firestore ⭐
-            // This replaces the literal "\n" strings (saved from textarea) with real newline characters.
-            const cleanedPrompt = userPrompt.replace(/\\n/g, '\n');
-
-            try {
-                // Secure Nested Path: /artifacts/{appId}/users/{userId}/projects
-                const projectsRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'projects');
-
-                await addDoc(projectsRef, {
-                    prompt: cleanedPrompt, // USE THE CLEANED PROMPT HERE
-                    htmlContent: htmlContent,
-                    createdAt: serverTimestamp(), 
-                });
-
-                console.log("Project auto-saved successfully.");
-
-            } catch (error) {
-                console.error("Error during auto-save:", error);
-                showMessage("Warning: Failed to auto-save project.", true);
-            }
-        }
-
-        // --- AI Generation Logic ---
-
-        /** Handles the generation process and initiates auto-save on success. */
-        async function handleGeneration() {
-            const prompt = promptInput.value.trim();
-            if (prompt.length < 10) {
-                showMessage("Please provide a more detailed prompt (at least 10 characters).", true);
-                return;
-            }
-
-            setLoading(true);
-            outputDiv.classList.add('hidden');
-            outputCode.textContent = ''; 
-            downloadBtn.disabled = true; 
-
-            latestPrompt = prompt;
-
-            const apiEndpoint = '/api/generate.js'; 
-            console.log(`Attempting to call AI endpoint: ${apiEndpoint}`);
-
-            const payload = {
-                prompt: prompt,
-            };
-
-            const maxRetries = 3;
-            for (let attempt = 0; attempt < maxRetries; attempt++) {
-                try {
-                    const response = await fetch(apiEndpoint, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (!response.ok) {
-                        const errorBody = await response.json().catch(() => ({}));
-                        const errorMessage = errorBody.error || response.statusText || "Unknown server error.";
-                        console.error(`Attempt ${attempt + 1} Server Error: Status ${response.status}`, errorMessage);
-                        throw new Error(`API Proxy Error [Status: ${response.status}]: ${errorMessage}`);
-                    }
-
-                    const result = await response.json();
-                    const generatedHtml = result.htmlCode; 
-                    
-                    if (generatedHtml) {
-                        const finalHtml = generatedHtml.trim();
-                        outputCode.textContent = finalHtml;
-                        latestHtmlContent = finalHtml; 
-                        
-                        previewBtn.dataset.html = finalHtml;
-
-                        outputDiv.classList.remove('hidden');
-                        downloadBtn.disabled = false;
-                        showMessage("HTML generated successfully! Project auto-saved.", false);
-
-                        // CRITICAL STEP: AUTO-SAVE ASYNCHRONOUSLY
-                        autoSaveProject(finalHtml, latestPrompt); 
-                        
-                        break; // Exit loop on success
-                    } else {
-                        console.error(`Attempt ${attempt + 1} Response Structure Error: 'htmlCode' missing in result.`, result);
-                        throw new Error("API response missing 'htmlCode' content.");
-                    }
-
-                } catch (error) {
-                    console.error(`Attempt ${attempt + 1} failed:`, error.message);
-                    if (attempt === maxRetries - 1) {
-                        showMessage("Generation failed after multiple retries.", true);
-                    } else {
-                        const delay = Math.pow(2, attempt) * 1000;
-                        await new Promise(resolve => setTimeout(resolve, delay));
-                    }
-                }
-            }
-
-            setLoading(false);
-        }
-
-
-        // --- Authentication Guard and Event Listeners ---
-
-        onAuthStateChanged(auth, (user) => {
-            console.log("Auth state resolved. User:", user ? user.email : "none");
-
-            if (user) {
-                currentUserId = user.uid; // Store the user ID
-                
-                // User is logged in: Show the content
-                loadingState.style.pointerEvents = 'none';
-                loadingState.classList.add('hidden');
-                loadingState.style.opacity = '0'; 
-                mainContent.classList.remove('hidden');
-
-                if (!listenersAttached) {
-                    generateBtn.addEventListener('click', handleGeneration);
-                    copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
-                    downloadBtn.addEventListener('click', handleDownload);
-                    previewBtn.addEventListener('click', handlePreview);
-                    
-                    logoutBtn.addEventListener('click', async () => {
-                        try {
-                            await signOut(auth);
-                        } catch (error) {
-                            console.error("Logout failed:", error);
-                        }
-                    });
-                    listenersAttached = true;
-                }
+            // **FIX: Generate a clean title and summary from the cleaned prompt**
+            const firstLine = cleanPrompt.split('\n').find(line => line.trim().length > 0) || "Untitled Project";
+            const title = firstLine.substring(0, 30).trim() + (firstLine.length > 30 ? '...' : '');
+            
+            // *** Get the date correctly from the Firestore Timestamp object ***
+            let dateObj;
+            if (project.createdAt && typeof project.createdAt.toDate === 'function') {
+                dateObj = project.createdAt.toDate();
+            } else if (project.createdAt && project.createdAt.seconds) {
+                dateObj = new Date(project.createdAt.seconds * 1000);
             } else {
-                // User is NOT logged in: Redirect them to login.
-                console.log("User not authenticated. Redirecting to login.");
-                const currentPath = window.location.pathname;
-                const redirectUrl = 'login.html?redirect=' + encodeURIComponent(currentPath);
-                window.location.replace(redirectUrl); 
+                dateObj = new Date();
             }
+            const timestamp = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            // **FIXED/UPDATED**: Use Base64 encoding for the HTML content to safely embed in the onclick attribute
+            const encodedHtmlContent = btoa(project.htmlContent);
+            // Keep JSON.stringify for the title, as it's a simple string that needs quote protection.
+            const safeTitle = JSON.stringify(title); 
+
+            // *** Escape the HTML content for display in the snippet box ***
+            const escapedCodeSnippet = escapeHtml(project.htmlContent);
+
+            projectsHtml += `
+                <div class="bg-white border border-gray-200 rounded-2xl p-6 flex flex-col justify-between shadow-lg hover:shadow-xl transition duration-300">
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-xl font-bold text-gray-900 truncate">${title}</h3>
+                            <i data-lucide="layout" class="w-6 h-6 text-ammoue/70 flex-shrink-0"></i>
+                        </div>
+                        <p class="text-xs text-gray-500 mb-2 h-10 line-clamp-2">${cleanPrompt}</p>
+                    </div>
+
+                    <div class="bg-gray-100 border border-gray-300 rounded-lg p-2 mb-4 h-32 overflow-y-scroll text-sm">
+                        <pre class="whitespace-pre-wrap">
+                            <code class="text-xs text-gray-700">${escapedCodeSnippet}</code>
+                        </pre>
+                    </div>
+
+                    <div class="mt-auto">
+                        <p class="text-xs text-gray-400 mb-3">Saved: ${timestamp}</p>
+                        <div class="flex space-x-2">
+                            <button onclick="handlePreview('${encodedHtmlContent}')" class="flex-1 px-3 py-2 text-sm font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-md">
+                                <i data-lucide="eye" class="w-4 h-4 inline-block mr-1"></i> Preview
+                            </button>
+                            <button onclick="handleDownload('${encodedHtmlContent}', ${safeTitle})" class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-green-600 hover:bg-green-700 transition duration-150 shadow-md">
+                                <i data-lucide="download" class="w-4 h-4 inline-block"></i>
+                            </button>
+                            <button onclick="handleDeleteProject('${project.id}')" class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150 shadow-md">
+                                <i data-lucide="trash-2" class="w-4 h-4 inline-block"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
         });
-        
+
+        projectsContainer.innerHTML = projectsHtml;
+        // Re-render Lucide icons after injecting new HTML
         lucide.createIcons();
-    </script>
+    }
+
+
+    /** Fetches projects for the current user in real-time. */
+    function getProjects(userId) {
+        if (!db || !userId) return;
+
+        // Collection path: /artifacts/{appId}/users/{userId}/projects
+        const projectsRef = collection(db, 'artifacts', appId, 'users', userId, 'projects');
+        const q = query(projectsRef);
+
+        // Set up the real-time listener (onSnapshot)
+        onSnapshot(q, (snapshot) => {
+            const projects = [];
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                projects.push({
+                    id: doc.id,
+                    ...data,
+                    // Use more sensible default fields for robust rendering
+                    title: data.title || data.prompt?.split('\n')[0].substring(0, 30).trim() || "Untitled Project",
+                    prompt: data.prompt || "No prompt available",
+                    htmlContent: data.htmlContent || "",
+                    createdAt: data.createdAt // Keep the Firestore Timestamp object
+                });
+            });
+
+            // Sort by createdAt descending (newest first) in memory.
+            projects.sort((a, b) => {
+                const timeA = a.createdAt instanceof Timestamp ? a.createdAt.toMillis() : 0;
+                const timeB = b.createdAt instanceof Timestamp ? b.createdAt.toMillis() : 0;
+                return timeB - timeA; // Descending order (newest first)
+            });
+
+            renderProjects(projects);
+        }, (error) => {
+            console.error("Error fetching projects:", error);
+            showMessage("Failed to load projects.", true);
+        });
+    }
+
+
+    /** Initializes Firebase services and sets up the critical auth listener. */
+    function initializeAppAndAuth() {
+        try {
+            const app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+
+            // CRITICAL: Authentication Gate using the listener
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    // **SUCCESS** - User is authenticated
+                    currentUserId = user.uid;
+                    isAuthReady = true;
+
+                    // Display user ID or email
+                    userEmailSpan.textContent = user.email || user.uid;
+
+                    // Fetch projects for the logged-in user (CORE INTEGRATION)
+                    getProjects(currentUserId);
+
+                    // Show dashboard content
+                    loadingScreen.classList.add('hidden');
+                    dashboardContent.classList.remove('hidden');
+                    dashboardContent.classList.add('opacity-100');
+                } else {
+                    // **FAILURE** - User is NOT authenticated: Redirect to login page
+                    console.log("No valid session found. Redirecting to login.html...");
+                    window.location.href = 'login.html';
+                }
+            });
+
+        } catch (error) {
+            console.error("Firebase initialization failed:", error);
+            showMessage("Initialization error. Redirecting to login...", true);
+            setTimeout(() => {
+                window.location.href = 'login.html';
+            }, 500);
+        }
+    }
+
+    /** Logs the current user out. */
+    window.handleLogout = async function() {
+        if (auth) {
+            try {
+                await signOut(auth);
+                showMessage("You have been signed out.", false);
+                // Redirect handles itself via onAuthStateChanged listener
+            } catch (error) {
+                console.error("Logout failed:", error);
+                showMessage("Logout failed. Please try again.", true);
+            }
+        } else {
+            window.location.href = 'login.html';
+        }
+    }
+
+    // --- Run Initialization Immediately ---
+    initializeAppAndAuth();
+    lucide.createIcons();
+
+</script>
 </body>
 </html>
