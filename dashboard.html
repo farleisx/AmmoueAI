@@ -116,7 +116,7 @@
     </div>
     <script type="module">
     // Using SDK v12.4.0 to match your previous setup
-    // UPDATED: 'updateDoc' is CRITICAL for the edit function to work.
+    // UPDATED: Added updateDoc for editing functionality
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
     import { getFirestore, collection, onSnapshot, query, deleteDoc, doc, Timestamp, updateDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
@@ -144,7 +144,7 @@
     const msgBox = document.getElementById('message-box');
     const projectsContainer = document.getElementById('projects-container');
     
-    // --- Modal DOM Elements ---
+    // --- NEW Modal DOM Elements ---
     const editModal = document.getElementById('edit-modal');
     const editModalContent = document.getElementById('edit-modal-content');
     const editForm = document.getElementById('edit-project-form');
@@ -177,6 +177,7 @@
     }
 
     /** Opens the generated HTML in a new window for a live preview. 
+     * // FIXED/UPDATED to decode Base64 content
      */
     window.handlePreview = function(encodedHtmlContent) {
         if (!encodedHtmlContent) {
@@ -197,7 +198,7 @@
     }
 
     /** Downloads the generated HTML code as a file. 
-     * Uses safer title cleanup.
+     * // FIXED/UPDATED to decode Base64 content and use safer title cleaning.
      */
     window.handleDownload = function(encodedHtmlContent, title) {
         if (!encodedHtmlContent) {
@@ -250,7 +251,7 @@
     }
 
 
-    // --- Project Edit Modal Functions (New Feature) ---
+    // --- NEW Modal Control Functions ---
     
     /** Shows the edit modal and pre-fills data. */
     window.openEditModal = function(projectId, title, prompt) {
@@ -259,17 +260,17 @@
         
         document.getElementById('edit-project-id').value = projectId;
         document.getElementById('edit-title').value = cleanTitle;
-        document.getElementById('edit-prompt').value = prompt;
+        document.getElementById('edit-prompt').value = prompt; // Prompt is already cleaned
 
         editModal.classList.remove('hidden');
         editModal.classList.add('flex');
         
-        // Animation effect
+        // Slight delay for animation effect
         setTimeout(() => {
             editModalContent.classList.remove('scale-95', 'opacity-0');
             editModalContent.classList.add('scale-100', 'opacity-100');
         }, 10);
-        lucide.createIcons();
+        lucide.createIcons(); // Re-render icons in modal
     }
 
     /** Hides the edit modal. */
@@ -312,7 +313,7 @@
             await updateDoc(docRef, {
                 title: newTitle,
                 prompt: newPrompt,
-                updatedAt: new Date()
+                updatedAt: new Date() // Optional: track when it was last updated
             });
 
             showMessage(`Project "${newTitle}" updated successfully!`, false);
@@ -323,7 +324,7 @@
         }
     }
 
-    // CRITICAL FIX: Attach the submit listener to the form element
+    // Attach the submit listener to the form element
     if (editForm) {
         editForm.addEventListener('submit', handleEditFormSubmit);
     }
@@ -355,14 +356,14 @@
         // Generate HTML for each saved project
         projects.forEach(project => {
             
-            // Clean the prompt by replacing the literal '\n' sequences with real line breaks
+            // **FIX: Clean the prompt by replacing the literal '\n' sequences with real line breaks**
             const cleanPrompt = project.prompt.replace(/\\n/g, '\n');
             
-            // Generate a clean title and summary from the cleaned prompt
-            const firstLine = project.title || cleanPrompt.split('\n').find(line => line.trim().length > 0) || "Untitled Project";
+            // **FIX: Generate a clean title and summary from the cleaned prompt**
+            const firstLine = cleanPrompt.split('\n').find(line => line.trim().length > 0) || "Untitled Project";
             const title = firstLine.substring(0, 30).trim() + (firstLine.length > 30 ? '...' : '');
             
-            // Get the date correctly from the Firestore Timestamp object
+            // *** Get the date correctly from the Firestore Timestamp object ***
             let dateObj;
             if (project.createdAt && typeof project.createdAt.toDate === 'function') {
                 dateObj = project.createdAt.toDate();
@@ -373,13 +374,13 @@
             }
             const timestamp = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-            // Use Base64 encoding for the HTML content (for preview/download)
+            // **FIXED/UPDATED**: Use Base64 encoding for the HTML content to safely embed in the onclick attribute
             const encodedHtmlContent = btoa(project.htmlContent);
-            // Use JSON.stringify for the title and prompt to protect quotes/newlines when passed to JS functions via HTML
+            // Keep JSON.stringify for the title and prompt to protect quotes/newlines when passed to JS functions via HTML
             const safeTitle = JSON.stringify(title);
             const safePrompt = JSON.stringify(cleanPrompt); 
 
-            // Escape the HTML content for display in the snippet box
+            // *** Escape the HTML content for display in the snippet box ***
             const escapedCodeSnippet = escapeHtml(project.htmlContent);
 
             projectsHtml += `
