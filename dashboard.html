@@ -93,13 +93,13 @@
                 <div class="mb-4">
                     <label for="edit-title" class="block text-sm font-medium text-gray-700 mb-1">Project Title</label>
                     <input type="text" id="edit-title" required 
-                           class="w-full border-gray-300 rounded-xl shadow-sm focus:border-ammoue focus:ring-ammoue transition duration-150 p-3">
+                               class="w-full border-gray-300 rounded-xl shadow-sm focus:border-ammoue focus:ring-ammoue transition duration-150 p-3">
                 </div>
 
                 <div class="mb-6">
                     <label for="edit-prompt" class="block text-sm font-medium text-gray-700 mb-1">AI Prompt</label>
                     <textarea id="edit-prompt" rows="6" required 
-                              class="w-full border-gray-300 rounded-xl shadow-sm focus:border-ammoue focus:ring-ammoue transition duration-150 p-3"></textarea>
+                                 class="w-full border-gray-300 rounded-xl shadow-sm focus:border-ammoue focus:ring-ammoue transition duration-150 p-3"></textarea>
                     <p class="text-xs text-gray-500 mt-1">Editing the prompt does not regenerate the site; it only updates the description.</p>
                 </div>
 
@@ -116,7 +116,6 @@
     </div>
     <script type="module">
     // Using SDK v12.4.0 to match your previous setup
-    // UPDATED: Added updateDoc for editing functionality
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
     import { getFirestore, collection, onSnapshot, query, deleteDoc, doc, Timestamp, updateDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
@@ -185,15 +184,15 @@
             return;
         }
 
-        // Decode the Base64 string back to HTML content
-        const htmlContent = atob(encodedHtmlContent); 
-
+        // Decode the Base64 string back to a UTF-8 safe string
+        const decodedHtml = decodeURIComponent(escape(atob(encodedHtmlContent)));
+        
         const previewWindow = window.open('', '_blank');
         if (!previewWindow) {
              showMessage("Pop-ups must be enabled to view the preview.", true);
              return;
         }
-        previewWindow.document.write(htmlContent);
+        previewWindow.document.write(decodedHtml);
         previewWindow.document.close();
     }
 
@@ -206,8 +205,8 @@
             return;
         }
         
-        // Decode the Base64 string back to HTML content
-        const htmlContent = atob(encodedHtmlContent); 
+        // Decode the Base64 string back to a UTF-8 safe string
+        const htmlContent = decodeURIComponent(escape(atob(encodedHtmlContent)));
         
         // Since 'title' came from JSON.stringify, we strip the quotes to get the clean string.
         const cleanTitle = title.replace(/"/g, ''); 
@@ -223,6 +222,26 @@
         document.body.removeChild(a);
 
         showMessage("HTML file prepared for download!", false);
+    }
+    
+    // ⭐ NEW: Utility function to copy the HTML code to the clipboard
+    window.handleCopyCode = function(encodedHtmlContent) {
+        if (!encodedHtmlContent) {
+            showMessage("No code to copy.", true);
+            return;
+        }
+        
+        // Decode the Base64 string back to a UTF-8 safe string
+        const htmlContent = decodeURIComponent(escape(atob(encodedHtmlContent)));
+
+        navigator.clipboard.writeText(htmlContent)
+            .then(() => {
+                showMessage("Code copied to clipboard!", false);
+            })
+            .catch(err => {
+                console.error('Failed to copy text:', err);
+                showMessage("Failed to copy code.", true);
+            });
     }
 
     /** Handles deletion of a project from Firestore. */
@@ -260,7 +279,7 @@
         
         document.getElementById('edit-project-id').value = projectId;
         document.getElementById('edit-title').value = cleanTitle;
-        document.getElementById('edit-prompt').value = prompt; // Prompt is already cleaned
+        document.getElementById('edit-prompt').value = prompt.replace(/\\n/g, '\n'); // Ensure newlines render correctly in textarea
 
         editModal.classList.remove('hidden');
         editModal.classList.add('flex');
@@ -311,7 +330,8 @@
             const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
             
             await updateDoc(docRef, {
-                title: newTitle,
+                // We use the newTitle for the optional 'title' field and the original prompt field
+                title: newTitle, 
                 prompt: newPrompt,
                 updatedAt: new Date() // Optional: track when it was last updated
             });
@@ -361,7 +381,7 @@
             
             // **FIX: Generate a clean title and summary from the cleaned prompt**
             const firstLine = cleanPrompt.split('\n').find(line => line.trim().length > 0) || "Untitled Project";
-            const title = firstLine.substring(0, 30).trim() + (firstLine.length > 30 ? '...' : '');
+            const title = project.title || (firstLine.substring(0, 30).trim() + (firstLine.length > 30 ? '...' : ''));
             
             // *** Get the date correctly from the Firestore Timestamp object ***
             let dateObj;
@@ -374,8 +394,10 @@
             }
             const timestamp = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-            // **FIXED/UPDATED**: Use Base64 encoding for the HTML content to safely embed in the onclick attribute
-            const encodedHtmlContent = btoa(project.htmlContent);
+            // ⭐ CRITICAL FIX: Use UTF-8 safe encoding before btoa() to handle Unicode characters (emojis, etc.)
+            const utf8Encoded = unescape(encodeURIComponent(project.htmlContent));
+            const encodedHtmlContent = btoa(utf8Encoded);
+            
             // Keep JSON.stringify for the title and prompt to protect quotes/newlines when passed to JS functions via HTML
             const safeTitle = JSON.stringify(title);
             const safePrompt = JSON.stringify(cleanPrompt); 
@@ -405,6 +427,11 @@
                             <button onclick="openEditModal('${project.id}', ${safeTitle}, ${safePrompt})" 
                                 class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-amber-500 hover:bg-amber-600 transition duration-150 shadow-md" title="Edit Details">
                                 <i data-lucide="pencil" class="w-4 h-4 inline-block"></i>
+                            </button>
+                            
+                            <button onclick="handleCopyCode('${encodedHtmlContent}')" 
+                                class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-gray-500 hover:bg-gray-600 transition duration-150 shadow-md" title="Copy Code">
+                                <i data-lucide="copy" class="w-4 h-4 inline-block"></i>
                             </button>
 
                             <button onclick="handlePreview('${encodedHtmlContent}')" class="flex-1 px-3 py-2 text-sm font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-md">
