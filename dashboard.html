@@ -78,11 +78,48 @@
         </main>
     </div>
 
- <script type="module">
+    <div id="edit-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 z-50 hidden items-center justify-center">
+        <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg m-4 transform transition-all duration-300 scale-95 opacity-0" id="edit-modal-content">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center justify-between">
+                Edit Project Details
+                <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </h2>
+
+            <form id="edit-project-form">
+                <input type="hidden" id="edit-project-id">
+
+                <div class="mb-4">
+                    <label for="edit-title" class="block text-sm font-medium text-gray-700 mb-1">Project Title</label>
+                    <input type="text" id="edit-title" required 
+                           class="w-full border-gray-300 rounded-xl shadow-sm focus:border-ammoue focus:ring-ammoue transition duration-150 p-3">
+                </div>
+
+                <div class="mb-6">
+                    <label for="edit-prompt" class="block text-sm font-medium text-gray-700 mb-1">AI Prompt</label>
+                    <textarea id="edit-prompt" rows="6" required 
+                              class="w-full border-gray-300 rounded-xl shadow-sm focus:border-ammoue focus:ring-ammoue transition duration-150 p-3"></textarea>
+                    <p class="text-xs text-gray-500 mt-1">Editing the prompt does not regenerate the site; it only updates the description.</p>
+                </div>
+
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="closeEditModal()" class="px-4 py-2 text-sm font-semibold rounded-xl text-gray-600 bg-gray-100 hover:bg-gray-200 transition duration-150">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 text-sm font-semibold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-150 shadow-md">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <script type="module">
     // Using SDK v12.4.0 to match your previous setup
+    // UPDATED: Added updateDoc for editing functionality
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-    import { getFirestore, collection, onSnapshot, query, deleteDoc, doc, Timestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+    import { getFirestore, collection, onSnapshot, query, deleteDoc, doc, Timestamp, updateDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
     // IMPORTANT: Hardcoded configuration from login.html for this specific app instance
     const firebaseConfig = {
@@ -106,6 +143,11 @@
     const userEmailSpan = document.getElementById('user-email');
     const msgBox = document.getElementById('message-box');
     const projectsContainer = document.getElementById('projects-container');
+    
+    // --- NEW Modal DOM Elements ---
+    const editModal = document.getElementById('edit-modal');
+    const editModalContent = document.getElementById('edit-modal-content');
+    const editForm = document.getElementById('edit-project-form');
 
 
     // --- Utility Functions ---
@@ -135,7 +177,7 @@
     }
 
     /** Opens the generated HTML in a new window for a live preview. 
-     * // **FIXED/UPDATED** to decode Base64 content
+     * // FIXED/UPDATED to decode Base64 content
      */
     window.handlePreview = function(encodedHtmlContent) {
         if (!encodedHtmlContent) {
@@ -156,7 +198,7 @@
     }
 
     /** Downloads the generated HTML code as a file. 
-     * // **FIXED/UPDATED** to decode Base64 content and parse title
+     * // FIXED/UPDATED to decode Base64 content and use safer title cleaning.
      */
     window.handleDownload = function(encodedHtmlContent, title) {
         if (!encodedHtmlContent) {
@@ -167,8 +209,8 @@
         // Decode the Base64 string back to HTML content
         const htmlContent = atob(encodedHtmlContent); 
         
-        // Title was JSON.stringify'd, so parse it back
-        const cleanTitle = JSON.parse(title); 
+        // Since 'title' came from JSON.stringify, we strip the quotes to get the clean string.
+        const cleanTitle = title.replace(/"/g, ''); 
 
         const blob = new Blob([htmlContent], { type: 'text/html' });
         const a = document.createElement('a');
@@ -207,6 +249,86 @@
             showMessage("Failed to delete project.", true);
         }
     }
+
+
+    // --- NEW Modal Control Functions ---
+    
+    /** Shows the edit modal and pre-fills data. */
+    window.openEditModal = function(projectId, title, prompt) {
+        // Strip quotes from title string passed via onclick
+        const cleanTitle = title.replace(/"/g, ''); 
+        
+        document.getElementById('edit-project-id').value = projectId;
+        document.getElementById('edit-title').value = cleanTitle;
+        document.getElementById('edit-prompt').value = prompt; // Prompt is already cleaned
+
+        editModal.classList.remove('hidden');
+        editModal.classList.add('flex');
+        
+        // Slight delay for animation effect
+        setTimeout(() => {
+            editModalContent.classList.remove('scale-95', 'opacity-0');
+            editModalContent.classList.add('scale-100', 'opacity-100');
+        }, 10);
+        lucide.createIcons(); // Re-render icons in modal
+    }
+
+    /** Hides the edit modal. */
+    window.closeEditModal = function() {
+        editModalContent.classList.remove('scale-100', 'opacity-100');
+        editModalContent.classList.add('scale-95', 'opacity-0');
+        
+        // Hide completely after animation
+        setTimeout(() => {
+            editModal.classList.remove('flex');
+            editModal.classList.add('hidden');
+        }, 300);
+    }
+
+    /** Handles form submission to update Firestore. */
+    async function handleEditFormSubmit(e) {
+        e.preventDefault();
+        
+        if (!isAuthReady || !currentUserId) {
+            showMessage("System not ready or user ID missing.", true);
+            return;
+        }
+
+        const projectId = document.getElementById('edit-project-id').value;
+        const newTitle = document.getElementById('edit-title').value.trim();
+        const newPrompt = document.getElementById('edit-prompt').value.trim();
+
+        if (!newTitle || !newPrompt) {
+            showMessage("Title and Prompt cannot be empty.", true);
+            return;
+        }
+
+        showMessage("Saving changes...", false);
+        window.closeEditModal();
+        
+        try {
+            // Document path: /artifacts/{appId}/users/{userId}/projects/{projectId}
+            const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
+            
+            await updateDoc(docRef, {
+                title: newTitle,
+                prompt: newPrompt,
+                updatedAt: new Date() // Optional: track when it was last updated
+            });
+
+            showMessage(`Project "${newTitle}" updated successfully!`, false);
+            
+        } catch (error) {
+            console.error("Error updating document:", error);
+            showMessage("Failed to save changes.", true);
+        }
+    }
+
+    // Attach the submit listener to the form element
+    if (editForm) {
+        editForm.addEventListener('submit', handleEditFormSubmit);
+    }
+
 
     /** Renders the list of projects from Firestore data. */
     function renderProjects(projects) {
@@ -254,8 +376,9 @@
 
             // **FIXED/UPDATED**: Use Base64 encoding for the HTML content to safely embed in the onclick attribute
             const encodedHtmlContent = btoa(project.htmlContent);
-            // Keep JSON.stringify for the title, as it's a simple string that needs quote protection.
-            const safeTitle = JSON.stringify(title); 
+            // Keep JSON.stringify for the title and prompt to protect quotes/newlines when passed to JS functions via HTML
+            const safeTitle = JSON.stringify(title);
+            const safePrompt = JSON.stringify(cleanPrompt); 
 
             // *** Escape the HTML content for display in the snippet box ***
             const escapedCodeSnippet = escapeHtml(project.htmlContent);
@@ -279,6 +402,11 @@
                     <div class="mt-auto">
                         <p class="text-xs text-gray-400 mb-3">Saved: ${timestamp}</p>
                         <div class="flex space-x-2">
+                            <button onclick="openEditModal('${project.id}', ${safeTitle}, ${safePrompt})" 
+                                class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-amber-500 hover:bg-amber-600 transition duration-150 shadow-md" title="Edit Details">
+                                <i data-lucide="pencil" class="w-4 h-4 inline-block"></i>
+                            </button>
+
                             <button onclick="handlePreview('${encodedHtmlContent}')" class="flex-1 px-3 py-2 text-sm font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-md">
                                 <i data-lucide="eye" class="w-4 h-4 inline-block mr-1"></i> Preview
                             </button>
