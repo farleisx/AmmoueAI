@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ammoue | AI Site Generator</title>
-    <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
@@ -45,10 +43,8 @@
 </head>
 <body class="antialiased min-h-screen">
 
-    <!-- Message Box for alerts (replaces alert()) -->
     <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold"></div>
 
-    <!-- 1. LOADING STATE (Visible until Auth Check is Complete) -->
     <div id="loading-state">
         <div class="flex flex-col items-center">
             <svg class="animate-spin h-8 w-8 text-ammoue mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -59,7 +55,6 @@
         </div>
     </div>
 
-    <!-- 2. MAIN CONTENT (Hidden until Auth Check is Complete) -->
     <div id="main-content" class="max-w-4xl mx-auto p-6 lg:p-10 hidden">
         <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Generate Your AI Website</h1>
         <p class="text-xl text-gray-500 mb-8">Tell Ammoue exactly what website you want to generate (e.g., 'A modern portfolio site for a UX designer with a dark theme').</p>
@@ -67,7 +62,6 @@
         <textarea id="ai-prompt" rows="6" class="w-full p-4 border-2 border-ammoue/30 rounded-2xl focus:ring-ammoue focus:border-ammoue transition duration-150 shadow-md" placeholder="e.g., 'A vibrant landing page for a dog grooming salon called Paws & Claws, focusing on luxury services and online booking.'"></textarea>
 
         <div class="mt-6 flex justify-end space-x-4">
-            <!-- NEW: Dashboard Button -->
             <a href="dashboard.html" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300 flex items-center">
                 <i data-lucide="layout-dashboard" class="w-4 h-4 mr-1"></i> Dashboard
             </a>
@@ -85,7 +79,6 @@
                     <i data-lucide="code" class="w-5 h-5 mr-2 text-ammoue"></i>
                     Generated HTML Code
                 </h3>
-                <!-- Download and Copy Button Group -->
                 <div class="flex space-x-3">
                     <button id="copy-btn" class="text-sm font-medium text-ammoue hover:text-teal-600 flex items-center transition duration-200">
                         <i data-lucide="copy" class="w-4 h-4 mr-1"></i> Copy Code
@@ -93,25 +86,24 @@
                     <button id="download-btn" disabled class="text-sm font-medium text-blue-600 hover:text-blue-700 disabled:text-gray-400 flex items-center transition duration-200">
                         <i data-lucide="download" class="w-4 h-4 mr-1"></i> Download HTML
                     </button>
-                </div>
+                    </div>
             </div>
             
-            <!-- Code Block for Display -->
             <pre class="bg-gray-100 p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm">
                 <code id="output-code" class="whitespace-pre"></code>
             </pre>
             
-            <!-- Preview Button (Optional, if you want to render the raw HTML) -->
             <button id="preview-btn" class="mt-4 px-6 py-2 text-base font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300">
                 Preview Site (Will open in a new tab)
             </button>
         </div>
     </div>
 
-    <!-- Firebase and AI Generation Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+        // *** Imports for Firestore Auto-Saving ***
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
         
         // --- FIREBASE CONFIGURATION ---
         const firebaseConfig = {
@@ -123,16 +115,19 @@
             appId: "1:135818868149:web:db9280baf9540a3339d5fc",
         };
         
-        // --- Initialize Firebase and Auth ---
+        // --- Initialize Firebase and Services ---
         const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app); 
-        
+        const auth = getAuth(app);
+        const db = getFirestore(app); // Firestore initialization
+        const appId = firebaseConfig.projectId; // App ID for nested path
+        let currentUserId = null; // Stores the logged-in user's UID
+
         // --- DOM Elements ---
         const loadingState = document.getElementById('loading-state');
         const mainContent = document.getElementById('main-content');
         const logoutBtn = document.getElementById('logout-btn');
         const generateBtn = document.getElementById('generate-btn');
-        const downloadBtn = document.getElementById('download-btn'); // New element
+        const downloadBtn = document.getElementById('download-btn');
         const promptInput = document.getElementById('ai-prompt');
         const outputDiv = document.getElementById('generation-output');
         const outputCode = document.getElementById('output-code');
@@ -140,13 +135,13 @@
         const previewBtn = document.getElementById('preview-btn');
         const messageBox = document.getElementById('message-box');
 
-        let listenersAttached = false; 
+        let listenersAttached = false;
+        let latestHtmlContent = ''; 
+        let latestPrompt = ''; 
 
         // --- Utility Functions ---
 
-        /**
-         * Displays a temporary, custom message box.
-         */
+        /** Displays a temporary, custom message box. */
         function showMessage(message, isError) {
             messageBox.textContent = message;
             
@@ -155,7 +150,7 @@
                 messageBox.classList.add('bg-red-500');
             } else {
                 messageBox.classList.remove('bg-red-500');
-                messageBox.classList.add('bg-ammoue'); // Use brand color for success
+                messageBox.classList.add('bg-ammoue');
             }
 
             messageBox.classList.remove('opacity-0');
@@ -167,13 +162,11 @@
             }, 4000);
         }
 
-        /**
-         * Sets the loading state on the generate button.
-         */
+        /** Sets the loading state on the generate button. */
         function setLoading(isLoading) {
             if (isLoading) {
                 generateBtn.disabled = true;
-                downloadBtn.disabled = true; // Disable download during generation
+                downloadBtn.disabled = true; 
                 generateBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Generating...';
             } else {
                 generateBtn.disabled = false;
@@ -181,9 +174,7 @@
             }
         }
 
-        /**
-         * Utility function to copy text to clipboard.
-         */
+        /** Utility function to copy text to clipboard. */
         function copyToClipboard(text) {
             try {
                 const textarea = document.createElement('textarea');
@@ -199,9 +190,7 @@
             }
         }
         
-        /**
-         * Handles downloading the generated HTML content.
-         */
+        /** Handles downloading the generated HTML content. */
         function handleDownload() {
             const htmlCode = outputCode.textContent;
             if (!htmlCode) {
@@ -212,16 +201,14 @@
             const blob = new Blob([htmlCode], { type: "text/html" });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
-            link.download = "ammoue_website.html"; // Default filename
+            link.download = "ammoue_website.html"; 
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             showMessage("Download started!", false);
         }
         
-        /**
-         * Opens the generated HTML in a new window for a live preview.
-         */
+        /** Opens the generated HTML in a new window for a live preview. */
         function handlePreview() {
             const htmlContent = previewBtn.dataset.html;
             if (!htmlContent) {
@@ -239,13 +226,34 @@
             previewWindow.document.close();
         }
 
+        // *** Auto-Save Logic (runs after successful generation) ***
+        async function autoSaveProject(htmlContent, userPrompt) {
+            if (!currentUserId || !htmlContent) {
+                console.error("Auto-save failed: Missing user ID or content.");
+                return;
+            }
+            
+            try {
+                // Secure Nested Path: /artifacts/{appId}/users/{userId}/projects
+                const projectsRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'projects');
 
-        // --- AI Generation Logic (Non-Streaming) ---
+                await addDoc(projectsRef, {
+                    prompt: userPrompt,
+                    htmlContent: htmlContent,
+                    createdAt: serverTimestamp(), 
+                });
 
-        /**
-         * Handles the generation process by calling the secure Vercel API endpoint.
-         * NOTE: The endpoint is updated to .mjs to match the most stable backend path.
-         */
+                console.log("Project auto-saved successfully.");
+
+            } catch (error) {
+                console.error("Error during auto-save:", error);
+                showMessage("Warning: Failed to auto-save project.", true);
+            }
+        }
+
+        // --- AI Generation Logic ---
+
+        /** Handles the generation process and initiates auto-save on success. */
         async function handleGeneration() {
             const prompt = promptInput.value.trim();
             if (prompt.length < 10) {
@@ -255,10 +263,11 @@
 
             setLoading(true);
             outputDiv.classList.add('hidden');
-            outputCode.textContent = ''; // Clear previous output
-            downloadBtn.disabled = true; // Ensure download button is disabled at start
-            
-            // CRITICAL FIX: Use the .mjs endpoint path to match the stable backend function
+            outputCode.textContent = ''; 
+            downloadBtn.disabled = true; 
+
+            latestPrompt = prompt;
+
             const apiEndpoint = '/api/generate.js'; 
             console.log(`Attempting to call AI endpoint: ${apiEndpoint}`);
 
@@ -275,7 +284,6 @@
                         body: JSON.stringify(payload)
                     });
 
-                    // Check for network errors/non-200 status
                     if (!response.ok) {
                         const errorBody = await response.json().catch(() => ({}));
                         const errorMessage = errorBody.error || response.statusText || "Unknown server error.";
@@ -283,21 +291,23 @@
                         throw new Error(`API Proxy Error [Status: ${response.status}]: ${errorMessage}`);
                     }
 
-                    // Parse the JSON response
                     const result = await response.json();
-
-                    // We expect the response key to be 'htmlCode' from the Vercel function
                     const generatedHtml = result.htmlCode; 
                     
                     if (generatedHtml) {
-                        outputCode.textContent = generatedHtml.trim();
+                        const finalHtml = generatedHtml.trim();
+                        outputCode.textContent = finalHtml;
+                        latestHtmlContent = finalHtml; 
                         
-                        // Set the preview button data
-                        previewBtn.dataset.html = generatedHtml.trim();
+                        previewBtn.dataset.html = finalHtml;
 
                         outputDiv.classList.remove('hidden');
-                        downloadBtn.disabled = false; // Enable download on success
-                        showMessage("HTML generated successfully! Copy the code or preview the result.", false);
+                        downloadBtn.disabled = false;
+                        showMessage("HTML generated successfully! Project auto-saved.", false);
+
+                        // *** CRITICAL STEP: AUTO-SAVE ASYNCHRONOUSLY ***
+                        autoSaveProject(finalHtml, latestPrompt); 
+                        
                         break; // Exit loop on success
                     } else {
                         console.error(`Attempt ${attempt + 1} Response Structure Error: 'htmlCode' missing in result.`, result);
@@ -307,7 +317,7 @@
                 } catch (error) {
                     console.error(`Attempt ${attempt + 1} failed:`, error.message);
                     if (attempt === maxRetries - 1) {
-                        showMessage("Generation failed after multiple retries. Please check Vercel logs and ensure your GEMINI_API_KEY is configured.", true);
+                        showMessage("Generation failed after multiple retries.", true);
                     } else {
                         const delay = Math.pow(2, attempt) * 1000;
                         await new Promise(resolve => setTimeout(resolve, delay));
@@ -325,6 +335,8 @@
             console.log("Auth state resolved. User:", user ? user.email : "none");
 
             if (user) {
+                currentUserId = user.uid; // Store the user ID
+                
                 // User is logged in: Show the content
                 loadingState.style.pointerEvents = 'none';
                 loadingState.classList.add('hidden');
@@ -334,7 +346,7 @@
                 if (!listenersAttached) {
                     generateBtn.addEventListener('click', handleGeneration);
                     copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
-                    downloadBtn.addEventListener('click', handleDownload); // Attach download handler
+                    downloadBtn.addEventListener('click', handleDownload);
                     previewBtn.addEventListener('click', handlePreview);
                     
                     logoutBtn.addEventListener('click', async () => {
