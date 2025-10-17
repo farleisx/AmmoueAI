@@ -78,7 +78,7 @@
         </main>
     </div>
 
-   <script type="module">
+ <script type="module">
     // Using SDK v12.4.0 to match your previous setup
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
@@ -134,12 +134,17 @@
         setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
     }
 
-    /** Opens the generated HTML in a new window for a live preview. */
-    window.handlePreview = function(htmlContent) {
-        if (!htmlContent) {
+    /** Opens the generated HTML in a new window for a live preview. 
+     * // **FIXED/UPDATED** to decode Base64 content
+     */
+    window.handlePreview = function(encodedHtmlContent) {
+        if (!encodedHtmlContent) {
             showMessage("Preview data is missing.", true);
             return;
         }
+
+        // Decode the Base64 string back to HTML content
+        const htmlContent = atob(encodedHtmlContent); 
 
         const previewWindow = window.open('', '_blank');
         if (!previewWindow) {
@@ -150,17 +155,25 @@
         previewWindow.document.close();
     }
 
-    /** Downloads the generated HTML code as a file. */
-    window.handleDownload = function(htmlContent, title) {
-        if (!htmlContent) {
+    /** Downloads the generated HTML code as a file. 
+     * // **FIXED/UPDATED** to decode Base64 content and parse title
+     */
+    window.handleDownload = function(encodedHtmlContent, title) {
+        if (!encodedHtmlContent) {
             showMessage("Nothing to download.", true);
             return;
         }
+        
+        // Decode the Base64 string back to HTML content
+        const htmlContent = atob(encodedHtmlContent); 
+        
+        // Title was JSON.stringify'd, so parse it back
+        const cleanTitle = JSON.parse(title); 
 
         const blob = new Blob([htmlContent], { type: 'text/html' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        const filename = title.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'ammoue_project';
+        const filename = cleanTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'ammoue_project';
         a.download = `${filename}.html`;
 
         document.body.appendChild(a);
@@ -239,9 +252,10 @@
             }
             const timestamp = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-            // IMPORTANT: JSON.stringify content/title to safely pass strings to onclick handlers
-            const safeHtmlContent = JSON.stringify(project.htmlContent);
-            const safeTitle = JSON.stringify(title);
+            // **FIXED/UPDATED**: Use Base64 encoding for the HTML content to safely embed in the onclick attribute
+            const encodedHtmlContent = btoa(project.htmlContent);
+            // Keep JSON.stringify for the title, as it's a simple string that needs quote protection.
+            const safeTitle = JSON.stringify(title); 
 
             // *** Escape the HTML content for display in the snippet box ***
             const escapedCodeSnippet = escapeHtml(project.htmlContent);
@@ -265,10 +279,10 @@
                     <div class="mt-auto">
                         <p class="text-xs text-gray-400 mb-3">Saved: ${timestamp}</p>
                         <div class="flex space-x-2">
-                            <button onclick='handlePreview(${safeHtmlContent})' class="flex-1 px-3 py-2 text-sm font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-md">
+                            <button onclick="handlePreview('${encodedHtmlContent}')" class="flex-1 px-3 py-2 text-sm font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-md">
                                 <i data-lucide="eye" class="w-4 h-4 inline-block mr-1"></i> Preview
                             </button>
-                            <button onclick='handleDownload(${safeHtmlContent}, ${safeTitle})' class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-green-600 hover:bg-green-700 transition duration-150 shadow-md">
+                            <button onclick="handleDownload('${encodedHtmlContent}', ${safeTitle})" class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-green-600 hover:bg-green-700 transition duration-150 shadow-md">
                                 <i data-lucide="download" class="w-4 h-4 inline-block"></i>
                             </button>
                             <button onclick="handleDeleteProject('${project.id}')" class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150 shadow-md">
