@@ -195,28 +195,96 @@
         }
     }
 
-    /** Renders the list of projects from Firestore data. */
-    function renderProjects(projects) {
-        // Get the HTML of the static 'Create New Site' card
-        const createCardElement = projectsContainer.querySelector('div.cursor-pointer');
-        
-        if (!createCardElement) {
-            console.error("Could not find the static 'Create New Site' element.");
-            projectsContainer.innerHTML = `<p class="col-span-full text-center text-red-500 text-lg mt-10">Error: Missing Create Site element.</p>`;
-            return;
-        }
-        
-        const createCardHtml = createCardElement.outerHTML;
+  /** Renders the list of projects from Firestore data. */
+function renderProjects(projects) {
+    // Get the HTML of the static 'Create New Site' card
+    const createCardElement = projectsContainer.querySelector('div.cursor-pointer');
+    
+    if (!createCardElement) {
+        console.error("Could not find the static 'Create New Site' element.");
+        projectsContainer.innerHTML = `<p class="col-span-full text-center text-red-500 text-lg mt-10">Error: Missing Create Site element.</p>`;
+        return;
+    }
+    
+    const createCardHtml = createCardElement.outerHTML;
 
-        // Start HTML with the static 'Create New Site' card
-        let projectsHtml = createCardHtml;
+    // Start HTML with the static 'Create New Site' card
+    let projectsHtml = createCardHtml;
 
-        if (projects.length === 0) {
-            // Keep the 'Create New Site' card and show the empty message
-            projectsContainer.innerHTML = createCardHtml + `<p id="no-projects-message" class="col-span-full text-center text-gray-500 text-lg mt-10">You haven't saved any projects yet. Click above to start!</p>`;
-            lucide.createIcons();
-            return;
+    if (projects.length === 0) {
+        // Keep the 'Create New Site' card and show the empty message
+        projectsContainer.innerHTML = createCardHtml + `<p id="no-projects-message" class="col-span-full text-center text-gray-500 text-lg mt-10">You haven't saved any projects yet. Click above to start!</p>`;
+        lucide.createIcons();
+        return;
+    }
+
+    // Generate HTML for each saved project
+    projects.forEach(project => {
+        
+        // **NEW FIX: Clean the prompt by replacing the literal '\n' sequences with real line breaks**
+        const cleanPrompt = project.prompt.replace(/\\n/g, '\n');
+        
+        // **NEW FIX: Generate a clean title and summary from the cleaned prompt**
+        const firstLine = cleanPrompt.split('\n').find(line => line.trim().length > 0) || "Untitled Project";
+        const title = firstLine.substring(0, 30).trim() + (firstLine.length > 30 ? '...' : '');
+        
+        // *** FIX: Get the date correctly from the Firestore Timestamp object ***
+        let dateObj;
+        if (project.createdAt && typeof project.createdAt.toDate === 'function') {
+            dateObj = project.createdAt.toDate();
+        } else if (project.createdAt && project.createdAt.seconds) {
+            // Handle cases where it's a raw timestamp object or seconds/nanoseconds are exposed
+            dateObj = new Date(project.createdAt.seconds * 1000);
+        } else {
+            dateObj = new Date();
         }
+        const timestamp = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        // IMPORTANT: JSON.stringify content/title to safely pass strings to onclick handlers
+        const safeHtmlContent = JSON.stringify(project.htmlContent);
+        const safeTitle = JSON.stringify(title);
+
+        // *** Code Snippet Display FIX (from previous reply) ***
+        const escapedCodeSnippet = escapeHtml(project.htmlContent);
+
+        projectsHtml += `
+            <div class="bg-white border border-gray-200 rounded-2xl p-6 flex flex-col justify-between shadow-lg hover:shadow-xl transition duration-300">
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-xl font-bold text-gray-900 truncate">${title}</h3>
+                        <i data-lucide="layout" class="w-6 h-6 text-ammoue/70 flex-shrink-0"></i>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-2 h-10 line-clamp-2">${cleanPrompt}</p>
+                </div>
+
+                <div class="bg-gray-100 border border-gray-300 rounded-lg p-2 mb-4 h-32 overflow-y-scroll text-sm">
+                    <pre class="whitespace-pre-wrap">
+                        <code class="text-xs text-gray-700">${escapedCodeSnippet}</code>
+                    </pre>
+                </div>
+
+                <div class="mt-auto">
+                    <p class="text-xs text-gray-400 mb-3">Saved: ${timestamp}</p>
+                    <div class="flex space-x-2">
+                        <button onclick='handlePreview(${safeHtmlContent})' class="flex-1 px-3 py-2 text-sm font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-md">
+                            <i data-lucide="eye" class="w-4 h-4 inline-block mr-1"></i> Preview
+                        </button>
+                        <button onclick='handleDownload(${safeHtmlContent}, ${safeTitle})' class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-green-600 hover:bg-green-700 transition duration-150 shadow-md">
+                            <i data-lucide="download" class="w-4 h-4 inline-block"></i>
+                        </button>
+                        <button onclick="handleDeleteProject('${project.id}')" class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150 shadow-md">
+                            <i data-lucide="trash-2" class="w-4 h-4 inline-block"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    projectsContainer.innerHTML = projectsHtml;
+    // Re-render Lucide icons after injecting new HTML
+    lucide.createIcons();
+}
 
         // Generate HTML for each saved project
         projects.forEach(project => {
