@@ -1,56 +1,51 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+const API_KEY = process.env.GEMINI_API_KEY;
+const API_MODEL = "gemini-2.5-flash";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method Not Allowed. Use POST." });
   }
 
+  if (!API_KEY) {
+    console.error("GEMINI_API_KEY missing in environment variables.");
+    return res.status(500).json({ error: "Gemini API key not configured." });
+  }
+
   try {
-    const { currentHtml, refinePrompt } = req.body;
-    if (!currentHtml || !refinePrompt) {
-      return res
-        .status(400)
-        .json({ error: "Missing required fields: currentHtml or refinePrompt." });
+    const { prompt } = req.body;
+    if (!prompt || typeof prompt !== "string") {
+      return res.status(400).json({ error: "Missing or invalid 'prompt' in request body." });
     }
 
-    const systemInstruction = `You are an expert web developer specializing in Tailwind CSS and modern HTML.
-Only output the **final HTML code** — no explanations or markdown fences.`;
+    const genAI = new GoogleGenerativeAI(API_KEY);
+    const model = genAI.getGenerativeModel({ model: API_MODEL });
 
-    const userInput = `
-Current HTML to modify:
----
-${currentHtml}
----
+    const systemInstruction = `
+You are a world-class AI web developer. Your sole purpose is to create a complete, professional, single-file HTML website based on the user's prompt.
+The output MUST be a single, self-contained HTML file.
+The HTML MUST include the necessary viewport meta tag for responsiveness: <meta name="viewport" content="width=device-width, initial-scale=1.0">.
+The HTML MUST load the latest Tailwind CSS via CDN: <script src="https://cdn.tailwindcss.com"></script>.
+All styling MUST use Tailwind CSS classes. Do NOT use <style> tags or external CSS files.
+Use modern, responsive design principles (flex/grid, responsive prefixes like sm:, md:, lg:). The design must be aesthetically beautiful, professional, and fully functional on mobile and desktop.
+The output should contain NOTHING but the raw HTML code, starting with <!DOCTYPE html>.
+`;
 
-Refinement Request:
----
-${refinePrompt}
----`;
+    const fullPrompt = `${systemInstruction}\n\nUser prompt: ${prompt}`;
 
-    // ✅ Correct SDK usage
-    const result = await model.generateContent({
-      contents: [
-        { role: "system", parts: [{ text: systemInstruction }] },
-        { role: "user", parts: [{ text: userInput }] },
-      ],
-    });
+    const result = await model.generateContent(fullPrompt);
 
-    const generatedText = result.response.text().trim();
+    const text = result.response.text();
 
-    // Remove ```html fences if present
-    const cleanedHtml = generatedText
-      .replace(/^```(html)?/i, "")
-      .replace(/```$/i, "")
-      .trim();
+    if (!text) {
+      console.error("Gemini returned empty response:", result);
+      return res.status(500).json({ error: "Gemini API returned empty response." });
+    }
 
-    res.status(200).json({ htmlCode: cleanedHtml });
-  } catch (error) {
-    console.error("Gemini API Error:", error);
-    res
-      .status(500)
-      .json({ error: `Failed to refine code. ${error.message || "Unknown error"}` });
+    return res.status(200).json({ htmlCode: text.trim() });
+  } catch (err) {
+    console.error("Gemini generation failed:", err);
+    return res.status(500).json({ error: err.message || "Internal server error." });
   }
 }
