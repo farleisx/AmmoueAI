@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ammoue | AI-Powered Website Builder</title>
-    <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         /* Custom Font Setup */
@@ -25,24 +23,20 @@
 </head>
 <body class="antialiased min-h-screen">
 
-    <!-- Header / Navbar -->
     <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-sm shadow-md">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
-                <!-- Logo -->
                 <a href="#" class="flex items-center space-x-2">
                     <span class="text-3xl font-extrabold text-ammoue">Ammoue</span>
                     <span class="hidden sm:inline text-xs font-medium text-gray-500 bg-teal-100 px-2 py-0.5 rounded-full border border-teal-200">AI Powered</span>
                 </a>
                 
-                <!-- Desktop Navigation -->
                 <nav class="hidden md:flex space-x-8">
-                    <a href="#features" class="text-gray-600 hover:text-ammoue font-medium transition duration-150">Features</a>
-                    <a href="#how-it-works" class="text-gray-600 hover:text-ammoue font-medium transition duration-150">How It Works</a>
-                    <a href="#pricing" class="text-gray-600 hover:text-ammoue font-medium transition duration-150">Pricing</a>
-                </nav>
+                    <a href="#features" class="text-gray-600 font-medium transition duration-300 hover:text-ammoue border-b-2 border-transparent hover:border-ammoue py-1">Features</a>
+                    <a href="#how-it-works" class="text-gray-600 font-medium transition duration-300 hover:text-ammoue border-b-2 border-transparent hover:border-ammoue py-1">How It Works</a>
+                    <a href="#pricing" class="text-gray-600 font-medium transition duration-300 hover:text-ammoue border-b-2 border-transparent hover:border-ammoue py-1">Pricing</a>
+                    </nav>
                 
-                <!-- CTA Button (Links to login.html) -->
                 <a href="login.html" class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl shadow-lg text-white bg-ammoue hover:bg-teal-700 transition duration-300 transform hover:scale-105">
                     Start for Free
                 </a>
@@ -51,7 +45,6 @@
     </header>
 
     <main>
-        <!-- Hero Section -->
         <section class="py-16 md:py-24 lg:py-32 bg-slate-50">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
                 <p class="text-sm font-semibold text-ammoue uppercase tracking-widest mb-3">The Future of Web Design</p>
@@ -62,7 +55,6 @@
                     Ammoue uses cutting-edge AI to design, write, and launch stunning, professional websites. Just describe your business and watch the magic happen.
                 </p>
                 
-                <!-- Primary CTA (Links to login.html) -->
                 <div class="flex justify-center space-x-4">
                     <a href="login.html" class="px-8 py-3 text-lg font-bold rounded-xl shadow-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-teal-500 focus:ring-opacity-50">
                         <span class="flex items-center">
@@ -72,7 +64,6 @@
                     </a>
                 </div>
 
-                <!-- Trust Badges / Social Proof Mockup -->
                 <div class="mt-12">
                     <p class="text-sm font-medium text-gray-500 mb-4">Trusted by over 10,000 creators and small businesses</p>
                     <div class="flex justify-center space-x-6 text-gray-400">
@@ -85,7 +76,6 @@
             </div>
         </section>
 
-        <!-- Features Section -->
         <section id="features" class="py-16 md:py-24 bg-white">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="text-center mb-16">
@@ -95,7 +85,6 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
                     
-                    <!-- Feature 1: Speed -->
                     <div class="bg-white p-8 rounded-2xl shadow-xl hover:shadow-2xl transition duration-300 border border-gray-100 transform hover:-translate-y-1">
                         <div class="w-12 h-12 bg-ammoue/10 rounded-xl flex items-center justify-center mb-4">
                             <i data-lucide="clock-4" class="w-6 h-6 text-ammoue"></i>
@@ -104,7 +93,6 @@
                         <p class="text-gray-600">From a simple text prompt to a fully functional, deployed website in less than a minute. Skip the setup and jump straight to success.</p>
                     </div>
 
-                    <!-- Feature 2: Content Generation -->
                     <div class="bg-white p-8 rounded-2xl shadow-xl hover:shadow-2xl transition duration-300 border border-gray-100 transform hover:-translate-y-1">
                         <div class="w-12 h-12 bg-ammoue/10 rounded-xl flex items-center justify-center mb-4">
                             <i data-lucide="edit-3" class="w-6 h-6 text-ammoue"></i>
@@ -113,7 +101,6 @@
                         <p class="text-gray-600">Struggling with words? Ammoue's integrated LLM writes compelling, niche-specific copy and creates relevant imagery for you, instantly.</p>
                     </div>
 
-                    <!-- Feature 3: Responsiveness & Code Quality -->
                     <div class="bg-white p-8 rounded-2xl shadow-xl hover:shadow-2xl transition duration-300 border border-gray-100 transform hover:-translate-y-1">
                         <div class="w-12 h-12 bg-ammoue/10 rounded-xl flex items-center justify-center mb-4">
                             <i data-lucide="smartphone" class="w-6 h-6 text-ammoue"></i>
@@ -125,7 +112,6 @@
             </div>
         </section>
 
-        <!-- How It Works Section -->
         <section id="how-it-works" class="py-16 md:py-24 bg-slate-50">
             <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="text-center mb-16">
@@ -133,7 +119,6 @@
                     <p class="mt-4 text-xl text-gray-500">Three simple steps to your new online presence.</p>
                 </div>
 
-                <!-- Step 1 -->
                 <div class="flex items-start mb-12 relative">
                     <div class="flex-shrink-0 w-12 h-12 bg-ammoue text-white rounded-full flex items-center justify-center text-xl font-bold shadow-lg z-10">1</div>
                     <div class="ml-6 flex-grow pt-1">
@@ -142,10 +127,8 @@
                     </div>
                 </div>
 
-                <!-- Connector Line -->
                 <div class="hidden sm:block absolute left-1/2 transform -translate-x-1/2 h-12 border-l-4 border-dashed border-teal-200"></div>
 
-                <!-- Step 2 -->
                 <div class="flex items-start mb-12 relative">
                     <div class="flex-shrink-0 w-12 h-12 bg-ammoue text-white rounded-full flex items-center justify-center text-xl font-bold shadow-lg z-10">2</div>
                     <div class="ml-6 flex-grow pt-1">
@@ -154,11 +137,9 @@
                     </div>
                 </div>
                 
-                <!-- Connector Line -->
                 <div class="hidden sm:block absolute left-1/2 transform -translate-x-1/2 h-12 border-l-4 border-dashed border-teal-200"></div>
 
 
-                <!-- Step 3 -->
                 <div class="flex items-start relative">
                     <div class="flex-shrink-0 w-12 h-12 bg-ammoue text-white rounded-full flex items-center justify-center text-xl font-bold shadow-lg z-10">3</div>
                     <div class="ml-6 flex-grow pt-1">
@@ -169,7 +150,6 @@
             </div>
         </section>
 
-        <!-- Final CTA / Pricing Teaser -->
         <section id="pricing" class="py-20 md:py-28 bg-ammoue">
             <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
                 <h2 class="text-4xl sm:text-5xl font-extrabold text-white mb-6">Ready to Build Something Amazing?</h2>
@@ -177,7 +157,6 @@
                     Stop wasting time on templates and code. Join thousands of users who launch faster with Ammoue. Free plan available, no credit card required.
                 </p>
                 
-                <!-- Final CTA Button (Links to login.html) -->
                 <a href="login.html" class="inline-flex items-center justify-center px-10 py-4 text-xl font-bold rounded-xl shadow-2xl text-ammoue bg-white hover:bg-gray-100 transition duration-300 transform hover:scale-105">
                     <span class="flex items-center">
                         Claim Your Free Site Today
@@ -188,7 +167,6 @@
         </section>
     </main>
 
-    <!-- Footer -->
     <footer class="bg-gray-800 text-white py-12">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
@@ -228,7 +206,6 @@
         </div>
     </footer>
 
-    <!-- Initialize Lucide Icons -->
     <script>
         lucide.createIcons();
     </script>
