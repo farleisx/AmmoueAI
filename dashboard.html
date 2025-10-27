@@ -234,14 +234,19 @@
         // Decode the Base64 string back to a UTF-8 safe string
         const htmlContent = decodeURIComponent(escape(atob(encodedHtmlContent)));
 
-        navigator.clipboard.writeText(htmlContent)
-            .then(() => {
-                showMessage("Code copied to clipboard!", false);
-            })
-            .catch(err => {
-                console.error('Failed to copy text:', err);
-                showMessage("Failed to copy code.", true);
-            });
+        // Use a temporary textarea as execCommand is more reliable in iFrames than navigator.clipboard
+        const tempTextArea = document.createElement('textarea');
+        tempTextArea.value = htmlContent;
+        document.body.appendChild(tempTextArea);
+        tempTextArea.select();
+        try {
+            document.execCommand('copy');
+            showMessage("Code copied to clipboard!", false);
+        } catch (err) {
+            console.error('Failed to copy text:', err);
+            showMessage("Failed to copy code.", true);
+        }
+        document.body.removeChild(tempTextArea);
     }
 
     /** Handles deletion of a project from Firestore. */
@@ -251,21 +256,19 @@
             return;
         }
 
-        // Simple confirmation before delete
-        if (!confirm("Are you sure you want to delete this project? This cannot be undone.")) {
-            return;
-        }
-
-        showMessage("Initiating project deletion...", false);
-        
-        try {
-            // Document path: /artifacts/{appId}/users/{userId}/projects/{projectId}
-            const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
-            await deleteDoc(docRef);
-            showMessage("Project deleted successfully!", false);
-        } catch (error) {
-            console.error("Error deleting document:", error);
-            showMessage("Failed to delete project.", true);
+        // Simple confirmation before delete (using modal confirmation is better, but using JS confirm for now)
+        if (window.confirm("Are you sure you want to delete this project? This cannot be undone.")) {
+            showMessage("Initiating project deletion...", false);
+            
+            try {
+                // Document path: /artifacts/{appId}/users/{userId}/projects/{projectId}
+                const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
+                await deleteDoc(docRef);
+                showMessage("Project deleted successfully!", false);
+            } catch (error) {
+                console.error("Error deleting document:", error);
+                showMessage("Failed to delete project.", true);
+            }
         }
     }
 
@@ -361,18 +364,20 @@
             return;
         }
         
+        // Ensure to remove existing content before prepending the 'Create Card' to prevent duplicates
+        projectsContainer.innerHTML = '';
         const createCardHtml = createCardElement.outerHTML;
 
         // Start HTML with the static 'Create New Site' card
         let projectsHtml = createCardHtml;
 
         if (projects.length === 0) {
-            // Keep the 'Create New Site' card and show the empty message
+            // Show the 'Create New Site' card and the empty message
             projectsContainer.innerHTML = createCardHtml + `<p id="no-projects-message" class="col-span-full text-center text-gray-500 text-lg mt-10">You haven't saved any projects yet. Click above to start!</p>`;
             lucide.createIcons();
             return;
         }
-
+        
         // Generate HTML for each saved project
         projects.forEach(project => {
             
@@ -398,7 +403,8 @@
             const utf8Encoded = unescape(encodeURIComponent(project.htmlContent));
             const encodedHtmlContent = btoa(utf8Encoded);
             
-            // Keep JSON.stringify for the title and prompt to protect quotes/newlines when passed to JS functions via HTML
+            // **CRITICAL FIX: Use JSON.stringify for ALL strings passed to onclick to safely escape quotes/newlines.**
+            const safeEncodedHtmlContent = JSON.stringify(encodedHtmlContent);
             const safeTitle = JSON.stringify(title);
             const safePrompt = JSON.stringify(cleanPrompt); 
 
@@ -424,20 +430,24 @@
                     <div class="mt-auto">
                         <p class="text-xs text-gray-400 mb-3">Saved: ${timestamp}</p>
                         <div class="flex space-x-2">
+                            <!-- openEditModal: Uses safeTitle and safePrompt -->
                             <button onclick="openEditModal('${project.id}', ${safeTitle}, ${safePrompt})" 
                                 class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-amber-500 hover:bg-amber-600 transition duration-150 shadow-md" title="Edit Details">
                                 <i data-lucide="pencil" class="w-4 h-4 inline-block"></i>
                             </button>
                             
-                            <button onclick="handleCopyCode('${encodedHtmlContent}')" 
+                            <!-- handleCopyCode: Uses safeEncodedHtmlContent (no single quotes needed) -->
+                            <button onclick="handleCopyCode(${safeEncodedHtmlContent})" 
                                 class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-gray-500 hover:bg-gray-600 transition duration-150 shadow-md" title="Copy Code">
                                 <i data-lucide="copy" class="w-4 h-4 inline-block"></i>
                             </button>
 
-                            <button onclick="handlePreview('${encodedHtmlContent}')" class="flex-1 px-3 py-2 text-sm font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-md">
+                            <!-- handlePreview: Uses safeEncodedHtmlContent (no single quotes needed) -->
+                            <button onclick="handlePreview(${safeEncodedHtmlContent})" class="flex-1 px-3 py-2 text-sm font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-md">
                                 <i data-lucide="eye" class="w-4 h-4 inline-block mr-1"></i> Preview
                             </button>
-                            <button onclick="handleDownload('${encodedHtmlContent}', ${safeTitle})" class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-green-600 hover:bg-green-700 transition duration-150 shadow-md">
+                            <!-- handleDownload: Uses safeEncodedHtmlContent and safeTitle (no single quotes needed) -->
+                            <button onclick="handleDownload(${safeEncodedHtmlContent}, ${safeTitle})" class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-green-600 hover:bg-green-700 transition duration-150 shadow-md">
                                 <i data-lucide="download" class="w-4 h-4 inline-block"></i>
                             </button>
                             <button onclick="handleDeleteProject('${project.id}')" class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150 shadow-md">
