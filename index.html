@@ -1,238 +1,148 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ammoue | AI-Powered Website Builder</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        /* Custom Font Setup */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f8fafc; /* Light gray background */
-        }
-        .text-ammoue {
-            color: #0d9488; /* Teal-700 for Ammoue branding */
-        }
-        .bg-ammoue {
-            background-color: #0d9488; /* Teal-700 for Ammoue branding */
-        }
-        /* Active section link styling */
-        .nav-link.active {
-            color: #10b981; /* Emerald-500 */
-            border-color: #10b981;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ammoue | AI Site Generator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    html {
+      scroll-behavior: smooth;
+    }
+  </style>
 </head>
-<body class="antialiased min-h-screen">
 
-    <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-sm shadow-md">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-16">
-                <a href="#" class="flex items-center space-x-2">
-                    <span class="text-3xl font-extrabold text-ammoue">Ammoue</span>
-                    <span class="hidden sm:inline text-xs font-medium text-gray-500 bg-teal-100 px-2 py-0.5 rounded-full border border-teal-200">AI Powered</span>
-                </a>
-                
-                <nav class="hidden md:flex space-x-8">
-                    <a href="#features" class="nav-link text-gray-600 font-medium transition duration-200 border-b-2 border-transparent hover:border-emerald-500 hover:text-emerald-500 py-1">Features</a>
-                    <a href="#how-it-works" class="nav-link text-gray-600 font-medium transition duration-200 border-b-2 border-transparent hover:border-emerald-500 hover:text-emerald-500 py-1">How It Works</a>
-                    <a href="#pricing" class="nav-link text-gray-600 font-medium transition duration-200 border-b-2 border-transparent hover:border-emerald-500 hover:text-emerald-500 py-1">Pricing</a>
-                </nav>
-                
-                <a href="login.html" class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl shadow-lg text-white bg-ammoue hover:bg-teal-700 transition duration-300 transform hover:scale-105">
-                    Start for Free
-                </a>
-            </div>
-        </div>
-    </header>
+<body class="bg-white text-gray-800">
+  <!-- Header / Navbar -->
+  <header class="fixed top-0 left-0 w-full z-50 bg-white transition-all duration-300">
+    <div class="max-w-7xl mx-auto flex justify-between items-center px-6 py-4">
+      <h1 class="text-2xl font-bold text-ammoue">Ammoue</h1>
 
-    <main>
-        <section class="py-16 md:py-24 lg:py-32 bg-slate-50">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-                <p class="text-sm font-semibold text-ammoue uppercase tracking-widest mb-3">The Future of Web Design</p>
-                <h1 class="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-gray-900 leading-tight mb-6">
-                    Build Your Website in <span class="text-ammoue">60 Seconds</span>. Seriously.
-                </h1>
-                <p class="mt-4 max-w-3xl mx-auto text-xl text-gray-500 mb-10">
-                    Ammoue uses cutting-edge AI to design, write, and launch stunning, professional websites. Just describe your business and watch the magic happen.
-                </p>
-                
-                <div class="flex justify-center space-x-4">
-                    <a href="login.html" class="px-8 py-3 text-lg font-bold rounded-xl shadow-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-teal-500 focus:ring-opacity-50">
-                        <span class="flex items-center">
-                            Generate My Site Now
-                            <i data-lucide="sparkles" class="w-5 h-5 ml-2"></i>
-                        </span>
-                    </a>
-                </div>
+      <nav class="hidden md:flex space-x-8">
+        <a href="#features"
+           class="text-gray-600 font-medium transition duration-200 border-b-2 border-transparent hover:border-emerald-500 hover:text-emerald-500 py-1 hover:scale-105 transform">Features</a>
+        <a href="#how-it-works"
+           class="text-gray-600 font-medium transition duration-200 border-b-2 border-transparent hover:border-emerald-500 hover:text-emerald-500 py-1 hover:scale-105 transform">How It Works</a>
+        <a href="#pricing"
+           class="text-gray-600 font-medium transition duration-200 border-b-2 border-transparent hover:border-emerald-500 hover:text-emerald-500 py-1 hover:scale-105 transform">Pricing</a>
+      </nav>
+    </div>
+  </header>
 
-                <div class="mt-12">
-                    <p class="text-sm font-medium text-gray-500 mb-4">Trusted by over 10,000 creators and small businesses</p>
-                    <div class="flex justify-center space-x-6 text-gray-400">
-                        <i data-lucide="layers" class="w-6 h-6"></i>
-                        <i data-lucide="zap" class="w-6 h-6"></i>
-                        <i data-lucide="code" class="w-6 h-6"></i>
-                        <i data-lucide="tablet" class="w-6 h-6"></i>
-                    </div>
-                </div>
-            </div>
-        </section>
+  <!-- Hero Section -->
+  <section id="hero" class="min-h-screen flex flex-col justify-center items-center text-center px-6">
+    <h2 class="text-4xl md:text-6xl font-bold mb-6">Build Stunning Websites with <span class="text-ammoue">Ammoue AI</span></h2>
+    <p class="text-lg md:text-xl text-gray-600 max-w-2xl mb-8">Generate professional, multi-page websites in seconds — powered by AI.</p>
+    <a href="#features"
+       class="px-6 py-3 bg-ammoue text-white font-semibold rounded-xl hover:bg-emerald-500 transition-all duration-300 hover:scale-105">Get Started</a>
+  </section>
 
-        <section id="features" class="py-16 md:py-24 bg-white">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="text-center mb-16">
-                    <h2 class="text-3xl sm:text-4xl font-extrabold text-gray-900">Stop Coding, Start Launching.</h2>
-                    <p class="mt-4 text-xl text-gray-500">The core advantages of building with Ammoue AI.</p>
-                </div>
+  <!-- Features Section -->
+  <section id="features" class="py-24 bg-gray-50 text-center">
+    <h3 class="text-3xl font-bold mb-12">Powerful Features</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-10 max-w-6xl mx-auto px-6">
+      <div class="p-8 bg-white rounded-2xl shadow-md hover:shadow-lg transition">
+        <i data-lucide="zap" class="w-8 h-8 mx-auto mb-4 text-ammoue"></i>
+        <h4 class="text-xl font-semibold mb-2">Instant Generation</h4>
+        <p class="text-gray-600">Turn text prompts into ready-to-deploy websites instantly.</p>
+      </div>
+      <div class="p-8 bg-white rounded-2xl shadow-md hover:shadow-lg transition">
+        <i data-lucide="layout" class="w-8 h-8 mx-auto mb-4 text-ammoue"></i>
+        <h4 class="text-xl font-semibold mb-2">Responsive Layouts</h4>
+        <p class="text-gray-600">Every site adapts perfectly to desktop and mobile screens.</p>
+      </div>
+      <div class="p-8 bg-white rounded-2xl shadow-md hover:shadow-lg transition">
+        <i data-lucide="code" class="w-8 h-8 mx-auto mb-4 text-ammoue"></i>
+        <h4 class="text-xl font-semibold mb-2">Fully Editable</h4>
+        <p class="text-gray-600">Customize and refine the generated site instantly.</p>
+      </div>
+    </div>
+  </section>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
-                    
-                    <div class="bg-white p-8 rounded-2xl shadow-xl hover:shadow-2xl transition duration-300 border border-gray-100 transform hover:-translate-y-1">
-                        <div class="w-12 h-12 bg-ammoue/10 rounded-xl flex items-center justify-center mb-4">
-                            <i data-lucide="clock-4" class="w-6 h-6 text-ammoue"></i>
-                        </div>
-                        <h3 class="text-xl font-bold text-gray-900 mb-3">Instant Deployment</h3>
-                        <p class="text-gray-600">From a simple text prompt to a fully functional, deployed website in less than a minute. Skip the setup and jump straight to success.</p>
-                    </div>
+  <!-- How It Works -->
+  <section id="how-it-works" class="py-24 text-center">
+    <h3 class="text-3xl font-bold mb-12">How It Works</h3>
+    <div class="max-w-4xl mx-auto grid md:grid-cols-3 gap-10 px-6">
+      <div>
+        <i data-lucide="message-square" class="w-8 h-8 mx-auto mb-4 text-ammoue"></i>
+        <h4 class="text-xl font-semibold mb-2">1. Describe</h4>
+        <p class="text-gray-600">Type what kind of website you want.</p>
+      </div>
+      <div>
+        <i data-lucide="cpu" class="w-8 h-8 mx-auto mb-4 text-ammoue"></i>
+        <h4 class="text-xl font-semibold mb-2">2. Generate</h4>
+        <p class="text-gray-600">AI instantly builds a full responsive site for you.</p>
+      </div>
+      <div>
+        <i data-lucide="edit" class="w-8 h-8 mx-auto mb-4 text-ammoue"></i>
+        <h4 class="text-xl font-semibold mb-2">3. Launch</h4>
+        <p class="text-gray-600">Preview, edit, and publish your site in seconds.</p>
+      </div>
+    </div>
+  </section>
 
-                    <div class="bg-white p-8 rounded-2xl shadow-xl hover:shadow-2xl transition duration-300 border border-gray-100 transform hover:-translate-y-1">
-                        <div class="w-12 h-12 bg-ammoue/10 rounded-xl flex items-center justify-center mb-4">
-                            <i data-lucide="edit-3" class="w-6 h-6 text-ammoue"></i>
-                        </div>
-                        <h3 class="text-xl font-bold text-gray-900 mb-3">AI-Powered Copywriting</h3>
-                        <p class="text-gray-600">Struggling with words? Ammoue's integrated LLM writes compelling, niche-specific copy and creates relevant imagery for you, instantly.</p>
-                    </div>
+  <!-- Pricing Section -->
+  <section id="pricing" class="py-24 bg-gray-50 text-center">
+    <h3 class="text-3xl font-bold mb-12">Pricing</h3>
+    <div class="max-w-5xl mx-auto grid md:grid-cols-3 gap-10 px-6">
+      <div class="p-8 bg-white rounded-2xl shadow-md hover:shadow-lg transition">
+        <h4 class="text-2xl font-bold mb-2">Free</h4>
+        <p class="text-gray-600 mb-4">Basic site generation</p>
+        <p class="text-3xl font-bold mb-6">$0</p>
+        <button class="px-6 py-2 bg-ammoue text-white rounded-xl hover:bg-emerald-500 transition-all duration-200">Get Started</button>
+      </div>
+      <div class="p-8 bg-white rounded-2xl shadow-md hover:shadow-lg transition border-2 border-ammoue">
+        <h4 class="text-2xl font-bold mb-2">Pro</h4>
+        <p class="text-gray-600 mb-4">Full access & editing</p>
+        <p class="text-3xl font-bold mb-6">$19/mo</p>
+        <button class="px-6 py-2 bg-ammoue text-white rounded-xl hover:bg-emerald-500 transition-all duration-200">Go Pro</button>
+      </div>
+      <div class="p-8 bg-white rounded-2xl shadow-md hover:shadow-lg transition">
+        <h4 class="text-2xl font-bold mb-2">Enterprise</h4>
+        <p class="text-gray-600 mb-4">Custom features & API</p>
+        <p class="text-3xl font-bold mb-6">Contact Us</p>
+        <button class="px-6 py-2 bg-ammoue text-white rounded-xl hover:bg-emerald-500 transition-all duration-200">Contact</button>
+      </div>
+    </div>
+  </section>
 
-                    <div class="bg-white p-8 rounded-2xl shadow-xl hover:shadow-2xl transition duration-300 border border-gray-100 transform hover:-translate-y-1">
-                        <div class="w-12 h-12 bg-ammoue/10 rounded-xl flex items-center justify-center mb-4">
-                            <i data-lucide="smartphone" class="w-6 h-6 text-ammoue"></i>
-                        </div>
-                        <h3 class="text-xl font-bold text-gray-900 mb-3">Perfectly Responsive Code</h3>
-                        <p class="text-gray-600">Every site generated is built with clean, modern code and is guaranteed to look pixel-perfect on mobile, tablet, and desktop devices.</p>
-                    </div>
-                </div>
-            </div>
-        </section>
+  <!-- Footer -->
+  <footer class="py-10 text-center text-gray-500 border-t">
+    <p>© 2025 Ammoue. All rights reserved.</p>
+  </footer>
 
-        <section id="how-it-works" class="py-16 md:py-24 bg-slate-50">
-            <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="text-center mb-16">
-                    <h2 class="text-3xl sm:text-4xl font-extrabold text-gray-900">How Ammoue Works</h2>
-                    <p class="mt-4 text-xl text-gray-500">Three simple steps to your new online presence.</p>
-                </div>
+  <!-- Icons -->
+  <script>
+    lucide.createIcons();
+  </script>
 
-                <div class="flex items-start mb-12 relative">
-                    <div class="flex-shrink-0 w-12 h-12 bg-ammoue text-white rounded-full flex items-center justify-center text-xl font-bold shadow-lg z-10">1</div>
-                    <div class="ml-6 flex-grow pt-1">
-                        <h3 class="text-2xl font-bold text-gray-900 mb-2">Describe Your Vision</h3>
-                        <p class="text-gray-600">Type a few sentences describing your business, project, or desired website style. E.g., "A modern, minimalist portfolio site for a freelance photographer."</p>
-                    </div>
-                </div>
+  <!-- Scroll Effects -->
+  <script>
+    // Sticky shadow effect
+    window.addEventListener("scroll", () => {
+      const nav = document.querySelector("header");
+      if (window.scrollY > 20) {
+        nav.classList.add("shadow-lg", "bg-white/90", "backdrop-blur-md");
+      } else {
+        nav.classList.remove("shadow-lg", "bg-white/90", "backdrop-blur-md");
+      }
+    });
 
-                <div class="hidden sm:block absolute left-1/2 transform -translate-x-1/2 h-12 border-l-4 border-dashed border-teal-200"></div>
-
-                <div class="flex items-start mb-12 relative">
-                    <div class="flex-shrink-0 w-12 h-12 bg-ammoue text-white rounded-full flex items-center justify-center text-xl font-bold shadow-lg z-10">2</div>
-                    <div class="ml-6 flex-grow pt-1">
-                        <h3 class="text-2xl font-bold text-gray-900 mb-2">AI Creates the Draft</h3>
-                        <p class="text-gray-600">Our AI instantly generates a complete draft: layout, professional images, engaging headlines, and relevant body text based on your prompt.</p>
-                    </div>
-                </div>
-                
-                <div class="hidden sm:block absolute left-1/2 transform -translate-x-1/2 h-12 border-l-4 border-dashed border-teal-200"></div>
-
-
-                <div class="flex items-start relative">
-                    <div class="flex-shrink-0 w-12 h-12 bg-ammoue text-white rounded-full flex items-center justify-center text-xl font-bold shadow-lg z-10">3</div>
-                    <div class="ml-6 flex-grow pt-1">
-                        <h3 class="text-2xl font-bold text-gray-900 mb-2">Edit, Tweak, and Publish</h3>
-                        <p class="text-gray-600">Use our simple drag-and-drop editor to make final adjustments. Once perfect, hit 'Publish' and your site is live instantly.</p>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section id="pricing" class="py-20 md:py-28 bg-ammoue">
-            <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-                <h2 class="text-4xl sm:text-5xl font-extrabold text-white mb-6">Ready to Build Something Amazing?</h2>
-                <p class="text-xl text-teal-200 mb-10 max-w-2xl mx-auto">
-                    Stop wasting time on templates and code. Join thousands of users who launch faster with Ammoue. Free plan available, no credit card required.
-                </p>
-                
-                <a href="login.html" class="inline-flex items-center justify-center px-10 py-4 text-xl font-bold rounded-xl shadow-2xl text-ammoue bg-white hover:bg-gray-100 transition duration-300 transform hover:scale-105">
-                    <span class="flex items-center">
-                        Claim Your Free Site Today
-                        <i data-lucide="arrow-right" class="w-5 h-5 ml-2"></i>
-                    </span>
-                </a>
-            </div>
-        </section>
-    </main>
-
-    <footer class="bg-gray-800 text-white py-12">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
-                <div>
-                    <h4 class="text-xl font-bold mb-3 text-ammoue">Ammoue</h4>
-                    <p class="text-sm text-gray-400">The fastest way to launch your online presence, powered by AI.</p>
-                </div>
-                <div>
-                    <h4 class="text-lg font-semibold mb-3">Product</h4>
-                    <ul class="space-y-2 text-sm text-gray-400">
-                        <li><a href="#features" class="hover:text-ammoue transition">Features</a></li>
-                        <li><a href="#how-it-works" class="hover:text-ammoue transition">Demo</a></li>
-                        <li><a href="#pricing" class="hover:text-ammoue transition">Pricing</a></li>
-                        <li><a href="#" class="hover:text-ammoue transition">Roadmap</a></li>
-                    </ul>
-                </div>
-                <div>
-                    <h4 class="text-lg font-semibold mb-3">Company</h4>
-                    <ul class="space-y-2 text-sm text-gray-400">
-                        <li><a href="#" class="hover:text-ammoue transition">About Us</a></li>
-                        <li><a href="#" class="hover:text-ammoue transition">Contact</a></li>
-                        <li><a href="#" class="hover:text-ammoue transition">Careers</a></li>
-                    </ul>
-                </div>
-                <div>
-                    <h4 class="text-lg font-semibold mb-3">Legal</h4>
-                    <ul class="space-y-2 text-sm text-gray-400">
-                        <li><a href="#" class="hover:text-ammoue transition">Terms of Service</a></li>
-                        <li><a href="#" class="hover:text-ammoue transition">Privacy Policy</a></li>
-                    </ul>
-                </div>
-            </div>
-            
-            <div class="mt-10 pt-8 border-t border-gray-700 text-center">
-                <p class="text-sm text-gray-500">&copy; 2025 Ammoue. All rights reserved. Built with AI ⚡</p>
-            </div>
-        </div>
-    </footer>
-
-    <script>
-        lucide.createIcons();
-
-        // Highlight active section in navbar
-        const sections = document.querySelectorAll("section[id]");
-        const navLinks = document.querySelectorAll(".nav-link");
-
-        window.addEventListener("scroll", () => {
-            let current = "";
-            sections.forEach(section => {
-                const sectionTop = section.offsetTop - 120;
-                if (pageYOffset >= sectionTop) {
-                    current = section.getAttribute("id");
-                }
-            });
-            navLinks.forEach(link => {
-                link.classList.remove("active");
-                if (link.getAttribute("href") === "#" + current) {
-                    link.classList.add("active");
-                }
-            });
-        });
-    </script>
+    // Active link highlight
+    document.addEventListener("scroll", () => {
+      const sections = document.querySelectorAll("section[id]");
+      let scrollPos = window.scrollY + 100;
+      sections.forEach(sec => {
+        const link = document.querySelector(`nav a[href="#${sec.id}"]`);
+        if (!link) return;
+        if (scrollPos >= sec.offsetTop && scrollPos < sec.offsetTop + sec.offsetHeight) {
+          link.classList.add("text-emerald-500", "border-emerald-500");
+        } else {
+          link.classList.remove("text-emerald-500", "border-emerald-500");
+        }
+      });
+    });
+  </script>
 </body>
 </html>
