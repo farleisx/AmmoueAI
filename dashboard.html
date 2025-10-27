@@ -135,6 +135,9 @@
     let currentUserId = null;
     let isAuthReady = false;
     const appId = firebaseConfig.projectId;
+    
+    // ⭐ CRITICAL FIX: Global map to store projects in memory, avoiding complex strings in HTML.
+    let projectsData = new Map(); 
 
     // --- DOM Elements ---
     const loadingScreen = document.getElementById('loading-screen');
@@ -175,17 +178,17 @@
         setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
     }
 
-    /** Opens the generated HTML in a new window for a live preview. 
-     * // FIXED/UPDATED to decode Base64 content
-     */
-    window.handlePreview = function(encodedHtmlContent) {
-        if (!encodedHtmlContent) {
+    /** Opens the generated HTML in a new window for a live preview. */
+    // ⭐ REFACTORED: Takes ID, retrieves content from projectsData
+    window.handlePreview = function(projectId) {
+        const project = projectsData.get(projectId);
+        if (!project || !project.htmlContent) {
             showMessage("Preview data is missing.", true);
             return;
         }
-
+        
         // Decode the Base64 string back to a UTF-8 safe string
-        const decodedHtml = decodeURIComponent(escape(atob(encodedHtmlContent)));
+        const decodedHtml = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
         
         const previewWindow = window.open('', '_blank');
         if (!previewWindow) {
@@ -196,20 +199,19 @@
         previewWindow.document.close();
     }
 
-    /** Downloads the generated HTML code as a file. 
-     * // FIXED/UPDATED to decode Base64 content and use safer title cleaning.
-     */
-    window.handleDownload = function(encodedHtmlContent, title) {
-        if (!encodedHtmlContent) {
+    /** Downloads the generated HTML code as a file. */
+    // ⭐ REFACTORED: Takes ID, retrieves content from projectsData
+    window.handleDownload = function(projectId) {
+        const project = projectsData.get(projectId);
+        if (!project || !project.htmlContent) {
             showMessage("Nothing to download.", true);
             return;
         }
         
         // Decode the Base64 string back to a UTF-8 safe string
-        const htmlContent = decodeURIComponent(escape(atob(encodedHtmlContent)));
+        const htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
         
-        // Since 'title' came from JSON.stringify, we strip the quotes to get the clean string.
-        const cleanTitle = title.replace(/"/g, ''); 
+        const cleanTitle = project.title; 
 
         const blob = new Blob([htmlContent], { type: 'text/html' });
         const a = document.createElement('a');
@@ -224,15 +226,16 @@
         showMessage("HTML file prepared for download!", false);
     }
     
-    // ⭐ NEW: Utility function to copy the HTML code to the clipboard
-    window.handleCopyCode = function(encodedHtmlContent) {
-        if (!encodedHtmlContent) {
+    // ⭐ REFACTORED: Takes ID, retrieves content from projectsData
+    window.handleCopyCode = function(projectId) {
+        const project = projectsData.get(projectId);
+        if (!project || !project.htmlContent) {
             showMessage("No code to copy.", true);
             return;
         }
         
         // Decode the Base64 string back to a UTF-8 safe string
-        const htmlContent = decodeURIComponent(escape(atob(encodedHtmlContent)));
+        const htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
 
         // Use a temporary textarea as execCommand is more reliable in iFrames than navigator.clipboard
         const tempTextArea = document.createElement('textarea');
@@ -256,7 +259,6 @@
             return;
         }
 
-        // Simple confirmation before delete (using modal confirmation is better, but using JS confirm for now)
         if (window.confirm("Are you sure you want to delete this project? This cannot be undone.")) {
             showMessage("Initiating project deletion...", false);
             
@@ -276,23 +278,26 @@
     // --- NEW Modal Control Functions ---
     
     /** Shows the edit modal and pre-fills data. */
-    window.openEditModal = function(projectId, title, prompt) {
-        // Strip quotes from title string passed via onclick
-        const cleanTitle = title.replace(/"/g, ''); 
+    // ⭐ REFACTORED: Takes ID, retrieves content from projectsData
+    window.openEditModal = function(projectId) {
+        const project = projectsData.get(projectId);
+        if (!project) {
+            showMessage("Project data not found for editing.", true);
+            return;
+        }
         
         document.getElementById('edit-project-id').value = projectId;
-        document.getElementById('edit-title').value = cleanTitle;
-        document.getElementById('edit-prompt').value = prompt.replace(/\\n/g, '\n'); // Ensure newlines render correctly in textarea
+        document.getElementById('edit-title').value = project.title;
+        document.getElementById('edit-prompt').value = project.prompt; 
 
         editModal.classList.remove('hidden');
         editModal.classList.add('flex');
         
-        // Slight delay for animation effect
         setTimeout(() => {
             editModalContent.classList.remove('scale-95', 'opacity-0');
             editModalContent.classList.add('scale-100', 'opacity-100');
         }, 10);
-        lucide.createIcons(); // Re-render icons in modal
+        lucide.createIcons();
     }
 
     /** Hides the edit modal. */
@@ -300,7 +305,6 @@
         editModalContent.classList.remove('scale-100', 'opacity-100');
         editModalContent.classList.add('scale-95', 'opacity-0');
         
-        // Hide completely after animation
         setTimeout(() => {
             editModal.classList.remove('flex');
             editModal.classList.add('hidden');
@@ -333,10 +337,9 @@
             const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
             
             await updateDoc(docRef, {
-                // We use the newTitle for the optional 'title' field and the original prompt field
                 title: newTitle, 
                 prompt: newPrompt,
-                updatedAt: new Date() // Optional: track when it was last updated
+                updatedAt: Timestamp.fromDate(new Date()) // Use Firestore Timestamp
             });
 
             showMessage(`Project "${newTitle}" updated successfully!`, false);
@@ -381,12 +384,8 @@
         // Generate HTML for each saved project
         projects.forEach(project => {
             
-            // **FIX: Clean the prompt by replacing the literal '\n' sequences with real line breaks**
-            const cleanPrompt = project.prompt.replace(/\\n/g, '\n');
-            
-            // **FIX: Generate a clean title and summary from the cleaned prompt**
-            const firstLine = cleanPrompt.split('\n').find(line => line.trim().length > 0) || "Untitled Project";
-            const title = project.title || (firstLine.substring(0, 30).trim() + (firstLine.length > 30 ? '...' : ''));
+            const title = project.title; 
+            const cleanPrompt = project.prompt; 
             
             // *** Get the date correctly from the Firestore Timestamp object ***
             let dateObj;
@@ -398,15 +397,6 @@
                 dateObj = new Date();
             }
             const timestamp = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-            // ⭐ CRITICAL FIX: Use UTF-8 safe encoding before btoa() to handle Unicode characters (emojis, etc.)
-            const utf8Encoded = unescape(encodeURIComponent(project.htmlContent));
-            const encodedHtmlContent = btoa(utf8Encoded);
-            
-            // **CRITICAL FIX: Use JSON.stringify for ALL strings passed to onclick to safely escape quotes/newlines.**
-            const safeEncodedHtmlContent = JSON.stringify(encodedHtmlContent);
-            const safeTitle = JSON.stringify(title);
-            const safePrompt = JSON.stringify(cleanPrompt); 
 
             // *** Escape the HTML content for display in the snippet box ***
             const escapedCodeSnippet = escapeHtml(project.htmlContent);
@@ -430,24 +420,26 @@
                     <div class="mt-auto">
                         <p class="text-xs text-gray-400 mb-3">Saved: ${timestamp}</p>
                         <div class="flex space-x-2">
-                            <!-- openEditModal: Uses safeTitle and safePrompt -->
-                            <button onclick="openEditModal('${project.id}', ${safeTitle}, ${safePrompt})" 
+                            
+                            <!-- ⭐ CRITICAL FIX: Only pass the ID to the function -->
+                            <button onclick="openEditModal('${project.id}')" 
                                 class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-amber-500 hover:bg-amber-600 transition duration-150 shadow-md" title="Edit Details">
                                 <i data-lucide="pencil" class="w-4 h-4 inline-block"></i>
                             </button>
                             
-                            <!-- handleCopyCode: Uses safeEncodedHtmlContent (no single quotes needed) -->
-                            <button onclick="handleCopyCode(${safeEncodedHtmlContent})" 
+                            <!-- ⭐ CRITICAL FIX: Only pass the ID to the function -->
+                            <button onclick="handleCopyCode('${project.id}')" 
                                 class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-gray-500 hover:bg-gray-600 transition duration-150 shadow-md" title="Copy Code">
                                 <i data-lucide="copy" class="w-4 h-4 inline-block"></i>
                             </button>
 
-                            <!-- handlePreview: Uses safeEncodedHtmlContent (no single quotes needed) -->
-                            <button onclick="handlePreview(${safeEncodedHtmlContent})" class="flex-1 px-3 py-2 text-sm font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-md">
+                            <!-- ⭐ CRITICAL FIX: Only pass the ID to the function -->
+                            <button onclick="handlePreview('${project.id}')" class="flex-1 px-3 py-2 text-sm font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-md">
                                 <i data-lucide="eye" class="w-4 h-4 inline-block mr-1"></i> Preview
                             </button>
-                            <!-- handleDownload: Uses safeEncodedHtmlContent and safeTitle (no single quotes needed) -->
-                            <button onclick="handleDownload(${safeEncodedHtmlContent}, ${safeTitle})" class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-green-600 hover:bg-green-700 transition duration-150 shadow-md">
+                            
+                            <!-- ⭐ CRITICAL FIX: Only pass the ID to the function -->
+                            <button onclick="handleDownload('${project.id}')" class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-green-600 hover:bg-green-700 transition duration-150 shadow-md">
                                 <i data-lucide="download" class="w-4 h-4 inline-block"></i>
                             </button>
                             <button onclick="handleDeleteProject('${project.id}')" class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150 shadow-md">
@@ -476,17 +468,33 @@
         // Set up the real-time listener (onSnapshot)
         onSnapshot(q, (snapshot) => {
             const projects = [];
+            // Clear the projectsData map before repopulating
+            projectsData.clear(); 
+            
             snapshot.forEach((doc) => {
                 const data = doc.data();
-                projects.push({
+                
+                // Clean the prompt by replacing the literal '\n' sequences with real line breaks
+                const cleanPrompt = data.prompt ? data.prompt.replace(/\\n/g, '\n') : "No prompt available";
+                
+                // Use UTF-8 safe encoding before btoa() for the preview/download buttons
+                const utf8Encoded = unescape(encodeURIComponent(data.htmlContent || ''));
+                const encodedHtmlContent = btoa(utf8Encoded);
+
+                const project = {
                     id: doc.id,
                     ...data,
                     // Use more sensible default fields for robust rendering
-                    title: data.title || data.prompt?.split('\n')[0].substring(0, 30).trim() || "Untitled Project",
-                    prompt: data.prompt || "No prompt available",
-                    htmlContent: data.htmlContent || "",
-                    createdAt: data.createdAt // Keep the Firestore Timestamp object
-                });
+                    title: data.title || (cleanPrompt.split('\n')[0].substring(0, 30).trim() + (cleanPrompt.split('\n')[0].length > 30 ? '...' : '') || "Untitled Project"),
+                    prompt: cleanPrompt, // The cleaned prompt string
+                    htmlContent: data.htmlContent || "", // The original raw HTML
+                    encodedHtmlContent: encodedHtmlContent, // The Base64 encoded HTML
+                    createdAt: data.createdAt 
+                };
+                
+                // ⭐ CRITICAL FIX: Store the full, processed project object in the map
+                projectsData.set(doc.id, project);
+                projects.push(project);
             });
 
             // Sort by createdAt descending (newest first) in memory.
@@ -514,11 +522,9 @@
             // CRITICAL: Authentication Gate using the listener
             onAuthStateChanged(auth, (user) => {
                 if (user) {
-                    // **SUCCESS** - User is authenticated
                     currentUserId = user.uid;
                     isAuthReady = true;
 
-                    // Display user ID or email
                     userEmailSpan.textContent = user.email || user.uid;
 
                     // Fetch projects for the logged-in user (CORE INTEGRATION)
@@ -550,7 +556,6 @@
             try {
                 await signOut(auth);
                 showMessage("You have been signed out.", false);
-                // Redirect handles itself via onAuthStateChanged listener
             } catch (error) {
                 console.error("Logout failed:", error);
                 showMessage("Logout failed. Please try again.", true);
