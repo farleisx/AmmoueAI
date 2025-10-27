@@ -93,13 +93,13 @@
                 <div class="mb-4">
                     <label for="edit-title" class="block text-sm font-medium text-gray-700 mb-1">Project Title</label>
                     <input type="text" id="edit-title" required 
-                                    class="w-full border-gray-300 rounded-xl shadow-sm focus:border-ammoue focus:ring-ammoue transition duration-150 p-3">
+                               class="w-full border-gray-300 rounded-xl shadow-sm focus:border-ammoue focus:ring-ammoue transition duration-150 p-3">
                 </div>
 
                 <div class="mb-6">
                     <label for="edit-prompt" class="block text-sm font-medium text-gray-700 mb-1">AI Prompt</label>
                     <textarea id="edit-prompt" rows="6" required 
-                                     class="w-full border-gray-300 rounded-xl shadow-sm focus:border-ammoue focus:ring-ammoue transition duration-150 p-3"></textarea>
+                                 class="w-full border-gray-300 rounded-xl shadow-sm focus:border-ammoue focus:ring-ammoue transition duration-150 p-3"></textarea>
                     <p class="text-xs text-gray-500 mt-1">Editing the prompt does not regenerate the site; it only updates the description.</p>
                 </div>
 
@@ -176,7 +176,7 @@
     }
 
     /** Opens the generated HTML in a new window for a live preview. 
-     * FIXED/UPDATED to decode Base64 content safely.
+     * // FIXED/UPDATED to decode Base64 content
      */
     window.handlePreview = function(encodedHtmlContent) {
         if (!encodedHtmlContent) {
@@ -184,7 +184,7 @@
             return;
         }
 
-        // CRITICAL FIX: Decode the Base64 string back to a UTF-8 safe string
+        // Decode the Base64 string back to a UTF-8 safe string
         const decodedHtml = decodeURIComponent(escape(atob(encodedHtmlContent)));
         
         const previewWindow = window.open('', '_blank');
@@ -197,7 +197,7 @@
     }
 
     /** Downloads the generated HTML code as a file. 
-     * FIXED/UPDATED to decode Base64 content and use safer title cleaning.
+     * // FIXED/UPDATED to decode Base64 content and use safer title cleaning.
      */
     window.handleDownload = function(encodedHtmlContent, title) {
         if (!encodedHtmlContent) {
@@ -205,7 +205,7 @@
             return;
         }
         
-        // CRITICAL FIX: Decode the Base64 string back to a UTF-8 safe string
+        // Decode the Base64 string back to a UTF-8 safe string
         const htmlContent = decodeURIComponent(escape(atob(encodedHtmlContent)));
         
         // Since 'title' came from JSON.stringify, we strip the quotes to get the clean string.
@@ -231,7 +231,7 @@
             return;
         }
         
-        // CRITICAL FIX: Decode the Base64 string back to a UTF-8 safe string
+        // Decode the Base64 string back to a UTF-8 safe string
         const htmlContent = decodeURIComponent(escape(atob(encodedHtmlContent)));
 
         navigator.clipboard.writeText(htmlContent)
@@ -330,10 +330,10 @@
             const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
             
             await updateDoc(docRef, {
-                // Update the user-editable fields
+                // We use the newTitle for the optional 'title' field and the original prompt field
                 title: newTitle, 
                 prompt: newPrompt,
-                updatedAt: new Date() // Track when it was last updated
+                updatedAt: new Date() // Optional: track when it was last updated
             });
 
             showMessage(`Project "${newTitle}" updated successfully!`, false);
@@ -357,7 +357,6 @@
         
         if (!createCardElement) {
             console.error("Could not find the static 'Create New Site' element.");
-            // Fallback for an unrecoverable state where the create card is missing
             projectsContainer.innerHTML = `<p class="col-span-full text-center text-red-500 text-lg mt-10">Error: Missing Create Site element.</p>`;
             return;
         }
@@ -377,14 +376,14 @@
         // Generate HTML for each saved project
         projects.forEach(project => {
             
-            // FIX: Clean the prompt by replacing the literal '\n' sequences with real line breaks
+            // **FIX: Clean the prompt by replacing the literal '\n' sequences with real line breaks**
             const cleanPrompt = project.prompt.replace(/\\n/g, '\n');
             
-            // FIX: Generate a clean title and summary from the cleaned prompt
+            // **FIX: Generate a clean title and summary from the cleaned prompt**
             const firstLine = cleanPrompt.split('\n').find(line => line.trim().length > 0) || "Untitled Project";
             const title = project.title || (firstLine.substring(0, 30).trim() + (firstLine.length > 30 ? '...' : ''));
             
-            // Get the date correctly from the Firestore Timestamp object
+            // *** Get the date correctly from the Firestore Timestamp object ***
             let dateObj;
             if (project.createdAt && typeof project.createdAt.toDate === 'function') {
                 dateObj = project.createdAt.toDate();
