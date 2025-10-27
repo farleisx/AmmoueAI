@@ -6,7 +6,6 @@
     <title>Ammoue | AI Site Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
         body {
@@ -28,7 +27,7 @@
             background-color: #fff;
             z-index: 100;
             /* Added transition for smoother removal */
-            transition: opacity 0.3s ease-in-out;
+            transition: opacity 0.3s ease-in-out; 
         }
         /* Custom styles for message box */
         #message-box {
@@ -58,9 +57,9 @@
 
     <div id="main-content" class="max-w-4xl mx-auto p-6 lg:p-10 hidden">
         <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Generate Your AI Website</h1>
-        <p class="text-xl text-gray-500 mb-8">Tell Ammoue exactly what website you want to generate (e.g., 'A modern portfolio site for a UX designer with a dark theme, including a separate dashboard page').</p>
+        <p class="text-xl text-gray-500 mb-8">Tell Ammoue exactly what website you want to generate (e.g., 'A modern portfolio site for a UX designer with a dark theme').</p>
 
-        <textarea id="ai-prompt" rows="6" class="w-full p-4 border-2 border-ammoue/30 rounded-2xl focus:ring-ammoue focus:border-ammoue transition duration-150 shadow-md" placeholder="e.g., 'A vibrant landing page for a dog grooming salon called Paws & Claws, focusing on luxury services and online booking. Also generate a simple dashboard.html file for customers to track appointments.'"></textarea>
+        <textarea id="ai-prompt" rows="6" class="w-full p-4 border-2 border-ammoue/30 rounded-2xl focus:ring-ammoue focus:border-ammoue transition duration-150 shadow-md" placeholder="e.g., 'A vibrant landing page for a dog grooming salon called Paws & Claws, focusing on luxury services and online booking.'"></textarea>
 
         <div class="mt-6 flex justify-end space-x-4">
             <a href="dashboard.html" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300 flex items-center">
@@ -82,7 +81,7 @@
                 Refine the **current generated code**. Tell the agent what to change, add, or remove.
             </p>
 
-            <textarea id="refine-prompt" rows="3" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 transition duration-150" placeholder="e.g., 'In the index.html file, make the primary button color a bright orange' or 'Add a new feature list to the dashboard.html page.'"></textarea>
+            <textarea id="refine-prompt" rows="3" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 transition duration-150" placeholder="e.g., 'Make the primary button color a bright orange' or 'Add a 3-column feature section under the hero.'"></textarea>
 
             <div class="mt-4 flex justify-end">
                 <button id="refine-btn" disabled class="px-8 py-3 text-lg font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300 shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -90,23 +89,20 @@
                 </button>
             </div>
         </div>
-        
         <div id="generation-output" class="mt-12 p-6 bg-white border border-gray-100 rounded-2xl shadow-lg hidden">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
-                <h3 class="text-2xl font-bold text-gray-800 flex items-center mb-4 sm:mb-0">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold text-gray-800 flex items-center">
                     <i data-lucide="code" class="w-5 h-5 mr-2 text-ammoue"></i>
-                    Generated Files
+                    Generated HTML Code
                 </h3>
-                <div class="flex flex-wrap space-x-3">
-                    <div id="file-selector" class="flex space-x-2 p-1 bg-gray-50 rounded-lg border border-gray-200">
-                        </div>
-                    <button id="copy-btn" class="text-sm font-medium text-ammoue hover:text-teal-600 flex items-center transition duration-200 mt-2 sm:mt-0">
-                        <i data-lucide="copy" class="w-4 h-4 mr-1"></i> Copy Current File
+                <div class="flex space-x-3">
+                    <button id="copy-btn" class="text-sm font-medium text-ammoue hover:text-teal-600 flex items-center transition duration-200">
+                        <i data-lucide="copy" class="w-4 h-4 mr-1"></i> Copy Code
                     </button>
-                    <button id="download-btn" disabled class="text-sm font-medium text-blue-600 hover:text-blue-700 disabled:text-gray-400 flex items-center transition duration-200 mt-2 sm:mt-0">
-                        <i data-lucide="download" class="w-4 h-4 mr-1"></i> Download Project (ZIP)
+                    <button id="download-btn" disabled class="text-sm font-medium text-blue-600 hover:text-blue-700 disabled:text-gray-400 flex items-center transition duration-200">
+                        <i data-lucide="download" class="w-4 h-4 mr-1"></i> Download HTML
                     </button>
-                </div>
+                    </div>
             </div>
             
             <pre class="bg-gray-100 p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm">
@@ -114,7 +110,7 @@
             </pre>
             
             <button id="preview-btn" class="mt-4 px-6 py-2 text-base font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300">
-                Preview Site (Opens `index.html` in a new tab)
+                Preview Site (Will open in a new tab)
             </button>
         </div>
     </div>
@@ -154,16 +150,13 @@
         const copyBtn = document.getElementById('copy-btn');
         const previewBtn = document.getElementById('preview-btn');
         const messageBox = document.getElementById('message-box');
+        // NEW: Refinement Agent Elements
         const refinePromptInput = document.getElementById('refine-prompt');
         const refineBtn = document.getElementById('refine-btn');
-        // NEW: File Selector Container
-        const fileSelector = document.getElementById('file-selector'); 
 
         let listenersAttached = false;
-        // ⭐ NEW: Holds all generated files in a map: { 'filename': 'html content' }
-        let latestProjectFiles = {}; 
-        let latestPrompt = '';
-        let currentActiveFile = 'index.html'; // Tracks the file currently displayed
+        let latestHtmlContent = ''; 
+        let latestPrompt = ''; 
 
         // --- Utility Functions ---
 
@@ -188,36 +181,35 @@
             }, 4000);
         }
 
-        /** Sets the loading state on the generate button. */
+        /** Sets the loading state on the generate button. (MODIFIED) */
         function setLoading(isLoading) {
             if (isLoading) {
                 generateBtn.disabled = true;
-                refineBtn.disabled = true;
-                downloadBtn.disabled = true;
+                refineBtn.disabled = true; // Disable refine while generating
+                downloadBtn.disabled = true; 
                 generateBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Generating...';
             } else {
                 generateBtn.disabled = false;
                 generateBtn.innerHTML = 'Generate HTML Code';
-                // Only enable refine if there are generated files
-                if (Object.keys(latestProjectFiles).length > 0) { 
+                // Only enable refine if there is content
+                if (latestHtmlContent) {
                     refineBtn.disabled = false;
-                    downloadBtn.disabled = false;
                 }
             }
         }
         
-        /** Sets the loading state on the refine button. */
+        /** Sets the loading state on the refine button. (NEW FUNCTION) */
         function setRefineLoading(isLoading) {
             if (isLoading) {
                 refineBtn.disabled = true;
-                generateBtn.disabled = true; 
+                generateBtn.disabled = true; // Disable generation while refining
                 downloadBtn.disabled = true;
                 refineBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Refining...';
             } else {
                 refineBtn.disabled = false;
                 generateBtn.disabled = false;
                 // Re-enable refine and download if there is content
-                if (Object.keys(latestProjectFiles).length > 0) {
+                if (latestHtmlContent) {
                     downloadBtn.disabled = false;
                 }
                 refineBtn.innerHTML = 'Refine Code';
@@ -241,119 +233,36 @@
             }
         }
         
-        // ⭐ NEW: Switches the content displayed in the code block and updates active file state.
-        function switchFile(filename) {
-            const content = latestProjectFiles[filename];
-            if (content) {
-                currentActiveFile = filename;
-                outputCode.textContent = content;
-                
-                // Update active file styling
-                document.querySelectorAll('#file-selector button').forEach(btn => {
-                    btn.classList.remove('bg-white', 'text-ammoue', 'font-bold');
-                    btn.classList.add('bg-gray-50', 'text-gray-600', 'font-medium');
-                });
-                
-                const activeBtn = document.querySelector(`#file-selector button[data-filename="${filename}"]`);
-                if (activeBtn) {
-                    activeBtn.classList.add('bg-white', 'text-ammoue', 'font-bold');
-                    activeBtn.classList.remove('bg-gray-50', 'text-gray-600', 'font-medium');
-                }
-            }
-        }
-
-        // ⭐ NEW: Creates the file selection buttons based on latestProjectFiles.
-        function createFilesSelector(files) {
-            fileSelector.innerHTML = ''; // Clear previous buttons
-            const filenames = Object.keys(files);
-
-            filenames.forEach(filename => {
-                const button = document.createElement('button');
-                button.textContent = filename;
-                button.dataset.filename = filename;
-                
-                // Initial styling
-                button.classList.add(
-                    'px-3', 'py-1', 'text-sm', 'rounded-md', 'transition', 'duration-150', 'hover:bg-gray-200'
-                );
-                
-                // Set initial active state
-                if (filename === currentActiveFile) {
-                    button.classList.add('bg-white', 'text-ammoue', 'font-bold');
-                } else {
-                    button.classList.add('bg-gray-50', 'text-gray-600', 'font-medium');
-                }
-                
-                button.addEventListener('click', () => switchFile(filename));
-                fileSelector.appendChild(button);
-            });
-            
-            // Ensure the correct content is displayed after creating buttons
-            const fileToShow = files[currentActiveFile] || files[filenames[0]];
-            if (fileToShow) {
-                outputCode.textContent = fileToShow;
-            }
-        }
-
-
-        /** Handles downloading the generated HTML content (UPDATED for ZIP). */
-        async function handleDownload() {
-            if (Object.keys(latestProjectFiles).length === 0) {
-                showMessage("No project files available to download.", true);
-                return;
-            }
-            
-            if (typeof JSZip === 'undefined') {
-                showMessage("JSZip library not loaded. Cannot create ZIP file.", true);
+        /** Handles downloading the generated HTML content. */
+        function handleDownload() {
+            const htmlCode = outputCode.textContent;
+            if (!htmlCode) {
+                showMessage("No HTML code available to download.", true);
                 return;
             }
 
-            setRefineLoading(true); // Use the loading state for download
-            const zip = new JSZip();
-
-            // Add all files from the project object
-            for (const [filename, content] of Object.entries(latestProjectFiles)) {
-                // Ensure content is a string
-                zip.file(filename, String(content));
-            }
-
-            try {
-                // Generate the ZIP file as a Blob
-                const content = await zip.generateAsync({ type: "blob" });
-
-                const link = document.createElement("a");
-                link.href = URL.createObjectURL(content);
-                link.download = "ammoue_multi_page_site.zip";
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                showMessage(`Successfully packaged ${Object.keys(latestProjectFiles).length} files into a ZIP!`, false);
-            } catch (error) {
-                console.error("ZIP download failed:", error);
-                showMessage("Failed to create ZIP file for download.", true);
-            }
-            setRefineLoading(false);
+            const blob = new Blob([htmlCode], { type: "text/html" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "ammoue_website.html"; 
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showMessage("Download started!", false);
         }
         
-        /** Opens the generated HTML in a new window for a live preview (UPDATED). */
+        /** Opens the generated HTML in a new window for a live preview. */
         function handlePreview() {
-            // We preview the currently selected file.
-            const htmlContent = latestProjectFiles[currentActiveFile];
-
+            const htmlContent = previewBtn.dataset.html;
             if (!htmlContent) {
-                showMessage("No HTML code available to preview for the current file.", true);
+                showMessage("No HTML code available to preview.", true);
                 return;
             }
 
-            // NOTE: Using window.document.write() for a single file preview is simple.
-            // For true multi-page navigation (i.e., clicking an internal link like <a href="dashboard.html">),
-            // you would need a custom 'preview.html' page that loads and intercepts links 
-            // using the data stored in sessionStorage or localStorage.
-            
             const previewWindow = window.open('', '_blank');
             if (!previewWindow) {
-                showMessage("Pop-ups must be enabled to view the preview.", true);
-                return;
+                 showMessage("Pop-ups must be enabled to view the preview.", true);
+                 return;
             }
 
             previewWindow.document.write(htmlContent);
@@ -361,25 +270,23 @@
         }
 
         // *** Auto-Save Logic (runs after successful generation/refinement) ***
-        // ⭐ UPDATED: Now saves the entire files object.
-        async function autoSaveProject(filesObject, userPrompt) {
-            if (!currentUserId || Object.keys(filesObject).length === 0) {
+        async function autoSaveProject(htmlContent, userPrompt) {
+            if (!currentUserId || !htmlContent) {
                 console.error("Auto-save failed: Missing user ID or content.");
                 return;
             }
             
             // ⭐ CRITICAL FIX: Clean the prompt data before saving it to Firestore ⭐
             const cleanedPrompt = userPrompt.replace(/\\n/g, '\n');
-            // We save the file content as a stringified object.
-            const filesContentString = JSON.stringify(filesObject); 
 
             try {
+                // Secure Nested Path: /artifacts/{appId}/users/{userId}/projects
                 const projectsRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'projects');
 
                 await addDoc(projectsRef, {
-                    prompt: cleanedPrompt,
-                    files: filesContentString, // Store the serialized file object
-                    createdAt: serverTimestamp(),
+                    prompt: cleanedPrompt, // USE THE CLEANED PROMPT HERE
+                    htmlContent: htmlContent,
+                    createdAt: serverTimestamp(), 
                 });
 
                 console.log("Project auto-saved successfully.");
@@ -392,7 +299,7 @@
 
         // --- AI Generation Logic ---
 
-        /** Handles the initial generation process (UPDATED for multi-file). */
+        /** Handles the initial generation process. */
         async function handleGeneration() {
             const prompt = promptInput.value.trim();
             if (prompt.length < 10) {
@@ -402,16 +309,16 @@
 
             setLoading(true);
             outputDiv.classList.add('hidden');
-            outputCode.textContent = '';
-            downloadBtn.disabled = true;
+            outputCode.textContent = ''; 
+            downloadBtn.disabled = true; 
 
             latestPrompt = prompt;
 
-            const apiEndpoint = '/api/generate.js';
+            const apiEndpoint = '/api/generate.js'; 
+            console.log(`Attempting to call AI endpoint: ${apiEndpoint}`);
+
             const payload = {
                 prompt: prompt,
-                // ⭐ CRITICAL: Tell the API to return a files object if multiple pages are requested
-                multiPage: prompt.toLowerCase().includes('dashboard') || prompt.toLowerCase().includes('two pages'), 
             };
 
             const maxRetries = 3;
@@ -426,51 +333,35 @@
                     if (!response.ok) {
                         const errorBody = await response.json().catch(() => ({}));
                         const errorMessage = errorBody.error || response.statusText || "Unknown server error.";
+                        console.error(`Attempt ${attempt + 1} Server Error: Status ${response.status}`, errorMessage);
                         throw new Error(`API Proxy Error [Status: ${response.status}]: ${errorMessage}`);
                     }
 
                     const result = await response.json();
-                    // ⭐ NEW: Expect result.files (object) instead of result.htmlCode (string)
-                    const generatedFiles = result.files; 
+                    const generatedHtml = result.htmlCode; 
                     
-                    if (generatedFiles && Object.keys(generatedFiles).length > 0) {
-                        latestProjectFiles = generatedFiles;
+                    if (generatedHtml) {
+                        const finalHtml = generatedHtml.trim();
+                        outputCode.textContent = finalHtml;
+                        latestHtmlContent = finalHtml; 
                         
-                        // Default to index.html or the first file for display
-                        const filenames = Object.keys(generatedFiles);
-                        currentActiveFile = filenames.includes('index.html') ? 'index.html' : filenames[0];
+                        previewBtn.dataset.html = finalHtml;
 
-                        // Update the display and buttons
-                        createFilesSelector(generatedFiles);
                         outputDiv.classList.remove('hidden');
                         downloadBtn.disabled = false;
-                        refineBtn.disabled = false;
                         
-                        // Set the initial content
-                        outputCode.textContent = latestProjectFiles[currentActiveFile];
+                        // Enable the refine button once content exists
+                        refineBtn.disabled = false; 
                         
-                        showMessage(`Generated ${filenames.length} files successfully! Project auto-saved.`, false);
-                        
+                        showMessage("HTML generated successfully! Project auto-saved.", false);
+
                         // CRITICAL STEP: AUTO-SAVE ASYNCHRONOUSLY
-                        await autoSaveProject(latestProjectFiles, latestPrompt); 
+                        autoSaveProject(finalHtml, latestPrompt); 
                         
                         break; // Exit loop on success
                     } else {
-                        // Fallback for old single-file format (if needed) or handle an error
-                        if (result.htmlCode) {
-                            latestProjectFiles = {'index.html': result.htmlCode.trim()};
-                            currentActiveFile = 'index.html';
-                            createFilesSelector(latestProjectFiles);
-                            outputDiv.classList.remove('hidden');
-                            downloadBtn.disabled = false;
-                            refineBtn.disabled = false;
-                            outputCode.textContent = latestProjectFiles[currentActiveFile];
-                            showMessage("HTML generated successfully! Project auto-saved.", false);
-                            await autoSaveProject(latestProjectFiles, latestPrompt);
-                            break;
-                        } else {
-                             throw new Error("API response missing 'files' or 'htmlCode' content.");
-                        }
+                        console.error(`Attempt ${attempt + 1} Response Structure Error: 'htmlCode' missing in result.`, result);
+                        throw new Error("API response missing 'htmlCode' content.");
                     }
 
                 } catch (error) {
@@ -487,11 +378,11 @@
             setLoading(false);
         }
 
-        /** Handles the AI refinement process (UPDATED for multi-file). */
+        /** Handles the AI refinement process. (NEW FUNCTION) */
         async function handleRefine() {
             const refinePrompt = refinePromptInput.value.trim();
             
-            if (Object.keys(latestProjectFiles).length === 0) {
+            if (!latestHtmlContent) {
                 showMessage("Please generate initial HTML first.", true);
                 return;
             }
@@ -503,12 +394,13 @@
 
             setRefineLoading(true);
 
-            const apiEndpoint = '/api/refine.js';
-            
+            // This is the new API endpoint you need to implement
+            const apiEndpoint = '/api/refine.js'; 
+            console.log(`Attempting to call AI refinement endpoint: ${apiEndpoint}`);
+
             const payload = {
-                // ⭐ NEW: Pass the entire files object, not just one file
-                currentFiles: latestProjectFiles, 
-                refinePrompt: refinePrompt,
+                currentHtml: latestHtmlContent, // Pass the existing code
+                refinePrompt: refinePrompt,     // Pass the refinement instruction
             };
 
             const maxRetries = 3;
@@ -527,26 +419,29 @@
                     }
 
                     const result = await response.json();
-                    // ⭐ NEW: Expect result.files (object)
-                    const generatedFiles = result.files;
+                    const generatedHtml = result.htmlCode;
 
-                    if (generatedFiles && Object.keys(generatedFiles).length > 0) {
-                        latestProjectFiles = generatedFiles;
+                    if (generatedHtml) {
+                        const finalHtml = generatedHtml.trim();
+                        outputCode.textContent = finalHtml;
+                        latestHtmlContent = finalHtml;
                         
                         // Append refinement to the prompt history for saving
-                        latestPrompt = (latestPrompt || promptInput.value.trim()) + `\n\n[Refined]: ${refinePrompt}`;
+                        latestPrompt = (latestPrompt || promptInput.value.trim()) + `\n\n[Refined]: ${refinePrompt}`; 
                         
-                        // Re-create buttons to reflect any file changes (if the AI added/removed a file)
-                        createFilesSelector(latestProjectFiles);
+                        previewBtn.dataset.html = finalHtml;
+
+                        outputDiv.classList.remove('hidden');
+                        downloadBtn.disabled = false;
                         
                         // CRITICAL STEP: AUTO-SAVE ASYNCHRONOUSLY
-                        await autoSaveProject(latestProjectFiles, latestPrompt);
+                        autoSaveProject(finalHtml, latestPrompt); 
                         
                         showMessage("Code refined and auto-saved!", false);
                         refinePromptInput.value = ''; // Clear the refinement prompt
                         break; // Exit loop on success
                     } else {
-                         throw new Error("API response missing 'files' content.");
+                        throw new Error("API response missing 'htmlCode' content.");
                     }
 
                 } catch (error) {
@@ -575,14 +470,13 @@
                 // User is logged in: Show the content
                 loadingState.style.pointerEvents = 'none';
                 loadingState.classList.add('hidden');
-                loadingState.style.opacity = '0';
+                loadingState.style.opacity = '0'; 
                 mainContent.classList.remove('hidden');
 
                 if (!listenersAttached) {
                     generateBtn.addEventListener('click', handleGeneration);
-                    refineBtn.addEventListener('click', handleRefine);
-                    // Copy now copies the content of the currently active file
-                    copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent)); 
+                    refineBtn.addEventListener('click', handleRefine); // <-- NEW LISTENER
+                    copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
                     downloadBtn.addEventListener('click', handleDownload);
                     previewBtn.addEventListener('click', handlePreview);
                     
@@ -600,7 +494,7 @@
                 console.log("User not authenticated. Redirecting to login.");
                 const currentPath = window.location.pathname;
                 const redirectUrl = 'login.html?redirect=' + encodeURIComponent(currentPath);
-                window.location.replace(redirectUrl);
+                window.location.replace(redirectUrl); 
             }
         });
         
