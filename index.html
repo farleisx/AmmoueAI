@@ -19,6 +19,11 @@
         .bg-ammoue {
             background-color: #0d9488; /* Teal-700 for Ammoue branding */
         }
+        /* Active section link styling */
+        .nav-link.active {
+            color: #10b981; /* Emerald-500 */
+            border-color: #10b981;
+        }
     </style>
 </head>
 <body class="antialiased min-h-screen">
@@ -32,9 +37,9 @@
                 </a>
                 
                 <nav class="hidden md:flex space-x-8">
-                    <a href="#features" class="text-gray-600 font-medium transition duration-150 border-b-2 border-transparent hover:border-ammoue hover:text-ammoue py-1">Features</a>
-                    <a href="#how-it-works" class="text-gray-600 font-medium transition duration-150 border-b-2 border-transparent hover:border-ammoue hover:text-ammoue py-1">How It Works</a>
-                    <a href="#pricing" class="text-gray-600 font-medium transition duration-150 border-b-2 border-transparent hover:border-ammoue hover:text-ammoue py-1">Pricing</a>
+                    <a href="#features" class="nav-link text-gray-600 font-medium transition duration-200 border-b-2 border-transparent hover:border-emerald-500 hover:text-emerald-500 py-1">Features</a>
+                    <a href="#how-it-works" class="nav-link text-gray-600 font-medium transition duration-200 border-b-2 border-transparent hover:border-emerald-500 hover:text-emerald-500 py-1">How It Works</a>
+                    <a href="#pricing" class="nav-link text-gray-600 font-medium transition duration-200 border-b-2 border-transparent hover:border-emerald-500 hover:text-emerald-500 py-1">Pricing</a>
                 </nav>
                 
                 <a href="login.html" class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl shadow-lg text-white bg-ammoue hover:bg-teal-700 transition duration-300 transform hover:scale-105">
@@ -208,6 +213,26 @@
 
     <script>
         lucide.createIcons();
+
+        // Highlight active section in navbar
+        const sections = document.querySelectorAll("section[id]");
+        const navLinks = document.querySelectorAll(".nav-link");
+
+        window.addEventListener("scroll", () => {
+            let current = "";
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop - 120;
+                if (pageYOffset >= sectionTop) {
+                    current = section.getAttribute("id");
+                }
+            });
+            navLinks.forEach(link => {
+                link.classList.remove("active");
+                if (link.getAttribute("href") === "#" + current) {
+                    link.classList.add("active");
+                }
+            });
+        });
     </script>
 </body>
 </html>
