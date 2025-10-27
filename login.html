@@ -84,9 +84,13 @@
                 </div>
             </div>
 
-            <button type="button" class="w-full flex items-center justify-center py-2.5 border border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 transition duration-150">
-                <i data-lucide="zap" class="w-5 h-5 mr-2"></i>
-                Google
+            <!-- Google Sign-In Button (IMPLEMENTED) -->
+            <button type="button" 
+                    id="google-login-btn" 
+                    onclick="handleGoogleAuth(this)" 
+                    class="w-full flex items-center justify-center py-2.5 border border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 transition duration-150">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/4/4a/Logo_and_wordmark_of_Google.svg" class="w-5 h-5 mr-2" alt="Google logo">
+                Sign in with Google
             </button>
         </form>
 
@@ -124,9 +128,13 @@
                 </div>
             </div>
 
-            <button type="button" class="w-full flex items-center justify-center py-2.5 border border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 transition duration-150">
-                <i data-lucide="zap" class="w-5 h-5 mr-2"></i>
-                Google
+            <!-- Google Sign-Up Button (IMPLEMENTED) -->
+            <button type="button" 
+                    id="google-signup-btn" 
+                    onclick="handleGoogleAuth(this)" 
+                    class="w-full flex items-center justify-center py-2.5 border border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 transition duration-150">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/4/4a/Logo_and_wordmark_of_Google.svg" class="w-5 h-5 mr-2" alt="Google logo">
+                Sign up with Google
             </button>
         </form>
     </div>
@@ -134,8 +142,17 @@
     <!-- Firebase Initialization and Auth Logic -->
     <script type="module">
         // Updated Imports to Firebase SDK v12.4.0
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+        import { 
+            initializeApp 
+        } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+        import { 
+            getAuth, 
+            signInWithEmailAndPassword, 
+            createUserWithEmailAndPassword, 
+            onAuthStateChanged,
+            signInWithPopup, // <--- NEW IMPORT
+            GoogleAuthProvider, // <--- NEW IMPORT
+        } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
         import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
         // --- FIREBASE CONFIGURATION (Hardcoded with user's data) ---
@@ -146,11 +163,13 @@
             storageBucket: "ammoueai.firebasestorage.app",
             messagingSenderId: "135818868149",
             appId: "1:135818868149:web:db9280baf9540a3339d5fc",
-            // measurementId: "G-RQSK9680SD" // Analytics is optional and removed for core functionality
         };
         
         let auth = null; // Initialize auth to null explicitly
         let db = null;  // Initialize db to null explicitly
+
+        // --- Providers ---
+        const googleProvider = new GoogleAuthProvider(); // <--- NEW PROVIDER INITIALIZATION
 
         // --- DOM Elements ---
         const loginForm = document.getElementById('login-form');
@@ -159,6 +178,7 @@
         const signupTab = document.getElementById('signup-tab');
         const loginBtn = document.getElementById('login-btn');
         const signupBtn = document.getElementById('signup-btn');
+        // Google buttons are handled via their onclick handler, but we define their text for setLoading
 
         // --- Utility Functions ---
 
@@ -194,13 +214,32 @@
         function setLoading(button, isLoading) {
             if (isLoading) {
                 button.disabled = true;
+                button.setAttribute('data-original-text', button.innerHTML); // Save original content
                 button.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Authenticating...';
+                
+                // For Google buttons, change background to reflect loading state
+                if (button.id.includes('google')) {
+                     button.classList.add('bg-gray-100', 'text-gray-400');
+                     button.classList.remove('hover:bg-gray-50');
+                } else {
+                     button.classList.add('bg-teal-700');
+                }
+
             } else {
                 button.disabled = false;
-                if (button.id === 'login-btn') {
+                // Restore original content
+                if (button.getAttribute('data-original-text')) {
+                    button.innerHTML = button.getAttribute('data-original-text');
+                } else if (button.id === 'login-btn') {
                     button.textContent = 'Log In';
                 } else if (button.id === 'signup-btn') {
                     button.textContent = 'Sign Up & Generate Site';
+                }
+                
+                // Restore Google button styling
+                if (button.id.includes('google')) {
+                    button.classList.remove('bg-gray-100', 'text-gray-400');
+                    button.classList.add('hover:bg-gray-50');
                 }
             }
         }
@@ -240,6 +279,7 @@
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         // Redirect to the path specified in the URL, or dashboard.html by default
+                        showMessage(`Welcome back, ${user.email || 'User'}! Redirecting...`, false);
                         setTimeout(redirectToNextPage, 50);
                     }
                 });
@@ -276,7 +316,7 @@
                 await signInWithEmailAndPassword(auth, email, password);
                 showMessage("Login successful! Redirecting...", false);
                 
-                // Redirect on success
+                // Redirect on success (handled by onAuthStateChanged listener, but call here for immediacy)
                 setTimeout(redirectToNextPage, 1000);
 
             } catch (error) {
@@ -317,7 +357,7 @@
                 await createUserWithEmailAndPassword(auth, email, password);
                 showMessage("Account created successfully! Redirecting to the site builder...", false);
 
-                // Redirect on success
+                // Redirect on success (handled by onAuthStateChanged listener, but call here for immediacy)
                 setTimeout(redirectToNextPage, 1000);
 
             } catch (error) {
@@ -333,6 +373,41 @@
             }
         }
 
+        // --- NEW GOOGLE AUTH LOGIC ---
+        /**
+         * Handles Google Sign-In/Sign-Up via popup.
+         * This single function works for both login and signup buttons.
+         * @param {HTMLElement} button - The button element that was clicked.
+         */
+        window.handleGoogleAuth = async function(button) {
+            if (!auth) {
+                showMessage("Authentication service failed to load.", true);
+                return;
+            }
+
+            setLoading(button, true);
+
+            try {
+                showMessage("Redirecting to Google for sign-in...", false);
+                // signInWithPopup handles both login and signup seamlessly
+                const result = await signInWithPopup(auth, googleProvider);
+                const user = result.user;
+                showMessage(`Welcome, ${user.displayName || user.email}! Redirecting...`, false);
+                
+                // The onAuthStateChanged listener handles the final redirect.
+
+            } catch (error) {
+                console.error("Google Sign-in failed:", error);
+                let errorMessage = "Google sign-in failed.";
+
+                if (error.code === 'auth/popup-closed-by-user' || (error.message && error.message.includes('popup-closed-by-user'))) {
+                    errorMessage = "Sign-in cancelled. Pop-up was closed.";
+                } 
+
+                showMessage(errorMessage, true);
+                setLoading(button, false);
+            }
+        }
 
         // --- UI Toggling Logic (FIXED) ---
 
