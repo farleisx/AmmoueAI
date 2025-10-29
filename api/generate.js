@@ -36,12 +36,58 @@ The output should contain NOTHING but the raw HTML code, starting with <!DOCTYPE
 
     const result = await model.generateContent(fullPrompt);
 
-    const text = result.response.text();
+    let text = result.response.text();
 
     if (!text) {
       console.error("Gemini returned empty response:", result);
       return res.status(500).json({ error: "Gemini API returned empty response." });
     }
+
+    // ---- 👇 New Code: Auto Image Detection + Insertion ----
+
+    // Detects mentions like "image of ...", "photo of ...", "background of ..."
+    const imageRegex = /(image|photo|picture|background)\s+(of|showing|with)\s+([^.,\n]+)/gi;
+    const matches = [];
+    let match;
+
+    while ((match = imageRegex.exec(prompt)) !== null) {
+      matches.push(match[3].trim());
+    }
+
+    if (matches.length > 0) {
+      console.log("Detected image requests:", matches);
+
+      // Replace random spots with placeholders (if needed)
+      matches.forEach((imgPrompt, i) => {
+        text += `\n<!-- AI_IMAGE_${i} -->`;
+      });
+
+      // Generate each image via Hugging Face API route
+      for (let i = 0; i < matches.length; i++) {
+        const imgPrompt = matches[i];
+        try {
+          const imgRes = await fetch(`${process.env.VERCEL_URL || "http://localhost:3000"}/api/generateImage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ prompt: imgPrompt }),
+          });
+
+          const data = await imgRes.json();
+
+          if (data.image) {
+            // Replace placeholder or append image
+            text = text.replace(
+              `<!-- AI_IMAGE_${i} -->`,
+              `<div class="w-full flex justify-center my-4"><img src="${data.image}" alt="${imgPrompt}" class="rounded-xl shadow-lg w-full max-w-3xl" /></div>`
+            );
+          }
+        } catch (err) {
+          console.error(`Error generating image for prompt "${imgPrompt}":`, err);
+        }
+      }
+    }
+
+    // ---- 👆 End of New Code ----
 
     return res.status(200).json({ htmlCode: text.trim() });
   } catch (err) {
