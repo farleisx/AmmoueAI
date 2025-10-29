@@ -89,6 +89,17 @@ The output should contain NOTHING but the raw HTML code, starting with <!DOCTYPE
 
     // ---- 👆 End of New Code ----
 
+    // ---- 👇 Added Cleanup: Fix broken <img> URLs that cause 404s ----
+    text = text.replace(/<img[^>]+src=["']?(photo-|image-|pic-|https?:\/\/unsplash|https?:\/\/picsum)[^"']*["']?[^>]*>/gi, (match) => {
+      if (matches.length > 0) {
+        // Use the first AI-generated image as fallback
+        return `<img src="${matches[0]}" alt="AI generated image" class="rounded-xl shadow-lg w-full max-w-3xl" />`;
+      }
+      // Remove broken image entirely if no AI image available
+      return "";
+    });
+    // ---- 👆 End Cleanup ----
+
     return res.status(200).json({ htmlCode: text.trim() });
   } catch (err) {
     console.error("Gemini generation failed:", err);
