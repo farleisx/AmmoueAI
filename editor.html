@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ammoue | Code Editor</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
+    <script src="[https://unpkg.com/lucide@latest](https://unpkg.com/lucide@latest)"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        @import url('[https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap](https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap)');
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f1f5f9; /* Slate 100 */
@@ -38,7 +38,7 @@
 <body class="antialiased">
 
     <div id="loading-screen" class="loading-screen">
-        <svg class="animate-spin h-8 w-8 text-ammoue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <svg class="animate-spin h-8 w-8 text-ammoue" xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
@@ -94,9 +94,9 @@
     </div>
 
     <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-    import { getFirestore, doc, getDoc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+    import { initializeApp } from "[https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js](https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js)";
+    import { getAuth, onAuthStateChanged, signInWithCustomToken } from "[https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js](https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js)";
+    import { getFirestore, doc, getDoc, updateDoc, Timestamp } from "[https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js](https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js)";
 
     // IMPORTANT: Hardcoded configuration from login.html for this specific app instance
     const firebaseConfig = {
@@ -161,12 +161,20 @@
                 const data = docSnap.data();
                 // Clean the prompt by replacing the literal '\n' sequences with real line breaks
                 const cleanPrompt = data.prompt ? data.prompt.replace(/\\n/g, '\n') : "No prompt available";
+                
+                // ✅ FIX 2: Clean incoming HTML content from the database
+                let cleanHtmlContent = data.htmlContent || '';
+                cleanHtmlContent = cleanHtmlContent
+                    .replace(/^```(html)?\s*\n?/i, "") // Remove starting fences and optional newline
+                    .replace(/\n?```$/i, "")         // Remove trailing fences and optional newline
+                    .trim();
+                // End FIX 2
+
                 return {
                     id: docSnap.id,
                     ...data,
                     prompt: cleanPrompt,
-                    // Use sensible default for content if missing
-                    htmlContent: data.htmlContent || '', 
+                    htmlContent: cleanHtmlContent, // Use the cleaned HTML
                 };
             } else {
                 showMessage("Error: Project not found.", true);
@@ -222,7 +230,7 @@
             showMessage("Failed to save changes. Check console for details.", true);
         }
     }
-
+    
     // --- NEW FUNCTION: Handles the AI Code Refinement request ---
     async function handleCodeRefine() {
         const currentHtml = codeEditor.value;
@@ -239,8 +247,8 @@
         showMessage("Sending code to AI for refinement. Please wait...", false);
 
         try {
-            // NOTE: This assumes your backend endpoint for refining the HTML is '/api/refine-code'
-            const response = await fetch('/api/refine-code', { 
+            // ✅ CRITICAL FIX: Calling the correct serverless endpoint /api/refine
+            const response = await fetch('/api/refine', { 
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -254,8 +262,17 @@
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                // Try to read error body if it's JSON (e.g., status 400/500 with error message)
+                const errorText = await response.text();
+                let errorData = { error: `HTTP error! status: ${response.status}` };
+                try {
+                    errorData = JSON.parse(errorText);
+                } catch (e) {
+                    console.error("Non-JSON error response:", errorText);
+                    // If not JSON, use the raw text, which might be the unexpected 'T' error page.
+                    errorData.error = `Server returned invalid response. Status: ${response.status}`;
+                }
+                throw new Error(errorData.error || errorData.message || `HTTP error! status: ${response.status}`);
             }
 
             const data = await response.json();
