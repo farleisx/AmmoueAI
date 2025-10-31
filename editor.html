@@ -1,279 +1,345 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ammoue | Code Editor</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f1f5f9; /* Slate 100 */
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        .text-ammoue { color: #0d9488; }
-        .bg-ammoue { background-color: #0d9488; }
-        
-        #code-editor {
-            font-family: monospace;
-            min-height: 50vh; /* Ensure code editor is large */
-            resize: vertical;
-        }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ammoue | Code Editor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9; /* Slate 100 */
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .text-ammoue { color: #0d9488; }
+        .bg-ammoue { background-color: #0d9488; }
+        
+        #code-editor {
+            font-family: monospace;
+            min-height: 50vh; /* Ensure code editor is large */
+            resize: vertical;
+        }
 
-        .loading-screen {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #f8fafc;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 50;
-        }
-    </style>
+        .loading-screen {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #f8fafc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+        }
+    </style>
 </head>
 <body class="antialiased">
 
-    <div id="loading-screen" class="loading-screen">
-        <svg class="animate-spin h-8 w-8 text-ammoue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-    </div>
-    
-    <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 opacity-0 transition-opacity duration-300 z-50"></div>
+    <div id="loading-screen" class="loading-screen">
+        <svg class="animate-spin h-8 w-8 text-ammoue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+    </div>
+    
+    <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 opacity-0 transition-opacity duration-300 z-50"></div>
 
-    <div id="editor-content" class="flex-grow flex flex-col p-4 md:p-8 max-w-7xl mx-auto w-full hidden">
-        <div class="bg-white rounded-xl shadow-xl p-6 flex-grow flex flex-col">
-            <header class="mb-6 border-b pb-4 flex justify-between items-center">
-                <h1 class="text-3xl font-bold text-gray-800 flex items-center">
-                    <i data-lucide="code" class="w-8 h-8 text-ammoue mr-3"></i>
-                    Editing: <span id="project-title-header" class="ml-2 text-ammoue truncate max-w-xs md:max-w-md">Loading...</span>
-                </h1>
-                <button onclick="window.location.href='dashboard.html'" class="px-4 py-2 text-sm font-semibold rounded-xl text-gray-700 bg-gray-200 hover:bg-gray-300 transition duration-150 shadow-md flex items-center">
-                    <i data-lucide="arrow-left" class="w-4 h-4 mr-2"></i> Back to Dashboard
-                </button>
-            </header>
+    <div id="editor-content" class="flex-grow flex flex-col p-4 md:p-8 max-w-7xl mx-auto w-full hidden">
+        <div class="bg-white rounded-xl shadow-xl p-6 flex-grow flex flex-col">
+            <header class="mb-6 border-b pb-4 flex justify-between items-center">
+                <h1 class="text-3xl font-bold text-gray-800 flex items-center">
+                    <i data-lucide="code" class="w-8 h-8 text-ammoue mr-3"></i>
+                    Editing: <span id="project-title-header" class="ml-2 text-ammoue truncate max-w-xs md:max-w-md">Loading...</span>
+                </h1>
+                <button onclick="window.location.href='dashboard.html'" class="px-4 py-2 text-sm font-semibold rounded-xl text-gray-700 bg-gray-200 hover:bg-gray-300 transition duration-150 shadow-md flex items-center">
+                    <i data-lucide="arrow-left" class="w-4 h-4 mr-2"></i> Back to Dashboard
+                </button>
+            </header>
 
-            <form id="editor-form" class="flex-grow flex flex-col space-y-4">
-                <input type="hidden" id="project-id-input">
-                
-                <!-- Title and Prompt editing remains possible here -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="md:col-span-1">
-                        <label for="editor-title" class="block text-sm font-medium text-gray-700 mb-1">Project Title</label>
-                        <input type="text" id="editor-title" required 
-                                class="w-full border border-gray-300 rounded-xl shadow-inner bg-gray-50 focus:border-ammoue focus:ring-2 focus:ring-teal-200 transition duration-150 p-3 text-base text-gray-800">
-                    </div>
-                    <div class="md:col-span-2">
-                        <label for="editor-prompt" class="block text-sm font-medium text-gray-700 mb-1">AI Prompt Description</label>
-                        <input id="editor-prompt" required 
-                                class="w-full border border-gray-300 rounded-xl shadow-inner bg-gray-50 focus:border-ammoue focus:ring-2 focus:ring-teal-200 transition duration-150 p-3 text-base text-gray-800">
-                    </div>
-                </div>
+            <form id="editor-form" class="flex-grow flex flex-col space-y-4">
+                <input type="hidden" id="project-id-input">
+                
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="md:col-span-1">
+                        <label for="editor-title" class="block text-sm font-medium text-gray-700 mb-1">Project Title</label>
+                        <input type="text" id="editor-title" required 
+                                class="w-full border border-gray-300 rounded-xl shadow-inner bg-gray-50 focus:border-ammoue focus:ring-2 focus:ring-teal-200 transition duration-150 p-3 text-base text-gray-800">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="editor-prompt" class="block text-sm font-medium text-gray-700 mb-1">AI Prompt/Refinement Description</label>
+                        <input id="editor-prompt" required 
+                                class="w-full border border-gray-300 rounded-xl shadow-inner bg-gray-50 focus:border-ammoue focus:ring-2 focus:ring-teal-200 transition duration-150 p-3 text-base text-gray-800"
+                            placeholder="Enter refinement request here (e.g., Change the button color to red, Add a logo, etc.)">
+                    </div>
+                </div>
 
-                <!-- Code Editor Area -->
-                <div class="flex-grow flex flex-col min-h-[50vh]">
-                    <label for="code-editor" class="block text-sm font-medium text-gray-700 mb-2">HTML Code Content</label>
-                    <textarea id="code-editor" required 
-                             class="flex-grow w-full border border-gray-300 rounded-xl shadow-inner focus:border-ammoue focus:ring-2 focus:ring-teal-200 transition duration-150 p-4 bg-gray-50 text-gray-900 font-mono text-sm"></textarea>
-                </div>
+                                <div class="flex-grow flex flex-col min-h-[50vh]">
+                    <label for="code-editor" class="block text-sm font-medium text-gray-700 mb-2">HTML Code Content</label>
+                    <textarea id="code-editor" required 
+                             class="flex-grow w-full border border-gray-300 rounded-xl shadow-inner focus:border-ammoue focus:ring-2 focus:ring-teal-200 transition duration-150 p-4 bg-gray-50 text-gray-900 font-mono text-sm"></textarea>
+                </div>
 
-                <div class="flex justify-end pt-4 border-t">
-                    <button type="submit" class="px-6 py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-150 shadow-lg flex items-center">
-                        <i data-lucide="save" class="w-5 h-5 mr-2"></i> Save All Changes
+                <div class="flex justify-end pt-4 border-t space-x-4">
+                    <button type="button" id="ai-code-refine-button" class="px-6 py-3 text-lg font-bold rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150 shadow-lg flex items-center">
+                        <i data-lucide="zap" class="w-5 h-5 mr-2"></i> AI Refine Code
                     </button>
-                </div>
-            </form>
-        </div>
-    </div>
+                                        <button type="submit" class="px-6 py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-150 shadow-lg flex items-center">
+                        <i data-lucide="save" class="w-5 h-5 mr-2"></i> Save All Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 
-    <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-    import { getFirestore, doc, getDoc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+    <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
-    // IMPORTANT: Hardcoded configuration from login.html for this specific app instance
-    const firebaseConfig = {
-        apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
-        authDomain: "ammoueai.firebaseapp.com",
-        projectId: "ammoueai",
-        storageBucket: "ammoueai.firebasestorage.app",
-        messagingSenderId: "135818868149",
-        appId: "1:135818868149:web:db9280baf9540a3339d5fc",
-    };
+    // IMPORTANT: Hardcoded configuration from login.html for this specific app instance
+    const firebaseConfig = {
+        apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
+        authDomain: "ammoueai.firebaseapp.com",
+        projectId: "ammoueai",
+        storageBucket: "ammoueai.firebasestorage.app",
+        messagingSenderId: "135818868149",
+        appId: "1:135818868149:web:db9280baf9540a3339d5fc",
+    };
 
-    let auth = null;
-    let db = null;
-    let currentUserId = null;
-    const appId = firebaseConfig.projectId;
+    let auth = null;
+    let db = null;
+    let currentUserId = null;
+    const appId = firebaseConfig.projectId;
 
-    // --- DOM Elements ---
-    const loadingScreen = document.getElementById('loading-screen');
-    const editorContent = document.getElementById('editor-content');
-    const msgBox = document.getElementById('message-box');
-    const editorForm = document.getElementById('editor-form');
-    const codeEditor = document.getElementById('code-editor');
-    const titleInput = document.getElementById('editor-title');
-    const promptInput = document.getElementById('editor-prompt');
-    const titleHeader = document.getElementById('project-title-header');
-    const projectIdInput = document.getElementById('project-id-input');
-    
-    // --- Utility Functions ---
+    // --- DOM Elements ---
+    const loadingScreen = document.getElementById('loading-screen');
+    const editorContent = document.getElementById('editor-content');
+    const msgBox = document.getElementById('message-box');
+    const editorForm = document.getElementById('editor-form');
+    const codeEditor = document.getElementById('code-editor');
+    const titleInput = document.getElementById('editor-title');
+    const promptInput = document.getElementById('editor-prompt');
+    const titleHeader = document.getElementById('project-title-header');
+    const projectIdInput = document.getElementById('project-id-input');
+    // NEW: Get the code refine button
+    const codeRefineButton = document.getElementById('ai-code-refine-button');
+    
+    // --- Utility Functions ---
 
-    /** Shows a temporary message box (replaces alert()) */
-    function showMessage(message, isError) {
-        if (!msgBox) return;
-        msgBox.textContent = message;
+    /** Shows a temporary message box (replaces alert()) */
+    function showMessage(message, isError) {
+        if (!msgBox) return;
+        msgBox.textContent = message;
 
-        msgBox.className = 'p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 z-50';
-        msgBox.classList.add(isError ? 'bg-red-500' : 'bg-green-500');
-        msgBox.classList.add('opacity-100');
-        setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
-    }
+        msgBox.className = 'p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 z-50';
+        msgBox.classList.add(isError ? 'bg-red-500' : 'bg-green-500');
+        msgBox.classList.add('opacity-100');
+        setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
+    }
 
-    /** Extracts project ID from the URL query parameters. */
-    function getProjectIdFromUrl() {
-        const urlParams = new URLSearchParams(window.location.search);
-        return urlParams.get('id');
-    }
+    /** Extracts project ID from the URL query parameters. */
+    function getProjectIdFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get('id');
+    }
 
-    /** Fetches the project document from Firestore. */
-    async function fetchProjectData(projectId, userId) {
-        if (!db || !userId) {
-            showMessage("Database not initialized.", true);
-            return null;
+    /** Fetches the project document from Firestore. */
+    async function fetchProjectData(projectId, userId) {
+        if (!db || !userId) {
+            showMessage("Database not initialized.", true);
+            return null;
+        }
+        
+        try {
+            // Document path: /artifacts/{appId}/users/{userId}/projects/{projectId}
+            const docRef = doc(db, 'artifacts', appId, 'users', userId, 'projects', projectId);
+            const docSnap = await getDoc(docRef);
+
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                // Clean the prompt by replacing the literal '\n' sequences with real line breaks
+                const cleanPrompt = data.prompt ? data.prompt.replace(/\\n/g, '\n') : "No prompt available";
+                return {
+                    id: docSnap.id,
+                    ...data,
+                    prompt: cleanPrompt,
+                    // Use sensible default for content if missing
+                    htmlContent: data.htmlContent || '', 
+                };
+            } else {
+                showMessage("Error: Project not found.", true);
+                console.error("No such document!");
+                return null;
+            }
+        } catch (error) {
+            console.error("Error fetching document:", error);
+            showMessage("Failed to load project details.", true);
+            return null;
+        }
+    }
+
+    /** Handles form submission to update Firestore with new code and details. */
+    async function handleSave(e) {
+        e.preventDefault();
+        
+        if (!currentUserId) {
+            showMessage("User not authenticated.", true);
+            return;
+        }
+
+        const projectId = projectIdInput.value;
+        const newTitle = titleInput.value.trim();
+        const newPrompt = promptInput.value.trim();
+        const newHtmlContent = codeEditor.value;
+
+        if (!newTitle || !newPrompt || !newHtmlContent) {
+            showMessage("Title, Prompt, and Code cannot be empty.", true);
+            return;
+        }
+
+        showMessage("Saving changes...", false);
+        
+        try {
+            // Document path: /artifacts/{appId}/users/{userId}/projects/{projectId}
+            const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
+            
+            await updateDoc(docRef, {
+                title: newTitle, 
+                prompt: newPrompt.replace(/\n/g, '\\n'), // Escape newlines for consistency with generator output
+                htmlContent: newHtmlContent,
+                updatedAt: Timestamp.fromDate(new Date()) // Update the timestamp
+            });
+
+            // Update the header instantly
+            titleHeader.textContent = newTitle;
+            
+            showMessage(`Project "${newTitle}" saved successfully!`, false);
+            
+        } catch (error) {
+            console.error("Error updating document:", error);
+            showMessage("Failed to save changes. Check console for details.", true);
+        }
+    }
+
+    // --- NEW FUNCTION: Handles the AI Code Refinement request ---
+    async function handleCodeRefine() {
+        const currentHtml = codeEditor.value;
+        const refinePrompt = promptInput.value.trim(); // Use the existing prompt field for the request
+
+        if (!currentHtml || !refinePrompt) {
+            showMessage("Code and a Refinement Description are required for AI refinement.", true);
+            return;
         }
-        
-        try {
-            // Document path: /artifacts/{appId}/users/{userId}/projects/{projectId}
-            const docRef = doc(db, 'artifacts', appId, 'users', userId, 'projects', projectId);
-            const docSnap = await getDoc(docRef);
 
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                // Clean the prompt by replacing the literal '\n' sequences with real line breaks
-                const cleanPrompt = data.prompt ? data.prompt.replace(/\\n/g, '\n') : "No prompt available";
-                return {
-                    id: docSnap.id,
-                    ...data,
-                    prompt: cleanPrompt,
-                    // Use sensible default for content if missing
-                    htmlContent: data.htmlContent || '<!-- Empty content -->', 
-                };
-            } else {
-                showMessage("Error: Project not found.", true);
-                console.error("No such document!");
-                return null;
+        // Disable button while processing
+        codeRefineButton.disabled = true;
+        codeRefineButton.classList.add('opacity-50', 'cursor-not-allowed');
+        showMessage("Sending code to AI for refinement. Please wait...", false);
+
+        try {
+            // NOTE: This assumes your backend endpoint for refining the HTML is '/api/refine-code'
+            const response = await fetch('/api/refine-code', { 
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    // Pass the user's auth token for securing the API call
+                    'Authorization': `Bearer ${await auth.currentUser.getIdToken()}`
+                },
+                body: JSON.stringify({ 
+                    currentHtml: currentHtml, 
+                    refinePrompt: refinePrompt 
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
             }
-        } catch (error) {
-            console.error("Error fetching document:", error);
-            showMessage("Failed to load project details.", true);
-            return null;
-        }
-    }
 
-    /** Handles form submission to update Firestore with new code and details. */
-    async function handleSave(e) {
-        e.preventDefault();
-        
-        if (!currentUserId) {
-            showMessage("User not authenticated.", true);
-            return;
-        }
+            const data = await response.json();
+            const refinedCode = data.htmlCode;
 
-        const projectId = projectIdInput.value;
-        const newTitle = titleInput.value.trim();
-        const newPrompt = promptInput.value.trim();
-        const newHtmlContent = codeEditor.value;
-
-        if (!newTitle || !newPrompt || !newHtmlContent) {
-            showMessage("Title, Prompt, and Code cannot be empty.", true);
-            return;
-        }
-
-        showMessage("Saving changes...", false);
-        
-        try {
-            // Document path: /artifacts/{appId}/users/{userId}/projects/{projectId}
-            const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
-            
-            await updateDoc(docRef, {
-                title: newTitle, 
-                prompt: newPrompt.replace(/\n/g, '\\n'), // Escape newlines for consistency with generator output
-                htmlContent: newHtmlContent,
-                updatedAt: Timestamp.fromDate(new Date()) // Update the timestamp
-            });
-
-            // Update the header instantly
-            titleHeader.textContent = newTitle;
-            
-            showMessage(`Project "${newTitle}" saved successfully!`, false);
-            
-        } catch (error) {
-            console.error("Error updating document:", error);
-            showMessage("Failed to save changes. Check console for details.", true);
-        }
-    }
-
-
-    /** Initializes Firebase and loads the project data. */
-    function initializeAppAndLoadData() {
-        const projectId = getProjectIdFromUrl();
-        if (!projectId) {
-            showMessage("Error: No project ID provided in URL.", true);
-            setTimeout(() => { window.location.href = 'dashboard.html'; }, 2000);
-            return;
-        }
-        
-        try {
-            const app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-
-            onAuthStateChanged(auth, async (user) => {
-                if (user) {
-                    currentUserId = user.uid;
-                    
-                    const project = await fetchProjectData(projectId, currentUserId);
-
-                    if (project) {
-                        projectIdInput.value = project.id;
-                        titleInput.value = project.title;
-                        promptInput.value = project.prompt;
-                        codeEditor.value = project.htmlContent;
-                        titleHeader.textContent = project.title;
-
-                        // Show content
-                        loadingScreen.classList.add('hidden');
-                        editorContent.classList.remove('hidden');
-                    } else {
-                           // Project fetch failed or not found, redirect
-                           setTimeout(() => { window.location.href = 'dashboard.html'; }, 2000);
-                    }
-                } else {
-                    // No valid session found. Redirect to login.html
-                    console.log("No valid session found. Redirecting to login.html...");
-                    window.location.href = 'login.html';
-                }
-            });
+            if (refinedCode) {
+                // Update the code editor field with the refined HTML
+                codeEditor.value = refinedCode;
+                showMessage("Code refined successfully by AI! Review and save.", false);
+            } else {
+                showMessage("AI returned empty code. Check the refinement description.", true);
+            }
 
         } catch (error) {
-            console.error("Firebase initialization failed:", error);
-            showMessage("Initialization error. Redirecting to login...", true);
-            setTimeout(() => { window.location.href = 'login.html'; }, 500);
+            console.error("Error refining code:", error);
+            showMessage(`Code refinement failed: ${error.message}`, true);
+        } finally {
+            // Re-enable button
+            codeRefineButton.disabled = false;
+            codeRefineButton.classList.remove('opacity-50', 'cursor-not-allowed');
         }
     }
+    // --- END NEW FUNCTION ---
 
-    // Attach the submit listener and initialize
-    if (editorForm) {
-        editorForm.addEventListener('submit', handleSave);
+
+    /** Initializes Firebase and loads the project data. */
+    function initializeAppAndLoadData() {
+        const projectId = getProjectIdFromUrl();
+        if (!projectId) {
+            showMessage("Error: No project ID provided in URL.", true);
+            setTimeout(() => { window.location.href = 'dashboard.html'; }, 2000);
+            return;
+        }
+        
+        try {
+            const app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    currentUserId = user.uid;
+                    
+                    const project = await fetchProjectData(projectId, currentUserId);
+
+                    if (project) {
+                        projectIdInput.value = project.id;
+                        titleInput.value = project.title;
+                        promptInput.value = project.prompt;
+                        codeEditor.value = project.htmlContent;
+                        titleHeader.textContent = project.title;
+
+                        // Show content
+                        loadingScreen.classList.add('hidden');
+                        editorContent.classList.remove('hidden');
+                    } else {
+                           // Project fetch failed or not found, redirect
+                           setTimeout(() => { window.location.href = 'dashboard.html'; }, 2000);
+                    }
+                } else {
+                    // No valid session found. Redirect to login.html
+                    console.log("No valid session found. Redirecting to login.html...");
+                    window.location.href = 'login.html';
+                }
+            });
+
+        } catch (error) {
+            console.error("Firebase initialization failed:", error);
+            showMessage("Initialization error. Redirecting to login...", true);
+            setTimeout(() => { window.location.href = 'login.html'; }, 500);
+        }
+    }
+
+    // Attach the submit listener and initialize
+    if (editorForm) {
+        editorForm.addEventListener('submit', handleSave);
+    }
+    // NEW: Attach listener to the AI Code Refine button
+    if (codeRefineButton) {
+        codeRefineButton.addEventListener('click', handleCodeRefine);
     }
-    initializeAppAndLoadData();
-    lucide.createIcons();
-    </script>
+
+    initializeAppAndLoadData();
+    lucide.createIcons();
+    </script>
 </body>
 </html>
