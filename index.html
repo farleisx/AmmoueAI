@@ -26,38 +26,27 @@
         }
 
         /* --- New CSS for Animation --- */
-
-        /* Define the keyframes for the continuous scrolling animation */
         @keyframes scroll-left {
             from {
                 transform: translateX(0);
             }
             to {
-                /* Translate the full width of all duplicated cards */
                 transform: translateX(-100%); 
             }
         }
-
-        /* Apply the animation to the wrapper */
         .animate-scrolling-features {
             display: flex;
-            width: fit-content; /* Important to contain all cards for the animation */
-            animation: scroll-left 40s linear infinite; /* Adjust duration for speed */
+            width: fit-content;
+            animation: scroll-left 40s linear infinite;
         }
-        
-        /* Pause the animation on hover utility class */
         .pause-on-hover:hover {
             animation-play-state: paused;
         }
-
-        /* Make the feature cards take up a consistent width for scrolling */
         .feature-card {
-            min-width: 300px; /* Set a minimum width for the cards */
-            margin-right: 2.5rem; /* Equivalent to Tailwind's gap-10, for spacing */
+            min-width: 300px;
+            margin-right: 2.5rem;
         }
-
         /* --- End New CSS for Animation --- */
-
     </style>
 </head>
 <body class="antialiased min-h-screen">
@@ -72,19 +61,34 @@
                 
                 <nav class="hidden md:flex space-x-8">
                     <a href="#features" class="nav-link text-gray-600 font-medium transition duration-200 border-b-2 border-transparent hover:border-emerald-500 hover:text-emerald-500 py-1">Features</a>
+                    <a href="#video-showcase" class="nav-link text-gray-600 font-medium transition duration-200 border-b-2 border-transparent hover:border-emerald-500 hover:text-emerald-500 py-1">Showcase</a> 
                     <a href="#how-it-works" class="nav-link text-gray-600 font-medium transition duration-200 border-b-2 border-transparent hover:border-emerald-500 hover:text-emerald-500 py-1">How It Works</a>
                     <a href="#pricing" class="nav-link text-gray-600 font-medium transition duration-200 border-b-2 border-transparent hover:border-emerald-500 hover:text-emerald-500 py-1">Pricing</a>
                 </nav>
-                
-                <a href="login.html" class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl shadow-lg text-white bg-ammoue hover:bg-teal-700 transition duration-300 transform hover:scale-105">
-                    Start for Free
-                </a>
+
+                <div class="flex items-center space-x-4">
+                    <a href="login.html" class="hidden md:inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl shadow-lg text-white bg-ammoue hover:bg-teal-700 transition duration-300 transform hover:scale-105">
+                        Start for Free
+                    </a>
+
+                    <button id="mobile-menu-button" class="md:hidden text-gray-700 p-2 rounded-lg hover:bg-gray-100 transition duration-150">
+                        <i data-lucide="menu" class="w-6 h-6"></i>
+                    </button>
+                </div>
             </div>
+        </div>
+        
+        <div id="mobile-menu" class="hidden md:hidden px-4 pt-2 pb-4 space-y-2 border-t border-gray-100">
+            <a href="#features" class="block py-2 px-3 text-base font-medium text-gray-700 rounded-lg hover:bg-gray-50 nav-link">Features</a>
+            <a href="#video-showcase" class="block py-2 px-3 text-base font-medium text-gray-700 rounded-lg hover:bg-gray-50 nav-link">Showcase</a>
+            <a href="#how-it-works" class="block py-2 px-3 text-base font-medium text-gray-700 rounded-lg hover:bg-gray-50 nav-link">How It Works</a>
+            <a href="#pricing" class="block py-2 px-3 text-base font-medium text-gray-700 rounded-lg hover:bg-gray-50 nav-link">Pricing</a>
+            <a href="login.html" class="w-full mt-4 inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl shadow-lg text-white bg-ammoue hover:bg-teal-700 transition duration-300">Start for Free</a>
         </div>
     </header>
 
     <main>
-        <section class="py-16 md:py-24 lg:py-32 bg-slate-50">
+        <section class="py-20 md:py-28 lg:py-36 bg-slate-50">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
                 <p class="text-sm font-semibold text-ammoue uppercase tracking-widest mb-3">The Future of Web Design</p>
                 <h1 class="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-gray-900 leading-tight mb-6">
@@ -114,7 +118,6 @@
                 </div>
             </div>
         </section>
-
         <section id="features" class="py-16 md:py-24 bg-white overflow-hidden">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="text-center mb-16">
@@ -168,7 +171,60 @@
                 </div>
                 </div>
         </section>
+        
+        <section id="video-showcase" class="py-16 md:py-24 bg-gray-100">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-12">
+                    <h2 class="text-3xl sm:text-4xl font-extrabold text-gray-900">Live Demo: Watch Sites Get Built</h2>
+                    <p class="mt-4 text-xl text-gray-500">See all three demos showcasing different site types built by Ammoue AI.</p>
+                </div>
+                
+                <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
+                    
+                    <div class="rounded-3xl shadow-xl overflow-hidden ring-4 ring-white/70">
+                         <div class="relative pt-[56.25%]">
+                            <iframe
+                                class="absolute top-0 left-0 w-full h-full"
+                                src="https://www.youtube.com/embed/188TwHtdRMY?autoplay=0&mute=1&loop=1&playlist=188TwHtdRMY&controls=1&modestbranding=1&rel=0"
+                                title="Ammoue General Demo"
+                                frameborder="0"
+                                allow="encrypted-media"
+                                allowfullscreen>
+                            </iframe>
+                        </div>
+                        <p class="text-center p-4 bg-white font-bold text-ammoue">General AI Site Generation Demo</p>
+                    </div>
 
+                    <div class="rounded-3xl shadow-xl overflow-hidden ring-4 ring-white/70">
+                         <div class="relative pt-[56.25%]">
+                            <iframe
+                                class="absolute top-0 left-0 w-full h-full"
+                                src="https://www.youtube.com/embed/by0hrP_rFwo?autoplay=0&mute=1&loop=1&playlist=by0hrP_rFwo&controls=1&modestbranding=1&rel=0"
+                                title="Ammoue Site Example 1"
+                                frameborder="0"
+                                allow="encrypted-media"
+                                allowfullscreen>
+                            </iframe>
+                        </div>
+                        <p class="text-center p-4 bg-white font-bold text-gray-700">Minimalist Portfolio Site</p>
+                    </div>
+
+                    <div class="rounded-3xl shadow-xl overflow-hidden ring-4 ring-white/70">
+                        <div class="relative pt-[56.25%]">
+                            <iframe
+                                class="absolute top-0 left-0 w-full h-full"
+                                src="https://www.youtube.com/embed/ytcmnZYUXao?autoplay=0&mute=1&loop=1&playlist=ytcmnZYUXao&controls=1&modestbranding=1&rel=0"
+                                title="Ammoue Site Example 2"
+                                frameborder="0"
+                                allow="encrypted-media"
+                                allowfullscreen>
+                            </iframe>
+                        </div>
+                        <p class="text-center p-4 bg-white font-bold text-gray-700">Small Business Landing Page</p>
+                    </div>
+                </div>
+            </div>
+        </section>
         <section id="how-it-works" class="py-16 md:py-24 bg-slate-50">
             <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="text-center mb-16">
@@ -236,6 +292,7 @@
                     <h4 class="text-lg font-semibold mb-3">Product</h4>
                     <ul class="space-y-2 text-sm text-gray-400">
                         <li><a href="#features" class="hover:text-ammoue transition">Features</a></li>
+                        <li><a href="#video-showcase" class="hover:text-ammoue transition">Showcase</a></li>
                         <li><a href="#how-it-works" class="hover:text-ammoue transition">Demo</a></li>
                         <li><a href="#pricing" class="hover:text-ammoue transition">Pricing</a></li>
                         <li><a href="#" class="hover:text-ammoue transition">Roadmap</a></li>
@@ -281,19 +338,43 @@
             });
             navLinks.forEach(link => {
                 link.classList.remove("active");
+                // Check against the full href attribute
                 if (link.getAttribute("href") === "#" + current) {
                     link.classList.add("active");
                 }
             });
         });
 
-        // 2. Continuous Scrolling and Hover Pause Script (NEW)
+        // 2. Continuous Scrolling and Hover Pause Script (Original)
         const featureCarousel = document.getElementById('feature-carousel');
         if (featureCarousel) {
             // Duplicate the content to ensure a seamless loop
             const content = featureCarousel.innerHTML;
             featureCarousel.innerHTML += content;
         }
+
+        // 3. Mobile Menu Toggle Script (Restored)
+        const mobileMenuButton = document.getElementById('mobile-menu-button');
+        const mobileMenu = document.getElementById('mobile-menu');
+        const mobileMenuIconContainer = mobileMenuButton.querySelector('i');
+
+        mobileMenuButton.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+            const isMenuOpen = !mobileMenu.classList.contains('hidden');
+            
+            mobileMenuIconContainer.setAttribute('data-lucide', isMenuOpen ? 'x' : 'menu');
+            lucide.createIcons();
+        });
+
+        // Close mobile menu when a nav link is clicked (Restored)
+        const mobileNavLinks = mobileMenu.querySelectorAll('a');
+        mobileNavLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                mobileMenu.classList.add('hidden');
+                mobileMenuIconContainer.setAttribute('data-lucide', 'menu');
+                lucide.createIcons();
+            });
+        });
     </script>
 </body>
 </html>
