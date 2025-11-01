@@ -24,6 +24,40 @@
             color: #10b981; /* Emerald-500 */
             border-color: #10b981;
         }
+
+        /* --- New CSS for Animation --- */
+
+        /* Define the keyframes for the continuous scrolling animation */
+        @keyframes scroll-left {
+            from {
+                transform: translateX(0);
+            }
+            to {
+                /* Translate the full width of all duplicated cards */
+                transform: translateX(-100%); 
+            }
+        }
+
+        /* Apply the animation to the wrapper */
+        .animate-scrolling-features {
+            display: flex;
+            width: fit-content; /* Important to contain all cards for the animation */
+            animation: scroll-left 40s linear infinite; /* Adjust duration for speed */
+        }
+        
+        /* Pause the animation on hover utility class */
+        .pause-on-hover:hover {
+            animation-play-state: paused;
+        }
+
+        /* Make the feature cards take up a consistent width for scrolling */
+        .feature-card {
+            min-width: 300px; /* Set a minimum width for the cards */
+            margin-right: 2.5rem; /* Equivalent to Tailwind's gap-10, for spacing */
+        }
+
+        /* --- End New CSS for Animation --- */
+
     </style>
 </head>
 <body class="antialiased min-h-screen">
@@ -81,40 +115,58 @@
             </div>
         </section>
 
-        <section id="features" class="py-16 md:py-24 bg-white">
+        <section id="features" class="py-16 md:py-24 bg-white overflow-hidden">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="text-center mb-16">
                     <h2 class="text-3xl sm:text-4xl font-extrabold text-gray-900">Stop Coding, Start Launching.</h2>
                     <p class="mt-4 text-xl text-gray-500">The core advantages of building with Ammoue AI.</p>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
-                    
-                    <div class="bg-white p-8 rounded-2xl shadow-xl hover:shadow-2xl transition duration-300 border border-gray-100 transform hover:-translate-y-1">
-                        <div class="w-12 h-12 bg-ammoue/10 rounded-xl flex items-center justify-center mb-4">
-                            <i data-lucide="clock-4" class="w-6 h-6 text-ammoue"></i>
+                <div class="relative w-full overflow-hidden mask-image-x-fade">
+                    <div class="animate-scrolling-features pause-on-hover" id="feature-carousel">
+                        <div class="feature-card bg-white p-8 rounded-2xl shadow-xl transition duration-300 border border-gray-100 transform hover:-translate-y-1">
+                            <div class="w-12 h-12 bg-ammoue/10 rounded-xl flex items-center justify-center mb-4">
+                                <i data-lucide="clock-4" class="w-6 h-6 text-ammoue"></i>
+                            </div>
+                            <h3 class="text-xl font-bold text-gray-900 mb-3">Instant Deployment</h3>
+                            <p class="text-gray-600">From a simple text prompt to a fully functional, deployed website in less than a minute. Skip the setup and jump straight to success.</p>
                         </div>
-                        <h3 class="text-xl font-bold text-gray-900 mb-3">Instant Deployment</h3>
-                        <p class="text-gray-600">From a simple text prompt to a fully functional, deployed website in less than a minute. Skip the setup and jump straight to success.</p>
-                    </div>
 
-                    <div class="bg-white p-8 rounded-2xl shadow-xl hover:shadow-2xl transition duration-300 border border-gray-100 transform hover:-translate-y-1">
-                        <div class="w-12 h-12 bg-ammoue/10 rounded-xl flex items-center justify-center mb-4">
-                            <i data-lucide="edit-3" class="w-6 h-6 text-ammoue"></i>
+                        <div class="feature-card bg-white p-8 rounded-2xl shadow-xl transition duration-300 border border-gray-100 transform hover:-translate-y-1">
+                            <div class="w-12 h-12 bg-ammoue/10 rounded-xl flex items-center justify-center mb-4">
+                                <i data-lucide="trending-up" class="w-6 h-6 text-ammoue"></i>
+                            </div>
+                            <h3 class="text-xl font-bold text-gray-900 mb-3">SEO Optimization</h3>
+                            <p class="text-gray-600">AI automatically generates meta tags, image alt text, and clean semantic code to ensure your site is search engine ready from day one.</p>
                         </div>
-                        <h3 class="text-xl font-bold text-gray-900 mb-3">AI-Powered Copywriting</h3>
-                        <p class="text-gray-600">Struggling with words? Ammoue's integrated LLM writes compelling, niche-specific copy and creates relevant imagery for you, instantly.</p>
-                    </div>
 
-                    <div class="bg-white p-8 rounded-2xl shadow-xl hover:shadow-2xl transition duration-300 border border-gray-100 transform hover:-translate-y-1">
-                        <div class="w-12 h-12 bg-ammoue/10 rounded-xl flex items-center justify-center mb-4">
-                            <i data-lucide="smartphone" class="w-6 h-6 text-ammoue"></i>
+                        <div class="feature-card bg-white p-8 rounded-2xl shadow-xl transition duration-300 border border-gray-100 transform hover:-translate-y-1">
+                            <div class="w-12 h-12 bg-ammoue/10 rounded-xl flex items-center justify-center mb-4">
+                                <i data-lucide="edit-3" class="w-6 h-6 text-ammoue"></i>
+                            </div>
+                            <h3 class="text-xl font-bold text-gray-900 mb-3">AI-Powered Copywriting</h3>
+                            <p class="text-gray-600">Struggling with words? Ammoue's integrated LLM writes compelling, niche-specific copy and creates relevant imagery for you, instantly.</p>
                         </div>
-                        <h3 class="text-xl font-bold text-gray-900 mb-3">Perfectly Responsive Code</h3>
-                        <p class="text-gray-600">Every site generated is built with clean, modern code and is guaranteed to look pixel-perfect on mobile, tablet, and desktop devices.</p>
-                    </div>
+
+                        <div class="feature-card bg-white p-8 rounded-2xl shadow-xl transition duration-300 border border-gray-100 transform hover:-translate-y-1">
+                            <div class="w-12 h-12 bg-ammoue/10 rounded-xl flex items-center justify-center mb-4">
+                                <i data-lucide="globe" class="w-6 h-6 text-ammoue"></i>
+                            </div>
+                            <h3 class="text-xl font-bold text-gray-900 mb-3">Custom Domain Support</h3>
+                            <p class="text-gray-600">Connect your own custom domain in minutes. Enjoy a professional, branded web address without any complex setup or DNS hassle.</p>
+                        </div>
+
+                        <div class="feature-card bg-white p-8 rounded-2xl shadow-xl transition duration-300 border border-gray-100 transform hover:-translate-y-1">
+                            <div class="w-12 h-12 bg-ammoue/10 rounded-xl flex items-center justify-center mb-4">
+                                <i data-lucide="smartphone" class="w-6 h-6 text-ammoue"></i>
+                            </div>
+                            <h3 class="text-xl font-bold text-gray-900 mb-3">Perfectly Responsive Code</h3>
+                            <p class="text-gray-600">Every site generated is built with clean, modern code and is guaranteed to look pixel-perfect on mobile, tablet, and desktop devices.</p>
+                        </div>
+
+                        </div>
                 </div>
-            </div>
+                </div>
         </section>
 
         <section id="how-it-works" class="py-16 md:py-24 bg-slate-50">
@@ -124,32 +176,33 @@
                     <p class="mt-4 text-xl text-gray-500">Three simple steps to your new online presence.</p>
                 </div>
 
-                <div class="flex items-start mb-12 relative">
-                    <div class="flex-shrink-0 w-12 h-12 bg-ammoue text-white rounded-full flex items-center justify-center text-xl font-bold shadow-lg z-10">1</div>
-                    <div class="ml-6 flex-grow pt-1">
-                        <h3 class="text-2xl font-bold text-gray-900 mb-2">Describe Your Vision</h3>
-                        <p class="text-gray-600">Type a few sentences describing your business, project, or desired website style. E.g., "A modern, minimalist portfolio site for a freelance photographer."</p>
+                <div class="relative space-y-12">
+                    <div class="absolute inset-0 flex justify-center">
+                        <div class="h-full border-l-4 border-dashed border-teal-200" style="margin-left: 24px;"></div>
                     </div>
-                </div>
-
-                <div class="hidden sm:block absolute left-1/2 transform -translate-x-1/2 h-12 border-l-4 border-dashed border-teal-200"></div>
-
-                <div class="flex items-start mb-12 relative">
-                    <div class="flex-shrink-0 w-12 h-12 bg-ammoue text-white rounded-full flex items-center justify-center text-xl font-bold shadow-lg z-10">2</div>
-                    <div class="ml-6 flex-grow pt-1">
-                        <h3 class="text-2xl font-bold text-gray-900 mb-2">AI Creates the Draft</h3>
-                        <p class="text-gray-600">Our AI instantly generates a complete draft: layout, professional images, engaging headlines, and relevant body text based on your prompt.</p>
+                    
+                    <div class="flex items-start relative z-10">
+                        <div class="flex-shrink-0 w-12 h-12 bg-ammoue text-white rounded-full flex items-center justify-center text-xl font-bold shadow-lg">1</div>
+                        <div class="ml-6 flex-grow pt-1">
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2">Describe Your Vision</h3>
+                            <p class="text-gray-600">Type a few sentences describing your business, project, or desired website style. E.g., "A modern, minimalist portfolio site for a freelance photographer."</p>
+                        </div>
                     </div>
-                </div>
-                
-                <div class="hidden sm:block absolute left-1/2 transform -translate-x-1/2 h-12 border-l-4 border-dashed border-teal-200"></div>
 
-
-                <div class="flex items-start relative">
-                    <div class="flex-shrink-0 w-12 h-12 bg-ammoue text-white rounded-full flex items-center justify-center text-xl font-bold shadow-lg z-10">3</div>
-                    <div class="ml-6 flex-grow pt-1">
-                        <h3 class="text-2xl font-bold text-gray-900 mb-2">Edit, Tweak, and Publish</h3>
-                        <p class="text-gray-600">Use our simple drag-and-drop editor to make final adjustments. Once perfect, hit 'Publish' and your site is live instantly.</p>
+                    <div class="flex items-start relative z-10">
+                        <div class="flex-shrink-0 w-12 h-12 bg-ammoue text-white rounded-full flex items-center justify-center text-xl font-bold shadow-lg">2</div>
+                        <div class="ml-6 flex-grow pt-1">
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2">AI Creates the Draft</h3>
+                            <p class="text-gray-600">Our AI instantly generates a complete draft: layout, professional images, engaging headlines, and relevant body text based on your prompt.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-start relative z-10">
+                        <div class="flex-shrink-0 w-12 h-12 bg-ammoue text-white rounded-full flex items-center justify-center text-xl font-bold shadow-lg">3</div>
+                        <div class="ml-6 flex-grow pt-1">
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2">Edit, Tweak, and Publish</h3>
+                            <p class="text-gray-600">Use our simple drag-and-drop editor to make final adjustments. Once perfect, hit 'Publish' and your site is live instantly.</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -214,7 +267,7 @@
     <script>
         lucide.createIcons();
 
-        // Highlight active section in navbar
+        // 1. Navbar Active Link Script (Original)
         const sections = document.querySelectorAll("section[id]");
         const navLinks = document.querySelectorAll(".nav-link");
 
@@ -233,6 +286,14 @@
                 }
             });
         });
+
+        // 2. Continuous Scrolling and Hover Pause Script (NEW)
+        const featureCarousel = document.getElementById('feature-carousel');
+        if (featureCarousel) {
+            // Duplicate the content to ensure a seamless loop
+            const content = featureCarousel.innerHTML;
+            featureCarousel.innerHTML += content;
+        }
     </script>
 </body>
 </html>
