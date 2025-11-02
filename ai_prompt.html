@@ -94,7 +94,7 @@
                 <h3 class="text-2xl font-bold text-gray-800 flex items-center">
                     <i data-lucide="code" class="w-5 h-5 mr-2 text-ammoue"></i>
                     Generated HTML Code
-                </h3>
+                </b>
                 <div class="flex space-x-3">
                     <button id="copy-btn" class="text-sm font-medium text-ammoue hover:text-teal-600 flex items-center transition duration-200">
                         <i data-lucide="copy" class="w-4 h-4 mr-1"></i> Copy Code
@@ -473,7 +473,7 @@
             "An AI art generator website with live previews"
         ];
 
-        let promptIndex = 0;
+        let promptTypingIndex = 0; // Renamed to avoid confusion with the existing 'promptIndex' in your code
         let charIndex = 0;
         let isDeleting = false;
         const typingSpeed = 75; 
@@ -484,7 +484,13 @@
          * Handles the cycling and typing effect for the placeholder.
          */
         function typePlaceholderEffect() {
-            const currentPrompt = placeholderPrompts[promptIndex];
+            // Check if the user has started typing, if so, stop the effect
+            if (promptInput.value.length > 0) {
+                promptInput.setAttribute('placeholder', placeholderPrompts[0]);
+                return; 
+            }
+            
+            const currentPrompt = placeholderPrompts[promptTypingIndex];
             let placeholderText = promptInput.getAttribute('placeholder') || '';
 
             if (isDeleting) {
@@ -493,7 +499,7 @@
                 charIndex--;
                 if (charIndex === 0) {
                     isDeleting = false;
-                    promptIndex = (promptIndex + 1) % placeholderPrompts.length;
+                    promptTypingIndex = (promptTypingIndex + 1) % placeholderPrompts.length;
                     setTimeout(typePlaceholderEffect, 500); // Small pause after deletion
                     return;
                 }
@@ -515,6 +521,17 @@
             const speed = isDeleting ? deletingSpeed : typingSpeed;
             setTimeout(typePlaceholderEffect, speed);
         }
+
+        // Add a check to stop the animation when the user starts typing
+        promptInput.addEventListener('input', () => {
+             // If the user types anything, clear the placeholder and stop the loop
+             if (promptInput.value.length > 0) {
+                 promptInput.setAttribute('placeholder', 'e.g., \'A vibrant landing page for a dog grooming salon called Paws & Claws, focusing on luxury services and online booking.\''); // Restore the default placeholder text
+             } else if (promptInput.value.length === 0 && !listenersAttached) {
+                 // Re-start the effect if the user clears the input after authentication is verified
+                 typePlaceholderEffect();
+             }
+         });
 
         // ------------------------------------------------------------------
         // ⭐ NEW CODE FOR TYPING PLACEHOLDER EFFECT ENDS HERE ⭐
@@ -549,7 +566,7 @@
                             console.error("Logout failed:", error);
                         }
                     });
-
+                        
                         // ⭐ START THE TYPING EFFECT HERE ⭐
                         typePlaceholderEffect(); 
 
