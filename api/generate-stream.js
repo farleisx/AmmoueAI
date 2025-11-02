@@ -1,46 +1,49 @@
 // /api/generate-stream.js
+import { GoogleGenAI } from '@google/genai';
 
-import { streamingAIAgent } from './ai-core-service'; // Assume this is your AI connection module
-
-// Vercel/Next.js/Node.js Serverless Function Handler
 export default async function handler(req, res) {
-    // 1. Set necessary headers for streaming
+    // Set headers for live streaming to the client
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     
-    // In a real application, you'd add CORS headers and authentication checks here.
+    // Initialize the client (automatically uses GEMINI_API_KEY from environment)
+    const ai = new GoogleGenAI({}); 
 
     if (req.method !== 'POST') {
-        res.status(405).end('Method Not Allowed');
-        return;
+        return res.status(405).end('Method Not Allowed');
     }
     
     const { prompt } = req.body;
-    
     if (!prompt) {
-        res.status(400).end('Missing prompt');
-        return;
+        return res.status(400).end('Missing prompt');
     }
 
+    // ⭐ CRITICAL: System instruction for code generation ⭐
+    const systemInstruction = "You are an expert web developer AI. Generate only the complete, single-file HTML code, including all necessary CSS (using Tailwind CSS classes where possible) and JavaScript. Do not include any introductory or concluding text, notes, or markdown formatting (e.g., ```html).";
+    
     try {
-        // 2. Call your AI core service in STREAMING mode
-        const stream = await streamingAIAgent.generateHtml({ prompt });
+        // Call the streaming method
+        const responseStream = await ai.models.generateContentStream({
+            model: 'gemini-2.5-flash', // Fast model for real-time streaming
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            config: {
+                systemInstruction: systemInstruction,
+            },
+        });
 
-        // 3. Process and stream the response chunk by chunk
-        for await (const chunk of stream) {
-            // Write the text chunk directly to the response
-            res.write(chunk.text); 
-            // Flush the buffer to ensure the data is immediately sent to the client
+        // Pipe the stream to the HTTP response
+        for await (const chunk of responseStream) {
+            if (chunk.text) {
+                res.write(chunk.text);
+            }
             res.flush(); 
         }
 
-        // 4. Close the connection when done
-        res.end(); 
+        res.end(); // Close the response when the stream is done
 
     } catch (error) {
-        console.error('AI Streaming Error:', error);
-        // Important: If an error occurs, send an error message and close the stream
+        console.error('Gemini Generation Error:', error);
         res.status(500).end(`AI Generation Error: ${error.message}`);
     }
 }
