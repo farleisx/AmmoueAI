@@ -1,504 +1,570 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ammoue | AI Site Generator</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f8fafc;
-        }
-        .text-ammoue { color: #0d9488; }
-        .bg-ammoue { background-color: #0d9488; }
-        /* Style to ensure the loading screen covers the whole view */
-        #loading-state {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background-color: #fff;
-            z-index: 100;
-            /* Added transition for smoother removal */
-            transition: opacity 0.3s ease-in-out; 
-        }
-        /* Custom styles for message box */
-        #message-box {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
-            opacity: 0;
-            transition: opacity 0.3s ease-in-out;
-        }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ammoue | AI Site Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        .text-ammoue { color: #0d9488; }
+        .bg-ammoue { background-color: #0d9488; }
+        /* Style to ensure the loading screen covers the whole view */
+        #loading-state {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #fff;
+            z-index: 100;
+            /* Added transition for smoother removal */
+            transition: opacity 0.3s ease-in-out; 
+        }
+        /* Custom styles for message box */
+        #message-box {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+    </style>
 </head>
 <body class="antialiased min-h-screen">
 
-    <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold"></div>
+    <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold"></div>
 
-    <div id="loading-state">
-        <div class="flex flex-col items-center">
-            <svg class="animate-spin h-8 w-8 text-ammoue mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <p class="text-gray-600 font-medium">Verifying session...</p>
-        </div>
-    </div>
+    <div id="loading-state">
+        <div class="flex flex-col items-center">
+            <svg class="animate-spin h-8 w-8 text-ammoue mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="text-gray-600 font-medium">Verifying session...</p>
+        </div>
+    </div>
 
-    <div id="main-content" class="max-w-4xl mx-auto p-6 lg:p-10 hidden">
-        <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Generate Your AI Website</h1>
-        <p class="text-xl text-gray-500 mb-8">Tell Ammoue exactly what website you want to generate (e.g., 'A modern portfolio site for a UX designer with a dark theme').</p>
+    <div id="main-content" class="max-w-4xl mx-auto p-6 lg:p-10 hidden">
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Generate Your AI Website</h1>
+        <p class="text-xl text-gray-500 mb-8">Tell Ammoue exactly what website you want to generate (e.g., 'A modern portfolio site for a UX designer with a dark theme').</p>
 
-        <textarea id="ai-prompt" rows="6" class="w-full p-4 border-2 border-ammoue/30 rounded-2xl focus:ring-ammoue focus:border-ammoue transition duration-150 shadow-md" placeholder="e.g., 'A vibrant landing page for a dog grooming salon called Paws & Claws, focusing on luxury services and online booking.'"></textarea>
+        <textarea id="ai-prompt" rows="6" class="w-full p-4 border-2 border-ammoue/30 rounded-2xl focus:ring-ammoue focus:border-ammoue transition duration-150 shadow-md" placeholder="e.g., 'A vibrant landing page for a dog grooming salon called Paws & Claws, focusing on luxury services and online booking.'"></textarea>
 
-        <div class="mt-6 flex justify-end space-x-4">
-            <a href="dashboard.html" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300 flex items-center">
-                <i data-lucide="layout-dashboard" class="w-4 h-4 mr-1"></i> Dashboard
-            </a>
-            <button id="logout-btn" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300">
-                Log Out
-            </button>
-            <button id="generate-btn" class="px-8 py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-lg shadow-teal-500/30 transform hover:scale-[1.01]">
-                Generate HTML Code
-            </button>
-        </div>
+        <div class="mt-6 flex justify-end space-x-4">
+            <a href="dashboard.html" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300 flex items-center">
+                <i data-lucide="layout-dashboard" class="w-4 h-4 mr-1"></i> Dashboard
+            </a>
+            <button id="logout-btn" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300">
+                Log Out
+            </button>
+            <button id="generate-btn" class="px-8 py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-lg shadow-teal-500/30 transform hover:scale-[1.01]">
+                Generate HTML Code
+            </button>
+        </div>
 
-        <div class="mt-10 p-6 bg-white border border-gray-200 rounded-2xl shadow-xl">
-            <h2 class="text-3xl font-extrabold text-ammoue mb-3 flex items-center">
-                <i data-lucide="sparkles" class="w-6 h-6 mr-2"></i> AI Refinement Agent
-            </h2>
-            <p class="text-lg text-gray-500 mb-6">
-                Refine the **current generated code**. Tell the agent what to change, add, or remove.
-            </p>
+        <div class="mt-10 p-6 bg-white border border-gray-200 rounded-2xl shadow-xl">
+            <h2 class="text-3xl font-extrabold text-ammoue mb-3 flex items-center">
+                <i data-lucide="sparkles" class="w-6 h-6 mr-2"></i> AI Refinement Agent
+            </h2>
+            <p class="text-lg text-gray-500 mb-6">
+                Refine the **current generated code**. Tell the agent what to change, add, or remove.
+            </p>
 
-            <textarea id="refine-prompt" rows="3" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 transition duration-150" placeholder="e.g., 'Make the primary button color a bright orange' or 'Add a 3-column feature section under the hero.'"></textarea>
+            <textarea id="refine-prompt" rows="3" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 transition duration-150" placeholder="e.g., 'Make the primary button color a bright orange' or 'Add a 3-column feature section under the hero.'"></textarea>
 
-            <div class="mt-4 flex justify-end">
-                <button id="refine-btn" disabled class="px-8 py-3 text-lg font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300 shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed">
-                    Refine Code
-                </button>
-            </div>
-        </div>
-        <div id="generation-output" class="mt-12 p-6 bg-white border border-gray-100 rounded-2xl shadow-lg hidden">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-2xl font-bold text-gray-800 flex items-center">
-                    <i data-lucide="code" class="w-5 h-5 mr-2 text-ammoue"></i>
-                    Generated HTML Code
-                </h3>
-                <div class="flex space-x-3">
-                    <button id="copy-btn" class="text-sm font-medium text-ammoue hover:text-teal-600 flex items-center transition duration-200">
-                        <i data-lucide="copy" class="w-4 h-4 mr-1"></i> Copy Code
-                    </button>
-                    <button id="download-btn" disabled class="text-sm font-medium text-blue-600 hover:text-blue-700 disabled:text-gray-400 flex items-center transition duration-200">
-                        <i data-lucide="download" class="w-4 h-4 mr-1"></i> Download HTML
-                    </button>
-                    </div>
-            </div>
-            
-            <pre class="bg-gray-100 p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm">
-                <code id="output-code" class="whitespace-pre"></code>
-            </pre>
-            
-            <button id="preview-btn" class="mt-4 px-6 py-2 text-base font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300">
-                Preview Site (Will open in a new tab)
-            </button>
-        </div>
-    </div>
+            <div class="mt-4 flex justify-end">
+                <button id="refine-btn" disabled class="px-8 py-3 text-lg font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300 shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Refine Code
+                </button>
+            </div>
+        </div>
+        <div id="generation-output" class="mt-12 p-6 bg-white border border-gray-100 rounded-2xl shadow-lg hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold text-gray-800 flex items-center">
+                    <i data-lucide="code" class="w-5 h-5 mr-2 text-ammoue"></i>
+                    Generated HTML Code
+                </h3>
+                <div class="flex space-x-3">
+                    <button id="copy-btn" class="text-sm font-medium text-ammoue hover:text-teal-600 flex items-center transition duration-200">
+                        <i data-lucide="copy" class="w-4 h-4 mr-1"></i> Copy Code
+                    </button>
+                    <button id="download-btn" disabled class="text-sm font-medium text-blue-600 hover:text-blue-700 disabled:text-gray-400 flex items-center transition duration-200">
+                        <i data-lucide="download" class="w-4 h-4 mr-1"></i> Download HTML
+                    </button>
+                    </div>
+            </div>
+            
+            <pre class="bg-gray-100 p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm">
+                <code id="output-code" class="whitespace-pre"></code>
+            </pre>
+            
+            <button id="preview-btn" class="mt-4 px-6 py-2 text-base font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300">
+                Preview Site (Will open in a new tab)
+            </button>
+        </div>
+    </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-        // Imports for Firestore Auto-Saving
-        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
-        
-        // --- FIREBASE CONFIGURATION ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
-            authDomain: "ammoueai.firebaseapp.com",
-            projectId: "ammoueai",
-            storageBucket: "ammoueai.firebasestorage.app",
-            messagingSenderId: "135818868149",
-            appId: "1:135818868149:web:db9280baf9540a3339d5fc",
-        };
-        
-        // --- Initialize Firebase and Services ---
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app); // Firestore initialization
-        const appId = firebaseConfig.projectId; // App ID for nested path
-        let currentUserId = null; // Stores the logged-in user's UID
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+        // Imports for Firestore Auto-Saving
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+        
+        // --- FIREBASE CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
+            authDomain: "ammoueai.firebaseapp.com",
+            projectId: "ammoueai",
+            storageBucket: "ammoueai.firebasestorage.app",
+            messagingSenderId: "135818868149",
+            appId: "1:135818868149:web:db9280baf9540a3339d5fc",
+        };
+        
+        // --- Initialize Firebase and Services ---
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app); // Firestore initialization
+        const appId = firebaseConfig.projectId; // App ID for nested path
+        let currentUserId = null; // Stores the logged-in user's UID
 
-        // --- DOM Elements ---
-        const loadingState = document.getElementById('loading-state');
-        const mainContent = document.getElementById('main-content');
-        const logoutBtn = document.getElementById('logout-btn');
-        const generateBtn = document.getElementById('generate-btn');
-        const downloadBtn = document.getElementById('download-btn');
-        const promptInput = document.getElementById('ai-prompt');
-        const outputDiv = document.getElementById('generation-output');
-        const outputCode = document.getElementById('output-code');
-        const copyBtn = document.getElementById('copy-btn');
-        const previewBtn = document.getElementById('preview-btn');
-        const messageBox = document.getElementById('message-box');
-        // NEW: Refinement Agent Elements
-        const refinePromptInput = document.getElementById('refine-prompt');
-        const refineBtn = document.getElementById('refine-btn');
+        // --- DOM Elements ---
+        const loadingState = document.getElementById('loading-state');
+        const mainContent = document.getElementById('main-content');
+        const logoutBtn = document.getElementById('logout-btn');
+        const generateBtn = document.getElementById('generate-btn');
+        const downloadBtn = document.getElementById('download-btn');
+        const promptInput = document.getElementById('ai-prompt');
+        const outputDiv = document.getElementById('generation-output');
+        const outputCode = document.getElementById('output-code');
+        const copyBtn = document.getElementById('copy-btn');
+        const previewBtn = document.getElementById('preview-btn');
+        const messageBox = document.getElementById('message-box');
+        // NEW: Refinement Agent Elements
+        const refinePromptInput = document.getElementById('refine-prompt');
+        const refineBtn = document.getElementById('refine-btn');
 
-        let listenersAttached = false;
-        let latestHtmlContent = ''; 
-        let latestPrompt = ''; 
+        let listenersAttached = false;
+        let latestHtmlContent = ''; 
+        let latestPrompt = ''; 
 
-        // --- Utility Functions ---
+        // --- Utility Functions ---
 
-        /** Displays a temporary, custom message box. */
-        function showMessage(message, isError) {
-            messageBox.textContent = message;
-            
-            if (isError) {
-                messageBox.classList.remove('bg-green-500', 'bg-ammoue');
-                messageBox.classList.add('bg-red-500');
+        /** Displays a temporary, custom message box. */
+        function showMessage(message, isError) {
+            messageBox.textContent = message;
+            
+            if (isError) {
+                messageBox.classList.remove('bg-green-500', 'bg-ammoue');
+                messageBox.classList.add('bg-red-500');
+            } else {
+                messageBox.classList.remove('bg-red-500');
+                messageBox.classList.add('bg-ammoue');
+            }
+
+            messageBox.classList.remove('opacity-0');
+            messageBox.classList.add('opacity-100');
+
+            setTimeout(() => {
+                messageBox.classList.remove('opacity-100');
+                messageBox.classList.add('opacity-0');
+            }, 4000);
+        }
+
+        /** Sets the loading state on the generate button. (MODIFIED) */
+        function setLoading(isLoading) {
+            if (isLoading) {
+                generateBtn.disabled = true;
+                refineBtn.disabled = true; // Disable refine while generating
+                downloadBtn.disabled = true; 
+                generateBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Generating...';
+            } else {
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = 'Generate HTML Code';
+                // Only enable refine if there is content
+                if (latestHtmlContent) {
+                    refineBtn.disabled = false;
+                }
+            }
+        }
+        
+        /** Sets the loading state on the refine button. (NEW FUNCTION) */
+        function setRefineLoading(isLoading) {
+            if (isLoading) {
+                refineBtn.disabled = true;
+                generateBtn.disabled = true; // Disable generation while refining
+                downloadBtn.disabled = true;
+                refineBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Refining...';
+            } else {
+                refineBtn.disabled = false;
+                generateBtn.disabled = false;
+                // Re-enable refine and download if there is content
+                if (latestHtmlContent) {
+                    downloadBtn.disabled = false;
+                }
+                refineBtn.innerHTML = 'Refine Code';
+            }
+        }
+
+
+        /** Utility function to copy text to clipboard. */
+        function copyToClipboard(text) {
+            try {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showMessage("Code copied to clipboard!", false);
+            } catch (err) {
+                console.error('Failed to copy text:', err);
+                showMessage("Failed to copy code.", true);
+            }
+        }
+        
+        /** Handles downloading the generated HTML content. */
+        function handleDownload() {
+            const htmlCode = outputCode.textContent;
+            if (!htmlCode) {
+                showMessage("No HTML code available to download.", true);
+                return;
+            }
+
+            const blob = new Blob([htmlCode], { type: "text/html" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "ammoue_website.html"; 
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showMessage("Download started!", false);
+        }
+        
+        /** Opens the generated HTML in a new window for a live preview. */
+        function handlePreview() {
+            const htmlContent = previewBtn.dataset.html;
+            if (!htmlContent) {
+                showMessage("No HTML code available to preview.", true);
+                return;
+            }
+
+            const previewWindow = window.open('', '_blank');
+            if (!previewWindow) {
+                 showMessage("Pop-ups must be enabled to view the preview.", true);
+                 return;
+            }
+
+            previewWindow.document.write(htmlContent);
+            previewWindow.document.close();
+        }
+
+        // *** Auto-Save Logic (runs after successful generation/refinement) ***
+        async function autoSaveProject(htmlContent, userPrompt) {
+            if (!currentUserId || !htmlContent) {
+                console.error("Auto-save failed: Missing user ID or content.");
+                return;
+            }
+            
+            // ⭐ CRITICAL FIX: Clean the prompt data before saving it to Firestore ⭐
+            const cleanedPrompt = userPrompt.replace(/\\n/g, '\n');
+
+            try {
+                // Secure Nested Path: /artifacts/{appId}/users/{userId}/projects
+                const projectsRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'projects');
+
+                await addDoc(projectsRef, {
+                    prompt: cleanedPrompt, // USE THE CLEANED PROMPT HERE
+                    htmlContent: htmlContent,
+                    createdAt: serverTimestamp(), 
+                });
+
+                console.log("Project auto-saved successfully.");
+
+            } catch (error) {
+                console.error("Error during auto-save:", error);
+                showMessage("Warning: Failed to auto-save project.", true);
+            }
+        }
+
+        // --- AI Generation Logic ---
+
+        /** Handles the initial generation process. */
+        async function handleGeneration() {
+            const prompt = promptInput.value.trim();
+            if (prompt.length < 10) {
+                showMessage("Please provide a more detailed prompt (at least 10 characters).", true);
+                return;
+            }
+
+            setLoading(true);
+            outputDiv.classList.add('hidden');
+            outputCode.textContent = ''; 
+            downloadBtn.disabled = true; 
+
+            latestPrompt = prompt;
+
+            const apiEndpoint = '/api/generate.js'; 
+            console.log(`Attempting to call AI endpoint: ${apiEndpoint}`);
+
+            const payload = {
+                prompt: prompt,
+            };
+
+            const maxRetries = 3;
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                try {
+                    const response = await fetch(apiEndpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorBody = await response.json().catch(() => ({}));
+                        const errorMessage = errorBody.error || response.statusText || "Unknown server error.";
+                        console.error(`Attempt ${attempt + 1} Server Error: Status ${response.status}`, errorMessage);
+                        throw new Error(`API Proxy Error [Status: ${response.status}]: ${errorMessage}`);
+                    }
+
+                    const result = await response.json();
+                    const generatedHtml = result.htmlCode; 
+                    
+                    if (generatedHtml) {
+                        const finalHtml = generatedHtml.trim();
+                        outputCode.textContent = finalHtml;
+                        latestHtmlContent = finalHtml; 
+                        
+                        previewBtn.dataset.html = finalHtml;
+
+                        outputDiv.classList.remove('hidden');
+                        downloadBtn.disabled = false;
+                        
+                        // Enable the refine button once content exists
+                        refineBtn.disabled = false; 
+                        
+                        showMessage("HTML generated successfully! Project auto-saved.", false);
+
+                        // CRITICAL STEP: AUTO-SAVE ASYNCHRONOUSLY
+                        autoSaveProject(finalHtml, latestPrompt); 
+                        
+                        break; // Exit loop on success
+                    } else {
+                        console.error(`Attempt ${attempt + 1} Response Structure Error: 'htmlCode' missing in result.`, result);
+                        throw new Error("API response missing 'htmlCode' content.");
+                    }
+
+                } catch (error) {
+                    console.error(`Attempt ${attempt + 1} failed:`, error.message);
+                    if (attempt === maxRetries - 1) {
+                        showMessage("Generation failed after multiple retries.", true);
+                    } else {
+                        const delay = Math.pow(2, attempt) * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    }
+                }
+            }
+
+            setLoading(false);
+        }
+
+        /** Handles the AI refinement process. (NEW FUNCTION) */
+        async function handleRefine() {
+            const refinePrompt = refinePromptInput.value.trim();
+            
+            if (!latestHtmlContent) {
+                showMessage("Please generate initial HTML first.", true);
+                return;
+            }
+
+            if (refinePrompt.length < 5) {
+                showMessage("Please enter a detailed refinement instruction (at least 5 characters).", true);
+                return;
+            }
+
+            setRefineLoading(true);
+
+            // This is the new API endpoint you need to implement
+            const apiEndpoint = '/api/refine.js'; 
+            console.log(`Attempting to call AI refinement endpoint: ${apiEndpoint}`);
+
+            const payload = {
+                currentHtml: latestHtmlContent, // Pass the existing code
+                refinePrompt: refinePrompt,     // Pass the refinement instruction
+            };
+
+            const maxRetries = 3;
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                try {
+                    const response = await fetch(apiEndpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorBody = await response.json().catch(() => ({}));
+                        const errorMessage = errorBody.error || response.statusText || "Unknown server error.";
+                        throw new Error(`API Proxy Error [Status: ${response.status}]: ${errorMessage}`);
+                    }
+
+                    const result = await response.json();
+                    const generatedHtml = result.htmlCode;
+
+                    if (generatedHtml) {
+                        const finalHtml = generatedHtml.trim();
+                        outputCode.textContent = finalHtml;
+                        latestHtmlContent = finalHtml;
+                        
+                        // Append refinement to the prompt history for saving
+                        latestPrompt = (latestPrompt || promptInput.value.trim()) + `\n\n[Refined]: ${refinePrompt}`; 
+                        
+                        previewBtn.dataset.html = finalHtml;
+
+                        outputDiv.classList.remove('hidden');
+                        downloadBtn.disabled = false;
+                        
+                        // CRITICAL STEP: AUTO-SAVE ASYNCHRONOUSLY
+                        autoSaveProject(finalHtml, latestPrompt); 
+                        
+                        showMessage("Code refined and auto-saved!", false);
+                        refinePromptInput.value = ''; // Clear the refinement prompt
+                        break; // Exit loop on success
+                    } else {
+                        throw new Error("API response missing 'htmlCode' content.");
+                    }
+
+                } catch (error) {
+                    console.error(`Refine Attempt ${attempt + 1} failed:`, error.message);
+                    if (attempt === maxRetries - 1) {
+                        showMessage("Refinement failed after multiple retries.", true);
+                    } else {
+                        const delay = Math.pow(2, attempt) * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    }
+                }
+            }
+
+            setRefineLoading(false);
+        }
+
+
+        // ------------------------------------------------------------------
+        // ⭐ NEW CODE FOR TYPING PLACEHOLDER EFFECT STARTS HERE ⭐
+        // ------------------------------------------------------------------
+
+        const placeholderPrompts = [
+            "A minimalist portfolio for a futuristic fashion designer.",
+            "A quirky online café with interactive menu animations.",
+            "A landing page for a mysterious escape room experience.",
+            "A retro-style blog for sharing bizarre urban legends.",
+            "A pet adoption site that gamifies choosing a pet.",
+            "A one-page music festival schedule with neon visuals.",
+            "An AI art generator website with live previews"
+        ];
+
+        let promptIndex = 0;
+        let charIndex = 0;
+        let isDeleting = false;
+        const typingSpeed = 75; 
+        const deletingSpeed = 40; 
+        const delayBetweenPrompts = 2000; 
+
+        /**
+         * Handles the cycling and typing effect for the placeholder.
+         */
+        function typePlaceholderEffect() {
+            const currentPrompt = placeholderPrompts[promptIndex];
+            let placeholderText = promptInput.getAttribute('placeholder') || '';
+
+            if (isDeleting) {
+                // DELETE PHASE
+                placeholderText = currentPrompt.substring(0, charIndex - 1);
+                charIndex--;
+                if (charIndex === 0) {
+                    isDeleting = false;
+                    promptIndex = (promptIndex + 1) % placeholderPrompts.length;
+                    setTimeout(typePlaceholderEffect, 500); // Small pause after deletion
+                    return;
+                }
             } else {
-                messageBox.classList.remove('bg-red-500');
-                messageBox.classList.add('bg-ammoue');
-            }
-
-            messageBox.classList.remove('opacity-0');
-            messageBox.classList.add('opacity-100');
-
-            setTimeout(() => {
-                messageBox.classList.remove('opacity-100');
-                messageBox.classList.add('opacity-0');
-            }, 4000);
-        }
-
-        /** Sets the loading state on the generate button. (MODIFIED) */
-        function setLoading(isLoading) {
-            if (isLoading) {
-                generateBtn.disabled = true;
-                refineBtn.disabled = true; // Disable refine while generating
-                downloadBtn.disabled = true; 
-                generateBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Generating...';
-            } else {
-                generateBtn.disabled = false;
-                generateBtn.innerHTML = 'Generate HTML Code';
-                // Only enable refine if there is content
-                if (latestHtmlContent) {
-                    refineBtn.disabled = false;
-                }
-            }
-        }
-        
-        /** Sets the loading state on the refine button. (NEW FUNCTION) */
-        function setRefineLoading(isLoading) {
-            if (isLoading) {
-                refineBtn.disabled = true;
-                generateBtn.disabled = true; // Disable generation while refining
-                downloadBtn.disabled = true;
-                refineBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Refining...';
-            } else {
-                refineBtn.disabled = false;
-                generateBtn.disabled = false;
-                // Re-enable refine and download if there is content
-                if (latestHtmlContent) {
-                    downloadBtn.disabled = false;
-                }
-                refineBtn.innerHTML = 'Refine Code';
-            }
-        }
-
-
-        /** Utility function to copy text to clipboard. */
-        function copyToClipboard(text) {
-            try {
-                const textarea = document.createElement('textarea');
-                textarea.value = text;
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-                showMessage("Code copied to clipboard!", false);
-            } catch (err) {
-                console.error('Failed to copy text:', err);
-                showMessage("Failed to copy code.", true);
-            }
-        }
-        
-        /** Handles downloading the generated HTML content. */
-        function handleDownload() {
-            const htmlCode = outputCode.textContent;
-            if (!htmlCode) {
-                showMessage("No HTML code available to download.", true);
-                return;
-            }
-
-            const blob = new Blob([htmlCode], { type: "text/html" });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = "ammoue_website.html"; 
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            showMessage("Download started!", false);
-        }
-        
-        /** Opens the generated HTML in a new window for a live preview. */
-        function handlePreview() {
-            const htmlContent = previewBtn.dataset.html;
-            if (!htmlContent) {
-                showMessage("No HTML code available to preview.", true);
-                return;
-            }
-
-            const previewWindow = window.open('', '_blank');
-            if (!previewWindow) {
-                 showMessage("Pop-ups must be enabled to view the preview.", true);
-                 return;
-            }
-
-            previewWindow.document.write(htmlContent);
-            previewWindow.document.close();
-        }
-
-        // *** Auto-Save Logic (runs after successful generation/refinement) ***
-        async function autoSaveProject(htmlContent, userPrompt) {
-            if (!currentUserId || !htmlContent) {
-                console.error("Auto-save failed: Missing user ID or content.");
-                return;
-            }
-            
-            // ⭐ CRITICAL FIX: Clean the prompt data before saving it to Firestore ⭐
-            const cleanedPrompt = userPrompt.replace(/\\n/g, '\n');
-
-            try {
-                // Secure Nested Path: /artifacts/{appId}/users/{userId}/projects
-                const projectsRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'projects');
-
-                await addDoc(projectsRef, {
-                    prompt: cleanedPrompt, // USE THE CLEANED PROMPT HERE
-                    htmlContent: htmlContent,
-                    createdAt: serverTimestamp(), 
-                });
-
-                console.log("Project auto-saved successfully.");
-
-            } catch (error) {
-                console.error("Error during auto-save:", error);
-                showMessage("Warning: Failed to auto-save project.", true);
-            }
-        }
-
-        // --- AI Generation Logic ---
-
-        /** Handles the initial generation process. */
-        async function handleGeneration() {
-            const prompt = promptInput.value.trim();
-            if (prompt.length < 10) {
-                showMessage("Please provide a more detailed prompt (at least 10 characters).", true);
-                return;
-            }
-
-            setLoading(true);
-            outputDiv.classList.add('hidden');
-            outputCode.textContent = ''; 
-            downloadBtn.disabled = true; 
-
-            latestPrompt = prompt;
-
-            const apiEndpoint = '/api/generate.js'; 
-            console.log(`Attempting to call AI endpoint: ${apiEndpoint}`);
-
-            const payload = {
-                prompt: prompt,
-            };
-
-            const maxRetries = 3;
-            for (let attempt = 0; attempt < maxRetries; attempt++) {
-                try {
-                    const response = await fetch(apiEndpoint, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (!response.ok) {
-                        const errorBody = await response.json().catch(() => ({}));
-                        const errorMessage = errorBody.error || response.statusText || "Unknown server error.";
-                        console.error(`Attempt ${attempt + 1} Server Error: Status ${response.status}`, errorMessage);
-                        throw new Error(`API Proxy Error [Status: ${response.status}]: ${errorMessage}`);
-                    }
-
-                    const result = await response.json();
-                    const generatedHtml = result.htmlCode; 
-                    
-                    if (generatedHtml) {
-                        const finalHtml = generatedHtml.trim();
-                        outputCode.textContent = finalHtml;
-                        latestHtmlContent = finalHtml; 
-                        
-                        previewBtn.dataset.html = finalHtml;
-
-                        outputDiv.classList.remove('hidden');
-                        downloadBtn.disabled = false;
-                        
-                        // Enable the refine button once content exists
-                        refineBtn.disabled = false; 
-                        
-                        showMessage("HTML generated successfully! Project auto-saved.", false);
-
-                        // CRITICAL STEP: AUTO-SAVE ASYNCHRONOUSLY
-                        autoSaveProject(finalHtml, latestPrompt); 
-                        
-                        break; // Exit loop on success
-                    } else {
-                        console.error(`Attempt ${attempt + 1} Response Structure Error: 'htmlCode' missing in result.`, result);
-                        throw new Error("API response missing 'htmlCode' content.");
-                    }
-
-                } catch (error) {
-                    console.error(`Attempt ${attempt + 1} failed:`, error.message);
-                    if (attempt === maxRetries - 1) {
-                        showMessage("Generation failed after multiple retries.", true);
-                    } else {
-                        const delay = Math.pow(2, attempt) * 1000;
-                        await new Promise(resolve => setTimeout(resolve, delay));
-                    }
+                // TYPING PHASE
+                placeholderText = currentPrompt.substring(0, charIndex + 1);
+                charIndex++;
+                if (charIndex === currentPrompt.length) {
+                    isDeleting = true;
+                    setTimeout(typePlaceholderEffect, delayBetweenPrompts); // Long pause at the end
+                    return;
                 }
             }
 
-            setLoading(false);
+            // Apply the new text
+            promptInput.setAttribute('placeholder', placeholderText);
+
+            // Calculate the next delay
+            const speed = isDeleting ? deletingSpeed : typingSpeed;
+            setTimeout(typePlaceholderEffect, speed);
         }
 
-        /** Handles the AI refinement process. (NEW FUNCTION) */
-        async function handleRefine() {
-            const refinePrompt = refinePromptInput.value.trim();
-            
-            if (!latestHtmlContent) {
-                showMessage("Please generate initial HTML first.", true);
-                return;
-            }
-
-            if (refinePrompt.length < 5) {
-                showMessage("Please enter a detailed refinement instruction (at least 5 characters).", true);
-                return;
-            }
-
-            setRefineLoading(true);
-
-            // This is the new API endpoint you need to implement
-            const apiEndpoint = '/api/refine.js'; 
-            console.log(`Attempting to call AI refinement endpoint: ${apiEndpoint}`);
-
-            const payload = {
-                currentHtml: latestHtmlContent, // Pass the existing code
-                refinePrompt: refinePrompt,     // Pass the refinement instruction
-            };
-
-            const maxRetries = 3;
-            for (let attempt = 0; attempt < maxRetries; attempt++) {
-                try {
-                    const response = await fetch(apiEndpoint, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (!response.ok) {
-                        const errorBody = await response.json().catch(() => ({}));
-                        const errorMessage = errorBody.error || response.statusText || "Unknown server error.";
-                        throw new Error(`API Proxy Error [Status: ${response.status}]: ${errorMessage}`);
-                    }
-
-                    const result = await response.json();
-                    const generatedHtml = result.htmlCode;
-
-                    if (generatedHtml) {
-                        const finalHtml = generatedHtml.trim();
-                        outputCode.textContent = finalHtml;
-                        latestHtmlContent = finalHtml;
-                        
-                        // Append refinement to the prompt history for saving
-                        latestPrompt = (latestPrompt || promptInput.value.trim()) + `\n\n[Refined]: ${refinePrompt}`; 
-                        
-                        previewBtn.dataset.html = finalHtml;
-
-                        outputDiv.classList.remove('hidden');
-                        downloadBtn.disabled = false;
-                        
-                        // CRITICAL STEP: AUTO-SAVE ASYNCHRONOUSLY
-                        autoSaveProject(finalHtml, latestPrompt); 
-                        
-                        showMessage("Code refined and auto-saved!", false);
-                        refinePromptInput.value = ''; // Clear the refinement prompt
-                        break; // Exit loop on success
-                    } else {
-                        throw new Error("API response missing 'htmlCode' content.");
-                    }
-
-                } catch (error) {
-                    console.error(`Refine Attempt ${attempt + 1} failed:`, error.message);
-                    if (attempt === maxRetries - 1) {
-                        showMessage("Refinement failed after multiple retries.", true);
-                    } else {
-                        const delay = Math.pow(2, attempt) * 1000;
-                        await new Promise(resolve => setTimeout(resolve, delay));
-                    }
-                }
-            }
-
-            setRefineLoading(false);
-        }
+        // ------------------------------------------------------------------
+        // ⭐ NEW CODE FOR TYPING PLACEHOLDER EFFECT ENDS HERE ⭐
+        // ------------------------------------------------------------------
 
 
-        // --- Authentication Guard and Event Listeners ---
+        // --- Authentication Guard and Event Listeners ---
 
-        onAuthStateChanged(auth, (user) => {
-            console.log("Auth state resolved. User:", user ? user.email : "none");
+        onAuthStateChanged(auth, (user) => {
+            console.log("Auth state resolved. User:", user ? user.email : "none");
 
-            if (user) {
-                currentUserId = user.uid; // Store the user ID
-                
-                // User is logged in: Show the content
-                loadingState.style.pointerEvents = 'none';
-                loadingState.classList.add('hidden');
-                loadingState.style.opacity = '0'; 
-                mainContent.classList.remove('hidden');
+            if (user) {
+                currentUserId = user.uid; // Store the user ID
+                
+                // User is logged in: Show the content
+                loadingState.style.pointerEvents = 'none';
+                loadingState.classList.add('hidden');
+                loadingState.style.opacity = '0'; 
+                mainContent.classList.remove('hidden');
 
-                if (!listenersAttached) {
-                    generateBtn.addEventListener('click', handleGeneration);
-                    refineBtn.addEventListener('click', handleRefine); // <-- NEW LISTENER
-                    copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
-                    downloadBtn.addEventListener('click', handleDownload);
-                    previewBtn.addEventListener('click', handlePreview);
-                    
-                    logoutBtn.addEventListener('click', async () => {
-                        try {
-                            await signOut(auth);
-                        } catch (error) {
-                            console.error("Logout failed:", error);
-                        }
-                    });
-                    listenersAttached = true;
-                }
-            } else {
-                // User is NOT logged in: Redirect them to login.
-                console.log("User not authenticated. Redirecting to login.");
-                const currentPath = window.location.pathname;
-                const redirectUrl = 'login.html?redirect=' + encodeURIComponent(currentPath);
-                window.location.replace(redirectUrl); 
-            }
-        });
-        
-        lucide.createIcons();
-    </script>
+                if (!listenersAttached) {
+                    generateBtn.addEventListener('click', handleGeneration);
+                    refineBtn.addEventListener('click', handleRefine); // <-- NEW LISTENER
+                    copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
+                    downloadBtn.addEventListener('click', handleDownload);
+                    previewBtn.addEventListener('click', handlePreview);
+                    
+                    logoutBtn.addEventListener('click', async () => {
+                        try {
+                            await signOut(auth);
+                        } catch (error) {
+                            console.error("Logout failed:", error);
+                        }
+                    });
+
+                        // ⭐ START THE TYPING EFFECT HERE ⭐
+                        typePlaceholderEffect(); 
+
+                    listenersAttached = true;
+                }
+            } else {
+                // User is NOT logged in: Redirect them to login.
+                console.log("User not authenticated. Redirecting to login.");
+                const currentPath = window.location.pathname;
+                const redirectUrl = 'login.html?redirect=' + encodeURIComponent(currentPath);
+                window.location.replace(redirectUrl); 
+            }
+        });
+        
+        lucide.createIcons();
+    </script>
 </body>
 </html>
