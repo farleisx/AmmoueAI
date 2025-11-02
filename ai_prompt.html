@@ -54,8 +54,6 @@
             <p class="text-gray-600 font-medium">Verifying session...</p>
         </div>
     </div>
-    
-    <audio id="success-audio" src="success-sound.mp3" preload="auto"></audio>
 
     <div id="main-content" class="max-w-4xl mx-auto p-6 lg:p-10 hidden">
         <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Generate Your AI Website</h1>
@@ -152,11 +150,9 @@
         const copyBtn = document.getElementById('copy-btn');
         const previewBtn = document.getElementById('preview-btn');
         const messageBox = document.getElementById('message-box');
-        // Refinement Agent Elements
+        // NEW: Refinement Agent Elements
         const refinePromptInput = document.getElementById('refine-prompt');
         const refineBtn = document.getElementById('refine-btn');
-        // NEW: Audio Element
-        const successAudio = document.getElementById('success-audio');
 
         let listenersAttached = false;
         let latestHtmlContent = ''; 
@@ -164,14 +160,7 @@
 
         // --- Utility Functions ---
 
-        /** Plays the success sound. */
-        function playSuccessSound() {
-             // Reset and play the sound
-             successAudio.currentTime = 0;
-             successAudio.play().catch(error => console.log("Audio playback failed:", error));
-        }
-
-        /** Displays a temporary, custom message box. (MODIFIED) */
+        /** Displays a temporary, custom message box. */
         function showMessage(message, isError) {
             messageBox.textContent = message;
             
@@ -181,7 +170,6 @@
             } else {
                 messageBox.classList.remove('bg-red-500');
                 messageBox.classList.add('bg-ammoue');
-                playSuccessSound(); // Play sound on success
             }
 
             messageBox.classList.remove('opacity-0');
@@ -193,7 +181,7 @@
             }, 4000);
         }
 
-        /** Sets the loading state on the generate button. */
+        /** Sets the loading state on the generate button. (MODIFIED) */
         function setLoading(isLoading) {
             if (isLoading) {
                 generateBtn.disabled = true;
@@ -210,7 +198,7 @@
             }
         }
         
-        /** Sets the loading state on the refine button. */
+        /** Sets the loading state on the refine button. (NEW FUNCTION) */
         function setRefineLoading(isLoading) {
             if (isLoading) {
                 refineBtn.disabled = true;
@@ -390,7 +378,7 @@
             setLoading(false);
         }
 
-        /** Handles the AI refinement process. */
+        /** Handles the AI refinement process. (NEW FUNCTION) */
         async function handleRefine() {
             const refinePrompt = refinePromptInput.value.trim();
             
