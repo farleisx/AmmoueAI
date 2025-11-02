@@ -1,5 +1,5 @@
 // /api/generate-stream.js
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI } from '@google/generative-ai';
 
 export default async function handler(req, res) {
     // Set headers for live streaming to the client
