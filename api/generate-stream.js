@@ -1,14 +1,16 @@
 // /api/generate-stream.js
-import { GoogleGenAI } from '@google/generative-ai';
+// NOTE: This uses the older, deprecated SDK. Please consider migrating to @google/genai.
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export default async function handler(req, res) {
-    // Set headers for live streaming to the client
+    // Set headers for live streaming
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     
-    // Initialize the client (automatically uses GEMINI_API_KEY from environment)
-    const ai = new GoogleGenAI({}); 
+    // 1. Initialize the client using the older class name
+    // It should automatically use the GEMINI_API_KEY environment variable.
+    const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY); 
 
     if (req.method !== 'POST') {
         return res.status(405).end('Method Not Allowed');
@@ -19,17 +21,18 @@ export default async function handler(req, res) {
         return res.status(400).end('Missing prompt');
     }
 
-    // ⭐ CRITICAL: System instruction for code generation ⭐
-    const systemInstruction = "You are an expert web developer AI. Generate only the complete, single-file HTML code, including all necessary CSS (using Tailwind CSS classes where possible) and JavaScript. Do not include any introductory or concluding text, notes, or markdown formatting (e.g., ```html).";
+    // 2. Get the model instance
+    const model = ai.getGenerativeModel({ 
+        model: 'gemini-1.5-flash', 
+        config: {
+            systemInstruction: "You are an expert web developer AI. Generate only the complete, single-file HTML code, including all necessary CSS (using Tailwind CSS classes where possible) and JavaScript. Do not include any introductory or concluding text, notes, or markdown formatting (e.g., ```html).",
+        }
+    });
     
     try {
-        // Call the streaming method
-        const responseStream = await ai.models.generateContentStream({
-            model: 'gemini-2.5-flash', // Fast model for real-time streaming
+        // 3. Call the streaming method on the model instance
+        const responseStream = await model.generateContentStream({
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            config: {
-                systemInstruction: systemInstruction,
-            },
         });
 
         // Pipe the stream to the HTTP response
@@ -40,7 +43,7 @@ export default async function handler(req, res) {
             res.flush(); 
         }
 
-        res.end(); // Close the response when the stream is done
+        res.end(); 
 
     } catch (error) {
         console.error('Gemini Generation Error:', error);
