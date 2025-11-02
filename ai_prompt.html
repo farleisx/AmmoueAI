@@ -353,8 +353,8 @@
 
             latestPrompt = prompt;
 
-            // --- USE NEW STREAMING ENDPOINT ---
-            const apiEndpoint = '/api/generate-stream.js'; 
+            // 🌟 FIXED: Removed .js extension 🌟
+            const apiEndpoint = '/api/generate-stream'; 
             console.log(`Attempting to call AI streaming endpoint: ${apiEndpoint}`);
 
             const payload = { prompt: prompt };
@@ -426,8 +426,8 @@
             setRefineLoading(true);
             outputCode.textContent = ''; // Clear for new streaming output
 
-            // --- USE NEW STREAMING ENDPOINT ---
-            const apiEndpoint = '/api/refine-stream.js'; // Assuming you use a stream endpoint for refinement too
+            // 🌟 FIXED: Removed .js extension 🌟
+            const apiEndpoint = '/api/refine-stream'; 
             console.log(`Attempting to call AI refinement streaming endpoint: ${apiEndpoint}`);
 
             const payload = {
