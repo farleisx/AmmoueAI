@@ -28,6 +28,8 @@
             z-index: 1000;
             opacity: 0;
             transition: opacity 0.3s ease-in-out;
+            max-width: 90%; /* Ensure it fits on smaller screens */
+            text-align: center;
         }
     </style>
 </head>
@@ -159,8 +161,9 @@
             onAuthStateChanged,
             signInWithPopup,
             GoogleAuthProvider,
-            // ✨ NEW IMPORT: GitHubAuthProvider ✨
             GithubAuthProvider, 
+            // 🚨 We need this import to handle the error, even if we don't call it yet!
+            linkWithCredential 
         } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
         import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
@@ -174,12 +177,16 @@
             appId: "1:135818868149:web:db9280baf9540a3339d5fc",
         };
         
-        let auth = null; // Initialize auth to null explicitly
-        let db = null;  // Initialize db to null explicitly
+        let auth = null; 
+        let db = null; 
+
+        // 💡 GLOBAL VARIABLES TO STORE CONFLICT DATA
+        // These are necessary so the other function (GitHub or Google) can know a link is pending.
+        window.pendingCredential = null;
+        window.conflictingEmail = null;
 
         // --- Providers ---
         const googleProvider = new GoogleAuthProvider();
-        // ✨ NEW PROVIDER INITIALIZATION: GitHub Provider ✨
         const githubProvider = new GithubAuthProvider();
 
         // --- DOM Elements ---
@@ -189,7 +196,6 @@
         const signupTab = document.getElementById('signup-tab');
         const loginBtn = document.getElementById('login-btn');
         const signupBtn = document.getElementById('signup-btn');
-        // Google buttons are handled via their onclick handler, but we define their text for setLoading
 
         // --- Utility Functions (No changes needed here) ---
 
@@ -229,7 +235,7 @@
                 button.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Authenticating...';
                 
                 // For social buttons, change background to reflect loading state
-                if (button.id.includes('google') || button.id.includes('github')) { // ✨ UPDATED: check for GitHub ID ✨
+                if (button.id.includes('google') || button.id.includes('github')) { 
                      button.classList.add('bg-gray-100', 'text-gray-400');
                      button.classList.remove('hover:bg-gray-50');
                 } else {
@@ -248,7 +254,7 @@
                 }
                 
                 // Restore social button styling
-                if (button.id.includes('google') || button.id.includes('github')) { // ✨ UPDATED: check for GitHub ID ✨
+                if (button.id.includes('google') || button.id.includes('github')) { 
                     button.classList.remove('bg-gray-100', 'text-gray-400');
                     button.classList.add('hover:bg-gray-50');
                 }
@@ -274,7 +280,7 @@
             window.location.href = path;
         }
         
-        // --- Firebase Core Logic (Email/Password remains the same) ---
+        // --- Firebase Core Logic ---
 
         /**
          * Initializes Firebase services (Auth and Firestore) using the hardcoded config.
@@ -335,11 +341,19 @@
                 let errorMessage = 'Login failed. Please check your email and password.';
                 if (error.code === 'auth/user-not-found') {
                     errorMessage = 'No account found with this email.';
-                } else if (error.code === 'auth/wrong-password') {
-                    errorMessage = 'Invalid password.';
-                } else if (error.code === 'auth/invalid-credential') {
-                    errorMessage = 'Invalid credentials. Please check email and password.';
+                } else if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+                    // Combine these two common errors for simplicity
+                    errorMessage = 'Invalid credentials. Please check your email and password.';
+                } else if (error.code === 'auth/popup-closed-by-user') {
+                     errorMessage = "Sign-in cancelled. Pop-up was closed.";
                 }
+                
+                // 💡 Check for external provider conflict
+                if (error.code === 'auth/account-exists-with-different-credential') {
+                    const email = error.customData.email;
+                    errorMessage = `Account conflict for ${email}. This email is already registered using a social provider (Google/GitHub). Please use the social login button.`;
+                }
+                
                 showMessage(errorMessage, true);
                 setLoading(loginBtn, false);
 
@@ -375,16 +389,17 @@
                 console.error("Sign-up failed:", error);
                 let errorMessage = 'Sign-up failed.';
                 if (error.code === 'auth/email-already-in-use') {
-                    errorMessage = 'This email is already in use.';
+                    errorMessage = 'This email is already in use. Please log in instead.';
                 } else if (error.code === 'auth/weak-password') {
                     errorMessage = 'Password should be at least 6 characters.';
                 }
+                
                 showMessage(errorMessage, true);
                 setLoading(signupBtn, false);
             }
         }
 
-        // --- GOOGLE AUTH LOGIC (Existing) ---
+        // --- UPDATED GOOGLE AUTH LOGIC (Handles GitHub-first conflicts) ---
         /**
          * Handles Google Sign-In/Sign-Up via popup.
          */
@@ -395,14 +410,15 @@
             }
 
             setLoading(button, true);
+            window.pendingCredential = null; // Clear any old pending link attempts
 
             try {
                 showMessage("Redirecting to Google for sign-in...", false);
-                // signInWithPopup handles both login and signup seamlessly
                 const result = await signInWithPopup(auth, googleProvider);
+                
+                // NOTE: No need for account linking logic here, just proceed on success
                 const user = result.user;
                 showMessage(`Welcome, ${user.displayName || user.email}! Redirecting...`, false);
-                
                 // The onAuthStateChanged listener handles the final redirect.
 
             } catch (error) {
@@ -411,17 +427,23 @@
 
                 if (error.code === 'auth/popup-closed-by-user' || (error.message && error.message.includes('popup-closed-by-user'))) {
                     errorMessage = "Sign-in cancelled. Pop-up was closed.";
-                } 
+                } else if (error.code === 'auth/account-exists-with-different-credential') {
+                    // 💡 THE CONFLICT WARNING MESSAGE FOR GOOGLE LOGIN
+                    window.pendingCredential = error.credential; // Save the new Google credential
+                    window.conflictingEmail = error.customData.email;
+                    const providerId = error.customData.tenantId || error.customData.providerId; // Find the existing provider
+
+                    errorMessage = `⚠️ Account Conflict! An account for ${window.conflictingEmail} already exists, but was originally registered using **GitHub**. Please try signing in with GitHub.`;
+                }
 
                 showMessage(errorMessage, true);
                 setLoading(button, false);
             }
         }
         
-        // --- ✨ NEW GITHUB AUTH LOGIC ✨ ---
+        // --- UPDATED GITHUB AUTH LOGIC (Handles Google-first conflicts) ---
         /**
          * Handles GitHub Sign-In/Sign-Up via popup.
-         * @param {HTMLElement} button - The button element that was clicked.
          */
         window.handleGitHubAuth = async function(button) {
             if (!auth) {
@@ -430,14 +452,15 @@
             }
 
             setLoading(button, true);
+            window.pendingCredential = null; // Clear any old pending link attempts
 
             try {
                 showMessage("Redirecting to GitHub for sign-in...", false);
-                // Use the new githubProvider
                 const result = await signInWithPopup(auth, githubProvider);
+                
+                // NOTE: No need for account linking logic here, just proceed on success
                 const user = result.user;
                 showMessage(`Welcome, ${user.displayName || user.email || user.uid}! Redirecting...`, false);
-                
                 // The onAuthStateChanged listener handles the final redirect.
 
             } catch (error) {
@@ -447,7 +470,12 @@
                 if (error.code === 'auth/popup-closed-by-user' || (error.message && error.message.includes('popup-closed-by-user'))) {
                     errorMessage = "Sign-in cancelled. Pop-up was closed.";
                 } else if (error.code === 'auth/account-exists-with-different-credential') {
-                    errorMessage = "An account already exists with the same email. Try logging in with a different method.";
+                    // 💡 THE CONFLICT WARNING MESSAGE FOR GITHUB LOGIN
+                    window.pendingCredential = error.credential; // Save the new GitHub credential
+                    window.conflictingEmail = error.customData.email;
+                    const providerId = error.customData.tenantId || error.customData.providerId; // Find the existing provider
+
+                    errorMessage = `⚠️ Account Conflict! An account for ${window.conflictingEmail} already exists, but was originally registered using **Google** or **Email/Password**. Please try signing in with your original method.`;
                 }
 
                 showMessage(errorMessage, true);
