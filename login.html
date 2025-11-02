@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ammoue | Login & Sign Up</title>
-    <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         /* Custom Font Setup */
@@ -35,25 +33,20 @@
 </head>
 <body class="antialiased min-h-screen flex items-center justify-center p-4">
 
-    <!-- Message Box for alerts (replaces alert()) -->
     <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold"></div>
 
-    <!-- Auth Card Container -->
     <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 sm:p-10 border border-gray-100">
 
-        <!-- Logo/Header -->
         <a href="index.html" class="flex flex-col items-center mb-8">
             <span class="text-4xl font-extrabold text-ammoue">Ammoue</span>
             <p class="text-sm text-gray-500 mt-1">AI Website Builder</p>
         </a>
 
-        <!-- Toggle Switch (Login/Sign Up) -->
         <div class="flex mb-6 p-1 bg-gray-100 rounded-xl shadow-inner">
             <button id="login-tab" onclick="toggleForm('login')" type="button" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-colors duration-200">Log In</button>
             <button id="signup-tab" onclick="toggleForm('signup')" type="button" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-colors duration-200">Sign Up</button>
         </div>
 
-        <!-- Login Form -->
         <form id="login-form" class="space-y-6" onsubmit="handleLogin(event)">
             <h2 class="text-2xl font-bold text-gray-800 text-center mb-4">Welcome Back</h2>
 
@@ -84,7 +77,6 @@
                 </div>
             </div>
 
-            <!-- Google Sign-In Button (IMPLEMENTED) -->
             <button type="button" 
                     id="google-login-btn" 
                     onclick="handleGoogleAuth(this)" 
@@ -92,9 +84,17 @@
                 <img src="https://upload.wikimedia.org/wikipedia/commons/4/4a/Logo_and_wordmark_of_Google.svg" class="w-5 h-5 mr-2" alt="Google logo">
                 Sign in with Google
             </button>
+
+            <button type="button" 
+                    id="github-login-btn" 
+                    onclick="handleGitHubAuth(this)" 
+                    class="w-full flex items-center justify-center py-2.5 border border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 transition duration-150">
+                <img src="https://github.githubassets.com/assets/GitHub-Mark-ea2971cee799.png" class="w-5 h-5 mr-2" alt="GitHub logo">
+                Sign in with GitHub
+            </button>
+
         </form>
 
-        <!-- Sign Up Form (Initially Hidden) -->
         <form id="signup-form" class="space-y-6 hidden" onsubmit="handleSignup(event)">
             <h2 class="text-2xl font-bold text-gray-800 text-center mb-4">Create Your Free Account</h2>
 
@@ -128,7 +128,6 @@
                 </div>
             </div>
 
-            <!-- Google Sign-Up Button (IMPLEMENTED) -->
             <button type="button" 
                     id="google-signup-btn" 
                     onclick="handleGoogleAuth(this)" 
@@ -136,10 +135,18 @@
                 <img src="https://upload.wikimedia.org/wikipedia/commons/4/4a/Logo_and_wordmark_of_Google.svg" class="w-5 h-5 mr-2" alt="Google logo">
                 Sign up with Google
             </button>
+            
+            <button type="button" 
+                    id="github-signup-btn" 
+                    onclick="handleGitHubAuth(this)" 
+                    class="w-full flex items-center justify-center py-2.5 border border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 transition duration-150">
+                <img src="https://github.githubassets.com/assets/GitHub-Mark-ea2971cee799.png" class="w-5 h-5 mr-2" alt="GitHub logo">
+                Sign up with GitHub
+            </button>
+
         </form>
     </div>
 
-    <!-- Firebase Initialization and Auth Logic -->
     <script type="module">
         // Updated Imports to Firebase SDK v12.4.0
         import { 
@@ -150,8 +157,10 @@
             signInWithEmailAndPassword, 
             createUserWithEmailAndPassword, 
             onAuthStateChanged,
-            signInWithPopup, // <--- NEW IMPORT
-            GoogleAuthProvider, // <--- NEW IMPORT
+            signInWithPopup,
+            GoogleAuthProvider,
+            // ✨ NEW IMPORT: GitHubAuthProvider ✨
+            GithubAuthProvider, 
         } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
         import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
@@ -169,7 +178,9 @@
         let db = null;  // Initialize db to null explicitly
 
         // --- Providers ---
-        const googleProvider = new GoogleAuthProvider(); // <--- NEW PROVIDER INITIALIZATION
+        const googleProvider = new GoogleAuthProvider();
+        // ✨ NEW PROVIDER INITIALIZATION: GitHub Provider ✨
+        const githubProvider = new GithubAuthProvider();
 
         // --- DOM Elements ---
         const loginForm = document.getElementById('login-form');
@@ -180,7 +191,7 @@
         const signupBtn = document.getElementById('signup-btn');
         // Google buttons are handled via their onclick handler, but we define their text for setLoading
 
-        // --- Utility Functions ---
+        // --- Utility Functions (No changes needed here) ---
 
         /**
          * Displays a temporary, custom message box.
@@ -217,8 +228,8 @@
                 button.setAttribute('data-original-text', button.innerHTML); // Save original content
                 button.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Authenticating...';
                 
-                // For Google buttons, change background to reflect loading state
-                if (button.id.includes('google')) {
+                // For social buttons, change background to reflect loading state
+                if (button.id.includes('google') || button.id.includes('github')) { // ✨ UPDATED: check for GitHub ID ✨
                      button.classList.add('bg-gray-100', 'text-gray-400');
                      button.classList.remove('hover:bg-gray-50');
                 } else {
@@ -236,8 +247,8 @@
                     button.textContent = 'Sign Up & Generate Site';
                 }
                 
-                // Restore Google button styling
-                if (button.id.includes('google')) {
+                // Restore social button styling
+                if (button.id.includes('google') || button.id.includes('github')) { // ✨ UPDATED: check for GitHub ID ✨
                     button.classList.remove('bg-gray-100', 'text-gray-400');
                     button.classList.add('hover:bg-gray-50');
                 }
@@ -263,7 +274,7 @@
             window.location.href = path;
         }
         
-        // --- Firebase Core Logic ---
+        // --- Firebase Core Logic (Email/Password remains the same) ---
 
         /**
          * Initializes Firebase services (Auth and Firestore) using the hardcoded config.
@@ -373,11 +384,9 @@
             }
         }
 
-        // --- NEW GOOGLE AUTH LOGIC ---
+        // --- GOOGLE AUTH LOGIC (Existing) ---
         /**
          * Handles Google Sign-In/Sign-Up via popup.
-         * This single function works for both login and signup buttons.
-         * @param {HTMLElement} button - The button element that was clicked.
          */
         window.handleGoogleAuth = async function(button) {
             if (!auth) {
@@ -408,8 +417,45 @@
                 setLoading(button, false);
             }
         }
+        
+        // --- ✨ NEW GITHUB AUTH LOGIC ✨ ---
+        /**
+         * Handles GitHub Sign-In/Sign-Up via popup.
+         * @param {HTMLElement} button - The button element that was clicked.
+         */
+        window.handleGitHubAuth = async function(button) {
+            if (!auth) {
+                showMessage("Authentication service failed to load.", true);
+                return;
+            }
 
-        // --- UI Toggling Logic (FIXED) ---
+            setLoading(button, true);
+
+            try {
+                showMessage("Redirecting to GitHub for sign-in...", false);
+                // Use the new githubProvider
+                const result = await signInWithPopup(auth, githubProvider);
+                const user = result.user;
+                showMessage(`Welcome, ${user.displayName || user.email || user.uid}! Redirecting...`, false);
+                
+                // The onAuthStateChanged listener handles the final redirect.
+
+            } catch (error) {
+                console.error("GitHub Sign-in failed:", error);
+                let errorMessage = "GitHub sign-in failed.";
+
+                if (error.code === 'auth/popup-closed-by-user' || (error.message && error.message.includes('popup-closed-by-user'))) {
+                    errorMessage = "Sign-in cancelled. Pop-up was closed.";
+                } else if (error.code === 'auth/account-exists-with-different-credential') {
+                    errorMessage = "An account already exists with the same email. Try logging in with a different method.";
+                }
+
+                showMessage(errorMessage, true);
+                setLoading(button, false);
+            }
+        }
+        
+        // --- UI Toggling Logic (No changes needed) ---
 
         /**
          * Sets the initial state to the Log In form.
