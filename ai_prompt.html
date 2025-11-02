@@ -297,7 +297,46 @@
             }
         }
 
-        // --- AI Generation Logic ---
+        // --- NEW: Streaming Utility Function ---
+        /** * Reads the response stream chunk by chunk and updates the UI instantly. 
+         * Returns the final collected text.
+         */
+        function decodeStream(stream) {
+            const decoder = new TextDecoder();
+            let result = '';
+            
+            // Show the output area immediately when streaming starts
+            outputDiv.classList.remove('hidden');
+
+            return new Promise((resolve, reject) => {
+                function read() {
+                    stream.read().then(({ done, value }) => {
+                        if (done) {
+                            resolve(result);
+                            return;
+                        }
+                        
+                        // CRITICAL STEP: Decode and process the new chunk
+                        const chunk = decoder.decode(value, { stream: true });
+                        result += chunk;
+                        
+                        // Update the UI immediately with the partial content
+                        outputCode.textContent = result;
+                        
+                        // Scroll to the bottom of the output area for better UX
+                        const preElement = outputCode.parentElement;
+                        preElement.scrollTop = preElement.scrollHeight;
+
+                        read(); // Continue reading the next chunk
+                    }).catch(reject);
+                }
+                read();
+            });
+        }
+        // --- End of NEW Streaming Utility Function ---
+
+
+        // --- AI Generation Logic (UPDATED FOR STREAMING) ---
 
         /** Handles the initial generation process. */
         async function handleGeneration() {
@@ -308,18 +347,17 @@
             }
 
             setLoading(true);
-            outputDiv.classList.add('hidden');
+            // Prepare for streaming by clearing content but NOT hiding the div
             outputCode.textContent = ''; 
             downloadBtn.disabled = true; 
 
             latestPrompt = prompt;
 
-            const apiEndpoint = '/api/generate.js'; 
-            console.log(`Attempting to call AI endpoint: ${apiEndpoint}`);
+            // --- USE NEW STREAMING ENDPOINT ---
+            const apiEndpoint = '/api/generate-stream.js'; 
+            console.log(`Attempting to call AI streaming endpoint: ${apiEndpoint}`);
 
-            const payload = {
-                prompt: prompt,
-            };
+            const payload = { prompt: prompt };
 
             const maxRetries = 3;
             for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -330,27 +368,21 @@
                         body: JSON.stringify(payload)
                     });
 
-                    if (!response.ok) {
-                        const errorBody = await response.json().catch(() => ({}));
-                        const errorMessage = errorBody.error || response.statusText || "Unknown server error.";
-                        console.error(`Attempt ${attempt + 1} Server Error: Status ${response.status}`, errorMessage);
+                    if (!response.ok || !response.body) {
+                        const errorMessage = response.statusText || "Unknown server error.";
                         throw new Error(`API Proxy Error [Status: ${response.status}]: ${errorMessage}`);
                     }
-
-                    const result = await response.json();
-                    const generatedHtml = result.htmlCode; 
                     
-                    if (generatedHtml) {
-                        const finalHtml = generatedHtml.trim();
-                        outputCode.textContent = finalHtml;
-                        latestHtmlContent = finalHtml; 
-                        
-                        previewBtn.dataset.html = finalHtml;
+                    // NEW: Process the stream
+                    const reader = response.body.getReader();
+                    const finalHtml = await decodeStream(reader);
 
-                        outputDiv.classList.remove('hidden');
-                        downloadBtn.disabled = false;
+                    if (finalHtml) {
+                        latestHtmlContent = finalHtml; 
+                        previewBtn.dataset.html = finalHtml;
                         
-                        // Enable the refine button once content exists
+                        // Enable buttons only after the stream finishes
+                        downloadBtn.disabled = false;
                         refineBtn.disabled = false; 
                         
                         showMessage("HTML generated successfully! Project auto-saved.", false);
@@ -360,8 +392,7 @@
                         
                         break; // Exit loop on success
                     } else {
-                        console.error(`Attempt ${attempt + 1} Response Structure Error: 'htmlCode' missing in result.`, result);
-                        throw new Error("API response missing 'htmlCode' content.");
+                        throw new Error("Streaming completed but received no content.");
                     }
 
                 } catch (error) {
@@ -378,7 +409,7 @@
             setLoading(false);
         }
 
-        /** Handles the AI refinement process. (NEW FUNCTION) */
+        /** Handles the AI refinement process. (UPDATED FOR STREAMING) */
         async function handleRefine() {
             const refinePrompt = refinePromptInput.value.trim();
             
@@ -393,10 +424,11 @@
             }
 
             setRefineLoading(true);
+            outputCode.textContent = ''; // Clear for new streaming output
 
-            // This is the new API endpoint you need to implement
-            const apiEndpoint = '/api/refine.js'; 
-            console.log(`Attempting to call AI refinement endpoint: ${apiEndpoint}`);
+            // --- USE NEW STREAMING ENDPOINT ---
+            const apiEndpoint = '/api/refine-stream.js'; // Assuming you use a stream endpoint for refinement too
+            console.log(`Attempting to call AI refinement streaming endpoint: ${apiEndpoint}`);
 
             const payload = {
                 currentHtml: latestHtmlContent, // Pass the existing code
@@ -412,18 +444,16 @@
                         body: JSON.stringify(payload)
                     });
 
-                    if (!response.ok) {
-                        const errorBody = await response.json().catch(() => ({}));
-                        const errorMessage = errorBody.error || response.statusText || "Unknown server error.";
+                    if (!response.ok || !response.body) {
+                        const errorMessage = response.statusText || "Unknown server error.";
                         throw new Error(`API Proxy Error [Status: ${response.status}]: ${errorMessage}`);
                     }
+                    
+                    // NEW: Process the stream
+                    const reader = response.body.getReader();
+                    const finalHtml = await decodeStream(reader);
 
-                    const result = await response.json();
-                    const generatedHtml = result.htmlCode;
-
-                    if (generatedHtml) {
-                        const finalHtml = generatedHtml.trim();
-                        outputCode.textContent = finalHtml;
+                    if (finalHtml) {
                         latestHtmlContent = finalHtml;
                         
                         // Append refinement to the prompt history for saving
@@ -431,7 +461,6 @@
                         
                         previewBtn.dataset.html = finalHtml;
 
-                        outputDiv.classList.remove('hidden');
                         downloadBtn.disabled = false;
                         
                         // CRITICAL STEP: AUTO-SAVE ASYNCHRONOUSLY
@@ -441,8 +470,9 @@
                         refinePromptInput.value = ''; // Clear the refinement prompt
                         break; // Exit loop on success
                     } else {
-                        throw new Error("API response missing 'htmlCode' content.");
+                        throw new Error("Streaming completed but received no content.");
                     }
+
 
                 } catch (error) {
                     console.error(`Refine Attempt ${attempt + 1} failed:`, error.message);
