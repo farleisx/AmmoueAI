@@ -1,73 +1,74 @@
 // /api/generate-stream.js
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// IMPORTANT: Define this export configuration if you are NOT using Next.js 
-// to ensure the body parser works correctly in a pure Vercel serverless environment.
+// 1. Vercel Configuration for Body Parsing Safety
+// This ensures Vercel correctly parses the JSON body before it reaches your handler.
 export const config = {
-  // If you are using Next.js API Routes, Vercel handles this automatically.
-  // If you are using a bare Node.js Vercel Function, this explicitly enables
-  // body parsing for JSON requests.
+  api: {
+    bodyParser: {
+        sizeLimit: '1mb', 
+    },
+  },
 };
 
 export default async function handler(req, res) {
-    // 1. Method Check
+    // 2. Method and Header Setup
     if (req.method !== 'POST') {
-        // Return a clean 405 error if method is wrong
         return res.status(405).end('Method Not Allowed');
     }
 
-    // Set headers for live streaming *before* any streaming or errors
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     
     let prompt;
 
-    // 2. Body Safety Check (CRITICAL)
+    // 3. Request Body Validation (Critical)
     try {
-        // Check for req.body existence and structure
-        if (!req.body || typeof req.body !== 'object' || !req.body.prompt) {
-            // Throw a specific error if the body or prompt is missing
-            throw new Error('Request body is missing or formatted incorrectly. Expected: { prompt: "..." }');
+        // Safe access to req.body.prompt to prevent synchronous crashes
+        prompt = req.body?.prompt;
+        
+        if (!prompt) {
+            throw new Error('Missing "prompt" in request body. Ensure you send { "prompt": "..." }');
         }
-        prompt = req.body.prompt;
     } catch (e) {
-        // Log the error and return a 400 response
-        console.error('Body Parsing Error:', e.message);
+        // Distinguish a client error (400) from a server crash (500)
         return res.status(400).end(`Bad Request: ${e.message}`);
     }
 
-    // 3. Initialize AI Client
+    // 4. AI Execution and Streaming
     try {
+        // Initialize the client with the API Key from Vercel Environment Variables
         const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY); 
         
+        // **Model ID is explicitly set to gemini-2.5-flash**
         const model = ai.getGenerativeModel({ 
-            model: 'gemini-1.5-flash', 
+            model: 'gemini-2.5-flash', 
             config: {
                 systemInstruction: "You are an expert web developer AI. Generate only the complete, single-file HTML code, including all necessary CSS (using Tailwind CSS classes where possible) and JavaScript. Do not include any introductory or concluding text, notes, or markdown formatting (e.g., ```html).",
             }
         });
         
-        // 4. Start Streaming
+        // Start the streaming request
         const responseStream = await model.generateContentStream({
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
         });
 
-        // Pipe the stream to the HTTP response
+        // Write the stream chunk by chunk to the Vercel response
         for await (const chunk of responseStream) {
-            // Use optional chaining for safer access to chunk properties
             if (chunk?.text) {
                 res.write(chunk.text);
             }
+            // Ensure the data is pushed immediately
             res.flush(); 
         }
 
         res.end(); 
 
     } catch (error) {
-        // 5. Catch API/Runtime Errors
-        console.error('Gemini Generation Error:', error.message);
-        // Return a 500 status with the error message
-        res.status(500).end(`AI Streaming Error: ${error.message}`);
+        // 5. Catch API and Runtime Errors
+        console.error('Gemini Execution Error:', error.message, error.stack);
+        // The 500 status will be returned, along with the error message for debugging (if you can ever access the logs)
+        res.status(500).end(`AI Generation Error: An unexpected server error occurred. Check Vercel logs for "${error.message}"`);
     }
 }
