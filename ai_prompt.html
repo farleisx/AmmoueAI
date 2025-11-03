@@ -26,7 +26,6 @@
             justify-content: center;
             background-color: #fff;
             z-index: 100;
-            /* Added transition for smoother removal */
             transition: opacity 0.3s ease-in-out; 
         }
         /* Custom styles for message box */
@@ -38,6 +37,19 @@
             z-index: 1000;
             opacity: 0;
             transition: opacity 0.3s ease-in-out;
+        }
+
+        /* Dashboard & Logout Button Hover Effects */
+        a[href="dashboard.html"],
+        #logout-btn {
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+        }
+
+        a[href="dashboard.html"]:hover,
+        #logout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            background-color: #f1f5f9; /* Tailwind gray-100 shade */
         }
     </style>
 </head>
