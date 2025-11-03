@@ -19,6 +19,12 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Missing or invalid 'prompt' in request body." });
     }
 
+    // Setup streaming headers (Server-Sent Events)
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
     const genAI = new GoogleGenerativeAI(API_KEY);
     const model = genAI.getGenerativeModel({ model: API_MODEL });
 
@@ -34,18 +40,22 @@ The output should contain NOTHING but the raw HTML code, starting with <!DOCTYPE
 
     const fullPrompt = `${systemInstruction}\n\nUser prompt: ${prompt}`;
 
-    const result = await model.generateContent(fullPrompt);
+    // Start streaming the AI output
+    const streamResult = await model.generateContentStream(fullPrompt);
 
-    const text = result.response.text();
-
-    if (!text) {
-      console.error("Gemini returned empty response:", result);
-      return res.status(500).json({ error: "Gemini API returned empty response." });
+    for await (const chunk of streamResult.stream) {
+      const textChunk = chunk.text();
+      if (textChunk) {
+        // Send each chunk to the client
+        res.write(`data: ${JSON.stringify({ text: textChunk })}\n\n`);
+      }
     }
 
-    return res.status(200).json({ htmlCode: text.trim() });
+    res.write(`data: [DONE]\n\n`);
+    res.end();
   } catch (err) {
-    console.error("Gemini generation failed:", err);
-    return res.status(500).json({ error: err.message || "Internal server error." });
+    console.error("Gemini streaming failed:", err);
+    res.write(`data: ${JSON.stringify({ error: err.message || "Internal server error." })}\n\n`);
+    res.end();
   }
 }
