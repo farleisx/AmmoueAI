@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ammoue | User Dashboard</title>
+    <title>Ammoue | AI Site Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -14,670 +14,580 @@
         }
         .text-ammoue { color: #0d9488; }
         .bg-ammoue { background-color: #0d9488; }
-
-        /* CRITICAL: Loading state overlay */
-        .loading-screen {
+        /* Style to ensure the loading screen covers the whole view */
+        #loading-state {
             position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #f8fafc;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 50;
+            background-color: #fff;
+            z-index: 100;
+            /* Added transition for smoother removal */
+            transition: opacity 0.3s ease-in-out; 
         }
-
-        /* Custom style for multi-line text truncation */
-        .line-clamp-2 {
-            display: -webkit-box;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            -webkit-line-clamp: 2;
+        /* Custom styles for message box */
+        #message-box {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
         }
     </style>
 </head>
 <body class="antialiased min-h-screen">
 
-    <div id="loading-screen" class="loading-screen">
-        <svg class="animate-spin h-8 w-8 text-ammoue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-    </div>
+    <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold"></div>
 
-    <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 opacity-0 transition-opacity duration-300 z-50"></div>
-
-
-    <div id="dashboard-content" class="min-h-screen hidden transition-opacity duration-500">
-        <nav class="bg-white shadow-md p-4 flex justify-between items-center sticky top-0 z-10">
-            <div class="text-2xl font-extrabold text-ammoue">Ammoue Dashboard</div>
-            <div class="flex items-center space-x-4">
-                <span class="text-gray-600 text-sm">Welcome, <span id="user-email" class="font-semibold">Loading...</span></span>
-                <button onclick="handleLogout()" class="px-3 py-2 text-sm font-medium rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150 shadow-md">
-                    Log Out
-                </button>
-            </div>
-        </nav>
-
-        <main class="p-4 md:p-8 max-w-6xl mx-auto">
-            <h1 class="text-4xl font-bold text-gray-800 mb-6">Your Sites & Projects</h1>
-
-            <div class="mb-8">
-                <div class="relative">
-                    <input type="text" id="project-search" placeholder="Search projects by title or prompt..." oninput="filterProjects()"
-                           class="w-full pl-12 pr-4 py-3 border-gray-300 rounded-full shadow-lg focus:border-ammoue focus:ring-ammoue transition duration-150 text-lg">
-                    <i data-lucide="search" class="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6"></i>
-                </div>
-            </div>
-            <div id="projects-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-
-                <div onclick="window.location.href='ai_prompt.html'"
-                    class="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:border-ammoue transition duration-300 cursor-pointer hover:shadow-lg h-full min-h-[200px]">
-                    <i data-lucide="plus-circle" class="w-12 h-12 text-gray-400 mb-3"></i>
-                    <p class="text-lg font-semibold text-gray-700">Create New AI Site</p>
-                    <p class="text-sm text-gray-500 mt-1">Start generating a new website</p>
-                </div>
-
-                <p id="no-projects-message" class="col-span-full text-center text-gray-500 text-lg hidden mt-10">
-                    You haven't saved any projects yet. Click above to start!
-                </p>
-
-            </div>
-        </main>
-    </div>
-
-    <div id="edit-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 z-50 hidden items-center justify-center">
-        <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg m-4 transform transition-all duration-300 scale-95 opacity-0" id="edit-modal-content">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center justify-between">
-                Edit Project Details
-                <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600">
-                    <i data-lucide="x" class="w-6 h-6"></i>
-                </button>
-            </h2>
-
-            <form id="edit-project-form">
-                <input type="hidden" id="edit-project-id">
-
-                <div class="mb-4">
-                    <label for="edit-title" class="block text-sm font-medium text-gray-700 mb-1">Project Title</label>
-                    <input type="text" id="edit-title" required 
-                                 class="w-full border-gray-300 rounded-xl shadow-sm focus:border-ammoue focus:ring-ammoue transition duration-150 p-3">
-                </div>
-
-                <div class="mb-6">
-                    <label for="edit-prompt" class="block text-sm font-medium text-gray-700 mb-1">AI Prompt</label>
-                    <textarea id="edit-prompt" rows="6" required 
-                                 class="w-full border-gray-300 rounded-xl shadow-sm focus:border-ammoue focus:ring-ammoue transition duration-150 p-3"></textarea>
-                    <p class="text-xs text-gray-500 mt-1">Editing the prompt does not regenerate the site; it only updates the description.</p>
-                </div>
-
-                <div class="flex justify-end space-x-3">
-                    <button type="button" onclick="closeEditModal()" class="px-4 py-2 text-sm font-semibold rounded-xl text-gray-600 bg-gray-100 hover:bg-gray-200 transition duration-150">
-                        Cancel
-                    </button>
-                    <button type="submit" class="px-4 py-2 text-sm font-semibold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-150 shadow-md">
-                        Save Changes
-                    </button>
-                </div>
-            </form>
+    <div id="loading-state">
+        <div class="flex flex-col items-center">
+            <svg class="animate-spin h-8 w-8 text-ammoue mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="text-gray-600 font-medium">Verifying session...</p>
         </div>
     </div>
-    <div id="confirm-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 z-50 hidden items-center justify-center">
-        <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm m-4 transform transition-all duration-300 scale-95 opacity-0" id="confirm-modal-content">
-            <h2 class="text-2xl font-bold text-red-600 mb-4 flex items-center justify-between">
-                Confirm Deletion
-                <button onclick="closeConfirmModal()" class="text-gray-400 hover:text-gray-600">
-                    <i data-lucide="x" class="w-6 h-6"></i>
-                </button>
-            </h2>
 
-            <p class="text-gray-700 mb-6">Are you sure you want to delete the project: **<span id="project-to-delete-title" class="font-semibold text-gray-900"></span>**? This action cannot be undone.</p>
+    <div id="main-content" class="max-w-4xl mx-auto p-6 lg:p-10 hidden">
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Generate Your AI Website</h1>
+        <p class="text-xl text-gray-500 mb-8">Tell Ammoue exactly what website you want to generate (e.g., 'A modern portfolio site for a UX designer with a dark theme').</p>
+
+        <textarea id="ai-prompt" rows="6" class="w-full p-4 border-2 border-ammoue/30 rounded-2xl focus:ring-ammoue focus:border-ammoue transition duration-150 shadow-md" placeholder="e.g., 'A vibrant landing page for a dog grooming salon called Paws & Claws, focusing on luxury services and online booking.'"></textarea>
+
+        <div class="mt-6 flex justify-end space-x-4">
+            <a href="dashboard.html" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300 flex items-center">
+                <i data-lucide="layout-dashboard" class="w-4 h-4 mr-1"></i> Dashboard
+            </a>
+            <button id="logout-btn" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300">
+                Log Out
+            </button>
+            <button id="generate-btn" class="px-8 py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-lg shadow-teal-500/30 transform hover:scale-[1.01]">
+                Generate HTML Code
+            </button>
+        </div>
+
+        <div class="mt-10 p-6 bg-white border border-gray-200 rounded-2xl shadow-xl">
+            <h2 class="text-3xl font-extrabold text-ammoue mb-3 flex items-center">
+                <i data-lucide="sparkles" class="w-6 h-6 mr-2"></i> AI Refinement Agent
+            </h2>
+            <p class="text-lg text-gray-500 mb-6">
+                Refine the **current generated code**. Tell the agent what to change, add, or remove.
+            </p>
+
+            <textarea id="refine-prompt" rows="3" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 transition duration-150" placeholder="e.g., 'Make the primary button color a bright orange' or 'Add a 3-column feature section under the hero.'"></textarea>
+
+            <div class="mt-4 flex justify-end">
+                <button id="refine-btn" disabled class="px-8 py-3 text-lg font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300 shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Refine Code
+                </button>
+            </div>
+        </div>
+        <div id="generation-output" class="mt-12 p-6 bg-white border border-gray-100 rounded-2xl shadow-lg hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold text-gray-800 flex items-center">
+                    <i data-lucide="code" class="w-5 h-5 mr-2 text-ammoue"></i>
+                    Generated HTML Code
+                </h3>
+                <div class="flex space-x-3">
+                    <button id="copy-btn" class="text-sm font-medium text-ammoue hover:text-teal-600 flex items-center transition duration-200">
+                        <i data-lucide="copy" class="w-4 h-4 mr-1"></i> Copy Code
+                    </button>
+                    <button id="download-btn" disabled class="text-sm font-medium text-blue-600 hover:text-blue-700 disabled:text-gray-400 flex items-center transition duration-200">
+                        <i data-lucide="download" class="w-4 h-4 mr-1"></i> Download HTML
+                    </button>
+                    </div>
+            </div>
             
-            <div class="flex justify-end space-x-3">
-                <button type="button" onclick="closeConfirmModal()" class="px-4 py-2 text-sm font-semibold rounded-xl text-gray-600 bg-gray-100 hover:bg-gray-200 transition duration-150">
-                    Cancel
-                </button>
-                <button type="button" id="confirm-delete-button" class="px-4 py-2 text-sm font-semibold rounded-xl text-white bg-red-600 hover:bg-red-700 transition duration-150 shadow-md">
-                    Yes, Delete Project
-                </button>
-            </div>
+            <pre class="bg-gray-100 p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm">
+                <code id="output-code" class="whitespace-pre"></code>
+            </pre>
+            
+            <button id="preview-btn" class="mt-4 px-6 py-2 text-base font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300">
+                Preview Site (Will open in a new tab)
+            </button>
         </div>
     </div>
+
     <script type="module">
-    // Using SDK v12.4.0 to match your previous setup
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-    import { getFirestore, collection, onSnapshot, query, deleteDoc, doc, Timestamp, updateDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
-
-    // IMPORTANT: Hardcoded configuration from login.html for this specific app instance
-    const firebaseConfig = {
-        apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
-        authDomain: "ammoueai.firebaseapp.com",
-        projectId: "ammoueai",
-        storageBucket: "ammoueai.firebasestorage.app",
-        messagingSenderId: "135818868149",
-        appId: "1:135818868149:web:db9280baf9540a3339d5fc",
-    };
-
-    let auth = null;
-    let db = null;
-    let currentUserId = null;
-    let isAuthReady = false;
-    const appId = firebaseConfig.projectId;
-    
-    // ⭐ CRITICAL FIX: Global map to store projects in memory, avoiding complex strings in HTML.
-    let projectsData = new Map();
-    // ⭐ NEW: Store the full list of projects to filter against
-    let allProjects = [];
-
-    // --- DOM Elements ---
-    const loadingScreen = document.getElementById('loading-screen');
-    const dashboardContent = document.getElementById('dashboard-content');
-    const userEmailSpan = document.getElementById('user-email');
-    const msgBox = document.getElementById('message-box');
-    const projectsContainer = document.getElementById('projects-container');
-    const projectSearchInput = document.getElementById('project-search'); // ⭐ NEW
-
-    // --- Modal DOM Elements ---
-    const editModal = document.getElementById('edit-modal');
-    const editModalContent = document.getElementById('edit-modal-content');
-    const editForm = document.getElementById('edit-project-form');
-    
-    const confirmModal = document.getElementById('confirm-modal'); // ⭐ NEW
-    const confirmModalContent = document.getElementById('confirm-modal-content'); // ⭐ NEW
-    const confirmDeleteButton = document.getElementById('confirm-delete-button'); // ⭐ NEW
-    const projectToDeleteTitle = document.getElementById('project-to-delete-title'); // ⭐ NEW
-    let projectIdToDelete = null; // ⭐ NEW: To store the ID temporarily
-
-
-    // --- Utility Functions ---
-
-    /**
-     * Converts raw code (like HTML or JS) into a displayable string
-     * by escaping HTML special characters.
-     */
-    function escapeHtml(unsafe) {
-        if (!unsafe) return '';
-        return unsafe.replace(/&/g, "&amp;")
-                     .replace(/</g, "&lt;")
-                     .replace(/>/g, "&gt;")
-                     .replace(/"/g, "&quot;")
-                     .replace(/'/g, "&#039;");
-    }
-
-    /** Shows a temporary message box (replaces alert()) */
-    function showMessage(message, isError) {
-        if (!msgBox) return;
-        msgBox.textContent = message;
-
-        msgBox.className = 'p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 z-50';
-        msgBox.classList.add(isError ? 'bg-red-500' : 'bg-green-500');
-        msgBox.classList.add('opacity-100');
-        setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
-    }
-
-    /** Opens the generated HTML in a new window for a live preview. */
-    // ⭐ REFACTORED: Takes ID, retrieves content from projectsData
-    window.handlePreview = function(projectId) {
-        const project = projectsData.get(projectId);
-        if (!project || !project.encodedHtmlContent) {
-            showMessage("Preview data is missing.", true);
-            return;
-        }
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+        // Imports for Firestore Auto-Saving
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
         
-        // Decode the Base64 string back to a UTF-8 safe string
-        const decodedHtml = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
+        // --- FIREBASE CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
+            authDomain: "ammoueai.firebaseapp.com",
+            projectId: "ammoueai",
+            storageBucket: "ammoueai.firebasestorage.app",
+            messagingSenderId: "135818868149",
+            appId: "1:135818868149:web:db9280baf9540a3339d5fc",
+        };
         
-        const previewWindow = window.open('', '_blank');
-        if (!previewWindow) {
-             showMessage("Pop-ups must be enabled to view the preview.", true);
-             return;
-        }
-        previewWindow.document.write(decodedHtml);
-        previewWindow.document.close();
-    }
+        // --- Initialize Firebase and Services ---
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app); // Firestore initialization
+        const appId = firebaseConfig.projectId; // App ID for nested path
+        let currentUserId = null; // Stores the logged-in user's UID
 
-    /** Downloads the generated HTML code as a file. */
-    // ⭐ REFACTORED: Takes ID, retrieves content from projectsData
-    window.handleDownload = function(projectId) {
-        const project = projectsData.get(projectId);
-        if (!project || !project.encodedHtmlContent) {
-            showMessage("Nothing to download.", true);
-            return;
-        }
-        
-        // Decode the Base64 string back to a UTF-8 safe string
-        const htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
-        
-        const cleanTitle = project.title; 
+        // --- DOM Elements ---
+        const loadingState = document.getElementById('loading-state');
+        const mainContent = document.getElementById('main-content');
+        const logoutBtn = document.getElementById('logout-btn');
+        const generateBtn = document.getElementById('generate-btn');
+        const downloadBtn = document.getElementById('download-btn');
+        const promptInput = document.getElementById('ai-prompt');
+        const outputDiv = document.getElementById('generation-output');
+        const outputCode = document.getElementById('output-code');
+        const copyBtn = document.getElementById('copy-btn');
+        const previewBtn = document.getElementById('preview-btn');
+        const messageBox = document.getElementById('message-box');
+        // NEW: Refinement Agent Elements
+        const refinePromptInput = document.getElementById('refine-prompt');
+        const refineBtn = document.getElementById('refine-btn');
 
-        const blob = new Blob([htmlContent], { type: 'text/html' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        const filename = cleanTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'ammoue_project';
-        a.download = `${filename}.html`;
+        let listenersAttached = false;
+        let latestHtmlContent = ''; 
+        let latestPrompt = ''; 
 
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        // --- Utility Functions ---
 
-        showMessage("HTML file prepared for download!", false);
-    }
-    
-    // ⭐ REFACTORED: Takes ID, retrieves content from projectsData
-    window.handleCopyCode = function(projectId) {
-        const project = projectsData.get(projectId);
-        if (!project || !project.encodedHtmlContent) {
-            showMessage("No code to copy.", true);
-            return;
-        }
-        
-        // Decode the Base64 string back to a UTF-8 safe string
-        const htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
-
-        // Use a temporary textarea as execCommand is more reliable in iFrames than navigator.clipboard
-        const tempTextArea = document.createElement('textarea');
-        tempTextArea.value = htmlContent;
-        document.body.appendChild(tempTextArea);
-        tempTextArea.select();
-        try {
-            document.execCommand('copy');
-            showMessage("Code copied to clipboard!", false);
-        } catch (err) {
-            console.error('Failed to copy text:', err);
-            showMessage("Failed to copy code.", true);
-        }
-        document.body.removeChild(tempTextArea);
-    }
-
-
-    // --- MODAL Control Functions ---
-
-    /** Shows the edit modal and pre-fills data. */
-    window.openEditModal = function(projectId) {
-        const project = projectsData.get(projectId);
-        if (!project) {
-            showMessage("Project data not found for editing.", true);
-            return;
-        }
-        
-        document.getElementById('edit-project-id').value = projectId;
-        document.getElementById('edit-title').value = project.title;
-        document.getElementById('edit-prompt').value = project.prompt; 
-
-        editModal.classList.remove('hidden');
-        editModal.classList.add('flex');
-        
-        setTimeout(() => {
-            editModalContent.classList.remove('scale-95', 'opacity-0');
-            editModalContent.classList.add('scale-100', 'opacity-100');
-        }, 10);
-        lucide.createIcons();
-    }
-
-    /** Hides the edit modal. */
-    window.closeEditModal = function() {
-        editModalContent.classList.remove('scale-100', 'opacity-100');
-        editModalContent.classList.add('scale-95', 'opacity-0');
-        
-        setTimeout(() => {
-            editModal.classList.remove('flex');
-            editModal.classList.add('hidden');
-        }, 300);
-    }
-
-    /** Handles form submission to update Firestore. (Unchanged) */
-    async function handleEditFormSubmit(e) {
-        e.preventDefault();
-        
-        if (!isAuthReady || !currentUserId) {
-            showMessage("System not ready or user ID missing.", true);
-            return;
-        }
-
-        const projectId = document.getElementById('edit-project-id').value;
-        const newTitle = document.getElementById('edit-title').value.trim();
-        const newPrompt = document.getElementById('edit-prompt').value.trim();
-
-        if (!newTitle || !newPrompt) {
-            showMessage("Title and Prompt cannot be empty.", true);
-            return;
-        }
-
-        showMessage("Saving changes...", false);
-        window.closeEditModal();
-        
-        try {
-            // Document path: /artifacts/{appId}/users/{userId}/projects/{projectId}
-            const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
+        /** Displays a temporary, custom message box. */
+        function showMessage(message, isError) {
+            messageBox.textContent = message;
             
-            await updateDoc(docRef, {
-                title: newTitle, 
-                prompt: newPrompt,
-                updatedAt: Timestamp.fromDate(new Date()) // Use Firestore Timestamp
-            });
-
-            showMessage(`Project "${newTitle}" updated successfully!`, false);
-            
-        } catch (error) {
-            console.error("Error updating document:", error);
-            showMessage("Failed to save changes.", true);
-        }
-    }
-
-    // Attach the submit listener to the form element
-    if (editForm) {
-        editForm.addEventListener('submit', handleEditFormSubmit);
-    }
-    
-    // --- NEW Delete Confirmation Modal Functions ---
-
-    /** Opens the delete confirmation modal. */
-    // ⭐ NEW: This function replaces the inline window.confirm()
-    window.openConfirmModal = function(projectId) {
-        const project = projectsData.get(projectId);
-        if (!project) {
-            showMessage("Project data not found for deletion.", true);
-            return;
-        }
-        
-        projectIdToDelete = projectId; // Store ID globally
-        projectToDeleteTitle.textContent = project.title; // Display title in modal
-
-        confirmModal.classList.remove('hidden');
-        confirmModal.classList.add('flex');
-        
-        setTimeout(() => {
-            confirmModalContent.classList.remove('scale-95', 'opacity-0');
-            confirmModalContent.classList.add('scale-100', 'opacity-100');
-        }, 10);
-        lucide.createIcons();
-    }
-
-    /** Hides the delete confirmation modal. */
-    window.closeConfirmModal = function() {
-        confirmModalContent.classList.remove('scale-100', 'opacity-100');
-        confirmModalContent.classList.add('scale-95', 'opacity-0');
-        
-        setTimeout(() => {
-            confirmModal.classList.remove('flex');
-            confirmModal.classList.add('hidden');
-            projectIdToDelete = null; // Clear the temporary ID
-        }, 300);
-    }
-    
-    /** Handles deletion of a project from Firestore (called from the modal). */
-    // ⭐ MODIFIED: This is the actual deletion function, called by a new listener
-    async function executeDeleteProject() {
-        if (!isAuthReady || !currentUserId || !projectIdToDelete) {
-            showMessage("System not ready or user ID missing.", true);
-            return;
-        }
-
-        const projectId = projectIdToDelete;
-        window.closeConfirmModal(); // Close the modal first
-        showMessage("Initiating project deletion...", false);
-        
-        try {
-            // Document path: /artifacts/{appId}/users/{userId}/projects/{projectId}
-            const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
-            await deleteDoc(docRef);
-            showMessage("Project deleted successfully!", false);
-        } catch (error) {
-            console.error("Error deleting document:", error);
-            showMessage("Failed to delete project.", true);
-        }
-    }
-    
-    // ⭐ CRITICAL MODIFICATION: The card's delete button now opens the modal.
-    // The actual deletion is performed by a listener on the modal's confirm button.
-    window.handleDeleteProject = function(projectId) {
-        window.openConfirmModal(projectId);
-    }
-    
-    // Attach the deletion listener to the modal's confirmation button
-    if (confirmDeleteButton) {
-        confirmDeleteButton.addEventListener('click', executeDeleteProject);
-    }
-
-
-    /** Renders the list of projects from Firestore data or filtered data. */
-    function renderProjects(projects) {
-        // Get the HTML of the static 'Create New Site' card
-        const createCardElement = document.querySelector('.bg-white.border-dashed'); // Get the static card by class
-        
-        if (!createCardElement) {
-            console.error("Could not find the static 'Create New Site' element.");
-            projectsContainer.innerHTML = `<p class="col-span-full text-center text-red-500 text-lg mt-10">Error: Missing Create Site element.</p>`;
-            return;
-        }
-        
-        // Get the static card HTML for prepending
-        const createCardHtml = createCardElement.outerHTML;
-
-        // Clear all cards (except the search input if it were inside the container)
-        projectsContainer.innerHTML = '';
-        
-        // Start HTML with the static 'Create New Site' card
-        let projectsHtml = createCardHtml;
-
-        if (projects.length === 0) {
-            // Show the 'Create New Site' card and the empty message
-            const noProjectsMessage = allProjects.length === 0 
-                ? "You haven't saved any projects yet. Click above to start!"
-                : "No projects match your search criteria."; // Improved message for filtering
-                
-            projectsContainer.innerHTML = createCardHtml + `<p id="no-projects-message" class="col-span-full text-center text-gray-500 text-lg mt-10">${noProjectsMessage}</p>`;
-            lucide.createIcons();
-            return;
-        }
-        
-        // Generate HTML for each saved project
-        projects.forEach(project => {
-            
-            const title = project.title; 
-            const cleanPrompt = project.prompt; 
-            
-            // *** Get the date correctly from the Firestore Timestamp object ***
-            let dateObj;
-            if (project.createdAt && typeof project.createdAt.toDate === 'function') {
-                dateObj = project.createdAt.toDate();
-            } else if (project.createdAt && project.createdAt.seconds) {
-                dateObj = new Date(project.createdAt.seconds * 1000);
+            if (isError) {
+                messageBox.classList.remove('bg-green-500', 'bg-ammoue');
+                messageBox.classList.add('bg-red-500');
             } else {
-                dateObj = new Date();
+                messageBox.classList.remove('bg-red-500');
+                messageBox.classList.add('bg-ammoue');
             }
-            const timestamp = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-            // *** Escape the HTML content for display in the snippet box ***
-            const escapedCodeSnippet = escapeHtml(project.htmlContent);
+            messageBox.classList.remove('opacity-0');
+            messageBox.classList.add('opacity-100');
 
-            projectsHtml += `
-                <div onclick="window.location.href='editor.html?id=${project.id}'"
-                    class="bg-white border border-gray-200 rounded-2xl p-6 flex flex-col justify-between shadow-lg hover:shadow-xl transition duration-300 cursor-pointer">
-                    <div>
-                        <div class="flex items-center justify-between mb-3">
-                            <h3 class="text-xl font-bold text-gray-900 truncate">${title}</h3>
-                            <i data-lucide="layout" class="w-6 h-6 text-ammoue/70 flex-shrink-0"></i>
-                        </div>
-                        <p class="text-xs text-gray-500 mb-2 h-10 line-clamp-2">${cleanPrompt}</p>
-                    </div>
-
-                    <div class="bg-gray-100 border border-gray-300 rounded-lg p-2 mb-4 h-32 overflow-y-scroll text-sm pointer-events-none">
-                        <pre class="whitespace-pre-wrap">
-                            <code class="text-xs text-gray-700">${escapedCodeSnippet}</code>
-                        </pre>
-                    </div>
-
-                    <div class="mt-auto">
-                        <p class="text-xs text-gray-400 mb-3">Saved: ${timestamp}</p>
-                        <div class="flex space-x-2"> 
-                            
-                            <button onclick="event.stopPropagation(); openEditModal('${project.id}')" 
-                                class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-amber-500 hover:bg-amber-600 transition duration-150 shadow-md" title="Edit Details">
-                                <i data-lucide="pencil" class="w-4 h-4 inline-block"></i>
-                            </button>
-                            
-                            <button onclick="event.stopPropagation(); handleCopyCode('${project.id}')" 
-                                class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-gray-500 hover:bg-gray-600 transition duration-150 shadow-md" title="Copy Code">
-                                <i data-lucide="copy" class="w-4 h-4 inline-block"></i>
-                            </button>
-
-                            <button onclick="event.stopPropagation(); handlePreview('${project.id}')" class="flex-1 px-3 py-2 text-sm font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-md">
-                                <i data-lucide="eye" class="w-4 h-4 inline-block mr-1"></i> Preview
-                            </button>
-                            
-                            <button onclick="event.stopPropagation(); handleDownload('${project.id}')" class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-green-600 hover:bg-green-700 transition duration-150 shadow-md">
-                                <i data-lucide="download" class="w-4 h-4 inline-block"></i>
-                            </button>
-                            <button onclick="event.stopPropagation(); handleDeleteProject('${project.id}')" class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150 shadow-md" title="Delete Project">
-                                <i data-lucide="trash-2" class="w-4 h-4 inline-block"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        });
-
-        projectsContainer.innerHTML = projectsHtml;
-        // Re-render Lucide icons after injecting new HTML
-        lucide.createIcons();
-    }
-    
-    /** Filters the projects based on the search input. */
-    // ⭐ NEW: Search/Filtering logic
-    window.filterProjects = function() {
-        const query = projectSearchInput.value.toLowerCase().trim();
-        
-        if (query === '') {
-            renderProjects(allProjects);
-            return;
-        }
-
-        const filtered = allProjects.filter(project => 
-            project.title.toLowerCase().includes(query) ||
-            project.prompt.toLowerCase().includes(query)
-        );
-
-        renderProjects(filtered);
-    }
-
-
-    /** Fetches projects for the current user in real-time. (MODIFIED) */
-    function getProjects(userId) {
-        if (!db || !userId) return;
-
-        // Collection path: /artifacts/{appId}/users/{userId}/projects
-        const projectsRef = collection(db, 'artifacts', appId, 'users', userId, 'projects');
-        const q = query(projectsRef);
-
-        // Set up the real-time listener (onSnapshot)
-        onSnapshot(q, (snapshot) => {
-            const projects = [];
-            // Clear the projectsData map before repopulating
-            projectsData.clear(); 
-            
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                
-                // Clean the prompt by replacing the literal '\n' sequences with real line breaks
-                const cleanPrompt = data.prompt ? data.prompt.replace(/\\n/g, '\n') : "No prompt available";
-                
-                // Use UTF-8 safe encoding before btoa() for the preview/download buttons
-                const utf8Encoded = unescape(encodeURIComponent(data.htmlContent || ''));
-                const encodedHtmlContent = btoa(utf8Encoded);
-
-                const project = {
-                    id: doc.id,
-                    ...data,
-                    // Use more sensible default fields for robust rendering
-                    title: data.title || (cleanPrompt.split('\n')[0].substring(0, 30).trim() + (cleanPrompt.split('\n')[0].length > 30 ? '...' : '') || "Untitled Project"),
-                    prompt: cleanPrompt, // The cleaned prompt string
-                    htmlContent: data.htmlContent || "", // The original raw HTML
-                    encodedHtmlContent: encodedHtmlContent, // The Base64 encoded HTML
-                    createdAt: data.createdAt 
-                };
-                
-                // ⭐ CRITICAL FIX: Store the full, processed project object in the map
-                projectsData.set(doc.id, project);
-                projects.push(project);
-            });
-
-            // Sort by createdAt descending (newest first) in memory.
-            projects.sort((a, b) => {
-                const timeA = a.createdAt instanceof Timestamp ? a.createdAt.toMillis() : 0;
-                const timeB = b.createdAt instanceof Timestamp ? b.createdAt.toMillis() : 0;
-                return timeB - timeA; // Descending order (newest first)
-            });
-            
-            // ⭐ NEW: Store the full, sorted list globally
-            allProjects = projects; 
-
-            // ⭐ MODIFIED: Re-filter projects after a new data snapshot
-            filterProjects(); 
-        }, (error) => {
-            console.error("Error fetching projects:", error);
-            showMessage("Failed to load projects.", true);
-        });
-    }
-
-
-    /** Initializes Firebase services and sets up the critical auth listener. (Unchanged) */
-    function initializeAppAndAuth() {
-        try {
-            const app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-
-            // CRITICAL: Authentication Gate using the listener
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    currentUserId = user.uid;
-                    isAuthReady = true;
-
-                    userEmailSpan.textContent = user.email || user.uid;
-
-                    // Fetch projects for the logged-in user (CORE INTEGRATION)
-                    getProjects(currentUserId);
-
-                    // Show dashboard content
-                    loadingScreen.classList.add('hidden');
-                    dashboardContent.classList.remove('hidden');
-                    dashboardContent.classList.add('opacity-100');
-                } else {
-                    // **FAILURE** - User is NOT authenticated: Redirect to login page
-                    console.log("No valid session found. Redirecting to login.html...");
-                    window.location.href = 'login.html';
-                }
-            });
-
-        } catch (error) {
-            console.error("Firebase initialization failed:", error);
-            showMessage("Initialization error. Redirecting to login...", true);
             setTimeout(() => {
-                window.location.href = 'login.html';
-            }, 500);
+                messageBox.classList.remove('opacity-100');
+                messageBox.classList.add('opacity-0');
+            }, 4000);
         }
-    }
 
-    /** Logs the current user out. (Unchanged) */
-    window.handleLogout = async function() {
-        if (auth) {
-            try {
-                await signOut(auth);
-                showMessage("You have been signed out.", false);
-            } catch (error) {
-                console.error("Logout failed:", error);
-                showMessage("Logout failed. Please try again.", true);
+        /** Sets the loading state on the generate button. (MODIFIED) */
+        function setLoading(isLoading) {
+            if (isLoading) {
+                generateBtn.disabled = true;
+                refineBtn.disabled = true; // Disable refine while generating
+                downloadBtn.disabled = true; 
+                generateBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Generating...';
+            } else {
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = 'Generate HTML Code';
+                // Only enable refine if there is content
+                if (latestHtmlContent) {
+                    refineBtn.disabled = false;
+                }
             }
-        } else {
-            window.location.href = 'login.html';
         }
-    }
+        
+        /** Sets the loading state on the refine button. (NEW FUNCTION) */
+        function setRefineLoading(isLoading) {
+            if (isLoading) {
+                refineBtn.disabled = true;
+                generateBtn.disabled = true; // Disable generation while refining
+                downloadBtn.disabled = true;
+                refineBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Refining...';
+            } else {
+                refineBtn.disabled = false;
+                generateBtn.disabled = false;
+                // Re-enable refine and download if there is content
+                if (latestHtmlContent) {
+                    downloadBtn.disabled = false;
+                }
+                refineBtn.innerHTML = 'Refine Code';
+            }
+        }
 
-    // --- Run Initialization Immediately ---
-    initializeAppAndAuth();
-    lucide.createIcons();
 
-</script>
+        /** Utility function to copy text to clipboard. */
+        function copyToClipboard(text) {
+            try {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showMessage("Code copied to clipboard!", false);
+            } catch (err) {
+                console.error('Failed to copy text:', err);
+                showMessage("Failed to copy code.", true);
+            }
+        }
+        
+        /** Handles downloading the generated HTML content. */
+        function handleDownload() {
+            const htmlCode = outputCode.textContent;
+            if (!htmlCode) {
+                showMessage("No HTML code available to download.", true);
+                return;
+            }
+
+            const blob = new Blob([htmlCode], { type: "text/html" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "ammoue_website.html"; 
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showMessage("Download started!", false);
+        }
+        
+        /** Opens the generated HTML in a new window for a live preview. */
+        function handlePreview() {
+            const htmlContent = previewBtn.dataset.html;
+            if (!htmlContent) {
+                showMessage("No HTML code available to preview.", true);
+                return;
+            }
+
+            const previewWindow = window.open('', '_blank');
+            if (!previewWindow) {
+                 showMessage("Pop-ups must be enabled to view the preview.", true);
+                 return;
+            }
+
+            previewWindow.document.write(htmlContent);
+            previewWindow.document.close();
+        }
+
+        // *** Auto-Save Logic (runs after successful generation/refinement) ***
+        async function autoSaveProject(htmlContent, userPrompt) {
+            if (!currentUserId || !htmlContent) {
+                console.error("Auto-save failed: Missing user ID or content.");
+                return;
+            }
+            
+            // ⭐ CRITICAL FIX: Clean the prompt data before saving it to Firestore ⭐
+            const cleanedPrompt = userPrompt.replace(/\\n/g, '\n');
+
+            try {
+                // Secure Nested Path: /artifacts/{appId}/users/{userId}/projects
+                const projectsRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'projects');
+
+                await addDoc(projectsRef, {
+                    prompt: cleanedPrompt, // USE THE CLEANED PROMPT HERE
+                    htmlContent: htmlContent,
+                    createdAt: serverTimestamp(), 
+                });
+
+                console.log("Project auto-saved successfully.");
+
+            } catch (error) {
+                console.error("Error during auto-save:", error);
+                showMessage("Warning: Failed to auto-save project.", true);
+            }
+        }
+
+        // --- AI Generation Logic ---
+
+        /** Handles the initial generation process. */
+        async function handleGeneration() {
+            const prompt = promptInput.value.trim();
+            if (prompt.length < 10) {
+                showMessage("Please provide a more detailed prompt (at least 10 characters).", true);
+                return;
+            }
+
+            setLoading(true);
+            outputDiv.classList.add('hidden');
+            outputCode.textContent = ''; 
+            downloadBtn.disabled = true; 
+
+            latestPrompt = prompt;
+
+            const apiEndpoint = '/api/generate.js'; 
+            console.log(`Attempting to call AI endpoint: ${apiEndpoint}`);
+
+            const payload = {
+                prompt: prompt,
+            };
+
+            const maxRetries = 3;
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                try {
+                    const response = await fetch(apiEndpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorBody = await response.json().catch(() => ({}));
+                        const errorMessage = errorBody.error || response.statusText || "Unknown server error.";
+                        console.error(`Attempt ${attempt + 1} Server Error: Status ${response.status}`, errorMessage);
+                        throw new Error(`API Proxy Error [Status: ${response.status}]: ${errorMessage}`);
+                    }
+
+                    const result = await response.json();
+                    const generatedHtml = result.htmlCode; 
+                    
+                    if (generatedHtml) {
+                        const finalHtml = generatedHtml.trim();
+                        outputCode.textContent = finalHtml;
+                        latestHtmlContent = finalHtml; 
+                        
+                        previewBtn.dataset.html = finalHtml;
+
+                        outputDiv.classList.remove('hidden');
+                        downloadBtn.disabled = false;
+                        
+                        // Enable the refine button once content exists
+                        refineBtn.disabled = false; 
+                        
+                        showMessage("HTML generated successfully! Project auto-saved.", false);
+
+                        // CRITICAL STEP: AUTO-SAVE ASYNCHRONOUSLY
+                        autoSaveProject(finalHtml, latestPrompt); 
+                        
+                        break; // Exit loop on success
+                    } else {
+                        console.error(`Attempt ${attempt + 1} Response Structure Error: 'htmlCode' missing in result.`, result);
+                        throw new Error("API response missing 'htmlCode' content.");
+                    }
+
+                } catch (error) {
+                    console.error(`Attempt ${attempt + 1} failed:`, error.message);
+                    if (attempt === maxRetries - 1) {
+                        showMessage("Generation failed after multiple retries.", true);
+                    } else {
+                        const delay = Math.pow(2, attempt) * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    }
+                }
+            }
+
+            setLoading(false);
+        }
+
+        /** Handles the AI refinement process. (NEW FUNCTION) */
+        async function handleRefine() {
+            const refinePrompt = refinePromptInput.value.trim();
+            
+            if (!latestHtmlContent) {
+                showMessage("Please generate initial HTML first.", true);
+                return;
+            }
+
+            if (refinePrompt.length < 5) {
+                showMessage("Please enter a detailed refinement instruction (at least 5 characters).", true);
+                return;
+            }
+
+            setRefineLoading(true);
+
+            // This is the new API endpoint you need to implement
+            const apiEndpoint = '/api/refine.js'; 
+            console.log(`Attempting to call AI refinement endpoint: ${apiEndpoint}`);
+
+            const payload = {
+                currentHtml: latestHtmlContent, // Pass the existing code
+                refinePrompt: refinePrompt,     // Pass the refinement instruction
+            };
+
+            const maxRetries = 3;
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                try {
+                    const response = await fetch(apiEndpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorBody = await response.json().catch(() => ({}));
+                        const errorMessage = errorBody.error || response.statusText || "Unknown server error.";
+                        throw new Error(`API Proxy Error [Status: ${response.status}]: ${errorMessage}`);
+                    }
+
+                    const result = await response.json();
+                    const generatedHtml = result.htmlCode;
+
+                    if (generatedHtml) {
+                        const finalHtml = generatedHtml.trim();
+                        outputCode.textContent = finalHtml;
+                        latestHtmlContent = finalHtml;
+                        
+                        // Append refinement to the prompt history for saving
+                        latestPrompt = (latestPrompt || promptInput.value.trim()) + `\n\n[Refined]: ${refinePrompt}`; 
+                        
+                        previewBtn.dataset.html = finalHtml;
+
+                        outputDiv.classList.remove('hidden');
+                        downloadBtn.disabled = false;
+                        
+                        // CRITICAL STEP: AUTO-SAVE ASYNCHRONOUSLY
+                        autoSaveProject(finalHtml, latestPrompt); 
+                        
+                        showMessage("Code refined and auto-saved!", false);
+                        refinePromptInput.value = ''; // Clear the refinement prompt
+                        break; // Exit loop on success
+                    } else {
+                        throw new Error("API response missing 'htmlCode' content.");
+                    }
+
+                } catch (error) {
+                    console.error(`Refine Attempt ${attempt + 1} failed:`, error.message);
+                    if (attempt === maxRetries - 1) {
+                        showMessage("Refinement failed after multiple retries.", true);
+                    } else {
+                        const delay = Math.pow(2, attempt) * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    }
+                }
+            }
+
+            setRefineLoading(false);
+        }
+
+
+        // ------------------------------------------------------------------
+        // ⭐ CODE FOR TYPING PLACEHOLDER EFFECT STARTS HERE ⭐
+        // ------------------------------------------------------------------
+
+        const placeholderPrompts = [
+            "A minimalist portfolio for a futuristic fashion designer.",
+            "A quirky online café with interactive menu animations.",
+            "A landing page for a mysterious escape room experience.",
+            "A retro-style blog for sharing bizarre urban legends.",
+            "A pet adoption site that gamifies choosing a pet.",
+            "A one-page music festival schedule with neon visuals.",
+            "An AI art generator website with live previews"
+        ];
+
+        let promptTypingIndex = 0; 
+        let charIndex = 0;
+        let isDeleting = false;
+        const typingSpeed = 75; 
+        const deletingSpeed = 40; 
+        const delayBetweenPrompts = 2000; 
+        const defaultPlaceholder = "e.g., 'A vibrant landing page for a dog grooming salon called Paws & Claws, focusing on luxury services and online booking.'";
+
+        /**
+         * Handles the cycling and typing effect for the placeholder.
+         */
+        function typePlaceholderEffect() {
+            // Stop the effect if the user has started typing
+            if (promptInput.value.length > 0) {
+                return; 
+            }
+            
+            const currentPrompt = placeholderPrompts[promptTypingIndex];
+            let placeholderText = promptInput.getAttribute('placeholder') || '';
+
+            if (isDeleting) {
+                // DELETE PHASE
+                placeholderText = currentPrompt.substring(0, charIndex - 1);
+                charIndex--;
+                if (charIndex === 0) {
+                    isDeleting = false;
+                    promptTypingIndex = (promptTypingIndex + 1) % placeholderPrompts.length;
+                    setTimeout(typePlaceholderEffect, 500); // Small pause after deletion
+                    return;
+                }
+            } else {
+                // TYPING PHASE
+                placeholderText = currentPrompt.substring(0, charIndex + 1);
+                charIndex++;
+                if (charIndex === currentPrompt.length) {
+                    isDeleting = true;
+                    setTimeout(typePlaceholderEffect, delayBetweenPrompts); // Long pause at the end
+                    return;
+                }
+            }
+
+            // Apply the new text
+            promptInput.setAttribute('placeholder', placeholderText);
+
+            // Calculate the next delay
+            const speed = isDeleting ? deletingSpeed : typingSpeed;
+            setTimeout(typePlaceholderEffect, speed);
+        }
+
+        // Add an input listener to stop the animation when the user starts typing
+        // and to restart it if the user clears the input.
+        promptInput.addEventListener('input', () => {
+             if (promptInput.value.length > 0) {
+                 // User started typing, set the placeholder back to the default hint
+                 promptInput.setAttribute('placeholder', defaultPlaceholder); 
+             } else if (promptInput.value.length === 0) {
+                 // User cleared the input, restart the effect
+                 // Reset the internal state to start from the beginning of the next prompt
+                 promptTypingIndex = 0;
+                 charIndex = 0;
+                 isDeleting = false;
+                 typePlaceholderEffect(); 
+             }
+         });
+
+
+        // ------------------------------------------------------------------
+        // ⭐ CODE FOR TYPING PLACEHOLDER EFFECT ENDS HERE ⭐
+        // ------------------------------------------------------------------
+
+
+        // --- Authentication Guard and Event Listeners ---
+
+        onAuthStateChanged(auth, (user) => {
+            console.log("Auth state resolved. User:", user ? user.email : "none");
+
+            if (user) {
+                currentUserId = user.uid; // Store the user ID
+                
+                // User is logged in: Show the content
+                loadingState.style.pointerEvents = 'none';
+                loadingState.classList.add('hidden');
+                loadingState.style.opacity = '0'; 
+                mainContent.classList.remove('hidden');
+
+                if (!listenersAttached) {
+                    generateBtn.addEventListener('click', handleGeneration);
+                    refineBtn.addEventListener('click', handleRefine); 
+                    copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
+                    downloadBtn.addEventListener('click', handleDownload);
+                    previewBtn.addEventListener('click', handlePreview);
+                    
+                    logoutBtn.addEventListener('click', async () => {
+                        try {
+                            await signOut(auth);
+                        } catch (error) {
+                            console.error("Logout failed:", error);
+                        }
+                    });
+
+                    // ⭐ START THE TYPING EFFECT HERE AFTER AUTHENTICATION IS COMPLETE ⭐
+                    typePlaceholderEffect(); 
+
+                    listenersAttached = true;
+                }
+            } else {
+                // User is NOT logged in: Redirect them to login.
+                console.log("User not authenticated. Redirecting to login.");
+                const currentPath = window.location.pathname;
+                const redirectUrl = 'login.html?redirect=' + encodeURIComponent(currentPath);
+                window.location.replace(redirectUrl); 
+            }
+        });
+        
+        lucide.createIcons();
+    </script>
 </body>
 </html>
