@@ -14,6 +14,7 @@
         }
         .text-ammoue { color: #0d9488; }
         .bg-ammoue { background-color: #0d9488; }
+
         /* Style to ensure the loading screen covers the whole view */
         #loading-state {
             position: fixed;
@@ -28,6 +29,7 @@
             z-index: 100;
             transition: opacity 0.3s ease-in-out; 
         }
+
         /* Custom styles for message box */
         #message-box {
             position: fixed;
@@ -50,6 +52,22 @@
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             background-color: #f1f5f9; /* Tailwind gray-100 shade */
+        }
+
+        /* Generate & Refine Button Glow Hover Effects */
+        #generate-btn:hover,
+        #refine-btn:hover {
+            box-shadow: 0 0 20px rgba(13, 148, 136, 0.6), 0 4px 12px rgba(13, 148, 136, 0.3);
+            transform: translateY(-2px) scale(1.02);
+        }
+
+        /* Disabled buttons remain slightly transparent */
+        #generate-btn:disabled,
+        #refine-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
     </style>
 </head>
