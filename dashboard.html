@@ -1,578 +1,691 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ammoue | User Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f8fafc;
-        }
-        .text-ammoue { color: #0d9488; }
-        .bg-ammoue { background-color: #0d9488; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ammoue | User Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        .text-ammoue { color: #0d9488; }
+        .bg-ammoue { background-color: #0d9488; }
 
-        /* CRITICAL: Loading state overlay */
-        .loading-screen {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #f8fafc;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 50;
-        }
+        /* CRITICAL: Loading state overlay */
+        .loading-screen {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #f8fafc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+        }
 
-        /* Custom style for multi-line text truncation */
-        .line-clamp-2 {
-            display: -webkit-box;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            -webkit-line-clamp: 2;
-        }
-    </style>
+        /* Custom style for multi-line text truncation */
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            -webkit-line-clamp: 2;
+        }
+    </style>
 </head>
 <body class="antialiased min-h-screen">
 
-    <div id="loading-screen" class="loading-screen">
-        <svg class="animate-spin h-8 w-8 text-ammoue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-    </div>
+    <div id="loading-screen" class="loading-screen">
+        <svg class="animate-spin h-8 w-8 text-ammoue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+    </div>
 
-    <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 opacity-0 transition-opacity duration-300 z-50"></div>
+    <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 opacity-0 transition-opacity duration-300 z-50"></div>
 
 
-    <div id="dashboard-content" class="min-h-screen hidden transition-opacity duration-500">
-        <nav class="bg-white shadow-md p-4 flex justify-between items-center sticky top-0 z-10">
-            <div class="text-2xl font-extrabold text-ammoue">Ammoue Dashboard</div>
-            <div class="flex items-center space-x-4">
-                <span class="text-gray-600 text-sm">Welcome, <span id="user-email" class="font-semibold">Loading...</span></span>
-                <button onclick="handleLogout()" class="px-3 py-2 text-sm font-medium rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150 shadow-md">
-                    Log Out
-                </button>
+    <div id="dashboard-content" class="min-h-screen hidden transition-opacity duration-500">
+        <nav class="bg-white shadow-md p-4 flex justify-between items-center sticky top-0 z-10">
+            <div class="text-2xl font-extrabold text-ammoue">Ammoue Dashboard</div>
+            <div class="flex items-center space-x-4">
+                <span class="text-gray-600 text-sm">Welcome, <span id="user-email" class="font-semibold">Loading...</span></span>
+                <button onclick="handleLogout()" class="px-3 py-2 text-sm font-medium rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150 shadow-md">
+                    Log Out
+                </button>
+            </div>
+        </nav>
+
+        <main class="p-4 md:p-8 max-w-6xl mx-auto">
+            <h1 class="text-4xl font-bold text-gray-800 mb-6">Your Sites & Projects</h1>
+            
+            <div class="mb-8 relative">
+                <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"></i>
+                <input type="text" id="project-search" onkeyup="filterProjects()" placeholder="Search projects by title or prompt..."
+                       class="w-full pl-10 pr-4 py-3 border-gray-300 rounded-xl shadow-lg focus:border-ammoue focus:ring-ammoue transition duration-150">
             </div>
-        </nav>
+                        <div id="projects-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
 
-        <main class="p-4 md:p-8 max-w-6xl mx-auto">
-            <h1 class="text-4xl font-bold text-gray-800 mb-6">Your Sites & Projects</h1>
+                <div onclick="window.location.href='ai_prompt.html'"
+                    class="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:border-ammoue transition duration-300 cursor-pointer hover:shadow-lg h-full min-h-[200px]">
+                    <i data-lucide="plus-circle" class="w-12 h-12 text-gray-400 mb-3"></i>
+                    <p class="text-lg font-semibold text-gray-700">Create New AI Site</p>
+                    <p class="text-sm text-gray-500 mt-1">Start generating a new website</p>
+                </div>
 
-            <div id="projects-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-
-                <div onclick="window.location.href='ai_prompt.html'"
-                    class="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:border-ammoue transition duration-300 cursor-pointer hover:shadow-lg h-full min-h-[200px]">
-                    <i data-lucide="plus-circle" class="w-12 h-12 text-gray-400 mb-3"></i>
-                    <p class="text-lg font-semibold text-gray-700">Create New AI Site</p>
-                    <p class="text-sm text-gray-500 mt-1">Start generating a new website</p>
-                </div>
-
-                <p id="no-projects-message" class="col-span-full text-center text-gray-500 text-lg hidden mt-10">
-                    You haven't saved any projects yet. Click above to start!
+                <p id="no-projects-message" class="col-span-full text-center text-gray-500 text-lg hidden mt-10">
+                    You haven't saved any projects yet. Click above to start!
+                </p>
+                <p id="no-search-results" class="col-span-full text-center text-gray-500 text-lg hidden mt-10">
+                    No projects match your search criteria.
                 </p>
 
-            </div>
-        </main>
-    </div>
+            </div>
+        </main>
+    </div>
 
-    <div id="edit-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 z-50 hidden items-center justify-center">
-        <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg m-4 transform transition-all duration-300 scale-95 opacity-0" id="edit-modal-content">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center justify-between">
-                Edit Project Details
-                <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600">
-                    <i data-lucide="x" class="w-6 h-6"></i>
-                </button>
+    <div id="edit-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 z-50 hidden items-center justify-center">
+        <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg m-4 transform transition-all duration-300 scale-95 opacity-0" id="edit-modal-content">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center justify-between">
+                Edit Project Details
+                <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </h2>
+
+            <form id="edit-project-form">
+                <input type="hidden" id="edit-project-id">
+
+                <div class="mb-4">
+                    <label for="edit-title" class="block text-sm font-medium text-gray-700 mb-1">Project Title</label>
+                    <input type="text" id="edit-title" required 
+                                class="w-full border-gray-300 rounded-xl shadow-sm focus:border-ammoue focus:ring-ammoue transition duration-150 p-3">
+                </div>
+
+                <div class="mb-6">
+                    <label for="edit-prompt" class="block text-sm font-medium text-gray-700 mb-1">AI Prompt</label>
+                    <textarea id="edit-prompt" rows="6" required 
+                                 class="w-full border-gray-300 rounded-xl shadow-sm focus:border-ammoue focus:ring-ammoue transition duration-150 p-3"></textarea>
+                    <p class="text-xs text-gray-500 mt-1">Editing the prompt does not regenerate the site; it only updates the description.</p>
+                </div>
+
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="closeEditModal()" class="px-4 py-2 text-sm font-semibold rounded-xl text-gray-600 bg-gray-100 hover:bg-gray-200 transition duration-150">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 text-sm font-semibold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-150 shadow-md">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="confirm-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 z-50 hidden items-center justify-center">
+        <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm m-4 transform transition-all duration-300 scale-95 opacity-0" id="confirm-modal-content">
+            <h2 class="text-xl font-bold text-red-600 mb-2 flex items-center">
+                <i data-lucide="alert-triangle" class="w-6 h-6 mr-2"></i> Confirm Deletion
             </h2>
-
-            <form id="edit-project-form">
-                <input type="hidden" id="edit-project-id">
-
-                <div class="mb-4">
-                    <label for="edit-title" class="block text-sm font-medium text-gray-700 mb-1">Project Title</label>
-                    <input type="text" id="edit-title" required 
-                                class="w-full border-gray-300 rounded-xl shadow-sm focus:border-ammoue focus:ring-ammoue transition duration-150 p-3">
-                </div>
-
-                <div class="mb-6">
-                    <label for="edit-prompt" class="block text-sm font-medium text-gray-700 mb-1">AI Prompt</label>
-                    <textarea id="edit-prompt" rows="6" required 
-                                 class="w-full border-gray-300 rounded-xl shadow-sm focus:border-ammoue focus:ring-ammoue transition duration-150 p-3"></textarea>
-                    <p class="text-xs text-gray-500 mt-1">Editing the prompt does not regenerate the site; it only updates the description.</p>
-                </div>
-
-                <div class="flex justify-end space-x-3">
-                    <button type="button" onclick="closeEditModal()" class="px-4 py-2 text-sm font-semibold rounded-xl text-gray-600 bg-gray-100 hover:bg-gray-200 transition duration-150">
-                        Cancel
-                    </button>
-                    <button type="submit" class="px-4 py-2 text-sm font-semibold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-150 shadow-md">
-                        Save Changes
-                    </button>
-                </div>
-            </form>
+            <p class="text-gray-700 mb-6">Are you sure you want to delete the project **<span id="project-to-delete-title" class="font-semibold"></span>**? This action cannot be undone.</p>
+            
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeConfirmModal()" class="px-4 py-2 text-sm font-semibold rounded-xl text-gray-600 bg-gray-100 hover:bg-gray-200 transition duration-150">
+                    Cancel
+                </button>
+                <button type="button" id="confirm-delete-button" class="px-4 py-2 text-sm font-semibold rounded-xl text-white bg-red-600 hover:bg-red-700 transition duration-150 shadow-md">
+                    Yes, Delete Project
+                </button>
+            </div>
         </div>
     </div>
-    <script type="module">
-    // Using SDK v12.4.0 to match your previous setup
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-    import { getFirestore, collection, onSnapshot, query, deleteDoc, doc, Timestamp, updateDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+        <script type="module">
+    // Using SDK v12.4.0 to match your previous setup
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+    import { getFirestore, collection, onSnapshot, query, deleteDoc, doc, Timestamp, updateDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
-    // IMPORTANT: Hardcoded configuration from login.html for this specific app instance
-    const firebaseConfig = {
-        apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
-        authDomain: "ammoueai.firebaseapp.com",
-        projectId: "ammoueai",
-        storageBucket: "ammoueai.firebasestorage.app",
-        messagingSenderId: "135818868149",
-        appId: "1:135818868149:web:db9280baf9540a3339d5fc",
-    };
+    // IMPORTANT: Hardcoded configuration from login.html for this specific app instance
+    const firebaseConfig = {
+        apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
+        authDomain: "ammoueai.firebaseapp.com",
+        projectId: "ammoueai",
+        storageBucket: "ammoueai.firebasestorage.app",
+        messagingSenderId: "135818868149",
+        appId: "1:135818868149:web:db9280baf9540a3339d5fc",
+    };
 
-    let auth = null;
-    let db = null;
-    let currentUserId = null;
-    let isAuthReady = false;
-    const appId = firebaseConfig.projectId;
-    
-    // ⭐ CRITICAL FIX: Global map to store projects in memory, avoiding complex strings in HTML.
-    let projectsData = new Map(); 
+    let auth = null;
+    let db = null;
+    let currentUserId = null;
+    let isAuthReady = false;
+    const appId = firebaseConfig.projectId;
+    
+    // ⭐ CRITICAL FIX: Global map to store projects in memory, avoiding complex strings in HTML.
+    let projectsData = new Map(); 
+    let allProjectsList = []; // NEW: Array to hold all project data for searching
 
-    // --- DOM Elements ---
-    const loadingScreen = document.getElementById('loading-screen');
-    const dashboardContent = document.getElementById('dashboard-content');
-    const userEmailSpan = document.getElementById('user-email');
-    const msgBox = document.getElementById('message-box');
-    const projectsContainer = document.getElementById('projects-container');
-    
-    // --- NEW Modal DOM Elements ---
-    const editModal = document.getElementById('edit-modal');
-    const editModalContent = document.getElementById('edit-modal-content');
-    const editForm = document.getElementById('edit-project-form');
+    // --- DOM Elements ---
+    const loadingScreen = document.getElementById('loading-screen');
+    const dashboardContent = document.getElementById('dashboard-content');
+    const userEmailSpan = document.getElementById('user-email');
+    const msgBox = document.getElementById('message-box');
+    const projectsContainer = document.getElementById('projects-container');
+    const projectSearchInput = document.getElementById('project-search'); // NEW
+
+    // --- Existing Modal DOM Elements ---
+    const editModal = document.getElementById('edit-modal');
+    const editModalContent = document.getElementById('edit-modal-content');
+    const editForm = document.getElementById('edit-project-form');
+
+    // --- NEW Confirmation Modal DOM Elements ---
+    const confirmModal = document.getElementById('confirm-modal');
+    const confirmModalContent = document.getElementById('confirm-modal-content');
+    const projectToDeleteTitleSpan = document.getElementById('project-to-delete-title');
+    const confirmDeleteButton = document.getElementById('confirm-delete-button');
+    let projectToDeleteId = null; // Holds the ID of the project being confirmed
 
 
-    // --- Utility Functions ---
+    // --- Utility Functions ---
 
-    /**
-     * Converts raw code (like HTML or JS) into a displayable string
-     * by escaping HTML special characters.
-     */
-    function escapeHtml(unsafe) {
-        if (!unsafe) return '';
-        return unsafe.replace(/&/g, "&amp;")
-                     .replace(/</g, "&lt;")
-                     .replace(/>/g, "&gt;")
-                     .replace(/"/g, "&quot;")
-                     .replace(/'/g, "&#039;");
-    }
+    /**
+     * Converts raw code (like HTML or JS) into a displayable string
+     * by escaping HTML special characters.
+     */
+    function escapeHtml(unsafe) {
+        if (!unsafe) return '';
+        return unsafe.replace(/&/g, "&amp;")
+                     .replace(/</g, "&lt;")
+                     .replace(/>/g, "&gt;")
+                     .replace(/"/g, "&quot;")
+                     .replace(/'/g, "&#039;");
+    }
 
-    /** Shows a temporary message box (replaces alert()) */
-    function showMessage(message, isError) {
-        if (!msgBox) return;
-        msgBox.textContent = message;
+    /** Shows a temporary message box (replaces alert()) */
+    function showMessage(message, isError) {
+        if (!msgBox) return;
+        msgBox.textContent = message;
 
-        msgBox.className = 'p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 z-50';
-        msgBox.classList.add(isError ? 'bg-red-500' : 'bg-green-500');
-        msgBox.classList.add('opacity-100');
-        setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
-    }
+        msgBox.className = 'p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 z-50';
+        msgBox.classList.add(isError ? 'bg-red-500' : 'bg-green-500');
+        msgBox.classList.add('opacity-100');
+        setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
+    }
 
-    /** Opens the generated HTML in a new window for a live preview. */
-    // ⭐ REFACTORED: Takes ID, retrieves content from projectsData
-    window.handlePreview = function(projectId) {
-        const project = projectsData.get(projectId);
-        if (!project || !project.htmlContent) {
-            showMessage("Preview data is missing.", true);
-            return;
-        }
-        
-        // Decode the Base64 string back to a UTF-8 safe string
-        const decodedHtml = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
-        
-        const previewWindow = window.open('', '_blank');
-        if (!previewWindow) {
-             showMessage("Pop-ups must be enabled to view the preview.", true);
-             return;
-        }
-        previewWindow.document.write(decodedHtml);
-        previewWindow.document.close();
-    }
+    /** Opens the generated HTML in a new window for a live preview. */
+    // ⭐ REFACTORED: Takes ID, retrieves content from projectsData
+    window.handlePreview = function(projectId) {
+        const project = projectsData.get(projectId);
+        if (!project || !project.htmlContent) {
+            showMessage("Preview data is missing.", true);
+            return;
+        }
+        
+        // Decode the Base64 string back to a UTF-8 safe string
+        const decodedHtml = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
+        
+        const previewWindow = window.open('', '_blank');
+        if (!previewWindow) {
+             showMessage("Pop-ups must be enabled to view the preview.", true);
+             return;
+        }
+        previewWindow.document.write(decodedHtml);
+        previewWindow.document.close();
+    }
 
-    /** Downloads the generated HTML code as a file. */
-    // ⭐ REFACTORED: Takes ID, retrieves content from projectsData
-    window.handleDownload = function(projectId) {
-        const project = projectsData.get(projectId);
-        if (!project || !project.htmlContent) {
-            showMessage("Nothing to download.", true);
-            return;
-        }
-        
-        // Decode the Base64 string back to a UTF-8 safe string
-        const htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
-        
-        const cleanTitle = project.title; 
+    /** Downloads the generated HTML code as a file. */
+    // ⭐ REFACTORED: Takes ID, retrieves content from projectsData
+    window.handleDownload = function(projectId) {
+        const project = projectsData.get(projectId);
+        if (!project || !project.htmlContent) {
+            showMessage("Nothing to download.", true);
+            return;
+        }
+        
+        // Decode the Base64 string back to a UTF-8 safe string
+        const htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
+        
+        const cleanTitle = project.title; 
 
-        const blob = new Blob([htmlContent], { type: 'text/html' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        const filename = cleanTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'ammoue_project';
-        a.download = `${filename}.html`;
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        const filename = cleanTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'ammoue_project';
+        a.download = `${filename}.html`;
 
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
 
-        showMessage("HTML file prepared for download!", false);
-    }
-    
-    // ⭐ REFACTORED: Takes ID, retrieves content from projectsData
-    window.handleCopyCode = function(projectId) {
-        const project = projectsData.get(projectId);
-        if (!project || !project.htmlContent) {
-            showMessage("No code to copy.", true);
-            return;
-        }
-        
-        // Decode the Base64 string back to a UTF-8 safe string
-        const htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
+        showMessage("HTML file prepared for download!", false);
+    }
+    
+    // ⭐ REFACTORED: Takes ID, retrieves content from projectsData
+    window.handleCopyCode = function(projectId) {
+        const project = projectsData.get(projectId);
+        if (!project || !project.htmlContent) {
+            showMessage("No code to copy.", true);
+            return;
+        }
+        
+        // Decode the Base64 string back to a UTF-8 safe string
+        const htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
 
-        // Use a temporary textarea as execCommand is more reliable in iFrames than navigator.clipboard
-        const tempTextArea = document.createElement('textarea');
-        tempTextArea.value = htmlContent;
-        document.body.appendChild(tempTextArea);
-        tempTextArea.select();
+        // Use a temporary textarea as execCommand is more reliable in iFrames than navigator.clipboard
+        const tempTextArea = document.createElement('textarea');
+        tempTextArea.value = htmlContent;
+        document.body.appendChild(tempTextArea);
+        tempTextArea.select();
+        try {
+            document.execCommand('copy');
+            showMessage("Code copied to clipboard!", false);
+        } catch (err) {
+            console.error('Failed to copy text:', err);
+            showMessage("Failed to copy code.", true);
+        }
+        document.body.removeChild(tempTextArea);
+    }
+
+    /** Handles deletion of a project from Firestore. (MODIFIED to open modal) */
+    window.handleDeleteProject = async function(projectId) {
+        if (!isAuthReady || !currentUserId) {
+            showMessage("System not ready or user ID missing.", true);
+            return;
+        }
+
+        const project = projectsData.get(projectId);
+
+        if (!project) {
+            showMessage("Project data not found for deletion.", true);
+            return;
+        }
+
+        // Set the global variable and display the project title in the modal
+        projectToDeleteId = projectId;
+        projectToDeleteTitleSpan.textContent = project.title;
+        openConfirmModal();
+    }
+
+    /** NEW: Executes the confirmed project deletion. */
+    async function executeDelete(projectId) {
+        if (!projectId) return;
+
+        closeConfirmModal();
+        showMessage("Initiating project deletion...", false);
+
         try {
-            document.execCommand('copy');
-            showMessage("Code copied to clipboard!", false);
-        } catch (err) {
-            console.error('Failed to copy text:', err);
-            showMessage("Failed to copy code.", true);
-        }
-        document.body.removeChild(tempTextArea);
-    }
-
-    /** Handles deletion of a project from Firestore. */
-    window.handleDeleteProject = async function(projectId) {
-        if (!isAuthReady || !currentUserId) {
-            showMessage("System not ready or user ID missing.", true);
-            return;
-        }
-
-        // IMPORTANT: Since we can't use window.confirm(), this is a placeholder. 
-        // In a real app, this should be replaced with a custom modal.
-        if (true) { // Placeholder for custom confirmation dialog
-            showMessage("Initiating project deletion...", false);
-            
-            try {
-                // Document path: /artifacts/{appId}/users/{userId}/projects/{projectId}
-                const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
-                await deleteDoc(docRef);
-                showMessage("Project deleted successfully!", false);
-            } catch (error) {
-                console.error("Error deleting document:", error);
-                showMessage("Failed to delete project.", true);
-            }
+            // Document path: /artifacts/{appId}/users/{userId}/projects/{projectId}
+            const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
+            await deleteDoc(docRef);
+            showMessage("Project deleted successfully!", false);
+        } catch (error) {
+            console.error("Error deleting document:", error);
+            showMessage("Failed to delete project.", true);
+        } finally {
+            projectToDeleteId = null; // Clear the ID after deletion attempt
         }
     }
-
-
-    // --- NEW Modal Control Functions ---
     
-    /** Shows the edit modal and pre-fills data. */
-    // ⭐ REFACTORED: Takes ID, retrieves content from projectsData
-    window.openEditModal = function(projectId) {
-        const project = projectsData.get(projectId);
-        if (!project) {
-            showMessage("Project data not found for editing.", true);
-            return;
-        }
-        
-        document.getElementById('edit-project-id').value = projectId;
-        document.getElementById('edit-title').value = project.title;
-        document.getElementById('edit-prompt').value = project.prompt; 
+    // Attach the deletion execution to the confirm button
+    confirmDeleteButton.addEventListener('click', () => {
+        executeDelete(projectToDeleteId);
+    });
 
-        editModal.classList.remove('hidden');
-        editModal.classList.add('flex');
+    // --- Existing Edit Modal Control Functions ---
+    
+    /** Shows the edit modal and pre-fills data. */
+    // ⭐ REFACTORED: Takes ID, retrieves content from projectsData
+    window.openEditModal = function(projectId) {
+        const project = projectsData.get(projectId);
+        if (!project) {
+            showMessage("Project data not found for editing.", true);
+            return;
+        }
+        
+        document.getElementById('edit-project-id').value = projectId;
+        document.getElementById('edit-title').value = project.title;
+        document.getElementById('edit-prompt').value = project.prompt; 
+
+        editModal.classList.remove('hidden');
+        editModal.classList.add('flex');
+        
+        setTimeout(() => {
+            editModalContent.classList.remove('scale-95', 'opacity-0');
+            editModalContent.classList.add('scale-100', 'opacity-100');
+        }, 10);
+        lucide.createIcons();
+    }
+
+    /** Hides the edit modal. */
+    window.closeEditModal = function() {
+        editModalContent.classList.remove('scale-100', 'opacity-100');
+        editModalContent.classList.add('scale-95', 'opacity-0');
+        
+        setTimeout(() => {
+            editModal.classList.remove('flex');
+            editModal.classList.add('hidden');
+        }, 300);
+    }
+
+    /** Handles form submission to update Firestore. */
+    async function handleEditFormSubmit(e) {
+        e.preventDefault();
+        
+        if (!isAuthReady || !currentUserId) {
+            showMessage("System not ready or user ID missing.", true);
+            return;
+        }
+
+        const projectId = document.getElementById('edit-project-id').value;
+        const newTitle = document.getElementById('edit-title').value.trim();
+        const newPrompt = document.getElementById('edit-prompt').value.trim();
+
+        if (!newTitle || !newPrompt) {
+            showMessage("Title and Prompt cannot be empty.", true);
+            return;
+        }
+
+        showMessage("Saving changes...", false);
+        window.closeEditModal();
+        
+        try {
+            // Document path: /artifacts/{appId}/users/{userId}/projects/{projectId}
+            const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
+            
+            await updateDoc(docRef, {
+                title: newTitle, 
+                prompt: newPrompt,
+                updatedAt: Timestamp.fromDate(new Date()) // Use Firestore Timestamp
+            });
+
+            showMessage(`Project "${newTitle}" updated successfully!`, false);
+            
+        } catch (error) {
+            console.error("Error updating document:", error);
+            showMessage("Failed to save changes.", true);
+        }
+    }
+
+    // Attach the submit listener to the form element
+    if (editForm) {
+        editForm.addEventListener('submit', handleEditFormSubmit);
+    }
+    
+    // --- NEW Confirmation Modal Control Functions ---
+    
+    /** Shows the confirmation modal. */
+    function openConfirmModal() {
+        confirmModal.classList.remove('hidden');
+        confirmModal.classList.add('flex');
         
         setTimeout(() => {
-            editModalContent.classList.remove('scale-95', 'opacity-0');
-            editModalContent.classList.add('scale-100', 'opacity-100');
+            confirmModalContent.classList.remove('scale-95', 'opacity-0');
+            confirmModalContent.classList.add('scale-100', 'opacity-100');
         }, 10);
         lucide.createIcons();
     }
 
-    /** Hides the edit modal. */
-    window.closeEditModal = function() {
-        editModalContent.classList.remove('scale-100', 'opacity-100');
-        editModalContent.classList.add('scale-95', 'opacity-0');
+    /** Hides the confirmation modal. */
+    window.closeConfirmModal = function() {
+        confirmModalContent.classList.remove('scale-100', 'opacity-100');
+        confirmModalContent.classList.add('scale-95', 'opacity-0');
         
         setTimeout(() => {
-            editModal.classList.remove('flex');
-            editModal.classList.add('hidden');
+            confirmModal.classList.remove('flex');
+            confirmModal.classList.add('hidden');
+            projectToDeleteId = null; // Clear ID on cancel
         }, 300);
     }
 
-    /** Handles form submission to update Firestore. */
-    async function handleEditFormSubmit(e) {
-        e.preventDefault();
+
+    /** Renders the list of projects from Firestore data. (MODIFIED for Filtering) */
+    function renderProjects(projects, searchTerm = '') {
+        // Get the HTML of the static 'Create New Site' card
+        const createCardElement = projectsContainer.querySelector('div.cursor-pointer');
+        
+        if (!createCardElement) {
+            console.error("Could not find the static 'Create New Site' element.");
+            projectsContainer.innerHTML = `<p class="col-span-full text-center text-red-500 text-lg mt-10">Error: Missing Create Site element.</p>`;
+            return;
+        }
+        
+        // Ensure to remove existing content before prepending the 'Create Card' to prevent duplicates
+        projectsContainer.innerHTML = '';
+        const createCardHtml = createCardElement.outerHTML;
+
+        // Start HTML with the static 'Create New Site' card
+        let projectsHtml = createCardHtml;
         
-        if (!isAuthReady || !currentUserId) {
-            showMessage("System not ready or user ID missing.", true);
-            return;
-        }
+        // ** NEW: Filtering Logic **
+        const filteredProjects = projects.filter(project => {
+            if (!searchTerm) return true;
+            const term = searchTerm.toLowerCase();
+            return (
+                (project.title && project.title.toLowerCase().includes(term)) ||
+                (project.prompt && project.prompt.toLowerCase().includes(term))
+            );
+        });
 
-        const projectId = document.getElementById('edit-project-id').value;
-        const newTitle = document.getElementById('edit-title').value.trim();
-        const newPrompt = document.getElementById('edit-prompt').value.trim();
-
-        if (!newTitle || !newPrompt) {
-            showMessage("Title and Prompt cannot be empty.", true);
-            return;
-        }
-
-        showMessage("Saving changes...", false);
-        window.closeEditModal();
-        
-        try {
-            // Document path: /artifacts/{appId}/users/{userId}/projects/{projectId}
-            const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
-            
-            await updateDoc(docRef, {
-                title: newTitle, 
-                prompt: newPrompt,
-                updatedAt: Timestamp.fromDate(new Date()) // Use Firestore Timestamp
-            });
-
-            showMessage(`Project "${newTitle}" updated successfully!`, false);
-            
-        } catch (error) {
-            console.error("Error updating document:", error);
-            showMessage("Failed to save changes.", true);
-        }
-    }
-
-    // Attach the submit listener to the form element
-    if (editForm) {
-        editForm.addEventListener('submit', handleEditFormSubmit);
-    }
-
-
-    /** Renders the list of projects from Firestore data. */
-    function renderProjects(projects) {
-        // Get the HTML of the static 'Create New Site' card
-        const createCardElement = projectsContainer.querySelector('div.cursor-pointer');
-        
-        if (!createCardElement) {
-            console.error("Could not find the static 'Create New Site' element.");
-            projectsContainer.innerHTML = `<p class="col-span-full text-center text-red-500 text-lg mt-10">Error: Missing Create Site element.</p>`;
-            return;
-        }
-        
-        // Ensure to remove existing content before prepending the 'Create Card' to prevent duplicates
-        projectsContainer.innerHTML = '';
-        const createCardHtml = createCardElement.outerHTML;
-
-        // Start HTML with the static 'Create New Site' card
-        let projectsHtml = createCardHtml;
+        // Hide/show the 'No Projects' message based on the overall list, NOT the filtered one
+        const noProjectsMsg = document.getElementById('no-projects-message');
+        const noSearchResultsMsg = document.getElementById('no-search-results');
 
         if (projects.length === 0) {
-            // Show the 'Create New Site' card and the empty message
-            projectsContainer.innerHTML = createCardHtml + `<p id="no-projects-message" class="col-span-full text-center text-gray-500 text-lg mt-10">You haven't saved any projects yet. Click above to start!</p>`;
+            noProjectsMsg.classList.remove('hidden');
+            noSearchResultsMsg.classList.add('hidden');
+            projectsContainer.innerHTML = createCardHtml + noProjectsMsg.outerHTML;
             lucide.createIcons();
             return;
-        }
-        
-        // Generate HTML for each saved project
-        projects.forEach(project => {
-            
-            const title = project.title; 
-            const cleanPrompt = project.prompt; 
-            
-            // *** Get the date correctly from the Firestore Timestamp object ***
-            let dateObj;
-            if (project.createdAt && typeof project.createdAt.toDate === 'function') {
-                dateObj = project.createdAt.toDate();
-            } else if (project.createdAt && project.createdAt.seconds) {
-                dateObj = new Date(project.createdAt.seconds * 1000);
-            } else {
-                dateObj = new Date();
-            }
-            const timestamp = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-            // *** Escape the HTML content for display in the snippet box ***
-            const escapedCodeSnippet = escapeHtml(project.htmlContent);
-
-            projectsHtml += `
-                <!-- MODIFIED: Added onclick to link to editor.html using project ID -->
-                <div onclick="window.location.href='editor.html?id=${project.id}'"
-                    class="bg-white border border-gray-200 rounded-2xl p-6 flex flex-col justify-between shadow-lg hover:shadow-xl transition duration-300 cursor-pointer">
-                    <div>
-                        <div class="flex items-center justify-between mb-3">
-                            <h3 class="text-xl font-bold text-gray-900 truncate">${title}</h3>
-                            <i data-lucide="layout" class="w-6 h-6 text-ammoue/70 flex-shrink-0"></i>
-                        </div>
-                        <p class="text-xs text-gray-500 mb-2 h-10 line-clamp-2">${cleanPrompt}</p>
-                    </div>
-
-                    <div class="bg-gray-100 border border-gray-300 rounded-lg p-2 mb-4 h-32 overflow-y-scroll text-sm pointer-events-none">
-                        <pre class="whitespace-pre-wrap">
-                            <code class="text-xs text-gray-700">${escapedCodeSnippet}</code>
-                        </pre>
-                    </div>
-
-                    <div class="mt-auto">
-                        <p class="text-xs text-gray-400 mb-3">Saved: ${timestamp}</p>
-                        <!-- Prevent main card click when interacting with buttons -->
-                        <div class="flex space-x-2"> 
-                            
-                            <!-- ⭐ CRITICAL FIX: Only pass the ID to the function -->
-                            <button onclick="event.stopPropagation(); openEditModal('${project.id}')" 
-                                class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-amber-500 hover:bg-amber-600 transition duration-150 shadow-md" title="Edit Details">
-                                <i data-lucide="pencil" class="w-4 h-4 inline-block"></i>
-                            </button>
-                            
-                            <!-- ⭐ CRITICAL FIX: Only pass the ID to the function -->
-                            <button onclick="event.stopPropagation(); handleCopyCode('${project.id}')" 
-                                class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-gray-500 hover:bg-gray-600 transition duration-150 shadow-md" title="Copy Code">
-                                <i data-lucide="copy" class="w-4 h-4 inline-block"></i>
-                            </button>
-
-                            <!-- ⭐ CRITICAL FIX: Only pass the ID to the function -->
-                            <button onclick="event.stopPropagation(); handlePreview('${project.id}')" class="flex-1 px-3 py-2 text-sm font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-md">
-                                <i data-lucide="eye" class="w-4 h-4 inline-block mr-1"></i> Preview
-                            </button>
-                            
-                            <!-- ⭐ CRITICAL FIX: Only pass the ID to the function -->
-                            <button onclick="event.stopPropagation(); handleDownload('${project.id}')" class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-green-600 hover:bg-green-700 transition duration-150 shadow-md">
-                                <i data-lucide="download" class="w-4 h-4 inline-block"></i>
-                            </button>
-                            <button onclick="event.stopPropagation(); handleDeleteProject('${project.id}')" class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150 shadow-md">
-                                <i data-lucide="trash-2" class="w-4 h-4 inline-block"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        });
-
-        projectsContainer.innerHTML = projectsHtml;
-        // Re-render Lucide icons after injecting new HTML
-        lucide.createIcons();
-    }
-
-
-    /** Fetches projects for the current user in real-time. */
-    function getProjects(userId) {
-        if (!db || !userId) return;
-
-        // Collection path: /artifacts/{appId}/users/{userId}/projects
-        const projectsRef = collection(db, 'artifacts', appId, 'users', userId, 'projects');
-        const q = query(projectsRef);
-
-        // Set up the real-time listener (onSnapshot)
-        onSnapshot(q, (snapshot) => {
-            const projects = [];
-            // Clear the projectsData map before repopulating
-            projectsData.clear(); 
-            
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                
-                // Clean the prompt by replacing the literal '\n' sequences with real line breaks
-                const cleanPrompt = data.prompt ? data.prompt.replace(/\\n/g, '\n') : "No prompt available";
-                
-                // Use UTF-8 safe encoding before btoa() for the preview/download buttons
-                const utf8Encoded = unescape(encodeURIComponent(data.htmlContent || ''));
-                const encodedHtmlContent = btoa(utf8Encoded);
-
-                const project = {
-                    id: doc.id,
-                    ...data,
-                    // Use more sensible default fields for robust rendering
-                    title: data.title || (cleanPrompt.split('\n')[0].substring(0, 30).trim() + (cleanPrompt.split('\n')[0].length > 30 ? '...' : '') || "Untitled Project"),
-                    prompt: cleanPrompt, // The cleaned prompt string
-                    htmlContent: data.htmlContent || "", // The original raw HTML
-                    encodedHtmlContent: encodedHtmlContent, // The Base64 encoded HTML
-                    createdAt: data.createdAt 
-                };
-                
-                // ⭐ CRITICAL FIX: Store the full, processed project object in the map
-                projectsData.set(doc.id, project);
-                projects.push(project);
-            });
-
-            // Sort by createdAt descending (newest first) in memory.
-            projects.sort((a, b) => {
-                const timeA = a.createdAt instanceof Timestamp ? a.createdAt.toMillis() : 0;
-                const timeB = b.createdAt instanceof Timestamp ? b.createdAt.toMillis() : 0;
-                return timeB - timeA; // Descending order (newest first)
-            });
-
-            renderProjects(projects);
-        }, (error) => {
-            console.error("Error fetching projects:", error);
-            showMessage("Failed to load projects.", true);
-        });
-    }
-
-
-    /** Initializes Firebase services and sets up the critical auth listener. */
-    function initializeAppAndAuth() {
-        try {
-            const app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-
-            // CRITICAL: Authentication Gate using the listener
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    currentUserId = user.uid;
-                    isAuthReady = true;
-
-                    userEmailSpan.textContent = user.email || user.uid;
-
-                    // Fetch projects for the logged-in user (CORE INTEGRATION)
-                    getProjects(currentUserId);
-
-                    // Show dashboard content
-                    loadingScreen.classList.add('hidden');
-                    dashboardContent.classList.remove('hidden');
-                    dashboardContent.classList.add('opacity-100');
-                } else {
-                    // **FAILURE** - User is NOT authenticated: Redirect to login page
-                    console.log("No valid session found. Redirecting to login.html...");
-                    window.location.href = 'login.html';
-                }
-            });
-
-        } catch (error) {
-            console.error("Firebase initialization failed:", error);
-            showMessage("Initialization error. Redirecting to login...", true);
-            setTimeout(() => {
-                window.location.href = 'login.html';
-            }, 500);
-        }
-    }
-
-    /** Logs the current user out. */
-    window.handleLogout = async function() {
-        if (auth) {
-            try {
-                await signOut(auth);
-                showMessage("You have been signed out.", false);
-            } catch (error) {
-                console.error("Logout failed:", error);
-                showMessage("Logout failed. Please try again.", true);
-            }
         } else {
-            window.location.href = 'login.html';
+            noProjectsMsg.classList.add('hidden');
         }
+
+        if (searchTerm && filteredProjects.length === 0) {
+            noSearchResultsMsg.classList.remove('hidden');
+            projectsContainer.innerHTML = createCardHtml + noSearchResultsMsg.outerHTML;
+            lucide.createIcons();
+            return;
+        } else {
+            noSearchResultsMsg.classList.add('hidden');
+        }
+        // ** END: Filtering Logic **
+
+        // Generate HTML for each saved project (using filteredProjects)
+        filteredProjects.forEach(project => {
+            
+            const title = project.title; 
+            const cleanPrompt = project.prompt; 
+            
+            // *** Get the date correctly from the Firestore Timestamp object ***
+            let dateObj;
+            if (project.createdAt && typeof project.createdAt.toDate === 'function') {
+                dateObj = project.createdAt.toDate();
+            } else if (project.createdAt && project.createdAt.seconds) {
+                dateObj = new Date(project.createdAt.seconds * 1000);
+            } else {
+                dateObj = new Date();
+            }
+            const timestamp = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            // *** Escape the HTML content for display in the snippet box ***
+            const escapedCodeSnippet = escapeHtml(project.htmlContent);
+
+            projectsHtml += `
+                                <div onclick="window.location.href='editor.html?id=${project.id}'"
+                    class="bg-white border border-gray-200 rounded-2xl p-6 flex flex-col justify-between shadow-lg hover:shadow-xl transition duration-300 cursor-pointer">
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-xl font-bold text-gray-900 truncate">${title}</h3>
+                            <i data-lucide="layout" class="w-6 h-6 text-ammoue/70 flex-shrink-0"></i>
+                        </div>
+                        <p class="text-xs text-gray-500 mb-2 h-10 line-clamp-2">${cleanPrompt}</p>
+                    </div>
+
+                    <div class="bg-gray-100 border border-gray-300 rounded-lg p-2 mb-4 h-32 overflow-y-scroll text-sm pointer-events-none">
+                        <pre class="whitespace-pre-wrap">
+                            <code class="text-xs text-gray-700">${escapedCodeSnippet}</code>
+                        </pre>
+                    </div>
+
+                    <div class="mt-auto">
+                        <p class="text-xs text-gray-400 mb-3">Saved: ${timestamp}</p>
+                                                <div class="flex space-x-2"> 
+                            
+                                                        <button onclick="event.stopPropagation(); openEditModal('${project.id}')" 
+                                class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-amber-500 hover:bg-amber-600 transition duration-150 shadow-md" title="Edit Details">
+                                <i data-lucide="pencil" class="w-4 h-4 inline-block"></i>
+                            </button>
+                            
+                                                        <button onclick="event.stopPropagation(); handleCopyCode('${project.id}')" 
+                                class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-gray-500 hover:bg-gray-600 transition duration-150 shadow-md" title="Copy Code">
+                                <i data-lucide="copy" class="w-4 h-4 inline-block"></i>
+                            </button>
+
+                                                        <button onclick="event.stopPropagation(); handlePreview('${project.id}')" class="flex-1 px-3 py-2 text-sm font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-md">
+                                <i data-lucide="eye" class="w-4 h-4 inline-block mr-1"></i> Preview
+                            </button>
+                            
+                                                        <button onclick="event.stopPropagation(); handleDownload('${project.id}')" class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-green-600 hover:bg-green-700 transition duration-150 shadow-md">
+                                <i data-lucide="download" class="w-4 h-4 inline-block"></i>
+                            </button>
+                                                        <button onclick="event.stopPropagation(); handleDeleteProject('${project.id}')" class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150 shadow-md">
+                                <i data-lucide="trash-2" class="w-4 h-4 inline-block"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        projectsContainer.innerHTML = projectsHtml;
+        // Re-render Lucide icons after injecting new HTML
+        lucide.createIcons();
+    }
+
+    /** NEW: Filters projects based on the search bar input. */
+    window.filterProjects = function() {
+        const searchTerm = projectSearchInput.value.trim();
+        renderProjects(allProjectsList, searchTerm); // Use the in-memory array
     }
 
-    // --- Run Initialization Immediately ---
-    initializeAppAndAuth();
-    lucide.createIcons();
+
+    /** Fetches projects for the current user in real-time. (MODIFIED to store projects in an array) */
+    function getProjects(userId) {
+        if (!db || !userId) return;
+
+        // Collection path: /artifacts/{appId}/users/{userId}/projects
+        const projectsRef = collection(db, 'artifacts', appId, 'users', userId, 'projects');
+        const q = query(projectsRef);
+
+        // Set up the real-time listener (onSnapshot)
+        onSnapshot(q, (snapshot) => {
+            const projects = [];
+            // Clear the projectsData map before repopulating
+            projectsData.clear(); 
+            
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                
+                // Clean the prompt by replacing the literal '\n' sequences with real line breaks
+                const cleanPrompt = data.prompt ? data.prompt.replace(/\\n/g, '\n') : "No prompt available";
+                
+                // Use UTF-8 safe encoding before btoa() for the preview/download buttons
+                const utf8Encoded = unescape(encodeURIComponent(data.htmlContent || ''));
+                const encodedHtmlContent = btoa(utf8Encoded);
+
+                const project = {
+                    id: doc.id,
+                    ...data,
+                    // Use more sensible default fields for robust rendering
+                    title: data.title || (cleanPrompt.split('\n')[0].substring(0, 30).trim() + (cleanPrompt.split('\n')[0].length > 30 ? '...' : '') || "Untitled Project"),
+                    prompt: cleanPrompt, // The cleaned prompt string
+                    htmlContent: data.htmlContent || "", // The original raw HTML
+                    encodedHtmlContent: encodedHtmlContent, // The Base64 encoded HTML
+                    createdAt: data.createdAt 
+                };
+                
+                // ⭐ CRITICAL FIX: Store the full, processed project object in the map
+                projectsData.set(doc.id, project);
+                projects.push(project);
+            });
+
+            // Sort by createdAt descending (newest first) in memory.
+            projects.sort((a, b) => {
+                const timeA = a.createdAt instanceof Timestamp ? a.createdAt.toMillis() : 0;
+                const timeB = b.createdAt instanceof Timestamp ? b.createdAt.toMillis() : 0;
+                return timeB - timeA; // Descending order (newest first)
+            });
+            
+            // Store the full list for searching
+            allProjectsList = projects;
+
+            // Render the projects, using the current search term if any
+            renderProjects(allProjectsList, projectSearchInput.value.trim());
+
+        }, (error) => {
+            console.error("Error fetching projects:", error);
+            showMessage("Failed to load projects.", true);
+        });
+    }
+
+
+    /** Initializes Firebase services and sets up the critical auth listener. */
+    function initializeAppAndAuth() {
+        try {
+            const app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+
+            // CRITICAL: Authentication Gate using the listener
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    currentUserId = user.uid;
+                    isAuthReady = true;
+
+                    userEmailSpan.textContent = user.email || user.uid;
+
+                    // Fetch projects for the logged-in user (CORE INTEGRATION)
+                    getProjects(currentUserId);
+
+                    // Show dashboard content
+                    loadingScreen.classList.add('hidden');
+                    dashboardContent.classList.remove('hidden');
+                    dashboardContent.classList.add('opacity-100');
+                } else {
+                    // **FAILURE** - User is NOT authenticated: Redirect to login page
+                    console.log("No valid session found. Redirecting to login.html...");
+                    window.location.href = 'login.html';
+                }
+            });
+
+        } catch (error) {
+            console.error("Firebase initialization failed:", error);
+            showMessage("Initialization error. Redirecting to login...", true);
+            setTimeout(() => {
+                window.location.href = 'login.html';
+            }, 500);
+        }
+    }
+
+    /** Logs the current user out. */
+    window.handleLogout = async function() {
+        if (auth) {
+            try {
+                await signOut(auth);
+                showMessage("You have been signed out.", false);
+            } catch (error) {
+                console.error("Logout failed:", error);
+                showMessage("Logout failed. Please try again.", true);
+            }
+        } else {
+            window.location.href = 'login.html';
+        }
+    }
+
+    // --- Run Initialization Immediately ---
+    initializeAppAndAuth();
+    lucide.createIcons();
 
 </script>
 </body>
