@@ -118,10 +118,8 @@
     <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-    // Imports for Firestore Auto-Saving
     import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
     
-    // --- FIREBASE CONFIGURATION ---
     const firebaseConfig = {
         apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
         authDomain: "ammoueai.firebaseapp.com",
@@ -131,14 +129,12 @@
         appId: "1:135818868149:web:db9280baf9540a3339d5fc",
     };
     
-    // --- Initialize Firebase and Services ---
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
-    const db = getFirestore(app); // Firestore initialization
-    const appId = firebaseConfig.projectId; // App ID for nested path
-    let currentUserId = null; // Stores the logged-in user's UID
+    const db = getFirestore(app);
+    const appId = firebaseConfig.projectId;
+    let currentUserId = null;
 
-    // --- DOM Elements ---
     const loadingState = document.getElementById('loading-state');
     const mainContent = document.getElementById('main-content');
     const logoutBtn = document.getElementById('logout-btn');
@@ -150,7 +146,6 @@
     const copyBtn = document.getElementById('copy-btn');
     const previewBtn = document.getElementById('preview-btn');
     const messageBox = document.getElementById('message-box');
-    // NEW: Refinement Agent Elements
     const refinePromptInput = document.getElementById('refine-prompt');
     const refineBtn = document.getElementById('refine-btn');
 
@@ -158,66 +153,45 @@
     let latestHtmlContent = ''; 
     let latestPrompt = ''; 
 
-    // --- Utility Functions ---
-
-    /** Displays a temporary, custom message box. */
     function showMessage(message, isError) {
         messageBox.textContent = message;
-        
-        if (isError) {
-            messageBox.classList.remove('bg-green-500', 'bg-ammoue');
-            messageBox.classList.add('bg-red-500');
-        } else {
-            messageBox.classList.remove('bg-red-500');
-            messageBox.classList.add('bg-ammoue');
-        }
-
+        messageBox.classList.toggle('bg-red-500', isError);
+        messageBox.classList.toggle('bg-ammoue', !isError);
         messageBox.classList.remove('opacity-0');
         messageBox.classList.add('opacity-100');
-
         setTimeout(() => {
             messageBox.classList.remove('opacity-100');
             messageBox.classList.add('opacity-0');
         }, 4000);
     }
 
-    /** Sets the loading state on the generate button. (MODIFIED) */
     function setLoading(isLoading) {
         if (isLoading) {
             generateBtn.disabled = true;
-            refineBtn.disabled = true; // Disable refine while generating
-            downloadBtn.disabled = true; 
-            generateBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Generating...';
+            refineBtn.disabled = true;
+            downloadBtn.disabled = true;
+            generateBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Building...';
         } else {
             generateBtn.disabled = false;
             generateBtn.innerHTML = 'Generate HTML Code';
-            // Only enable refine if there is content
-            if (latestHtmlContent) {
-                refineBtn.disabled = false;
-            }
+            if (latestHtmlContent) refineBtn.disabled = false;
         }
     }
-    
-    /** Sets the loading state on the refine button. (NEW FUNCTION) */
+
     function setRefineLoading(isLoading) {
         if (isLoading) {
             refineBtn.disabled = true;
-            generateBtn.disabled = true; // Disable generation while refining
+            generateBtn.disabled = true;
             downloadBtn.disabled = true;
             refineBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Refining...';
         } else {
             refineBtn.disabled = false;
             generateBtn.disabled = false;
-            // Re-enable refine and download if there is content
-            if (latestHtmlContent) {
-                downloadBtn.disabled = false;
-            }
+            if (latestHtmlContent) downloadBtn.disabled = false;
             refineBtn.innerHTML = 'Refine Code';
         }
     }
 
-
-    /** Utility function to copy text to clipboard. */
     function copyToClipboard(text) {
         try {
             const textarea = document.createElement('textarea');
@@ -227,21 +201,14 @@
             document.execCommand('copy');
             document.body.removeChild(textarea);
             showMessage("Code copied to clipboard!", false);
-        } catch (err) {
-            console.error('Failed to copy text:', err);
+        } catch {
             showMessage("Failed to copy code.", true);
         }
     }
-    
-    /** Handles downloading the generated HTML content. */
-    function handleDownload() {
-        const htmlCode = outputCode.textContent;
-        if (!htmlCode) {
-            showMessage("No HTML code available to download.", true);
-            return;
-        }
 
-        const blob = new Blob([htmlCode], { type: "text/html" });
+    function handleDownload() {
+        if (!outputCode.textContent) return showMessage("No HTML code to download.", true);
+        const blob = new Blob([outputCode.textContent], { type: "text/html" });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
         link.download = "ammoue_website.html"; 
@@ -250,70 +217,41 @@
         document.body.removeChild(link);
         showMessage("Download started!", false);
     }
-    
-    /** Opens the generated HTML in a new window for a live preview. */
+
     function handlePreview() {
-        const htmlContent = previewBtn.dataset.html;
-        if (!htmlContent) {
-            showMessage("No HTML code available to preview.", true);
-            return;
-        }
-
+        if (!previewBtn.dataset.html) return showMessage("No HTML code to preview.", true);
         const previewWindow = window.open('', '_blank');
-        if (!previewWindow) {
-             showMessage("Pop-ups must be enabled to view the preview.", true);
-             return;
-        }
-
-        previewWindow.document.write(htmlContent);
+        if (!previewWindow) return showMessage("Enable pop-ups to preview.", true);
+        previewWindow.document.write(previewBtn.dataset.html);
         previewWindow.document.close();
     }
 
-    // *** Auto-Save Logic (runs after successful generation/refinement) ***
     async function autoSaveProject(htmlContent, userPrompt) {
-        if (!currentUserId || !htmlContent) {
-            console.error("Auto-save failed: Missing user ID or content.");
-            return;
-        }
-        
-        // ⭐ CRITICAL FIX: Clean the prompt data before saving it to Firestore ⭐
-        const cleanedPrompt = userPrompt.replace(/\\n/g, '\n');
-
+        if (!currentUserId || !htmlContent) return;
         try {
-            // Secure Nested Path: /artifacts/{appId}/users/{userId}/projects
             const projectsRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'projects');
-
             await addDoc(projectsRef, {
-                prompt: cleanedPrompt, // USE THE CLEANED PROMPT HERE
-                htmlContent: htmlContent,
+                prompt: userPrompt.replace(/\\n/g, '\n'),
+                htmlContent,
                 createdAt: serverTimestamp(), 
             });
-
             console.log("Project auto-saved successfully.");
-
         } catch (error) {
             console.error("Error during auto-save:", error);
             showMessage("Warning: Failed to auto-save project.", true);
         }
     }
 
-    // --- AI Generation Logic (STREAMING VERSION) ---
-
-    /** Handles the initial generation process. */
     async function handleGeneration() {
         const prompt = promptInput.value.trim();
-        if (prompt.length < 10) {
-            showMessage("Please provide a detailed prompt (min 10 chars).", true);
-            return;
-        }
+        if (prompt.length < 10) return showMessage("Please provide a detailed prompt (min 10 chars).", true);
 
         setLoading(true);
         outputDiv.classList.remove("hidden");
         outputCode.textContent = "";
         latestHtmlContent = "";
         downloadBtn.disabled = true;
-        refineBtn.disabled = true; // Disable until content is generated
-
+        refineBtn.disabled = true;
         latestPrompt = prompt;
 
         const response = await fetch("/api/generate.js", {
@@ -323,9 +261,8 @@
         });
 
         if (!response.ok || !response.body) {
-            showMessage("Failed to connect to AI server.", true);
             setLoading(false);
-            return;
+            return showMessage("Failed to connect to AI server.", true);
         }
 
         const reader = response.body.getReader();
@@ -333,6 +270,7 @@
         let buffer = "";
         let html = "";
 
+        // Live typing effect logic
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
@@ -348,21 +286,11 @@
 
                 try {
                     const parsed = JSON.parse(data);
-                    // Ensure 'text' property exists before appending
                     if (parsed.text) {
                         html += parsed.text;
-
-                        // Show live code updates
-                        outputCode.textContent = html;
-                        outputCode.scrollTop = outputCode.scrollHeight;
-
-                        // Optional: Live visual preview data update
-                        previewBtn.dataset.html = html;
+                        await typeHtmlLive(parsed.text); // <- NEW live typing
                     }
-                } catch (e) {
-                    // Ignore partial JSON
-                    // console.log("Ignoring partial JSON chunk:", part, e);
-                }
+                } catch {}
             }
         }
 
@@ -371,7 +299,7 @@
             showMessage("Website built live! Auto-saved.", false);
             autoSaveProject(latestHtmlContent, prompt);
             downloadBtn.disabled = false;
-            refineBtn.disabled = false; // Enable refine after successful generation
+            refineBtn.disabled = false;
         } else {
             showMessage("No HTML generated.", true);
         }
@@ -379,90 +307,58 @@
         setLoading(false);
     }
 
-    /** Handles the AI refinement process. (NEW FUNCTION) */
+    // Live typing effect function
+    async function typeHtmlLive(newText) {
+        for (let i = 0; i < newText.length; i++) {
+            outputCode.textContent += newText[i];
+            outputCode.scrollTop = outputCode.scrollHeight; // Auto-scroll
+            previewBtn.dataset.html = outputCode.textContent;
+            await new Promise(r => setTimeout(r, 2)); // ~2ms per char
+        }
+    }
+
     async function handleRefine() {
         const refinePrompt = refinePromptInput.value.trim();
-        
-        if (!latestHtmlContent) {
-            showMessage("Please generate initial HTML first.", true);
-            return;
-        }
-
-        if (refinePrompt.length < 5) {
-            showMessage("Please enter a detailed refinement instruction (at least 5 characters).", true);
-            return;
-        }
+        if (!latestHtmlContent) return showMessage("Generate HTML first.", true);
+        if (refinePrompt.length < 5) return showMessage("Enter refinement instruction.", true);
 
         setRefineLoading(true);
 
-        // This is the new API endpoint you need to implement
-        const apiEndpoint = '/api/refine.js'; 
-        console.log(`Attempting to call AI refinement endpoint: ${apiEndpoint}`);
-
-        const payload = {
-            currentHtml: latestHtmlContent, // Pass the existing code
-            refinePrompt: refinePrompt,     // Pass the refinement instruction
-        };
-
+        const payload = { currentHtml: latestHtmlContent, refinePrompt };
         const maxRetries = 3;
+
         for (let attempt = 0; attempt < maxRetries; attempt++) {
             try {
-                const response = await fetch(apiEndpoint, {
+                const response = await fetch('/api/refine.js', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-
-                if (!response.ok) {
-                    const errorBody = await response.json().catch(() => ({}));
-                    const errorMessage = errorBody.error || response.statusText || "Unknown server error.";
-                    throw new Error(`API Proxy Error [Status: ${response.status}]: ${errorMessage}`);
-                }
+                if (!response.ok) throw new Error("Refine failed.");
 
                 const result = await response.json();
                 const generatedHtml = result.htmlCode;
 
                 if (generatedHtml) {
-                    const finalHtml = generatedHtml.trim();
-                    outputCode.textContent = finalHtml;
-                    latestHtmlContent = finalHtml;
-                    
-                    // Append refinement to the prompt history for saving
-                    latestPrompt = (latestPrompt || promptInput.value.trim()) + `\n\n[Refined]: ${refinePrompt}`; 
-                    
-                    previewBtn.dataset.html = finalHtml;
-
-                    outputDiv.classList.remove('hidden');
-                    downloadBtn.disabled = false;
-                    
-                    // CRITICAL STEP: AUTO-SAVE ASYNCHRONOUSLY
-                    autoSaveProject(finalHtml, latestPrompt); 
-                    
+                    latestHtmlContent = generatedHtml.trim();
+                    outputCode.textContent = latestHtmlContent;
+                    previewBtn.dataset.html = latestHtmlContent;
+                    latestPrompt += `\n\n[Refined]: ${refinePrompt}`;
+                    autoSaveProject(latestHtmlContent, latestPrompt);
                     showMessage("Code refined and auto-saved!", false);
-                    refinePromptInput.value = ''; // Clear the refinement prompt
-                    break; // Exit loop on success
+                    refinePromptInput.value = '';
+                    break;
                 } else {
-                    throw new Error("API response missing 'htmlCode' content.");
+                    throw new Error("API missing htmlCode.");
                 }
-
             } catch (error) {
-                console.error(`Refine Attempt ${attempt + 1} failed:`, error.message);
-                if (attempt === maxRetries - 1) {
-                    showMessage("Refinement failed after multiple retries.", true);
-                } else {
-                    const delay = Math.pow(2, attempt) * 1000;
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                }
+                if (attempt === maxRetries - 1) showMessage("Refinement failed.", true);
+                else await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 1000));
             }
         }
 
         setRefineLoading(false);
     }
-
-
-    // ------------------------------------------------------------------
-    // ⭐ CODE FOR TYPING PLACEHOLDER EFFECT STARTS HERE ⭐
-    // ------------------------------------------------------------------
 
     const placeholderPrompts = [
         "A minimalist portfolio for a futuristic fashion designer.",
@@ -474,120 +370,69 @@
         "An AI art generator website with live previews"
     ];
 
-    let promptTypingIndex = 0; 
-    let charIndex = 0;
-    let isDeleting = false;
-    const typingSpeed = 75; 
-    const deletingSpeed = 40; 
-    const delayBetweenPrompts = 2000; 
-    const defaultPlaceholder = "e.g., 'A vibrant landing page for a dog grooming salon called Paws & Claws, focusing on luxury services and online booking.'";
+    let promptTypingIndex = 0, charIndex = 0, isDeleting = false;
+    const typingSpeed = 75, deletingSpeed = 40, delayBetweenPrompts = 2000;
+    const defaultPlaceholder = "e.g., 'A vibrant landing page for a dog grooming salon...'";
 
-    /**
-     * Handles the cycling and typing effect for the placeholder.
-     */
     function typePlaceholderEffect() {
-        // Stop the effect if the user has started typing
-        if (promptInput.value.length > 0) {
-            return; 
-        }
-        
+        if (promptInput.value.length > 0) return;
         const currentPrompt = placeholderPrompts[promptTypingIndex];
         let placeholderText = promptInput.getAttribute('placeholder') || '';
-
         if (isDeleting) {
-            // DELETE PHASE
             placeholderText = currentPrompt.substring(0, charIndex - 1);
             charIndex--;
             if (charIndex === 0) {
                 isDeleting = false;
                 promptTypingIndex = (promptTypingIndex + 1) % placeholderPrompts.length;
-                setTimeout(typePlaceholderEffect, 500); // Small pause after deletion
+                setTimeout(typePlaceholderEffect, 500);
                 return;
             }
         } else {
-            // TYPING PHASE
             placeholderText = currentPrompt.substring(0, charIndex + 1);
             charIndex++;
             if (charIndex === currentPrompt.length) {
                 isDeleting = true;
-                setTimeout(typePlaceholderEffect, delayBetweenPrompts); // Long pause at the end
+                setTimeout(typePlaceholderEffect, delayBetweenPrompts);
                 return;
             }
         }
-
-        // Apply the new text
         promptInput.setAttribute('placeholder', placeholderText);
-
-        // Calculate the next delay
-        const speed = isDeleting ? deletingSpeed : typingSpeed;
-        setTimeout(typePlaceholderEffect, speed);
+        setTimeout(typePlaceholderEffect, isDeleting ? deletingSpeed : typingSpeed);
     }
 
-    // Add an input listener to stop the animation when the user starts typing
-    // and to restart it if the user clears the input.
     promptInput.addEventListener('input', () => {
-             if (promptInput.value.length > 0) {
-                 // User started typing, set the placeholder back to the default hint
-                 promptInput.setAttribute('placeholder', defaultPlaceholder); 
-             } else if (promptInput.value.length === 0) {
-                 // User cleared the input, restart the effect
-                 // Reset the internal state to start from the beginning of the next prompt
-                 promptTypingIndex = 0;
-                 charIndex = 0;
-                 isDeleting = false;
-                 typePlaceholderEffect(); 
-             }
-         });
-
-
-    // ------------------------------------------------------------------
-    // ⭐ CODE FOR TYPING PLACEHOLDER EFFECT ENDS HERE ⭐
-    // ------------------------------------------------------------------
-
-
-    // --- Authentication Guard and Event Listeners ---
+        if (promptInput.value.length > 0) promptInput.setAttribute('placeholder', defaultPlaceholder);
+        else {
+            promptTypingIndex = 0;
+            charIndex = 0;
+            isDeleting = false;
+            typePlaceholderEffect();
+        }
+    });
 
     onAuthStateChanged(auth, (user) => {
-        console.log("Auth state resolved. User:", user ? user.email : "none");
-
         if (user) {
-            currentUserId = user.uid; // Store the user ID
-            
-            // User is logged in: Show the content
+            currentUserId = user.uid;
             loadingState.style.pointerEvents = 'none';
             loadingState.classList.add('hidden');
-            loadingState.style.opacity = '0'; 
+            loadingState.style.opacity = '0';
             mainContent.classList.remove('hidden');
-
             if (!listenersAttached) {
                 generateBtn.addEventListener('click', handleGeneration);
-                refineBtn.addEventListener('click', handleRefine); 
+                refineBtn.addEventListener('click', handleRefine);
                 copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
                 downloadBtn.addEventListener('click', handleDownload);
                 previewBtn.addEventListener('click', handlePreview);
-                
-                logoutBtn.addEventListener('click', async () => {
-                    try {
-                        await signOut(auth);
-                    } catch (error) {
-                        console.error("Logout failed:", error);
-                    }
-                });
-
-                // ⭐ START THE TYPING EFFECT HERE AFTER AUTHENTICATION IS COMPLETE ⭐
-                typePlaceholderEffect(); 
-
+                logoutBtn.addEventListener('click', async () => { try { await signOut(auth); } catch {} });
+                typePlaceholderEffect();
                 listenersAttached = true;
             }
         } else {
-            // User is NOT logged in: Redirect them to login.
-            console.log("User not authenticated. Redirecting to login.");
-            const currentPath = window.location.pathname;
-            const redirectUrl = 'login.html?redirect=' + encodeURIComponent(currentPath);
+            const redirectUrl = 'login.html?redirect=' + encodeURIComponent(window.location.pathname);
             window.location.replace(redirectUrl); 
         }
     });
-    
+
     lucide.createIcons();
 </script>
 </body>
