@@ -31,125 +31,252 @@
             max-width: 90%; /* Ensure it fits on smaller screens */
             text-align: center;
         }
+
+        /* --- TESTIMONIAL STYLES & ANIMATION --- */
+
+        /* Hides the testimonial columns on smaller screens */
+        .testimonial-col {
+            display: none; 
+            overflow: hidden;
+        }
+
+        /* Shows testimonial columns on large screens (Tailwind's 'lg' breakpoint) */
+        @media (min-width: 1024px) {
+            .testimonial-col {
+                display: block;
+                height: 90vh; /* Set a fixed viewport height for the scrolling area */
+                width: 250px; /* Fixed width for the columns */
+                mask-image: linear-gradient(to top, transparent, black 15%, black 85%, transparent); /* Fade effect at top/bottom */
+            }
+        }
+
+        /* Keyframe animation for scrolling */
+        @keyframes scroll-up {
+            to {
+                transform: translateY(-50%); /* Scroll up by exactly half (to create the loop) */
+            }
+        }
+        @keyframes scroll-down {
+            to {
+                transform: translateY(0%); /* Scroll down by exactly half (to create the loop) */
+            }
+        }
+
+        /* Class for the container holding the duplicated reviews */
+        .reviews-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem; /* Gap between reviews */
+            padding: 1.5rem;
+        }
+
+        /* Apply the animation */
+        #left-reviews {
+            animation: scroll-up 60s linear infinite; /* Left moves up */
+        }
+        #right-reviews {
+            /* To create the loop, we effectively scroll from -50% to 0% and repeat */
+            animation: scroll-down 60s linear infinite; /* Right moves down */
+            transform: translateY(-50%); /* Start at the bottom half */
+        }
+
+        /* Stop animation on hover */
+        .testimonial-col:hover .reviews-container {
+            animation-play-state: paused;
+        }
     </style>
 </head>
 <body class="antialiased min-h-screen flex items-center justify-center p-4">
 
     <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold"></div>
 
-    <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 sm:p-10 border border-gray-100">
+    <div class="flex justify-center items-center w-full lg:max-w-6xl">
 
-        <a href="index.html" class="flex flex-col items-center mb-8">
-            <span class="text-4xl font-extrabold text-ammoue">Ammoue</span>
-            <p class="text-sm text-gray-500 mt-1">AI Website Builder</p>
-        </a>
-
-        <div class="flex mb-6 p-1 bg-gray-100 rounded-xl shadow-inner">
-            <button id="login-tab" onclick="toggleForm('login')" type="button" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-colors duration-200">Log In</button>
-            <button id="signup-tab" onclick="toggleForm('signup')" type="button" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-colors duration-200">Sign Up</button>
+        <div class="testimonial-col mr-8">
+            <div id="left-reviews" class="reviews-container">
+                </div>
         </div>
 
-        <form id="login-form" class="space-y-6" onsubmit="handleLogin(event)">
-            <h2 class="text-2xl font-bold text-gray-800 text-center mb-4">Welcome Back</h2>
+        <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 sm:p-10 border border-gray-100">
 
-            <div>
-                <label for="login-email" class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                <input type="email" id="login-email" required class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-ammoue focus:border-ammoue transition duration-150" placeholder="you@example.com">
+            <a href="index.html" class="flex flex-col items-center mb-8">
+                <span class="text-4xl font-extrabold text-ammoue">Ammoue</span>
+                <p class="text-sm text-gray-500 mt-1">AI Website Builder</p>
+            </a>
+
+            <div class="flex mb-6 p-1 bg-gray-100 rounded-xl shadow-inner">
+                <button id="login-tab" onclick="toggleForm('login')" type="button" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-colors duration-200">Log In</button>
+                <button id="signup-tab" onclick="toggleForm('signup')" type="button" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-colors duration-200">Sign Up</button>
             </div>
 
-            <div>
-                <label for="login-password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                <input type="password" id="login-password" required class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-ammoue focus:border-ammoue transition duration-150" placeholder="••••••••">
-            </div>
+            <form id="login-form" class="space-y-6" onsubmit="handleLogin(event)">
+                <h2 class="text-2xl font-bold text-gray-800 text-center mb-4">Welcome Back</h2>
 
-            <div class="flex items-center justify-between text-sm">
-                <a href="#" class="font-medium text-ammoue hover:text-teal-600">Forgot Password?</a>
-            </div>
-
-            <button type="submit" id="login-btn" class="w-full py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-lg shadow-teal-500/30 transform hover:scale-[1.01]">
-                Log In
-            </button>
-
-            <div class="relative pt-2">
-                <div class="absolute inset-0 flex items-center">
-                    <div class="w-full border-t border-gray-300"></div>
+                <div>
+                    <label for="login-email" class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                    <input type="email" id="login-email" required class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-ammoue focus:border-ammoue transition duration-150" placeholder="you@example.com">
                 </div>
-                <div class="relative flex justify-center text-sm">
-                    <span class="px-2 bg-white text-gray-500">Or continue with</span>
+
+                <div>
+                    <label for="login-password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <input type="password" id="login-password" required class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-ammoue focus:border-ammoue transition duration-150" placeholder="••••••••">
                 </div>
-            </div>
 
-            <button type="button" 
-                    id="google-login-btn" 
-                    onclick="handleGoogleAuth(this)" 
-                    class="w-full flex items-center justify-center py-2.5 border border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 transition duration-150">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/4/4a/Logo_and_wordmark_of_Google.svg" class="w-5 h-5 mr-2" alt="Google logo">
-                Sign in with Google
-            </button>
+                <div class="flex items-center justify-between text-sm">
+                    <a href="#" class="font-medium text-ammoue hover:text-teal-600">Forgot Password?</a>
+                </div>
 
-            <button type="button" 
-                    id="github-login-btn" 
-                    onclick="handleGitHubAuth(this)" 
-                    class="w-full flex items-center justify-center py-2.5 border border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 transition duration-150">
-                <img src="https://github.githubassets.com/assets/GitHub-Mark-ea2971cee799.png" class="w-5 h-5 mr-2" alt="GitHub logo">
-                Sign in with GitHub
-            </button>
+                <button type="submit" id="login-btn" class="w-full py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-lg shadow-teal-500/30 transform hover:scale-[1.01]">
+                    Log In
+                </button>
 
-        </form>
+                <div class="relative pt-2">
+                    <div class="absolute inset-0 flex items-center">
+                        <div class="w-full border-t border-gray-300"></div>
+                    </div>
+                    <div class="relative flex justify-center text-sm">
+                        <span class="px-2 bg-white text-gray-500">Or continue with</span>
+                    </div>
+                </div>
 
-        <form id="signup-form" class="space-y-6 hidden" onsubmit="handleSignup(event)">
-            <h2 class="text-2xl font-bold text-gray-800 text-center mb-4">Create Your Free Account</h2>
+                <button type="button" 
+                        id="google-login-btn" 
+                        onclick="handleGoogleAuth(this)" 
+                        class="w-full flex items-center justify-center py-2.5 border border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 transition duration-150">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/4/4a/Logo_and_wordmark_of_Google.svg" class="w-5 h-5 mr-2" alt="Google logo">
+                    Sign in with Google
+                </button>
 
-            <div>
-                <label for="signup-email" class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                <input type="email" id="signup-email" required class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-ammoue focus:border-ammoue transition duration-150" placeholder="you@example.com">
-            </div>
+                <button type="button" 
+                        id="github-login-btn" 
+                        onclick="handleGitHubAuth(this)" 
+                        class="w-full flex items-center justify-center py-2.5 border border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 transition duration-150">
+                    <img src="https://github.githubassets.com/assets/GitHub-Mark-ea2971cee799.png" class="w-5 h-5 mr-2" alt="GitHub logo">
+                    Sign in with GitHub
+                </button>
 
-            <div>
-                <label for="signup-password" class="block text-sm font-medium text-gray-700 mb-1">Create Password</label>
-                <input type="password" id="signup-password" required class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-ammoue focus:border-ammoue transition duration-150" placeholder="Min. 8 characters">
-            </div>
+            </form>
 
-            <div class="flex items-center text-sm">
-                <input id="agree-terms" type="checkbox" required class="h-4 w-4 text-ammoue border-gray-300 rounded focus:ring-ammoue">
-                <label for="agree-terms" class="ml-2 block text-gray-700">
-                    I agree to the <a href="#" class="font-medium text-ammoue hover:text-teal-600">Terms</a> and <a href="#" class="font-medium text-ammoue hover:text-teal-600">Privacy Policy</a>
-                </label>
-            </div>
+            <form id="signup-form" class="space-y-6 hidden" onsubmit="handleSignup(event)">
+                <h2 class="text-2xl font-bold text-gray-800 text-center mb-4">Create Your Free Account</h2>
 
-            <button type="submit" id="signup-btn" class="w-full py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-lg shadow-teal-500/30 transform hover:scale-[1.01]">
-                Sign Up & Generate Site
-            </button>
+                <div>
+                    <label for="signup-email" class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                    <input type="email" id="signup-email" required class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-ammoue focus:border-ammoue transition duration-150" placeholder="you@example.com">
+                </div>
+
+                <div>
+                    <label for="signup-password" class="block text-sm font-medium text-gray-700 mb-1">Create Password</label>
+                    <input type="password" id="signup-password" required class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-ammoue focus:border-ammoue transition duration-150" placeholder="Min. 8 characters">
+                </div>
+
+                <div class="flex items-center text-sm">
+                    <input id="agree-terms" type="checkbox" required class="h-4 w-4 text-ammoue border-gray-300 rounded focus:ring-ammoue">
+                    <label for="agree-terms" class="ml-2 block text-gray-700">
+                        I agree to the <a href="#" class="font-medium text-ammoue hover:text-teal-600">Terms</a> and <a href="#" class="font-medium text-ammoue hover:text-teal-600">Privacy Policy</a>
+                    </label>
+                </div>
+
+                <button type="submit" id="signup-btn" class="w-full py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-lg shadow-teal-500/30 transform hover:scale-[1.01]">
+                    Sign Up & Generate Site
+                </button>
+                
+                <div class="relative pt-2">
+                    <div class="absolute inset-0 flex items-center">
+                        <div class="w-full border-t border-gray-300"></div>
+                    </div>
+                    <div class="relative flex justify-center text-sm">
+                        <span class="px-2 bg-white text-gray-500">Or quickly sign up with</span>
+                    </div>
+                </div>
+
+                <button type="button" 
+                        id="google-signup-btn" 
+                        onclick="handleGoogleAuth(this)" 
+                        class="w-full flex items-center justify-center py-2.5 border border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 transition duration-150">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/4/4a/Logo_and_wordmark_of_Google.svg" class="w-5 h-5 mr-2" alt="Google logo">
+                    Sign up with Google
+                </button>
+                
+                <button type="button" 
+                        id="github-signup-btn" 
+                        onclick="handleGitHubAuth(this)" 
+                        class="w-full flex items-center justify-center py-2.5 border border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 transition duration-150">
+                    <img src="https://github.githubassets.com/assets/GitHub-Mark-ea2971cee799.png" class="w-5 h-5 mr-2" alt="GitHub logo">
+                    Sign up with GitHub
+                </button>
+
+            </form>
+        </div>
+
+        <div class="testimonial-col ml-8">
+            <div id="right-reviews" class="reviews-container">
+                </div>
+        </div>
+
+    </div> <script type="module">
+        // --- TESTIMONIAL DATA & LOGIC ---
+
+        const reviewsData = [
+            { name: "Sarah K.", rating: 5, text: "Built my entire portfolio in an hour. Absolutely incredible speed and quality!", avatar: "https://i.pravatar.cc/150?img=1" },
+            { name: "Jake D.", rating: 5, text: "The AI suggestions are spot-on. My e-commerce site traffic doubled after the redesign.", avatar: "https://i.pravatar.cc/150?img=2" },
+            { name: "Aisha M.", rating: 4, text: "Great value for money. Minor tweaks needed, but the foundation was perfect.", avatar: "https://i.pravatar.cc/150?img=3" },
+            { name: "Chris T.", rating: 5, text: "Finally, a site builder that understands design! Highly recommend Ammoue.", avatar: "https://i.pravatar.cc/150?img=4" },
+            { name: "Maria L.", rating: 5, text: "Switched from a competitor and haven't looked back. The interface is flawless.", avatar: "https://i.pravatar.cc/150?img=5" },
+            { name: "David B.", rating: 4, text: "A powerful tool for non-coders. Made my small business look professional overnight.", avatar: "https://i.pravatar.cc/150?img=6" },
+        ];
+
+        /**
+         * Creates the HTML for a single review card.
+         * @param {object} review - The review data object.
+         */
+        function createReviewCard(review) {
+            const stars = '★'.repeat(review.rating) + '☆'.repeat(5 - review.rating);
             
-            <div class="relative pt-2">
-                <div class="absolute inset-0 flex items-center">
-                    <div class="w-full border-t border-gray-300"></div>
+            // Randomly flip the text and image for variation
+            const flip = Math.random() < 0.5;
+
+            return `
+                <div class="p-4 bg-white rounded-xl shadow-lg border border-gray-100 max-w-xs transition-transform duration-300 hover:scale-[1.02]">
+                    <div class="flex ${flip ? 'flex-row-reverse' : 'flex-row'} items-center ${flip ? 'justify-between' : 'space-x-3'} mb-2">
+                        <img class="w-8 h-8 rounded-full object-cover" src="${review.avatar}" alt="${review.name}'s avatar">
+                        <div class="flex flex-col ${flip ? 'text-right' : 'text-left'}">
+                            <p class="text-xs font-bold text-gray-800">${review.name}</p>
+                            <p class="text-xs text-yellow-500">${stars}</p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-600 italic leading-snug">"${review.text}"</p>
                 </div>
-                <div class="relative flex justify-center text-sm">
-                    <span class="px-2 bg-white text-gray-500">Or quickly sign up with</span>
-                </div>
-            </div>
+            `;
+        }
 
-            <button type="button" 
-                    id="google-signup-btn" 
-                    onclick="handleGoogleAuth(this)" 
-                    class="w-full flex items-center justify-center py-2.5 border border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 transition duration-150">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/4/4a/Logo_and_wordmark_of_Google.svg" class="w-5 h-5 mr-2" alt="Google logo">
-                Sign up with Google
-            </button>
-            
-            <button type="button" 
-                    id="github-signup-btn" 
-                    onclick="handleGitHubAuth(this)" 
-                    class="w-full flex items-center justify-center py-2.5 border border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 transition duration-150">
-                <img src="https://github.githubassets.com/assets/GitHub-Mark-ea2971cee799.png" class="w-5 h-5 mr-2" alt="GitHub logo">
-                Sign up with GitHub
-            </button>
+        /**
+         * Populates the review containers and duplicates the content for seamless looping.
+         * @param {string} containerId - The ID of the reviews container ('left-reviews' or 'right-reviews').
+         * @param {Array} data - The array of review data.
+         */
+        function populateReviews(containerId, data) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
 
-        </form>
-    </div>
+            // Generate HTML for all reviews
+            const reviewsHtml = data.map(createReviewCard).join('');
 
-    <script type="module">
+            // To make the seamless loop work, the content must be duplicated!
+            // The container's height must be 200% of the viewport and it scrolls to 50%
+            container.innerHTML = reviewsHtml + reviewsHtml;
+        }
+
+        // --- Run Testimonial Setup ---
+        // For the right column, we can reverse the array to make the scrolling content different
+        populateReviews('left-reviews', reviewsData);
+        populateReviews('right-reviews', [...reviewsData].reverse()); 
+
+
+        // ----------------------------------------------------------------------------------
+        // --- START OF FIREBASE LOGIC (NO CHANGES APPLIED TO THE CORE AUTHENTICATION CODE) ---
+        // ----------------------------------------------------------------------------------
+
         // Updated Imports to Firebase SDK v12.4.0
         import { 
             initializeApp 
@@ -181,7 +308,6 @@
         let db = null; 
 
         // 💡 GLOBAL VARIABLES TO STORE CONFLICT DATA
-        // These are necessary so the other function (GitHub or Google) can know a link is pending.
         window.pendingCredential = null;
         window.conflictingEmail = null;
 
@@ -236,10 +362,10 @@
                 
                 // For social buttons, change background to reflect loading state
                 if (button.id.includes('google') || button.id.includes('github')) { 
-                     button.classList.add('bg-gray-100', 'text-gray-400');
-                     button.classList.remove('hover:bg-gray-50');
+                    button.classList.add('bg-gray-100', 'text-gray-400');
+                    button.classList.remove('hover:bg-gray-50');
                 } else {
-                     button.classList.add('bg-teal-700');
+                    button.classList.add('bg-teal-700');
                 }
 
             } else {
