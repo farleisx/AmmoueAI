@@ -145,12 +145,11 @@
         </div>
     </div>
 
-   <script type="module">
+  <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
     import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
     
-    // --- Configuration and Element Declarations ---
     const firebaseConfig = {
         apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
         authDomain: "ammoueai.firebaseapp.com",
@@ -181,12 +180,9 @@
     const refineBtn = document.getElementById('refine-btn');
 
     let listenersAttached = false;
-    let latestHtmlContent = ''; 
-    let latestPrompt = ''; 
-    // [NEW VARIABLE] Store the public Vercel URL
-    let latestPreviewUrl = ''; 
-
-    // --- Utility Functions (unchanged for showMessage, setLoading, setRefineLoading, copyToClipboard, handleDownload) ---
+    let latestHtmlContent = ''; 
+    let latestPrompt = ''; 
+    let latestDeploymentUrl = ''; // <--- NEW: Store Vercel deployment URL
 
     function showMessage(message, isError) {
         messageBox.textContent = message;
@@ -200,34 +196,40 @@
         }, 4000);
     }
 
-    function setLoading(isLoading) {
+    // Consolidated loading function for primary button
+    function setLoading(isLoading, isRefining = false) {
         if (isLoading) {
             generateBtn.disabled = true;
             refineBtn.disabled = true;
             downloadBtn.disabled = true;
-            generateBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Building...';
+            const loadingText = isRefining ? 'Refining...' : 'Building...';
+            const buttonToUpdate = isRefining ? refineBtn : generateBtn;
+            buttonToUpdate.innerHTML = `<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> ${loadingText}`;
         } else {
             generateBtn.disabled = false;
+            refineBtn.disabled = !latestHtmlContent;
+            downloadBtn.disabled = !latestHtmlContent;
             generateBtn.innerHTML = 'Generate HTML Code';
-            if (latestHtmlContent) refineBtn.disabled = false;
-        }
-    }
-
-    function setRefineLoading(isLoading) {
-        if (isLoading) {
-            refineBtn.disabled = true;
-            generateBtn.disabled = true;
-            downloadBtn.disabled = true;
-            refineBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Refining...';
-        } else {
-            refineBtn.disabled = false;
-            generateBtn.disabled = false;
-            if (latestHtmlContent) downloadBtn.disabled = false;
             refineBtn.innerHTML = 'Refine Code';
         }
     }
 
+    // Helper to set Preview Button state (deployed vs. not)
+    function setPreviewButton(url) {
+        previewBtn.disabled = !url;
+        if (url) {
+            previewBtn.textContent = 'Preview Site (Open Deployment)';
+            previewBtn.classList.remove('bg-blue-600');
+            previewBtn.classList.add('bg-green-600');
+        } else {
+            previewBtn.textContent = 'Preview Site (Deployment Pending)';
+            previewBtn.classList.remove('bg-green-600');
+            previewBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+        }
+    }
+
     function copyToClipboard(text) {
+        // ... (copyToClipboard function remains the same)
         try {
             const textarea = document.createElement('textarea');
             textarea.value = text;
@@ -242,25 +244,68 @@
     }
 
     function handleDownload() {
+        // ... (handleDownload function remains the same)
         if (!outputCode.textContent) return showMessage("No HTML code to download.", true);
         const blob = new Blob([outputCode.textContent], { type: "text/html" });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = "ammoue_website.html"; 
+        link.download = "ammoue_website.html"; 
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         showMessage("Download started!", false);
     }
 
+    async function handleDeployment() { // <--- NEW: Handle Vercel Deployment
+        if (!latestHtmlContent) return showMessage("No HTML content to deploy.", true);
+
+        previewBtn.textContent = 'Deploying...';
+        previewBtn.disabled = true;
+        previewBtn.classList.remove('bg-green-600', 'bg-blue-600');
+        previewBtn.classList.add('bg-yellow-600');
+        
+        try {
+            const response = await fetch("/api/deploy.js", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ htmlContent: latestHtmlContent }),
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.deploymentUrl) {
+                latestDeploymentUrl = result.deploymentUrl;
+                setPreviewButton(latestDeploymentUrl);
+                showMessage("Deployment successful! Preview ready.", false);
+            } else {
+                throw new Error(result.error || "Deployment failed on Vercel.");
+            }
+        } catch (error) {
+            console.error("Deployment Error:", error);
+            latestDeploymentUrl = '';
+            setPreviewButton(latestDeploymentUrl);
+            previewBtn.classList.remove('bg-yellow-600');
+            previewBtn.classList.add('bg-red-500');
+            previewBtn.textContent = 'Deployment Failed (Retry?)';
+            showMessage(`Deployment failed: ${error.message}`, true);
+        }
+    }
+
+    function handlePreview() { // <--- UPDATED: Use deployment URL
+        if (!latestDeploymentUrl) return showMessage("Site is not yet deployed or deployment failed.", true);
+        window.open(latestDeploymentUrl, '_blank');
+    }
+
     async function autoSaveProject(htmlContent, userPrompt) {
+        // ... (autoSaveProject function remains the same)
         if (!currentUserId || !htmlContent) return;
         try {
             const projectsRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'projects');
             await addDoc(projectsRef, {
                 prompt: userPrompt.replace(/\\n/g, '\n'),
                 htmlContent,
-                createdAt: serverTimestamp(), 
+                deploymentUrl: latestDeploymentUrl, // Add deployment URL to save
+                createdAt: serverTimestamp(), 
             });
             console.log("Project auto-saved successfully.");
         } catch (error) {
@@ -269,56 +314,6 @@
         }
     }
 
-    // --- NEW/UPDATED CORE FUNCTIONS ---
-
-    /* Utility function to handle the deployment call
-     * Sends HTML to /api/deploy.js and returns the public URL
-     */
-    async function deployHtml(htmlContent, deploymentType) {
-        if (!currentUserId) return null;
-        try {
-            const deployResponse = await fetch("/api/deploy.js", { 
-                method: "POST", 
-                headers: { "Content-Type": "application/json" }, 
-                body: JSON.stringify({ 
-                    html: htmlContent, 
-                    userId: currentUserId, 
-                    type: deploymentType // 'new' or 'refine'
-                }),
-            });
-
-            if (!deployResponse.ok) {
-                console.error("Deployment API failed with status:", deployResponse.status);
-                return null;
-            }
-
-            const deployResult = await deployResponse.json();
-            if (deployResult.previewUrl) {
-                return deployResult.previewUrl;
-            } else {
-                console.error("Deployment API did not return a previewUrl.");
-                return null;
-            }
-        } catch (error) {
-            console.error("Error during deployment:", error);
-            return null;
-        }
-    }
-
-    /**
-     * [UPDATED] Handles opening the Vercel-hosted URL.
-     */
-    function handlePreview() {
-        // Check for the hosted URL
-        if (!latestPreviewUrl) return showMessage("No live preview URL available. Generate code first.", true);
-        
-        // Open the hosted site in a new tab
-        window.open(latestPreviewUrl, '_blank');
-    }
-
-    /**
-     * [UPDATED] Generation logic now includes the deployment call.
-     */
     async function handleGeneration() {
         const prompt = promptInput.value.trim();
         if (prompt.length < 10) return showMessage("Please provide a detailed prompt (min 10 chars).", true);
@@ -327,12 +322,10 @@
         outputDiv.classList.remove("hidden");
         outputCode.textContent = "";
         latestHtmlContent = "";
-        latestPreviewUrl = ""; // Clear old URL
-        downloadBtn.disabled = true;
-        refineBtn.disabled = true;
+        latestDeploymentUrl = ""; // Reset deployment URL
+        setPreviewButton(null); // Disable and reset preview button
         latestPrompt = prompt;
 
-        // --- 1. GENERATE HTML (Streaming) ---
         const response = await fetch("/api/generate.js", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -348,7 +341,7 @@
         const decoder = new TextDecoder("utf-8");
         let buffer = "";
         let html = "";
-        
+
         // Live typing effect logic
         while (true) {
             const { done, value } = await reader.read();
@@ -372,26 +365,14 @@
                 } catch {}
             }
         }
-        // ------------------------------------
 
         latestHtmlContent = html.trim();
-        
         if (latestHtmlContent) {
-            // --- 2. DEPLOY HTML to Live Preview ---
-            const newPreviewUrl = await deployHtml(latestHtmlContent, 'new');
-
-            if (newPreviewUrl) {
-                latestPreviewUrl = newPreviewUrl;
-                showMessage("Website built and deployed! Live Preview Ready.", false);
-                autoSaveProject(latestHtmlContent, prompt);
-                downloadBtn.disabled = false;
-                refineBtn.disabled = false;
-            } else {
-                showMessage("HTML generated, but live deployment failed.", true);
-                downloadBtn.disabled = false;
-                refineBtn.disabled = false;
-            }
-
+            showMessage("Website built live! Starting deployment.", false);
+            downloadBtn.disabled = false;
+            refineBtn.disabled = false;
+            await handleDeployment(); // <--- NEW: Initiate deployment after generation
+            autoSaveProject(latestHtmlContent, prompt); // Save after deployment attempt
         } else {
             showMessage("No HTML generated.", true);
         }
@@ -401,23 +382,21 @@
 
     // Live typing effect function
     async function typeHtmlLive(newText) {
+        // ... (typeHtmlLive function remains the same)
         for (let i = 0; i < newText.length; i++) {
             outputCode.textContent += newText[i];
-            outputCode.scrollTop = outputCode.scrollHeight; // Auto-scroll
-            // REMOVED: previewBtn.dataset.html = outputCode.textContent; (Not needed for Vercel deploy)
-            await new Promise(r => setTimeout(r, 2)); // ~2ms per char
+            outputCode.scrollTop = outputCode.scrollHeight; 
+            // The previewBtn dataset.html is no longer needed since we use Vercel URL
+            await new Promise(r => setTimeout(r, 2));
         }
     }
 
-    /**
-     * [UPDATED] Refinement logic now includes re-deployment.
-     */
     async function handleRefine() {
         const refinePrompt = refinePromptInput.value.trim();
         if (!latestHtmlContent) return showMessage("Generate HTML first.", true);
         if (refinePrompt.length < 5) return showMessage("Enter refinement instruction.", true);
 
-        setRefineLoading(true);
+        setLoading(true, true); // Use the combined loading function for refining
 
         const payload = { currentHtml: latestHtmlContent, refinePrompt };
         const maxRetries = 3;
@@ -435,39 +414,31 @@
                 const generatedHtml = result.htmlCode;
 
                 if (generatedHtml) {
-                    // --- 1. Refinement Successful: Update HTML Content ---
                     latestHtmlContent = generatedHtml.trim();
                     outputCode.textContent = latestHtmlContent;
-                    // REMOVED: previewBtn.dataset.html = latestHtmlContent;
-
-                    // --- 2. DEPLOY REFINED HTML ---
-                    const newPreviewUrl = await deployHtml(latestHtmlContent, 'refine');
-
-                    if (newPreviewUrl) {
-                        latestPreviewUrl = newPreviewUrl;
-                        latestPrompt += `\n\n[Refined]: ${refinePrompt}`;
-                        autoSaveProject(latestHtmlContent, latestPrompt);
-                        showMessage("Code refined, re-deployed, and auto-saved!", false);
-                        refinePromptInput.value = '';
-                        break; // Exit the retry loop on success
-                    } else {
-                        showMessage("Code refined, but re-deployment failed.", true);
-                        break; // Exit the retry loop on deployment failure after refinement
-                    }
+                    // outputCode.textContent = latestHtmlContent; // Update output code
+                    latestDeploymentUrl = ""; // Reset deployment URL on refinement
+                    setPreviewButton(null); // Reset preview button
+                    
+                    await handleDeployment(); // <--- NEW: Re-deploy after refinement
+                    
+                    latestPrompt += `\n\n[Refined]: ${refinePrompt}`;
+                    autoSaveProject(latestHtmlContent, latestPrompt);
+                    showMessage("Code refined, deployed, and auto-saved!", false);
+                    refinePromptInput.value = '';
+                    break;
                 } else {
                     throw new Error("API missing htmlCode.");
                 }
             } catch (error) {
-                console.error("Refinement or Deployment attempt failed:", error);
-                if (attempt === maxRetries - 1) showMessage("Refinement process failed completely.", true);
+                if (attempt === maxRetries - 1) showMessage("Refinement failed.", true);
                 else await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 1000));
             }
         }
 
-        setRefineLoading(false);
+        setLoading(false);
     }
 
-    // --- Placeholder Typing Logic (Unchanged) ---
     const placeholderPrompts = [
         "A minimalist portfolio for a futuristic fashion designer.",
         "A quirky online café with interactive menu animations.",
@@ -483,6 +454,7 @@
     const defaultPlaceholder = "e.g., 'A vibrant landing page for a dog grooming salon...'";
 
     function typePlaceholderEffect() {
+        // ... (typePlaceholderEffect function remains the same)
         if (promptInput.value.length > 0) return;
         const currentPrompt = placeholderPrompts[promptTypingIndex];
         let placeholderText = promptInput.getAttribute('placeholder') || '';
@@ -509,6 +481,7 @@
     }
 
     promptInput.addEventListener('input', () => {
+        // ... (event listener remains the same)
         if (promptInput.value.length > 0) promptInput.setAttribute('placeholder', defaultPlaceholder);
         else {
             promptTypingIndex = 0;
@@ -518,7 +491,6 @@
         }
     });
 
-    // --- Authentication and Event Listeners (Unchanged) ---
     onAuthStateChanged(auth, (user) => {
         if (user) {
             currentUserId = user.uid;
@@ -526,19 +498,20 @@
             loadingState.classList.add('hidden');
             loadingState.style.opacity = '0';
             mainContent.classList.remove('hidden');
+            setPreviewButton(latestDeploymentUrl); // Initial button state
             if (!listenersAttached) {
                 generateBtn.addEventListener('click', handleGeneration);
                 refineBtn.addEventListener('click', handleRefine);
                 copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
                 downloadBtn.addEventListener('click', handleDownload);
-                previewBtn.addEventListener('click', handlePreview); // Now calls the Vercel deploy function logic
+                previewBtn.addEventListener('click', handlePreview);
                 logoutBtn.addEventListener('click', async () => { try { await signOut(auth); } catch {} });
                 typePlaceholderEffect();
                 listenersAttached = true;
             }
         } else {
             const redirectUrl = 'login.html?redirect=' + encodeURIComponent(window.location.pathname);
-            window.location.replace(redirectUrl); 
+            window.location.replace(redirectUrl); 
         }
     });
 
