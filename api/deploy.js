@@ -3,35 +3,30 @@ import { Buffer } from 'buffer';
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_REPO = process.env.GITHUB_REPO; // format: username/repo
-const GITHUB_BRANCH = process.env.GITHUB_BRANCH || 'main'; // default main
+const GITHUB_BRANCH = process.env.GITHUB_BRANCH || 'main'; // default to main
 
 if (!GITHUB_TOKEN || !GITHUB_REPO) {
   console.error("Missing GITHUB_TOKEN or GITHUB_REPO in environment.");
 }
 
-function encodeContent(str) {
-  return Buffer.from(str, 'utf-8').toString('base64');
-}
-
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed. Use POST.' });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed. Use POST.' });
 
-  const { htmlContent } = req.body;
+  const { htmlContent, userId, type } = req.body;
   if (!htmlContent) return res.status(400).json({ error: 'Missing htmlContent.' });
 
   try {
     let baseSHA = null;
     let branchExists = true;
 
-    // 1️⃣ Check branch
-    let branchRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/branches/${GITHUB_BRANCH}`, {
-      headers: { Authorization: `token ${GITHUB_TOKEN}` }
+    // 1️⃣ Check if branch exists
+    const branchRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/branches/${GITHUB_BRANCH}`, {
+      headers: { Authorization: `token ${GITHUB_TOKEN}` },
     });
 
-    if (!branchRes.ok) branchExists = false;
-    else {
+    if (!branchRes.ok) {
+      branchExists = false;
+    } else {
       const branchData = await branchRes.json();
       baseSHA = branchData.commit.sha;
     }
@@ -40,12 +35,12 @@ export default async function handler(req, res) {
     const blobRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/blobs`, {
       method: 'POST',
       headers: { Authorization: `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: htmlContent, encoding: 'utf-8' })
+      body: JSON.stringify({ content: htmlContent, encoding: 'utf-8' }),
     });
 
     if (!blobRes.ok) {
-      const text = await blobRes.text();
-      return res.status(blobRes.status).json({ error: 'Failed to create blob', details: text });
+      const err = await blobRes.text();
+      return res.status(blobRes.status).json({ error: 'Failed to create blob', details: err });
     }
 
     const blobData = await blobRes.json();
@@ -56,58 +51,58 @@ export default async function handler(req, res) {
       headers: { Authorization: `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         base_tree: baseSHA,
-        tree: [{ path: 'index.html', mode: '100644', type: 'blob', sha: blobData.sha }]
-      })
+        tree: [{ path: 'index.html', mode: '100644', type: 'blob', sha: blobData.sha }],
+      }),
     });
 
     if (!treeRes.ok) {
-      const text = await treeRes.text();
-      return res.status(treeRes.status).json({ error: 'Failed to create tree', details: text });
+      const err = await treeRes.text();
+      return res.status(treeRes.status).json({ error: 'Failed to create tree', details: err });
     }
 
     const treeData = await treeRes.json();
 
     // 4️⃣ Create commit
+    const commitMessage = `Deploy AI website${userId ? ` for user ${userId}` : ''}${type ? ` (${type})` : ''}`;
     const commitRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/commits`, {
       method: 'POST',
       headers: { Authorization: `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        message: `Deploy AI website`,
+        message: commitMessage,
         tree: treeData.sha,
-        parents: baseSHA ? [baseSHA] : []
-      })
+        parents: baseSHA ? [baseSHA] : [],
+      }),
     });
 
     if (!commitRes.ok) {
-      const text = await commitRes.text();
-      return res.status(commitRes.status).json({ error: 'Failed to create commit', details: text });
+      const err = await commitRes.text();
+      return res.status(commitRes.status).json({ error: 'Failed to create commit', details: err });
     }
 
     const commitData = await commitRes.json();
 
-    // 5️⃣ Create or update branch
+    // 5️⃣ Update or create branch
     let refUrl, refMethod, refBody;
     if (branchExists) {
       refUrl = `https://api.github.com/repos/${GITHUB_REPO}/git/refs/heads/${GITHUB_BRANCH}`;
       refMethod = 'PATCH';
       refBody = { sha: commitData.sha, force: true };
     } else {
-      // Create branch from base commit if exists, else from empty repo
+      // If branch doesn't exist, create it
       refUrl = `https://api.github.com/repos/${GITHUB_REPO}/git/refs`;
       refMethod = 'POST';
-      const baseForNew = baseSHA || commitData.sha;
-      refBody = { ref: `refs/heads/${GITHUB_BRANCH}`, sha: baseForNew };
+      refBody = { ref: `refs/heads/${GITHUB_BRANCH}`, sha: commitData.sha };
     }
 
     const refRes = await fetch(refUrl, {
       method: refMethod,
       headers: { Authorization: `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(refBody)
+      body: JSON.stringify(refBody),
     });
 
     if (!refRes.ok) {
-      const text = await refRes.text();
-      return res.status(refRes.status).json({ error: 'Failed to update/create branch', details: text });
+      const err = await refRes.text();
+      return res.status(refRes.status).json({ error: 'Failed to update/create branch', details: err });
     }
 
     // 6️⃣ Return GitHub Pages URL
@@ -115,9 +110,8 @@ export default async function handler(req, res) {
     console.log('✅ GitHub Pages deployment URL:', deploymentUrl);
 
     return res.status(200).json({ deploymentUrl });
-
-  } catch (err) {
-    console.error('Deployment Error:', err);
-    return res.status(500).json({ error: 'Internal server error', details: err.message });
+  } catch (error) {
+    console.error('Deployment Error:', error);
+    return res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 }
