@@ -4,7 +4,7 @@ import { Buffer } from 'buffer';
 // Environment variables
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_REPO = process.env.GITHUB_REPO; // format: username/repo
-const GITHUB_BRANCH = 'gh-pages'; // GitHub Pages branch
+const GITHUB_BRANCH = 'main'; // GitHub Pages branch
 
 if (!GITHUB_TOKEN || !GITHUB_REPO) {
   console.error("Missing GITHUB_TOKEN or GITHUB_REPO in environment.");
