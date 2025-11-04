@@ -3,7 +3,16 @@ import fetch from 'node-fetch';
 // Get environment variables defined in your Vercel Project settings
 const VERCEL_ACCESS_TOKEN = process.env.VERCEL_ACCESS_TOKEN;
 const VERCEL_PROJECT_ID = process.env.VERCEL_PROJECT_ID; 
-// No need for VERCEL_TEAM_ID unless you’re using a team account
+
+// Helper: sanitize string for Vercel project name
+function sanitizeName(str) {
+    return str
+        .toLowerCase()
+        .replace(/[^a-z0-9._-]/g, '-')   // replace invalid chars with '-'
+        .replace(/-+/g, '-')             // collapse multiple '-' into one
+        .replace(/^-+|-+$/g, '')         // trim leading/trailing '-'
+        .slice(0, 80);                   // keep under 100 chars (reserve room for prefix)
+}
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
@@ -26,26 +35,31 @@ export default async function handler(req, res) {
         });
     }
 
+    // --- Sanitize project name ---
+    const safeUserId = sanitizeName(userId || 'user');
+    const safeType = sanitizeName(type || 'new');
+    const projectName = `ammoue-deploy-${safeUserId}-${safeType}`;
+
     // --- Deployment Payload ---
     const deploymentPayload = {
-        name: `Ammoue-Deploy-${userId || 'User'}-${type || 'new'}`,
+        name: projectName,
         files: [
             {
                 file: 'index.html',
                 data: htmlContent,
             }
         ],
-        // 🔧 Required by Vercel for new projects
+        // Required for new projects
         projectSettings: {
-            framework: null,          // Pure HTML site
-            buildCommand: null,       // No build step
-            outputDirectory: null,    // Root
-            devCommand: null,         // No dev command
+            framework: null,
+            buildCommand: null,
+            outputDirectory: null,
+            devCommand: null,
         },
     };
 
     try {
-        // ✅ Skip auto framework detection (fixes missing_project_settings)
+        // Skip auto framework detection
         const vercelUrl = `https://api.vercel.com/v13/deployments?skipAutoDetectionConfirmation=1`;
 
         const deploymentResponse = await fetch(vercelUrl, {
@@ -71,7 +85,7 @@ export default async function handler(req, res) {
             });
         }
         
-        // --- Success Path ---
+        // --- Success ---
         const previewUrl = data.url;
         console.log(`✅ Deployment success: https://${previewUrl}`);
         return res.status(200).json({ deploymentUrl: `https://${previewUrl}` });
