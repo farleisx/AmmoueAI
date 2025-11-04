@@ -145,11 +145,12 @@
         </div>
     </div>
 
-    <script type="module">
+   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
     import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
     
+    // --- Configuration and Element Declarations ---
     const firebaseConfig = {
         apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
         authDomain: "ammoueai.firebaseapp.com",
@@ -180,8 +181,12 @@
     const refineBtn = document.getElementById('refine-btn');
 
     let listenersAttached = false;
-    let latestHtmlContent = ''; 
-    let latestPrompt = ''; 
+    let latestHtmlContent = ''; 
+    let latestPrompt = ''; 
+    // [NEW VARIABLE] Store the public Vercel URL
+    let latestPreviewUrl = ''; 
+
+    // --- Utility Functions (unchanged for showMessage, setLoading, setRefineLoading, copyToClipboard, handleDownload) ---
 
     function showMessage(message, isError) {
         messageBox.textContent = message;
@@ -241,19 +246,11 @@
         const blob = new Blob([outputCode.textContent], { type: "text/html" });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = "ammoue_website.html"; 
+        link.download = "ammoue_website.html"; 
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         showMessage("Download started!", false);
-    }
-
-    function handlePreview() {
-        if (!previewBtn.dataset.html) return showMessage("No HTML code to preview.", true);
-        const previewWindow = window.open('', '_blank');
-        if (!previewWindow) return showMessage("Enable pop-ups to preview.", true);
-        previewWindow.document.write(previewBtn.dataset.html);
-        previewWindow.document.close();
     }
 
     async function autoSaveProject(htmlContent, userPrompt) {
@@ -263,7 +260,7 @@
             await addDoc(projectsRef, {
                 prompt: userPrompt.replace(/\\n/g, '\n'),
                 htmlContent,
-                createdAt: serverTimestamp(), 
+                createdAt: serverTimestamp(), 
             });
             console.log("Project auto-saved successfully.");
         } catch (error) {
@@ -272,6 +269,56 @@
         }
     }
 
+    // --- NEW/UPDATED CORE FUNCTIONS ---
+
+    /* Utility function to handle the deployment call
+     * Sends HTML to /api/deploy.js and returns the public URL
+     */
+    async function deployHtml(htmlContent, deploymentType) {
+        if (!currentUserId) return null;
+        try {
+            const deployResponse = await fetch("/api/deploy.js", { 
+                method: "POST", 
+                headers: { "Content-Type": "application/json" }, 
+                body: JSON.stringify({ 
+                    html: htmlContent, 
+                    userId: currentUserId, 
+                    type: deploymentType // 'new' or 'refine'
+                }),
+            });
+
+            if (!deployResponse.ok) {
+                console.error("Deployment API failed with status:", deployResponse.status);
+                return null;
+            }
+
+            const deployResult = await deployResponse.json();
+            if (deployResult.previewUrl) {
+                return deployResult.previewUrl;
+            } else {
+                console.error("Deployment API did not return a previewUrl.");
+                return null;
+            }
+        } catch (error) {
+            console.error("Error during deployment:", error);
+            return null;
+        }
+    }
+
+    /**
+     * [UPDATED] Handles opening the Vercel-hosted URL.
+     */
+    function handlePreview() {
+        // Check for the hosted URL
+        if (!latestPreviewUrl) return showMessage("No live preview URL available. Generate code first.", true);
+        
+        // Open the hosted site in a new tab
+        window.open(latestPreviewUrl, '_blank');
+    }
+
+    /**
+     * [UPDATED] Generation logic now includes the deployment call.
+     */
     async function handleGeneration() {
         const prompt = promptInput.value.trim();
         if (prompt.length < 10) return showMessage("Please provide a detailed prompt (min 10 chars).", true);
@@ -280,10 +327,12 @@
         outputDiv.classList.remove("hidden");
         outputCode.textContent = "";
         latestHtmlContent = "";
+        latestPreviewUrl = ""; // Clear old URL
         downloadBtn.disabled = true;
         refineBtn.disabled = true;
         latestPrompt = prompt;
 
+        // --- 1. GENERATE HTML (Streaming) ---
         const response = await fetch("/api/generate.js", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -299,7 +348,7 @@
         const decoder = new TextDecoder("utf-8");
         let buffer = "";
         let html = "";
-
+        
         // Live typing effect logic
         while (true) {
             const { done, value } = await reader.read();
@@ -318,18 +367,31 @@
                     const parsed = JSON.parse(data);
                     if (parsed.text) {
                         html += parsed.text;
-                        await typeHtmlLive(parsed.text); // <- NEW live typing
+                        await typeHtmlLive(parsed.text);
                     }
                 } catch {}
             }
         }
+        // ------------------------------------
 
         latestHtmlContent = html.trim();
+        
         if (latestHtmlContent) {
-            showMessage("Website built live! Auto-saved.", false);
-            autoSaveProject(latestHtmlContent, prompt);
-            downloadBtn.disabled = false;
-            refineBtn.disabled = false;
+            // --- 2. DEPLOY HTML to Live Preview ---
+            const newPreviewUrl = await deployHtml(latestHtmlContent, 'new');
+
+            if (newPreviewUrl) {
+                latestPreviewUrl = newPreviewUrl;
+                showMessage("Website built and deployed! Live Preview Ready.", false);
+                autoSaveProject(latestHtmlContent, prompt);
+                downloadBtn.disabled = false;
+                refineBtn.disabled = false;
+            } else {
+                showMessage("HTML generated, but live deployment failed.", true);
+                downloadBtn.disabled = false;
+                refineBtn.disabled = false;
+            }
+
         } else {
             showMessage("No HTML generated.", true);
         }
@@ -342,11 +404,14 @@
         for (let i = 0; i < newText.length; i++) {
             outputCode.textContent += newText[i];
             outputCode.scrollTop = outputCode.scrollHeight; // Auto-scroll
-            previewBtn.dataset.html = outputCode.textContent;
+            // REMOVED: previewBtn.dataset.html = outputCode.textContent; (Not needed for Vercel deploy)
             await new Promise(r => setTimeout(r, 2)); // ~2ms per char
         }
     }
 
+    /**
+     * [UPDATED] Refinement logic now includes re-deployment.
+     */
     async function handleRefine() {
         const refinePrompt = refinePromptInput.value.trim();
         if (!latestHtmlContent) return showMessage("Generate HTML first.", true);
@@ -370,19 +435,31 @@
                 const generatedHtml = result.htmlCode;
 
                 if (generatedHtml) {
+                    // --- 1. Refinement Successful: Update HTML Content ---
                     latestHtmlContent = generatedHtml.trim();
                     outputCode.textContent = latestHtmlContent;
-                    previewBtn.dataset.html = latestHtmlContent;
-                    latestPrompt += `\n\n[Refined]: ${refinePrompt}`;
-                    autoSaveProject(latestHtmlContent, latestPrompt);
-                    showMessage("Code refined and auto-saved!", false);
-                    refinePromptInput.value = '';
-                    break;
+                    // REMOVED: previewBtn.dataset.html = latestHtmlContent;
+
+                    // --- 2. DEPLOY REFINED HTML ---
+                    const newPreviewUrl = await deployHtml(latestHtmlContent, 'refine');
+
+                    if (newPreviewUrl) {
+                        latestPreviewUrl = newPreviewUrl;
+                        latestPrompt += `\n\n[Refined]: ${refinePrompt}`;
+                        autoSaveProject(latestHtmlContent, latestPrompt);
+                        showMessage("Code refined, re-deployed, and auto-saved!", false);
+                        refinePromptInput.value = '';
+                        break; // Exit the retry loop on success
+                    } else {
+                        showMessage("Code refined, but re-deployment failed.", true);
+                        break; // Exit the retry loop on deployment failure after refinement
+                    }
                 } else {
                     throw new Error("API missing htmlCode.");
                 }
             } catch (error) {
-                if (attempt === maxRetries - 1) showMessage("Refinement failed.", true);
+                console.error("Refinement or Deployment attempt failed:", error);
+                if (attempt === maxRetries - 1) showMessage("Refinement process failed completely.", true);
                 else await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 1000));
             }
         }
@@ -390,6 +467,7 @@
         setRefineLoading(false);
     }
 
+    // --- Placeholder Typing Logic (Unchanged) ---
     const placeholderPrompts = [
         "A minimalist portfolio for a futuristic fashion designer.",
         "A quirky online café with interactive menu animations.",
@@ -440,6 +518,7 @@
         }
     });
 
+    // --- Authentication and Event Listeners (Unchanged) ---
     onAuthStateChanged(auth, (user) => {
         if (user) {
             currentUserId = user.uid;
@@ -452,14 +531,14 @@
                 refineBtn.addEventListener('click', handleRefine);
                 copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
                 downloadBtn.addEventListener('click', handleDownload);
-                previewBtn.addEventListener('click', handlePreview);
+                previewBtn.addEventListener('click', handlePreview); // Now calls the Vercel deploy function logic
                 logoutBtn.addEventListener('click', async () => { try { await signOut(auth); } catch {} });
                 typePlaceholderEffect();
                 listenersAttached = true;
             }
         } else {
             const redirectUrl = 'login.html?redirect=' + encodeURIComponent(window.location.pathname);
-            window.location.replace(redirectUrl); 
+            window.location.replace(redirectUrl); 
         }
     });
 
