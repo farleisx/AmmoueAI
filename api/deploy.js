@@ -1,8 +1,8 @@
 import fetch from 'node-fetch';
 
-// Get environment variables defined in your Vercel Project settings
+// Vercel environment variables
 const VERCEL_ACCESS_TOKEN = process.env.VERCEL_ACCESS_TOKEN;
-const VERCEL_PROJECT_ID = process.env.VERCEL_PROJECT_ID; 
+const VERCEL_PROJECT_ID = process.env.VERCEL_PROJECT_ID;
 
 // Helper: sanitize string for Vercel project name
 function sanitizeName(str) {
@@ -11,7 +11,7 @@ function sanitizeName(str) {
         .replace(/[^a-z0-9._-]/g, '-')   // replace invalid chars with '-'
         .replace(/-+/g, '-')             // collapse multiple '-' into one
         .replace(/^-+|-+$/g, '')         // trim leading/trailing '-'
-        .slice(0, 80);                   // keep under 100 chars (reserve room for prefix)
+        .slice(0, 80);                   // keep under 100 chars
 }
 
 export default async function handler(req, res) {
@@ -21,7 +21,7 @@ export default async function handler(req, res) {
 
     const { htmlContent, userId, type } = req.body;
 
-    // --- Validation ---
+    // Validation
     if (!htmlContent || !VERCEL_ACCESS_TOKEN || !VERCEL_PROJECT_ID) {
         console.error('Missing data or environment variables:', {
             htmlContent: !!htmlContent,
@@ -35,21 +35,21 @@ export default async function handler(req, res) {
         });
     }
 
-    // --- Sanitize project name ---
+    // Sanitize project name
     const safeUserId = sanitizeName(userId || 'user');
     const safeType = sanitizeName(type || 'new');
     const projectName = `ammoue-deploy-${safeUserId}-${safeType}`;
 
-    // --- Deployment Payload ---
+    // Deployment payload (public)
     const deploymentPayload = {
         name: projectName,
+        public: true, // ✅ make deployment public
         files: [
             {
                 file: 'index.html',
                 data: htmlContent,
             }
         ],
-        // Required for new projects
         projectSettings: {
             framework: null,
             buildCommand: null,
@@ -73,7 +73,7 @@ export default async function handler(req, res) {
 
         const data = await deploymentResponse.json();
 
-        // --- Handle Vercel Errors ---
+        // Handle errors
         if (!deploymentResponse.ok) {
             console.error('Vercel API Status:', deploymentResponse.status);
             console.error('Vercel API Error Response:', JSON.stringify(data, null, 2));
@@ -85,7 +85,7 @@ export default async function handler(req, res) {
             });
         }
         
-        // --- Success ---
+        // Success
         const previewUrl = data.url;
         console.log(`✅ Deployment success: https://${previewUrl}`);
         return res.status(200).json({ deploymentUrl: `https://${previewUrl}` });
