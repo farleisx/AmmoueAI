@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@google/generative-ai": "^0.9.0"
+    "@google/generative-ai": "^0.9.0",
+    "node-fetch": "^3.3.2"  // <-- ADD THIS LINE
   }
 }
