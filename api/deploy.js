@@ -4,7 +4,7 @@ import { Buffer } from 'buffer';
 // Environment variables
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_REPO = process.env.GITHUB_REPO; // format: username/repo
-const GITHUB_BRANCH = 'main'; // GitHub Pages branch
+const GITHUB_BRANCH = 'gh-pages'; // GitHub Pages branch
 
 if (!GITHUB_TOKEN || !GITHUB_REPO) {
   console.error("Missing GITHUB_TOKEN or GITHUB_REPO in environment.");
@@ -16,7 +16,7 @@ function sanitizeFileContent(str) {
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
+    return res.status(405).json({ error: 'Method Not Allowed. Use POST.' });
   }
 
   const { htmlContent, userId, type } = req.body;
@@ -26,7 +26,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1️⃣ Get the latest commit SHA of the gh-pages branch (if exists)
+    // 1️⃣ Check if branch exists
     let baseSHA = null;
     let branchExists = true;
     const branchRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/branches/${GITHUB_BRANCH}`, {
@@ -39,15 +39,21 @@ export default async function handler(req, res) {
       baseSHA = branchData.commit.sha;
     }
 
-    // 2️⃣ Create a new blob with the HTML content
+    // 2️⃣ Create a blob for HTML
     const blobRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/blobs`, {
       method: 'POST',
       headers: { Authorization: `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: htmlContent, encoding: 'utf-8' })
     });
+
+    if (!blobRes.ok) {
+      const err = await blobRes.json();
+      return res.status(blobRes.status).json({ error: 'Failed to create blob', details: err });
+    }
+
     const blobData = await blobRes.json();
 
-    // 3️⃣ Create a new tree
+    // 3️⃣ Create a tree
     const treeRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/trees`, {
       method: 'POST',
       headers: { Authorization: `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
@@ -56,6 +62,12 @@ export default async function handler(req, res) {
         tree: [{ path: 'index.html', mode: '100644', type: 'blob', sha: blobData.sha }]
       })
     });
+
+    if (!treeRes.ok) {
+      const err = await treeRes.json();
+      return res.status(treeRes.status).json({ error: 'Failed to create tree', details: err });
+    }
+
     const treeData = await treeRes.json();
 
     // 4️⃣ Create a commit
@@ -69,28 +81,44 @@ export default async function handler(req, res) {
         parents: baseSHA ? [baseSHA] : []
       })
     });
+
+    if (!commitRes.ok) {
+      const err = await commitRes.json();
+      return res.status(commitRes.status).json({ error: 'Failed to create commit', details: err });
+    }
+
     const commitData = await commitRes.json();
 
-    // 5️⃣ Update (or create) the branch
-    const refRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/refs/heads/${GITHUB_BRANCH}`, {
-      method: branchExists ? 'PATCH' : 'POST',
+    // 5️⃣ Update or create branch
+    let refUrl, refMethod, refBody;
+
+    if (branchExists) {
+      refUrl = `https://api.github.com/repos/${GITHUB_REPO}/git/refs/heads/${GITHUB_BRANCH}`;
+      refMethod = 'PATCH';
+      refBody = { sha: commitData.sha, force: true };
+    } else {
+      refUrl = `https://api.github.com/repos/${GITHUB_REPO}/git/refs`;
+      refMethod = 'POST';
+      refBody = { ref: `refs/heads/${GITHUB_BRANCH}`, sha: commitData.sha };
+    }
+
+    const refRes = await fetch(refUrl, {
+      method: refMethod,
       headers: { Authorization: `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sha: commitData.sha,
-        force: true
-      })
+      body: JSON.stringify(refBody)
     });
 
     if (!refRes.ok) {
       const err = await refRes.json();
-      return res.status(refRes.status).json({ error: 'Failed to update branch', details: err });
+      return res.status(refRes.status).json({ error: 'Failed to update/create branch', details: err });
     }
 
-    // 6️⃣ Return the public GitHub Pages URL
+    // 6️⃣ Return GitHub Pages URL
     const deploymentUrl = `https://${GITHUB_REPO.split('/')[0]}.github.io/${GITHUB_REPO.split('/')[1]}/`;
     console.log('✅ GitHub Pages deployment URL:', deploymentUrl);
 
     return res.status(200).json({ deploymentUrl });
+
   } catch (error) {
     console.error('Deployment Error:', error);
     return res.status(500).json({ error: 'Internal server error', details: error.message });
