@@ -256,63 +256,83 @@
         showMessage("Download started!", false);
     }
 
-    async function handleDeployment() { // <--- NEW: Handle Vercel Deployment
-        if (!latestHtmlContent) return showMessage("No HTML content to deploy.", true);
+    // ✅ Handle Vercel Deployment
+async function handleDeployment() {
+    if (!latestHtmlContent) return showMessage("No HTML content to deploy.", true);
 
-        previewBtn.textContent = 'Deploying...';
-        previewBtn.disabled = true;
-        previewBtn.classList.remove('bg-green-600', 'bg-blue-600');
-        previewBtn.classList.add('bg-yellow-600');
-        
-        try {
-            const response = await fetch("/api/deploy.js", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ htmlContent: latestHtmlContent }),
-            });
+    previewBtn.textContent = "Deploying...";
+    previewBtn.disabled = true;
+    previewBtn.classList.remove("bg-green-600", "bg-blue-600");
+    previewBtn.classList.add("bg-yellow-600");
 
-            const result = await response.json();
+    try {
+        // ✅ Fixed route: /api/deploy (not /api/deploy.js)
+        const response = await fetch("/api/deploy", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ htmlContent: latestHtmlContent }),
+        });
 
-            if (response.ok && result.deploymentUrl) {
-                latestDeploymentUrl = result.deploymentUrl;
-                setPreviewButton(latestDeploymentUrl);
-                showMessage("Deployment successful! Preview ready.", false);
-            } else {
-                throw new Error(result.error || "Deployment failed on Vercel.");
-            }
-        } catch (error) {
-            console.error("Deployment Error:", error);
-            latestDeploymentUrl = '';
+        const result = await response.json();
+
+        if (response.ok && result.deploymentUrl) {
+            latestDeploymentUrl = result.deploymentUrl;
+
+            // ✅ Update preview button state
             setPreviewButton(latestDeploymentUrl);
-            previewBtn.classList.remove('bg-yellow-600');
-            previewBtn.classList.add('bg-red-500');
-            previewBtn.textContent = 'Deployment Failed (Retry?)';
-            showMessage(`Deployment failed: ${error.message}`, true);
-        }
-    }
+            previewBtn.classList.remove("bg-yellow-600");
+            previewBtn.classList.add("bg-green-600");
+            previewBtn.textContent = "View Live Site";
 
-    function handlePreview() { // <--- UPDATED: Use deployment URL
-        if (!latestDeploymentUrl) return showMessage("Site is not yet deployed or deployment failed.", true);
-        window.open(latestDeploymentUrl, '_blank');
-    }
-
-    async function autoSaveProject(htmlContent, userPrompt) {
-        // ... (autoSaveProject function remains the same)
-        if (!currentUserId || !htmlContent) return;
-        try {
-            const projectsRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'projects');
-            await addDoc(projectsRef, {
-                prompt: userPrompt.replace(/\\n/g, '\n'),
-                htmlContent,
-                deploymentUrl: latestDeploymentUrl, // Add deployment URL to save
-                createdAt: serverTimestamp(), 
-            });
-            console.log("Project auto-saved successfully.");
-        } catch (error) {
-            console.error("Error during auto-save:", error);
-            showMessage("Warning: Failed to auto-save project.", true);
+            showMessage("✅ Deployment successful! Preview is ready.", false);
+        } else {
+            console.error("Vercel Deployment Failed:", result);
+            throw new Error(result.details || result.error || "Deployment failed on Vercel.");
         }
+    } catch (error) {
+        console.error("Deployment Error:", error);
+
+        latestDeploymentUrl = "";
+        setPreviewButton(latestDeploymentUrl);
+
+        previewBtn.classList.remove("bg-yellow-600");
+        previewBtn.classList.add("bg-red-500");
+        previewBtn.textContent = "Deployment Failed (Retry?)";
+
+        showMessage(`❌ Deployment failed: ${error.message}`, true);
+    } finally {
+        previewBtn.disabled = false;
     }
+}
+
+// ✅ Updated: Handle Preview Button Click
+function handlePreview() {
+    if (!latestDeploymentUrl) {
+        showMessage("Site not deployed yet or deployment failed.", true);
+        return;
+    }
+    window.open(latestDeploymentUrl, "_blank");
+}
+
+// ✅ Auto-Save with Deployment URL
+async function autoSaveProject(htmlContent, userPrompt) {
+    if (!currentUserId || !htmlContent) return;
+
+    try {
+        const projectsRef = collection(db, "artifacts", appId, "users", currentUserId, "projects");
+        await addDoc(projectsRef, {
+            prompt: userPrompt.replace(/\\n/g, "\n"),
+            htmlContent,
+            deploymentUrl: latestDeploymentUrl || null, // ✅ Safe fallback
+            createdAt: serverTimestamp(),
+        });
+        console.log("Project auto-saved successfully.");
+    } catch (error) {
+        console.error("Error during auto-save:", error);
+        showMessage("⚠️ Warning: Failed to auto-save project.", true);
+    }
+}
+
 
     async function handleGeneration() {
         const prompt = promptInput.value.trim();
