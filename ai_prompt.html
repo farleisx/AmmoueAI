@@ -182,7 +182,7 @@
     let listenersAttached = false;
     let latestHtmlContent = ''; 
     let latestPrompt = ''; 
-    let latestDeploymentUrl = ''; // <--- NEW: Store Vercel deployment URL
+    let latestDeploymentUrl = ''; // ✅ per-user GitHub Pages URL
 
     function showMessage(message, isError) {
         messageBox.textContent = message;
@@ -219,17 +219,16 @@
         previewBtn.disabled = !url;
         if (url) {
             previewBtn.textContent = 'Preview Site (Open Deployment)';
-            previewBtn.classList.remove('bg-blue-600');
-            previewBtn.classList.add('bg-green-600');
+            previewBtn.classList.remove('bg-blue-600', 'bg-gray-400', 'cursor-not-allowed');
+            previewBtn.classList.add('bg-green-600','cursor-pointer');
         } else {
             previewBtn.textContent = 'Preview Site (Deployment Pending)';
-            previewBtn.classList.remove('bg-green-600');
+            previewBtn.classList.remove('bg-green-600','cursor-pointer');
             previewBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
         }
     }
 
     function copyToClipboard(text) {
-        // ... (copyToClipboard function remains the same)
         try {
             const textarea = document.createElement('textarea');
             textarea.value = text;
@@ -244,7 +243,6 @@
     }
 
     function handleDownload() {
-        // ... (handleDownload function remains the same)
         if (!outputCode.textContent) return showMessage("No HTML code to download.", true);
         const blob = new Blob([outputCode.textContent], { type: "text/html" });
         const link = document.createElement("a");
@@ -257,81 +255,81 @@
     }
 
     // ✅ Handle Vercel Deployment
-async function handleDeployment() {
-    if (!latestHtmlContent) return showMessage("No HTML content to deploy.", true);
+    async function handleDeployment() {
+        if (!latestHtmlContent) return showMessage("No HTML content to deploy.", true);
 
-    previewBtn.textContent = "Deploying...";
-    previewBtn.disabled = true;
-    previewBtn.classList.remove("bg-green-600", "bg-blue-600");
-    previewBtn.classList.add("bg-yellow-600");
+        previewBtn.textContent = "Deploying...";
+        previewBtn.disabled = true;
+        previewBtn.classList.remove("bg-green-600", "bg-blue-600", "bg-gray-400", "cursor-not-allowed");
+        previewBtn.classList.add("bg-yellow-600");
 
-    try {
-        // ✅ Fixed route: /api/deploy (not /api/deploy.js)
-        const response = await fetch("/api/deploy", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ htmlContent: latestHtmlContent }),
-        });
+        try {
+            // ✅ Fixed route: /api/deploy (not /api/deploy.js)
+            const response = await fetch("/api/deploy", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ htmlContent: latestHtmlContent }),
+            });
 
-        const result = await response.json();
+            const result = await response.json();
 
-        if (response.ok && result.deploymentUrl) {
-            latestDeploymentUrl = result.deploymentUrl;
+            if (response.ok && result.deploymentUrl) {
+                latestDeploymentUrl = result.deploymentUrl;
 
-            // ✅ Update preview button state
+                // ✅ Update preview button state
+                setPreviewButton(latestDeploymentUrl);
+                previewBtn.classList.remove("bg-yellow-600");
+                previewBtn.classList.add("bg-green-600");
+                previewBtn.textContent = "Preview Site (Open Deployment)";
+
+                showMessage("✅ Deployment successful! Preview is ready.", false);
+            } else {
+                console.error("Vercel Deployment Failed:", result);
+                throw new Error(result.details || result.error || "Deployment failed on Vercel.");
+            }
+        } catch (error) {
+            console.error("Deployment Error:", error);
+
+            latestDeploymentUrl = "";
             setPreviewButton(latestDeploymentUrl);
+
             previewBtn.classList.remove("bg-yellow-600");
-            previewBtn.classList.add("bg-green-600");
-            previewBtn.textContent = "View Live Site";
+            previewBtn.classList.add("bg-red-500");
+            previewBtn.textContent = "Deployment Failed (Retry?)";
 
-            showMessage("✅ Deployment successful! Preview is ready.", false);
-        } else {
-            console.error("Vercel Deployment Failed:", result);
-            throw new Error(result.details || result.error || "Deployment failed on Vercel.");
+            showMessage(`❌ Deployment failed: ${error.message}`, true);
+        } finally {
+            previewBtn.disabled = false;
         }
-    } catch (error) {
-        console.error("Deployment Error:", error);
-
-        latestDeploymentUrl = "";
-        setPreviewButton(latestDeploymentUrl);
-
-        previewBtn.classList.remove("bg-yellow-600");
-        previewBtn.classList.add("bg-red-500");
-        previewBtn.textContent = "Deployment Failed (Retry?)";
-
-        showMessage(`❌ Deployment failed: ${error.message}`, true);
-    } finally {
-        previewBtn.disabled = false;
     }
-}
 
-// ✅ Updated: Handle Preview Button Click
-function handlePreview() {
-    if (!latestDeploymentUrl) {
-        showMessage("Site not deployed yet or deployment failed.", true);
-        return;
+    // ✅ Updated: Handle Preview Button Click
+    function handlePreview() {
+        if (!latestDeploymentUrl) {
+            showMessage("Site not deployed yet or deployment failed.", true);
+            return;
+        }
+        window.open(latestDeploymentUrl, "_blank");
     }
-    window.open(latestDeploymentUrl, "_blank");
-}
 
-// ✅ Auto-Save with Deployment URL
-async function autoSaveProject(htmlContent, userPrompt) {
-    if (!currentUserId || !htmlContent) return;
+    // ✅ Auto-Save with Deployment URL
+    async function autoSaveProject(htmlContent, userPrompt) {
+        if (!currentUserId || !htmlContent) return;
 
-    try {
-        const projectsRef = collection(db, "artifacts", appId, "users", currentUserId, "projects");
-        await addDoc(projectsRef, {
-            prompt: userPrompt.replace(/\\n/g, "\n"),
-            htmlContent,
-            deploymentUrl: latestDeploymentUrl || null, // ✅ Safe fallback
-            createdAt: serverTimestamp(),
-        });
-        console.log("Project auto-saved successfully.");
-    } catch (error) {
-        console.error("Error during auto-save:", error);
-        showMessage("⚠️ Warning: Failed to auto-save project.", true);
+        try {
+            const projectsRef = collection(db, "artifacts", appId, "users", currentUserId, "projects");
+            await addDoc(projectsRef, {
+                prompt: userPrompt.replace(/\\n/g, "\n"),
+                htmlContent,
+                deploymentUrl: latestDeploymentUrl || null, // ✅ Safe fallback
+                createdAt: serverTimestamp(),
+            });
+            console.log("Project auto-saved successfully.");
+        } catch (error) {
+            console.error("Error during auto-save:", error);
+            showMessage("⚠️ Warning: Failed to auto-save project.", true);
+        }
     }
-}
 
 
     async function handleGeneration() {
@@ -402,11 +400,9 @@ async function autoSaveProject(htmlContent, userPrompt) {
 
     // Live typing effect function
     async function typeHtmlLive(newText) {
-        // ... (typeHtmlLive function remains the same)
         for (let i = 0; i < newText.length; i++) {
             outputCode.textContent += newText[i];
             outputCode.scrollTop = outputCode.scrollHeight; 
-            // The previewBtn dataset.html is no longer needed since we use Vercel URL
             await new Promise(r => setTimeout(r, 2));
         }
     }
@@ -436,7 +432,6 @@ async function autoSaveProject(htmlContent, userPrompt) {
                 if (generatedHtml) {
                     latestHtmlContent = generatedHtml.trim();
                     outputCode.textContent = latestHtmlContent;
-                    // outputCode.textContent = latestHtmlContent; // Update output code
                     latestDeploymentUrl = ""; // Reset deployment URL on refinement
                     setPreviewButton(null); // Reset preview button
                     
@@ -474,7 +469,6 @@ async function autoSaveProject(htmlContent, userPrompt) {
     const defaultPlaceholder = "e.g., 'A vibrant landing page for a dog grooming salon...'";
 
     function typePlaceholderEffect() {
-        // ... (typePlaceholderEffect function remains the same)
         if (promptInput.value.length > 0) return;
         const currentPrompt = placeholderPrompts[promptTypingIndex];
         let placeholderText = promptInput.getAttribute('placeholder') || '';
@@ -501,7 +495,6 @@ async function autoSaveProject(htmlContent, userPrompt) {
     }
 
     promptInput.addEventListener('input', () => {
-        // ... (event listener remains the same)
         if (promptInput.value.length > 0) promptInput.setAttribute('placeholder', defaultPlaceholder);
         else {
             promptTypingIndex = 0;
