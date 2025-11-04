@@ -12,6 +12,12 @@ export default async function handler(req, res) {
     const { html, userId, type } = req.body;
 
     if (!html || !userId || !VERCEL_ACCESS_TOKEN || !VERCEL_PROJECT_ID) {
+        // --- START DEBUG LOG ---
+        if (!VERCEL_ACCESS_TOKEN || !VERCEL_PROJECT_ID) {
+            console.error('CRITICAL: Vercel Environment Variables are NOT loaded correctly. Check Vercel settings.');
+        }
+        // --- END DEBUG LOG ---
+
         // This catches missing env vars *or* missing client data
         return res.status(400).json({ error: 'Missing data or environment variables. Check VERCEL_ACCESS_TOKEN/PROJECT_ID.' });
     }
