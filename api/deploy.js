@@ -1,8 +1,9 @@
 import fetch from 'node-fetch';
 
-// ✅ Environment variables (make sure they're set in your Vercel dashboard)
+// Get environment variables defined in your Vercel Project settings
 const VERCEL_ACCESS_TOKEN = process.env.VERCEL_ACCESS_TOKEN;
-const VERCEL_PROJECT_ID = process.env.VERCEL_PROJECT_ID;
+const VERCEL_PROJECT_ID = process.env.VERCEL_PROJECT_ID; 
+// No need for VERCEL_TEAM_ID unless you’re using a team account
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
@@ -13,13 +14,13 @@ export default async function handler(req, res) {
 
     // --- Validation ---
     if (!htmlContent || !VERCEL_ACCESS_TOKEN || !VERCEL_PROJECT_ID) {
-        console.error("Missing Environment or Content:", {
-            hasAccessToken: !!VERCEL_ACCESS_TOKEN,
-            hasProjectId: !!VERCEL_PROJECT_ID,
-            hasHtml: !!htmlContent
+        console.error('Missing data or environment variables:', {
+            htmlContent: !!htmlContent,
+            VERCEL_ACCESS_TOKEN: !!VERCEL_ACCESS_TOKEN,
+            VERCEL_PROJECT_ID: !!VERCEL_PROJECT_ID
         });
 
-        return res.status(400).json({
+        return res.status(400).json({ 
             error: 'Missing data or environment variables.',
             details: 'Required: htmlContent, VERCEL_ACCESS_TOKEN, VERCEL_PROJECT_ID.'
         });
@@ -27,45 +28,56 @@ export default async function handler(req, res) {
 
     // --- Deployment Payload ---
     const deploymentPayload = {
-        name: `ammoue-deploy-${userId || 'anon'}-${type || 'new'}`,
+        name: `Ammoue-Deploy-${userId || 'User'}-${type || 'new'}`,
         files: [
             {
                 file: 'index.html',
                 data: htmlContent,
             }
-        ]
+        ],
+        // 🔧 Required by Vercel for new projects
+        projectSettings: {
+            framework: null,          // Pure HTML site
+            buildCommand: null,       // No build step
+            outputDirectory: null,    // Root
+            devCommand: null,         // No dev command
+        },
     };
 
     try {
-        const vercelUrl = 'https://api.vercel.com/v13/deployments';
+        // ✅ Skip auto framework detection (fixes missing_project_settings)
+        const vercelUrl = `https://api.vercel.com/v13/deployments?skipAutoDetectionConfirmation=1`;
 
         const deploymentResponse = await fetch(vercelUrl, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${VERCEL_ACCESS_TOKEN}`,
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${VERCEL_ACCESS_TOKEN}`,
             },
             body: JSON.stringify(deploymentPayload),
         });
 
         const data = await deploymentResponse.json();
 
+        // --- Handle Vercel Errors ---
         if (!deploymentResponse.ok) {
-            console.error('❌ Vercel API Error:', data);
-            return res.status(deploymentResponse.status).json({
-                error: 'Deployment failed. Vercel API returned an error.',
-                details: data.error?.message || `Status: ${deploymentResponse.status}`,
+            console.error('Vercel API Status:', deploymentResponse.status);
+            console.error('Vercel API Error Response:', JSON.stringify(data, null, 2));
+
+            return res.status(deploymentResponse.status).json({ 
+                error: 'Deployment failed. Vercel API returned an error.', 
+                details: data.error?.message || `Vercel Status Code: ${deploymentResponse.status}`,
                 code: data.error?.code
             });
         }
-
-        // ✅ Success
-        const deploymentUrl = `https://${data.url}`;
-        console.log('✅ Deployment Successful:', deploymentUrl);
-        return res.status(200).json({ deploymentUrl });
+        
+        // --- Success Path ---
+        const previewUrl = data.url;
+        console.log(`✅ Deployment success: https://${previewUrl}`);
+        return res.status(200).json({ deploymentUrl: `https://${previewUrl}` });
 
     } catch (error) {
-        console.error('⚠️ Deployment Crash:', error);
-        return res.status(500).json({ error: 'Internal server error.' });
+        console.error('Deployment fetch/parse error:', error);
+        return res.status(500).json({ error: 'Internal server error during deployment.' });
     }
 }
