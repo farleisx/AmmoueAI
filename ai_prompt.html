@@ -254,8 +254,9 @@
         showMessage("Download started!", false);
     }
 
-    // ✅ Handle Vercel Deployment
+    // ✅ Handle Vercel Deployment (FIXED to include userId)
     async function handleDeployment() {
+        if (!currentUserId) return showMessage("Authentication error: User ID is missing.", true); 
         if (!latestHtmlContent) return showMessage("No HTML content to deploy.", true);
 
         previewBtn.textContent = "Deploying...";
@@ -268,7 +269,10 @@
             const response = await fetch("/api/deploy", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ htmlContent: latestHtmlContent }),
+                body: JSON.stringify({ 
+                    htmlContent: latestHtmlContent,
+                    userId: currentUserId // 🔥 FIX: Pass currentUserId to the API
+                }),
             });
 
             const result = await response.json();
@@ -389,7 +393,7 @@
             showMessage("Website built live! Starting deployment.", false);
             downloadBtn.disabled = false;
             refineBtn.disabled = false;
-            await handleDeployment(); // <--- NEW: Initiate deployment after generation
+            await handleDeployment(); // <--- Initiate deployment after generation
             autoSaveProject(latestHtmlContent, prompt); // Save after deployment attempt
         } else {
             showMessage("No HTML generated.", true);
@@ -435,7 +439,7 @@
                     latestDeploymentUrl = ""; // Reset deployment URL on refinement
                     setPreviewButton(null); // Reset preview button
                     
-                    await handleDeployment(); // <--- NEW: Re-deploy after refinement
+                    await handleDeployment(); // <--- Re-deploy after refinement
                     
                     latestPrompt += `\n\n[Refined]: ${refinePrompt}`;
                     autoSaveProject(latestHtmlContent, latestPrompt);
