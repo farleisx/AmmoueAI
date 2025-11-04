@@ -1,97 +1,98 @@
 import fetch from 'node-fetch';
+import { Buffer } from 'buffer';
 
-// Vercel environment variables
-const VERCEL_ACCESS_TOKEN = process.env.VERCEL_ACCESS_TOKEN;
-const VERCEL_PROJECT_ID = process.env.VERCEL_PROJECT_ID;
+// Environment variables
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const GITHUB_REPO = process.env.GITHUB_REPO; // format: username/repo
+const GITHUB_BRANCH = 'gh-pages'; // GitHub Pages branch
 
-// Helper: sanitize string for Vercel project name
-function sanitizeName(str) {
-    return str
-        .toLowerCase()
-        .replace(/[^a-z0-9._-]/g, '-')   // replace invalid chars with '-'
-        .replace(/-+/g, '-')             // collapse multiple '-' into one
-        .replace(/^-+|-+$/g, '')         // trim leading/trailing '-'
-        .slice(0, 80);                   // keep under 100 chars
+if (!GITHUB_TOKEN || !GITHUB_REPO) {
+  console.error("Missing GITHUB_TOKEN or GITHUB_REPO in environment.");
+}
+
+function sanitizeFileContent(str) {
+  return Buffer.from(str, 'utf-8').toString('base64');
 }
 
 export default async function handler(req, res) {
-    if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method Not Allowed' });
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
+
+  const { htmlContent, userId, type } = req.body;
+
+  if (!htmlContent) {
+    return res.status(400).json({ error: 'Missing htmlContent.' });
+  }
+
+  try {
+    // 1️⃣ Get the latest commit SHA of the gh-pages branch (if exists)
+    let baseSHA = null;
+    let branchExists = true;
+    const branchRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/branches/${GITHUB_BRANCH}`, {
+      headers: { Authorization: `token ${GITHUB_TOKEN}` }
+    });
+
+    if (!branchRes.ok) branchExists = false;
+    else {
+      const branchData = await branchRes.json();
+      baseSHA = branchData.commit.sha;
     }
 
-    const { htmlContent, userId, type } = req.body;
+    // 2️⃣ Create a new blob with the HTML content
+    const blobRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/blobs`, {
+      method: 'POST',
+      headers: { Authorization: `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: htmlContent, encoding: 'utf-8' })
+    });
+    const blobData = await blobRes.json();
 
-    // Validation
-    if (!htmlContent || !VERCEL_ACCESS_TOKEN || !VERCEL_PROJECT_ID) {
-        console.error('Missing data or environment variables:', {
-            htmlContent: !!htmlContent,
-            VERCEL_ACCESS_TOKEN: !!VERCEL_ACCESS_TOKEN,
-            VERCEL_PROJECT_ID: !!VERCEL_PROJECT_ID
-        });
+    // 3️⃣ Create a new tree
+    const treeRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/trees`, {
+      method: 'POST',
+      headers: { Authorization: `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        base_tree: baseSHA,
+        tree: [{ path: 'index.html', mode: '100644', type: 'blob', sha: blobData.sha }]
+      })
+    });
+    const treeData = await treeRes.json();
 
-        return res.status(400).json({ 
-            error: 'Missing data or environment variables.',
-            details: 'Required: htmlContent, VERCEL_ACCESS_TOKEN, VERCEL_PROJECT_ID.'
-        });
+    // 4️⃣ Create a commit
+    const commitMessage = `Deploy AI website${userId ? ` for user ${userId}` : ''}${type ? ` (${type})` : ''}`;
+    const commitRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/commits`, {
+      method: 'POST',
+      headers: { Authorization: `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: commitMessage,
+        tree: treeData.sha,
+        parents: baseSHA ? [baseSHA] : []
+      })
+    });
+    const commitData = await commitRes.json();
+
+    // 5️⃣ Update (or create) the branch
+    const refRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/refs/heads/${GITHUB_BRANCH}`, {
+      method: branchExists ? 'PATCH' : 'POST',
+      headers: { Authorization: `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sha: commitData.sha,
+        force: true
+      })
+    });
+
+    if (!refRes.ok) {
+      const err = await refRes.json();
+      return res.status(refRes.status).json({ error: 'Failed to update branch', details: err });
     }
 
-    // Sanitize project name
-    const safeUserId = sanitizeName(userId || 'user');
-    const safeType = sanitizeName(type || 'new');
-    const projectName = `ammoue-deploy-${safeUserId}-${safeType}`;
+    // 6️⃣ Return the public GitHub Pages URL
+    const deploymentUrl = `https://${GITHUB_REPO.split('/')[0]}.github.io/${GITHUB_REPO.split('/')[1]}/`;
+    console.log('✅ GitHub Pages deployment URL:', deploymentUrl);
 
-    // Deployment payload (public)
-    const deploymentPayload = {
-        name: projectName,
-        public: true, // ✅ make deployment public
-        files: [
-            {
-                file: 'index.html',
-                data: htmlContent,
-            }
-        ],
-        projectSettings: {
-            framework: null,
-            buildCommand: null,
-            outputDirectory: null,
-            devCommand: null,
-        },
-    };
-
-    try {
-        // Skip auto framework detection
-        const vercelUrl = `https://api.vercel.com/v13/deployments?skipAutoDetectionConfirmation=1`;
-
-        const deploymentResponse = await fetch(vercelUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${VERCEL_ACCESS_TOKEN}`,
-            },
-            body: JSON.stringify(deploymentPayload),
-        });
-
-        const data = await deploymentResponse.json();
-
-        // Handle errors
-        if (!deploymentResponse.ok) {
-            console.error('Vercel API Status:', deploymentResponse.status);
-            console.error('Vercel API Error Response:', JSON.stringify(data, null, 2));
-
-            return res.status(deploymentResponse.status).json({ 
-                error: 'Deployment failed. Vercel API returned an error.', 
-                details: data.error?.message || `Vercel Status Code: ${deploymentResponse.status}`,
-                code: data.error?.code
-            });
-        }
-        
-        // Success
-        const previewUrl = data.url;
-        console.log(`✅ Deployment success: https://${previewUrl}`);
-        return res.status(200).json({ deploymentUrl: `https://${previewUrl}` });
-
-    } catch (error) {
-        console.error('Deployment fetch/parse error:', error);
-        return res.status(500).json({ error: 'Internal server error during deployment.' });
-    }
+    return res.status(200).json({ deploymentUrl });
+  } catch (error) {
+    console.error('Deployment Error:', error);
+    return res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
 }
