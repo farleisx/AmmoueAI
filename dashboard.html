@@ -65,8 +65,8 @@
                 <div class="relative">
                     <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"></i>
                     <input type="text" id="project-search" oninput="filterProjects(this.value)"
-                           placeholder="Search projects by title..."
-                           class="w-full border-gray-300 rounded-xl shadow-md focus:border-ammoue focus:ring-ammoue transition duration-150 p-3 pl-10 text-gray-700">
+                            placeholder="Search projects by title..."
+                            class="w-full border-gray-300 rounded-xl shadow-md focus:border-ammoue focus:ring-ammoue transition duration-150 p-3 pl-10 text-gray-700">
                 </div>
             </div>
 
@@ -108,7 +108,7 @@
                 <div class="mb-6">
                     <label for="edit-prompt" class="block text-sm font-medium text-gray-700 mb-1">AI Prompt</label>
                     <textarea id="edit-prompt" rows="6" required 
-                                  class="w-full border-gray-300 rounded-xl shadow-sm focus:border-ammoue focus:ring-ammoue transition duration-150 p-3"></textarea>
+                                 class="w-full border-gray-300 rounded-xl shadow-sm focus:border-ammoue focus:ring-ammoue transition duration-150 p-3"></textarea>
                     <p class="text-xs text-gray-500 mt-1">Editing the prompt does not regenerate the site; it only updates the description.</p>
                 </div>
 
@@ -214,11 +214,26 @@
     }
 
     /** Opens the generated HTML in a new window for a live preview. */
-    // ⭐ REFACTORED: Takes ID, retrieves content from projectsData
+    // ⭐ MODIFIED: Check for deploymentUrl first.
     window.handlePreview = function(projectId) {
         const project = projectsData.get(projectId);
-        if (!project || !project.encodedHtmlContent) {
-            showMessage("Preview data is missing.", true);
+        
+        if (!project) {
+            showMessage("Project data is missing.", true);
+            return;
+        }
+
+        // --- NEW: Check for Live Deployment URL ---
+        if (project.deploymentUrl) {
+            window.open(project.deploymentUrl, "_blank");
+            showMessage("Opening live deployed site!", false);
+            return; // Exit after opening the live site
+        }
+        // --- END NEW ---
+
+        // --- Fallback to Local Preview (Original Logic) ---
+        if (!project.encodedHtmlContent) {
+            showMessage("No deployed URL and no preview data available.", true);
             return;
         }
         
@@ -232,6 +247,7 @@
         }
         previewWindow.document.write(decodedHtml);
         previewWindow.document.close();
+        showMessage("Opening local HTML preview.", false);
     }
 
     /** Downloads the generated HTML code as a file. */
@@ -461,13 +477,13 @@
         } else {
              // Fallback if the element is not found immediately on load
              createCardHtml = `
-                <div onclick="window.location.href='ai_prompt.html'"
-                    class="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:border-ammoue transition duration-300 cursor-pointer hover:shadow-lg h-full min-h-[200px]">
-                    <i data-lucide="plus-circle" class="w-12 h-12 text-gray-400 mb-3"></i>
-                    <p class="text-lg font-semibold text-gray-700">Create New AI Site</p>
-                    <p class="text-sm text-gray-500 mt-1">Start generating a new website</p>
-                </div>
-            `;
+                 <div onclick="window.location.href='ai_prompt.html'"
+                     class="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:border-ammoue transition duration-300 cursor-pointer hover:shadow-lg h-full min-h-[200px]">
+                     <i data-lucide="plus-circle" class="w-12 h-12 text-gray-400 mb-3"></i>
+                     <p class="text-lg font-semibold text-gray-700">Create New AI Site</p>
+                     <p class="text-sm text-gray-500 mt-1">Start generating a new website</p>
+                 </div>
+             `;
         }
         
         // Ensure to remove existing content before prepending the 'Create Card'
@@ -502,6 +518,13 @@
             // *** Escape the HTML content for display in the snippet box ***
             const escapedCodeSnippet = escapeHtml(project.htmlContent);
 
+            // --- Determine button style and text based on deployment status ---
+            const isDeployed = project.deploymentUrl && project.deploymentUrl.startsWith('http');
+            const previewButtonText = isDeployed ? 'Live Site' : 'Preview HTML';
+            const previewButtonColor = isDeployed ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700';
+            const previewButtonIcon = isDeployed ? 'globe' : 'eye';
+            // -----------------------------------------------------------------
+
             projectsHtml += `
                 <div onclick="window.location.href='editor.html?id=${project.id}'"
                     class="bg-white border border-gray-200 rounded-2xl p-6 flex flex-col justify-between shadow-lg hover:shadow-xl transition duration-300 cursor-pointer">
@@ -533,8 +556,8 @@
                                 <i data-lucide="copy" class="w-4 h-4 inline-block"></i>
                             </button>
 
-                            <button onclick="event.stopPropagation(); handlePreview('${project.id}')" class="flex-1 px-3 py-2 text-sm font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-md">
-                                <i data-lucide="eye" class="w-4 h-4 inline-block mr-1"></i> Preview
+                            <button onclick="event.stopPropagation(); handlePreview('${project.id}')" class="flex-1 px-3 py-2 text-sm font-semibold rounded-xl text-white ${previewButtonColor} transition duration-150 shadow-md" title="${isDeployed ? 'Open Live Deployed Site' : 'View Local HTML Preview'}">
+                                <i data-lucide="${previewButtonIcon}" class="w-4 h-4 inline-block mr-1"></i> ${previewButtonText}
                             </button>
                             
                             <button onclick="event.stopPropagation(); handleDownload('${project.id}')" class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-green-600 hover:bg-green-700 transition duration-150 shadow-md">
@@ -588,6 +611,7 @@
                     prompt: cleanPrompt, // The cleaned prompt string
                     htmlContent: data.htmlContent || "", // The original raw HTML
                     encodedHtmlContent: encodedHtmlContent, // The Base64 encoded HTML
+                    deploymentUrl: data.deploymentUrl || null, // ⭐ CRITICAL: Get the deployment URL
                     createdAt: data.createdAt 
                 };
                 
