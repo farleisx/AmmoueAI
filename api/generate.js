@@ -12,8 +12,8 @@ export default async function handler(req, res) {
     const { prompt, pexelsQuery, imageCount = 5 } = req.body;
     if (!prompt) return res.status(400).json({ error: "Missing 'prompt'." });
 
-    // ✅ Fetch images from Pexels
-    let imageSectionHTML = "<!-- no images -->";
+    // ✅ Fetch Pexels images
+    let imageURLs = [];
     if (pexelsQuery && PEXELS_API_KEY) {
       try {
         const pexelsRes = await fetch(
@@ -21,38 +21,31 @@ export default async function handler(req, res) {
           { headers: { Authorization: PEXELS_API_KEY } }
         );
         const data = await pexelsRes.json();
-
-        if (Array.isArray(data.photos) && data.photos.length > 0) {
-          const urls = data.photos
-            .map(photo => photo?.src?.large)
-            .filter(url => typeof url === "string" && url.length > 0);
-
-          // ✅ Tailwind responsive grid
-          imageSectionHTML = `
-<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 my-6">
-  ${urls
-    .map(
-      url =>
-        `<img src="${url}" alt="AI image" class="rounded-lg shadow-lg w-full h-auto object-cover">`
-    )
-    .join("\n")}
-</div>`;
-        }
+        imageURLs = (data.photos || [])
+          .map(p => p?.src?.large)
+          .filter(url => typeof url === "string");
       } catch (err) {
         console.warn("Pexels fetch error:", err);
-        imageSectionHTML = "<!-- image fetch failed -->";
       }
+    }
+
+    // ✅ Fallback if no images found
+    if (imageURLs.length === 0) {
+      imageURLs = [
+        "https://via.placeholder.com/600x400?text=Image+1",
+        "https://via.placeholder.com/600x400?text=Image+2",
+        "https://via.placeholder.com/600x400?text=Image+3",
+      ];
     }
 
     // ✅ Prepare AI prompt
     const systemInstruction = `
 You are a world-class AI web developer. Create a complete, professional, single-file HTML website.
-Embed the following image section exactly as written into the website HTML:
-${imageSectionHTML}
-
-User prompt: ${prompt}
-The output must be a single, self-contained HTML file starting with <!DOCTYPE html>.
 Use Tailwind CSS via CDN for all styling.
+Embed the following images into the website using proper <img> HTML tags:
+${imageURLs.join("\n")}
+User prompt: ${prompt}
+Output must be a single, self-contained HTML file starting with <!DOCTYPE html>.
 `;
 
     // ✅ Streaming headers
