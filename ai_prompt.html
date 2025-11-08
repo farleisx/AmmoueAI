@@ -1,156 +1,156 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ammoue | AI Site Generator</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f8fafc;
-        }
-        .text-ammoue { color: #0d9488; }
-        .bg-ammoue { background-color: #0d9488; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ammoue | AI Site Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        .text-ammoue { color: #0d9488; }
+        .bg-ammoue { background-color: #0d9488; }
 
-        /* Style to ensure the loading screen covers the whole view */
-        #loading-state {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background-color: #fff;
-            z-index: 100;
-            transition: opacity 0.3s ease-in-out; 
-        }
+        /* Style to ensure the loading screen covers the whole view */
+        #loading-state {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #fff;
+            z-index: 100;
+            transition: opacity 0.3s ease-in-out; 
+        }
 
-        /* Custom styles for message box */
-        #message-box {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
-            opacity: 0;
-            transition: opacity 0.3s ease-in-out;
-        }
+        /* Custom styles for message box */
+        #message-box {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
 
-        /* Dashboard & Logout Button Hover Effects */
-        a[href="dashboard.html"],
-        #logout-btn {
-            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
-        }
+        /* Dashboard & Logout Button Hover Effects */
+        a[href="dashboard.html"],
+        #logout-btn {
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+        }
 
-        a[href="dashboard.html"]:hover,
-        #logout-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            background-color: #f1f5f9; /* Tailwind gray-100 shade */
-        }
+        a[href="dashboard.html"]:hover,
+        #logout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            background-color: #f1f5f9; /* Tailwind gray-100 shade */
+        }
 
-        /* Generate & Refine Button Glow Hover Effects */
-        #generate-btn:hover,
-        #refine-btn:hover {
-            box-shadow: 0 0 20px rgba(13, 148, 136, 0.6), 0 4px 12px rgba(13, 148, 136, 0.3);
-            transform: translateY(-2px) scale(1.02);
-        }
+        /* Generate & Refine Button Glow Hover Effects */
+        #generate-btn:hover,
+        #refine-btn:hover {
+            box-shadow: 0 0 20px rgba(13, 148, 136, 0.6), 0 4px 12px rgba(13, 148, 136, 0.3);
+            transform: translateY(-2px) scale(1.02);
+        }
 
-        /* Disabled buttons remain slightly transparent */
-        #generate-btn:disabled,
-        #refine-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-    </style>
+        /* Disabled buttons remain slightly transparent */
+        #generate-btn:disabled,
+        #refine-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+    </style>
 </head>
 <body class="antialiased min-h-screen">
 
-    <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold"></div>
+    <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold"></div>
 
-    <div id="loading-state">
-        <div class="flex flex-col items-center">
-            <svg class="animate-spin h-8 w-8 text-ammoue mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <p class="text-gray-600 font-medium">Verifying session...</p>
-        </div>
-    </div>
+    <div id="loading-state">
+        <div class="flex flex-col items-center">
+            <svg class="animate-spin h-8 w-8 text-ammoue mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="text-gray-600 font-medium">Verifying session...</p>
+        </div>
+    </div>
 
-    <div id="main-content" class="max-w-4xl mx-auto p-6 lg:p-10 hidden">
-        <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Generate Your AI Website</h1>
-        <p class="text-xl text-gray-500 mb-8">Tell Ammoue exactly what website you want to generate (e.g., 'A modern portfolio site for a UX designer with a dark theme').</p>
+    <div id="main-content" class="max-w-4xl mx-auto p-6 lg:p-10 hidden">
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Generate Your AI Website</h1>
+        <p class="text-xl text-gray-500 mb-8">Tell Ammoue exactly what website you want to generate (e.g., 'A modern portfolio site for a UX designer with a dark theme').</p>
 
-        <textarea id="ai-prompt" rows="6" class="w-full p-4 border-2 border-ammoue/30 rounded-2xl focus:ring-ammoue focus:border-ammoue transition duration-150 shadow-md" placeholder="e.g., 'A vibrant landing page for a dog grooming salon called Paws & Claws, focusing on luxury services and online booking.'"></textarea>
+        <textarea id="ai-prompt" rows="6" class="w-full p-4 border-2 border-ammoue/30 rounded-2xl focus:ring-ammoue focus:border-ammoue transition duration-150 shadow-md" placeholder="e.g., 'A vibrant landing page for a dog grooming salon called Paws & Claws, focusing on luxury services and online booking.'"></textarea>
 
-        <div class="mt-6 flex justify-end space-x-4">
-            <a href="dashboard.html" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300 flex items-center">
-                <i data-lucide="layout-dashboard" class="w-4 h-4 mr-1"></i> Dashboard
-            </a>
-            <button id="logout-btn" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300">
-                Log Out
-            </button>
-            <button id="generate-btn" class="px-8 py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-lg shadow-teal-500/30 transform hover:scale-[1.01]">
-                Generate HTML Code
-            </button>
-        </div>
+        <div class="mt-6 flex justify-end space-x-4">
+            <a href="dashboard.html" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300 flex items-center">
+                <i data-lucide="layout-dashboard" class="w-4 h-4 mr-1"></i> Dashboard
+            </a>
+            <button id="logout-btn" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300">
+                Log Out
+            </button>
+            <button id="generate-btn" class="px-8 py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-lg shadow-teal-500/30 transform hover:scale-[1.01]">
+                Generate HTML Code
+            </button>
+        </div>
 
-        <div class="mt-10 p-6 bg-white border border-gray-200 rounded-2xl shadow-xl">
-            <h2 class="text-3xl font-extrabold text-ammoue mb-3 flex items-center">
-                <i data-lucide="sparkles" class="w-6 h-6 mr-2"></i> AI Refinement Agent
-            </h2>
-            <p class="text-lg text-gray-500 mb-6">
-                Refine the **current generated code**. Tell the agent what to change, add, or remove.
-            </p>
+        <div class="mt-10 p-6 bg-white border border-gray-200 rounded-2xl shadow-xl">
+            <h2 class="text-3xl font-extrabold text-ammoue mb-3 flex items-center">
+                <i data-lucide="sparkles" class="w-6 h-6 mr-2"></i> AI Refinement Agent
+            </h2>
+            <p class="text-lg text-gray-500 mb-6">
+                Refine the **current generated code**. Tell the agent what to change, add, or remove.
+            </p>
 
-            <textarea id="refine-prompt" rows="3" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 transition duration-150" placeholder="e.g., 'Make the primary button color a bright orange' or 'Add a 3-column feature section under the hero.'"></textarea>
+            <textarea id="refine-prompt" rows="3" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 transition duration-150" placeholder="e.g., 'Make the primary button color a bright orange' or 'Add a 3-column feature section under the hero.'"></textarea>
 
-            <div class="mt-4 flex justify-end">
-                <button id="refine-btn" disabled class="px-8 py-3 text-lg font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300 shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed">
-                    Refine Code
-                </button>
-            </div>
-        </div>
-        <div id="generation-output" class="mt-12 p-6 bg-white border border-gray-100 rounded-2xl shadow-lg hidden">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-2xl font-bold text-gray-800 flex items-center">
-                    <i data-lucide="code" class="w-5 h-5 mr-2 text-ammoue"></i>
-                    Generated HTML Code
-                </h3>
-                <div class="flex space-x-3">
-                    <button id="copy-btn" class="text-sm font-medium text-ammoue hover:text-teal-600 flex items-center transition duration-200">
-                        <i data-lucide="copy" class="w-4 h-4 mr-1"></i> Copy Code
-                    </button>
-                    <button id="download-btn" disabled class="text-sm font-medium text-blue-600 hover:text-blue-700 disabled:text-gray-400 flex items-center transition duration-200">
-                        <i data-lucide="download" class="w-4 h-4 mr-1"></i> Download HTML
-                    </button>
-                    </div>
-            </div>
-            
-            <pre class="bg-gray-100 p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm">
-                <code id="output-code" class="whitespace-pre"></code>
-            </pre>
-            
-            <button id="preview-btn" class="mt-4 px-6 py-2 text-base font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300">
-                Preview Site (Will open in a new tab)
-            </button>
-        </div>
-    </div>
+            <div class="mt-4 flex justify-end">
+                <button id="refine-btn" disabled class="px-8 py-3 text-lg font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300 shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Refine Code
+                </button>
+            </div>
+        </div>
+        <div id="generation-output" class="mt-12 p-6 bg-white border border-gray-100 rounded-2xl shadow-lg hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold text-gray-800 flex items-center">
+                    <i data-lucide="code" class="w-5 h-5 mr-2 text-ammoue"></i>
+                    Generated HTML Code
+                </h3>
+                <div class="flex space-x-3">
+                    <button id="copy-btn" class="text-sm font-medium text-ammoue hover:text-teal-600 flex items-center transition duration-200">
+                        <i data-lucide="copy" class="w-4 h-4 mr-1"></i> Copy Code
+                    </button>
+                    <button id="download-btn" disabled class="text-sm font-medium text-blue-600 hover:text-blue-700 disabled:text-gray-400 flex items-center transition duration-200">
+                        <i data-lucide="download" class="w-4 h-4 mr-1"></i> Download HTML
+                    </button>
+                    </div>
+            </div>
+            
+            <pre class="bg-gray-100 p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm">
+                <code id="output-code" class="whitespace-pre"></code>
+            </pre>
+            
+            <button id="preview-btn" class="mt-4 px-6 py-2 text-base font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300">
+                Preview Site (Will open in a new tab)
+            </button>
+        </div>
+    </div>
 
-  <script type="module">
+  <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
     import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
     
-    // 🔥 PEXELS API KEY INTEGRATION (The new part)
+    // 🔥 PEXELS API KEY INTEGRATION
     const PEXELS_API_KEY = "YDp1WwLXdNHAdkgOWUDoGyxOC5RyScQFAWVUlLu6ssetzKiulThwi4ca";
 
     const firebaseConfig = {
