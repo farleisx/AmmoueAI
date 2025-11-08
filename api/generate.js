@@ -18,20 +18,25 @@ export default async function handler(req, res) {
     const pexelsData = await pexelsRes.json();
     const imageUrls = (pexelsData.photos || []).map(p => p.src.large);
 
+    // Create <img> tags to include in prompt
+    const imageTags = imageUrls.map(url => `<img src="${url}" alt="AI-selected image" class="rounded-lg shadow-lg mx-auto my-4">`).join("\n");
+
     // 2️⃣ Build Gemini system prompt
     const systemInstruction = `
 You are a world-class AI web developer. Generate a complete, single-file HTML website using Tailwind CSS based on the user's prompt.
-Include the following real images in appropriate sections: ${imageUrls.join(", ")}.
-HTML must be fully responsive, professional, aesthetically beautiful, mobile-friendly, and use Tailwind classes exclusively.
-Return only the raw HTML code starting with <!DOCTYPE html>.
+Insert the following images directly into the HTML in appropriate sections: 
+${imageTags}
+The HTML must include viewport meta tag, load Tailwind CSS via CDN, be fully responsive and mobile-friendly, and look professional.
+Use only Tailwind classes for styling. Return nothing but the raw HTML code starting with <!DOCTYPE html>.
 `;
 
+    // 3️⃣ Setup streaming
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
     res.flushHeaders();
 
-    // 3️⃣ Stream generation
+    // 4️⃣ Stream generation
     const streamResult = await model.generateContentStream(`${systemInstruction}\nUser prompt: ${prompt}`);
     for await (const chunk of streamResult.stream) {
       const textChunk = chunk.text();
