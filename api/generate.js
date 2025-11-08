@@ -9,12 +9,15 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Use POST." });
 
   try {
-    const { prompt, pexelsQuery, imageCount = 5 } = req.body;
+    const { prompt, pexelsQuery: userQuery, imageCount = 5 } = req.body;
     if (!prompt) return res.status(400).json({ error: "Missing 'prompt'." });
 
-    // ✅ Fetch images from Pexels if query provided
+    // ✅ Determine Pexels query automatically if not provided
+    const pexelsQuery = userQuery || prompt.split(" ").slice(0, 3).join(" "); // first 3 words of prompt
+
+    // ✅ Fetch Pexels images
     let imageURLs = [];
-    if (pexelsQuery && PEXELS_API_KEY) {
+    if (PEXELS_API_KEY) {
       try {
         const pexelsRes = await fetch(
           `https://api.pexels.com/v1/search?query=${encodeURIComponent(pexelsQuery)}&per_page=${imageCount}`,
@@ -29,30 +32,22 @@ export default async function handler(req, res) {
       }
     }
 
-    // Convert URLs to <img> tags (if any)
-    const imageTags = imageURLs
-      .map(
-        url =>
-          `<img src="${url}" alt="AI image" class="rounded-lg shadow-lg mx-auto my-4">`
-      )
-      .join("\n");
-
-    // ✅ Gemini system prompt
+    // ✅ Prepare AI instructions with clear priority
     const systemInstruction = `
 You are a world-class AI web developer. Create a complete, professional, single-file HTML website.
 Use Tailwind CSS via CDN for all styling.
 
-Embed the following images exactly as written into the website HTML:
-${imageTags}
+Priority for embedding images:
+1. First, use the following Pexels images if available:
+${imageURLs.join("\n")}
 
-// Important instructions:
-1. If the list above is empty, DO NOT use placeholders.
-2. Instead, find real, publicly available images from Pexels, Unsplash, or relevant web sources related to the user prompt.
-3. Only embed actual working image URLs — never invent fake URLs.
-4. Ensure each image is embedded with proper <img> HTML tags and includes rounded corners and shadow styling.
-5. The output must be a single, self-contained HTML file starting with <!DOCTYPE html>.
+2. If Pexels images are not available, automatically fetch real, visually relevant images from public web sources. 
+Do NOT use Unsplash.
 
+Make the website fully visually appealing and integrate the images naturally with the content.
 User prompt: ${prompt}
+
+Output must be a single, self-contained HTML file starting with <!DOCTYPE html>.
 `;
 
     // ✅ Streaming headers
