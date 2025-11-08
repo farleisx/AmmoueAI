@@ -4,6 +4,34 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
 const API_MODEL = "gemini-2.5-flash";
 
+// Helper: fetch Pexels with retries
+async function fetchPexelsImages(query, count = 5, retries = 3) {
+  if (!PEXELS_API_KEY) return [];
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(
+        `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=${count}`,
+        { headers: { Authorization: PEXELS_API_KEY } }
+      );
+
+      if (!res.ok) {
+        console.warn(`Pexels fetch attempt ${attempt} failed:`, res.status);
+        continue;
+      }
+
+      const data = await res.json();
+      const urls = (data.photos || [])
+        .map(p => p?.src?.large)
+        .filter(url => typeof url === "string");
+
+      if (urls.length > 0) return urls;
+    } catch (err) {
+      console.warn(`Pexels fetch attempt ${attempt} error:`, err);
+    }
+  }
+  return [];
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Use POST." });
 
@@ -11,49 +39,25 @@ export default async function handler(req, res) {
     const { prompt, pexelsQuery, imageCount = 5 } = req.body;
     if (!prompt) return res.status(400).json({ error: "Missing 'prompt'." });
 
-    // ✅ Fetch Pexels images using global fetch (Node 18+)
-    let imageTags = "";
-    if (pexelsQuery && PEXELS_API_KEY) {
-      try {
-        const pexelsRes = await fetch(
-          `https://api.pexels.com/v1/search?query=${encodeURIComponent(
-            pexelsQuery
-          )}&per_page=${imageCount}`,
-          { headers: { Authorization: PEXELS_API_KEY } }
-        );
-
-        if (!pexelsRes.ok) {
-          console.warn("Pexels fetch failed:", pexelsRes.status, await pexelsRes.text());
-        } else {
-          const data = await pexelsRes.json();
-          const urls = (data.photos || [])
-            .map(p => p?.src?.large)
-            .filter(url => typeof url === "string");
-
-          imageTags = urls
-            .map(
-              url =>
-                `<img src="${url}" alt="AI image" class="rounded-lg shadow-lg mx-auto my-4">`
-            )
-            .join("\n");
-        }
-      } catch (err) {
-        console.warn("Pexels fetch error:", err);
-      }
+    // ✅ Fetch Pexels images with retries
+    let imageURLs = [];
+    if (pexelsQuery) {
+      imageURLs = await fetchPexelsImages(pexelsQuery, imageCount);
     }
 
-    // ✅ Fallback images if Pexels fails
-    if (!imageTags) {
-      imageTags = [
+    // ✅ Fallback if no images found
+    if (imageURLs.length === 0) {
+      imageURLs = [
         "https://via.placeholder.com/600x400?text=Image+1",
         "https://via.placeholder.com/600x400?text=Image+2",
         "https://via.placeholder.com/600x400?text=Image+3",
-      ]
-        .map(
-          url => `<img src="${url}" alt="Fallback image" class="rounded-lg shadow-lg mx-auto my-4">`
-        )
-        .join("\n");
+      ];
     }
+
+    // ✅ Convert URLs to <img> tags
+    const imageTags = imageURLs
+      .map(url => `<img src="${url}" alt="AI image" class="rounded-lg shadow-lg mx-auto my-4">`)
+      .join("\n");
 
     // ✅ Prepare AI prompt
     const systemInstruction = `
