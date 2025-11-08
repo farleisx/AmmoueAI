@@ -1,5 +1,4 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import fetch from "node-fetch";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
@@ -12,38 +11,57 @@ export default async function handler(req, res) {
     const { prompt, pexelsQuery, imageCount = 5 } = req.body;
     if (!prompt) return res.status(400).json({ error: "Missing 'prompt'." });
 
-    // ✅ Fetch Pexels images
-    let imageURLs = [];
+    // ✅ Fetch Pexels images using global fetch (Node 18+)
+    let imageTags = "";
     if (pexelsQuery && PEXELS_API_KEY) {
       try {
         const pexelsRes = await fetch(
-          `https://api.pexels.com/v1/search?query=${encodeURIComponent(pexelsQuery)}&per_page=${imageCount}`,
+          `https://api.pexels.com/v1/search?query=${encodeURIComponent(
+            pexelsQuery
+          )}&per_page=${imageCount}`,
           { headers: { Authorization: PEXELS_API_KEY } }
         );
-        const data = await pexelsRes.json();
-        imageURLs = (data.photos || [])
-          .map(p => p?.src?.large)
-          .filter(url => typeof url === "string");
+
+        if (!pexelsRes.ok) {
+          console.warn("Pexels fetch failed:", pexelsRes.status, await pexelsRes.text());
+        } else {
+          const data = await pexelsRes.json();
+          const urls = (data.photos || [])
+            .map(p => p?.src?.large)
+            .filter(url => typeof url === "string");
+
+          imageTags = urls
+            .map(
+              url =>
+                `<img src="${url}" alt="AI image" class="rounded-lg shadow-lg mx-auto my-4">`
+            )
+            .join("\n");
+        }
       } catch (err) {
         console.warn("Pexels fetch error:", err);
       }
     }
 
-    // ✅ Fallback if no images found
-    if (imageURLs.length === 0) {
-      imageURLs = [
+    // ✅ Fallback images if Pexels fails
+    if (!imageTags) {
+      imageTags = [
         "https://via.placeholder.com/600x400?text=Image+1",
         "https://via.placeholder.com/600x400?text=Image+2",
         "https://via.placeholder.com/600x400?text=Image+3",
-      ];
+      ]
+        .map(
+          url => `<img src="${url}" alt="Fallback image" class="rounded-lg shadow-lg mx-auto my-4">`
+        )
+        .join("\n");
     }
 
     // ✅ Prepare AI prompt
     const systemInstruction = `
 You are a world-class AI web developer. Create a complete, professional, single-file HTML website.
 Use Tailwind CSS via CDN for all styling.
-Embed the following images into the website using proper <img> HTML tags:
-${imageURLs.join("\n")}
+Embed the following images exactly as written into the website HTML:
+${imageTags}
+
 User prompt: ${prompt}
 Output must be a single, self-contained HTML file starting with <!DOCTYPE html>.
 `;
