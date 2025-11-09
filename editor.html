@@ -82,10 +82,13 @@
                 </div>
 
                 <div class="flex justify-end pt-4 border-t space-x-4">
+                    <button type="button" id="preview-btn" class="px-6 py-3 text-lg font-bold rounded-xl text-white bg-gray-500 hover:bg-gray-600 transition duration-150 shadow-lg flex items-center disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i data-lucide="monitor" class="w-5 h-5 mr-2"></i> Preview Site
+                    </button>
                     <button type="button" id="ai-code-refine-button" class="px-6 py-3 text-lg font-bold rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150 shadow-lg flex items-center">
                         <i data-lucide="zap" class="w-5 h-5 mr-2"></i> AI Refine Code
                     </button>
-                    <button type="submit" class="px-6 py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-150 shadow-lg flex items-center">
+                    <button type="submit" id="save-btn" class="px-6 py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-150 shadow-lg flex items-center">
                         <i data-lucide="save" class="w-5 h-5 mr-2"></i> Save All Changes
                     </button>
                 </div>
@@ -94,7 +97,6 @@
     </div>
 
     <script type="module">
-    // FIX: Cleaned module specifiers for proper loading
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
     import { getFirestore, doc, getDoc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
@@ -125,7 +127,11 @@
     const titleHeader = document.getElementById('project-title-header');
     const projectIdInput = document.getElementById('project-id-input');
     const codeRefineButton = document.getElementById('ai-code-refine-button');
-    
+    const previewBtn = document.getElementById('preview-btn');
+    const saveBtn = document.getElementById('save-btn');
+
+    let latestDeploymentUrl = ''; // Stores the current deployment URL
+
     // --- Utility Functions ---
 
     /** Shows a temporary message box (replaces alert()) */
@@ -137,6 +143,101 @@
         msgBox.classList.add(isError ? 'bg-red-500' : 'bg-green-500');
         msgBox.classList.add('opacity-100');
         setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
+    }
+    
+    /**
+     * Helper to set Preview Button state (deployed vs. not).
+     * @param {string} url - The deployment URL.
+     * @param {boolean} isDeploying - Whether a deployment is currently in progress.
+     */
+    function setPreviewButton(url, isDeploying = false) {
+        if (!previewBtn) return;
+        
+        // Disable if no URL or if currently deploying
+        previewBtn.disabled = !url && !isDeploying; 
+        
+        previewBtn.classList.remove('bg-green-600', 'bg-blue-600', 'bg-yellow-600', 'bg-red-500', 'bg-gray-500');
+        previewBtn.classList.remove('disabled:opacity-50'); // Remove default disabled style
+
+        if (isDeploying) {
+            previewBtn.textContent = 'Deployment in Progress...';
+            previewBtn.classList.add('bg-yellow-600');
+            saveBtn.disabled = true;
+            codeRefineButton.disabled = true;
+        } else if (url) {
+            previewBtn.textContent = 'Preview Site (Deployed)';
+            previewBtn.classList.add('bg-green-600');
+            saveBtn.disabled = false;
+            codeRefineButton.disabled = false;
+        } else {
+            previewBtn.textContent = 'Preview Site (Not Deployed)';
+            previewBtn.classList.add('bg-gray-500');
+            saveBtn.disabled = false;
+            codeRefineButton.disabled = false;
+        }
+    }
+
+    // New: Handles the actual deployment process
+    async function handleDeployment(htmlContent) {
+        if (!currentUserId) {
+            showMessage("Authentication error: User ID is missing.", true);
+            return null;
+        }
+
+        const initialUrl = latestDeploymentUrl;
+        setPreviewButton(initialUrl, true); // Set the button to a 'deploying' state
+
+        try {
+            const response = await fetch("/api/deploy", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ 
+                    htmlContent: htmlContent,
+                    userId: currentUserId 
+                }),
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.deploymentUrl) {
+                const newUrl = result.deploymentUrl;
+
+                showMessage("✅ Deployment initiated. Waiting 30 seconds for propagation...", false);
+
+                // --- START OF DELAY LOGIC ---
+                const delayInSeconds = 30; // Use 30 seconds delay
+                let countdown = delayInSeconds;
+                const interval = setInterval(() => {
+                    countdown--;
+                    previewBtn.textContent = `Preview Site (Wait ${countdown}s)`;
+                    if (countdown <= 0) {
+                        clearInterval(interval);
+                        setPreviewButton(newUrl, false); 
+                        showMessage("Deployment is complete. You can preview the site!", false);
+                    }
+                }, 1000);
+                // --- END OF DELAY LOGIC ---
+
+                return newUrl; // Return the new URL
+            } else {
+                console.error("Vercel Deployment Failed:", result);
+                throw new Error(result.details || result.error || "Deployment failed on Vercel.");
+            }
+        } catch (error) {
+            console.error("Deployment Error:", error);
+            setPreviewButton(initialUrl, false); // Revert or reset button state
+            showMessage(`❌ Deployment failed: ${error.message}`, true);
+            return null;
+        }
+    }
+
+    // New: Handles Preview Button Click
+    function handlePreview() {
+        if (!latestDeploymentUrl) {
+            showMessage("Site not deployed yet.", true);
+            return;
+        }
+        window.open(latestDeploymentUrl, "_blank");
     }
 
     /** Extracts project ID from the URL query parameters. */
@@ -166,7 +267,7 @@
                 let cleanHtmlContent = data.htmlContent || '';
                 cleanHtmlContent = cleanHtmlContent
                     .replace(/^```(html)?\s*\n?/i, "") // Remove starting fences and optional newline
-                    .replace(/\n?```$/i, "")         // Remove trailing fences and optional newline
+                    .replace(/\n?```$/i, "")           // Remove trailing fences and optional newline
                     .trim();
 
                 return {
@@ -174,6 +275,7 @@
                     ...data,
                     prompt: cleanPrompt,
                     htmlContent: cleanHtmlContent, // Use the cleaned HTML
+                    deploymentUrl: data.deploymentUrl || '', // Ensure URL is captured
                 };
             } else {
                 showMessage("Error: Project not found.", true);
@@ -187,7 +289,7 @@
         }
     }
 
-    /** Handles form submission to update Firestore with new code and details. */
+    /** Handles form submission to update Firestore with new code and trigger re-deployment. */
     async function handleSave(e) {
         e.preventDefault();
         
@@ -206,23 +308,29 @@
             return;
         }
 
-        showMessage("Saving changes...", false);
-        
+        showMessage("Saving changes and re-deploying site...", false);
+
+        // 1. Trigger deployment first to get the URL
+        const updatedDeploymentUrl = await handleDeployment(newHtmlContent);
+        latestDeploymentUrl = updatedDeploymentUrl || latestDeploymentUrl; // Update global URL, keep old one if failed
+
+        // 2. Update Firestore
         try {
             // Document path: /artifacts/{appId}/users/{userId}/projects/{projectId}
             const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
             
             await updateDoc(docRef, {
                 title: newTitle, 
-                prompt: newPrompt.replace(/\n/g, '\\n'), // Escape newlines for consistency with generator output
+                prompt: newPrompt.replace(/\n/g, '\\n'), // Escape newlines for consistency
                 htmlContent: newHtmlContent,
+                deploymentUrl: latestDeploymentUrl, // Save the new/old URL
                 updatedAt: Timestamp.fromDate(new Date()) // Update the timestamp
             });
 
             // Update the header instantly
             titleHeader.textContent = newTitle;
             
-            showMessage(`Project "${newTitle}" saved successfully!`, false);
+            showMessage(`Project "${newTitle}" saved, and deployment initiated!`, false);
             
         } catch (error) {
             console.error("Error updating document:", error);
@@ -268,7 +376,6 @@
                     errorData = JSON.parse(errorText);
                 } catch (e) {
                     console.error("Non-JSON error response:", errorText);
-                    // If not JSON, use the raw text, which might be the unexpected 'T' error page.
                     errorData.error = `Server returned invalid response. Status: ${response.status}`;
                 }
                 throw new Error(errorData.error || errorData.message || `HTTP error! status: ${response.status}`);
@@ -278,9 +385,26 @@
             const refinedCode = data.htmlCode;
 
             if (refinedCode) {
-                // Update the code editor field with the refined HTML
+                // 1. Update the code editor field with the refined HTML
                 codeEditor.value = refinedCode;
-                showMessage("Code refined successfully by AI! Review and save.", false);
+                showMessage("Code refined successfully by AI! Starting re-deployment...", false);
+
+                // 2. Re-deploy the new code
+                const updatedDeploymentUrl = await handleDeployment(refinedCode);
+                latestDeploymentUrl = updatedDeploymentUrl || latestDeploymentUrl;
+
+                // 3. Auto-save the changes to Firestore (including new URL)
+                const projectId = projectIdInput.value;
+                const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
+                await updateDoc(docRef, {
+                    prompt: promptInput.value.replace(/\n/g, '\\n'),
+                    htmlContent: refinedCode,
+                    deploymentUrl: latestDeploymentUrl,
+                    updatedAt: Timestamp.fromDate(new Date())
+                });
+                
+                showMessage("Code refined, re-deployed, and saved successfully!", false);
+
             } else {
                 showMessage("AI returned empty code. Check the refinement description.", true);
             }
@@ -289,7 +413,7 @@
             console.error("Error refining code:", error);
             showMessage(`Code refinement failed: ${error.message}`, true);
         } finally {
-            // Re-enable button
+            // Re-enable buttons
             codeRefineButton.disabled = false;
             codeRefineButton.classList.remove('opacity-50', 'cursor-not-allowed');
         }
@@ -323,6 +447,10 @@
                         promptInput.value = project.prompt;
                         codeEditor.value = project.htmlContent;
                         titleHeader.textContent = project.title;
+                        latestDeploymentUrl = project.deploymentUrl || ''; // Initialize URL
+                        
+                        // Set initial preview button state
+                        setPreviewButton(latestDeploymentUrl, false);
 
                         // Show content
                         loadingScreen.classList.add('hidden');
@@ -352,6 +480,10 @@
     // Attach listener to the AI Code Refine button
     if (codeRefineButton) {
         codeRefineButton.addEventListener('click', handleCodeRefine);
+    }
+    // Attach listener to the Preview button
+    if (previewBtn) {
+        previewBtn.addEventListener('click', handlePreview);
     }
 
     initializeAppAndLoadData();
