@@ -214,16 +214,25 @@
         }
     }
 
-    // Helper to set Preview Button state (deployed vs. not)
-    function setPreviewButton(url) {
-        previewBtn.disabled = !url;
-        if (url) {
+    /**
+     * Helper to set Preview Button state (deployed vs. not).
+     * @param {string} url - The deployment URL.
+     * @param {boolean} isDeploying - Whether a deployment is currently in progress.
+     */
+    function setPreviewButton(url, isDeploying = false) {
+        // Disable if no URL or if currently deploying (before the countdown finishes)
+        previewBtn.disabled = !url || isDeploying; 
+        
+        previewBtn.classList.remove('bg-green-600', 'bg-blue-600', 'bg-yellow-600', 'bg-red-500', 'bg-gray-400', 'cursor-not-allowed', 'cursor-pointer');
+
+        if (isDeploying) {
+            previewBtn.textContent = 'Deployment in Progress (Wait 15s)';
+            previewBtn.classList.add('bg-yellow-600', 'cursor-not-allowed');
+        } else if (url) {
             previewBtn.textContent = 'Preview Site (Open Deployment)';
-            previewBtn.classList.remove('bg-blue-600', 'bg-gray-400', 'cursor-not-allowed');
-            previewBtn.classList.add('bg-green-600','cursor-pointer');
+            previewBtn.classList.add('bg-green-600', 'cursor-pointer');
         } else {
             previewBtn.textContent = 'Preview Site (Deployment Pending)';
-            previewBtn.classList.remove('bg-green-600','cursor-pointer');
             previewBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
         }
     }
@@ -254,24 +263,21 @@
         showMessage("Download started!", false);
     }
 
-    // ✅ Handle Vercel Deployment (FIXED to include userId)
+    // ✅ Handle Vercel Deployment with 15-second delay
     async function handleDeployment() {
         if (!currentUserId) return showMessage("Authentication error: User ID is missing.", true); 
         if (!latestHtmlContent) return showMessage("No HTML content to deploy.", true);
 
-        previewBtn.textContent = "Deploying...";
-        previewBtn.disabled = true;
-        previewBtn.classList.remove("bg-green-600", "bg-blue-600", "bg-gray-400", "cursor-not-allowed");
-        previewBtn.classList.add("bg-yellow-600");
-
+        // Set the button to a 'deploying' state, immediately disabled
+        setPreviewButton(latestDeploymentUrl, true);
+        
         try {
-            // ✅ Fixed route: /api/deploy (not /api/deploy.js)
             const response = await fetch("/api/deploy", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ 
                     htmlContent: latestHtmlContent,
-                    userId: currentUserId // 🔥 FIX: Pass currentUserId to the API
+                    userId: currentUserId 
                 }),
             });
 
@@ -280,13 +286,25 @@
             if (response.ok && result.deploymentUrl) {
                 latestDeploymentUrl = result.deploymentUrl;
 
-                // ✅ Update preview button state
-                setPreviewButton(latestDeploymentUrl);
-                previewBtn.classList.remove("bg-yellow-600");
-                previewBtn.classList.add("bg-green-600");
-                previewBtn.textContent = "Preview Site (Open Deployment)";
+                showMessage("✅ Deployment initiated. Waiting 15 seconds for propagation...", false);
 
-                showMessage("✅ Deployment successful! Preview is ready.", false);
+                // --- START OF 15 SECOND DELAY LOGIC ---
+                // Keep the button in the 'deploying' state for 15 seconds
+                const delayInSeconds = 15;
+                let countdown = delayInSeconds;
+                const interval = setInterval(() => {
+                    countdown--;
+                    // Update the button text with the countdown
+                    previewBtn.textContent = `Preview Site (Wait ${countdown}s)`;
+                    if (countdown <= 0) {
+                        clearInterval(interval);
+                        // After 15 seconds, enable the button and set the final success state
+                        setPreviewButton(latestDeploymentUrl, false); 
+                        showMessage("Deployment is likely complete. You can now preview the site!", false);
+                    }
+                }, 1000);
+                // --- END OF 15 SECOND DELAY LOGIC ---
+
             } else {
                 console.error("Vercel Deployment Failed:", result);
                 throw new Error(result.details || result.error || "Deployment failed on Vercel.");
@@ -295,15 +313,13 @@
             console.error("Deployment Error:", error);
 
             latestDeploymentUrl = "";
-            setPreviewButton(latestDeploymentUrl);
-
+            setPreviewButton(latestDeploymentUrl, false); // Reset button state
+            
             previewBtn.classList.remove("bg-yellow-600");
             previewBtn.classList.add("bg-red-500");
             previewBtn.textContent = "Deployment Failed (Retry?)";
 
             showMessage(`❌ Deployment failed: ${error.message}`, true);
-        } finally {
-            previewBtn.disabled = false;
         }
     }
 
@@ -345,7 +361,7 @@
         outputCode.textContent = "";
         latestHtmlContent = "";
         latestDeploymentUrl = ""; // Reset deployment URL
-        setPreviewButton(null); // Disable and reset preview button
+        setPreviewButton(null, false); // Disable and reset preview button
         latestPrompt = prompt;
 
         const response = await fetch("/api/generate.js", {
@@ -437,7 +453,7 @@
                     latestHtmlContent = generatedHtml.trim();
                     outputCode.textContent = latestHtmlContent;
                     latestDeploymentUrl = ""; // Reset deployment URL on refinement
-                    setPreviewButton(null); // Reset preview button
+                    setPreviewButton(null, false); // Reset preview button
                     
                     await handleDeployment(); // <--- Re-deploy after refinement
                     
@@ -515,7 +531,7 @@
             loadingState.classList.add('hidden');
             loadingState.style.opacity = '0';
             mainContent.classList.remove('hidden');
-            setPreviewButton(latestDeploymentUrl); // Initial button state
+            setPreviewButton(latestDeploymentUrl, false); // Initial button state
             if (!listenersAttached) {
                 generateBtn.addEventListener('click', handleGeneration);
                 refineBtn.addEventListener('click', handleRefine);
