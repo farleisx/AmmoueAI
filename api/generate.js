@@ -10,10 +10,11 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Use POST." });
 
   try {
-    const { prompt, pexelsQuery: userQuery, imageCount = 10 } = req.body;
+    const { prompt, pexelsQuery: userQuery, imageCount = 10, videoCount = 2 } =
+      req.body;
     if (!prompt) return res.status(400).json({ error: "Missing 'prompt'." });
 
-    // ✅ Step 1: Use Gemini to generate a *focused visual query* for Pexels
+    // ✅ Step 1: Generate focused visual search query using Gemini
     let pexelsQuery = userQuery;
     if (!pexelsQuery) {
       try {
@@ -21,12 +22,13 @@ export default async function handler(req, res) {
         const model = genAI.getGenerativeModel({ model: API_MODEL });
 
         const queryPrompt = `
-Given this user request for a website:
+Given this user website request:
 "${prompt}"
 
-Generate a short, visually descriptive search query (1–5 words max)
-that would produce relevant, professional, real-world images on Pexels.
-Only return the query text, nothing else.
+Generate a short, vivid Pexels search query (1–5 words)
+that captures the main visual theme for both images and videos.
+Example: "luxury perfume bottles" or "modern coffee shop interior".
+Only return the text query.
         `;
 
         const queryResult = await model.generateContent(queryPrompt);
@@ -34,63 +36,109 @@ Only return the query text, nothing else.
         console.log("🔍 Generated Pexels query:", pexelsQuery);
       } catch (err) {
         console.warn("Gemini query generation failed:", err);
-        // fallback: use first few words
         pexelsQuery = prompt.split(" ").slice(0, 5).join(" ");
       }
     }
 
-    // ✅ Step 2: Fetch images from Pexels using improved query
+    // ✅ Step 2: Fetch Pexels Images
     let imageURLs = [];
-    if (PEXELS_API_KEY) {
-      try {
-        const pexelsRes = await fetch(
-          `https://api.pexels.com/v1/search?query=${encodeURIComponent(
-            pexelsQuery
-          )}&per_page=${imageCount}`,
-          { headers: { Authorization: PEXELS_API_KEY } }
-        );
-        const data = await pexelsRes.json();
+    try {
+      const pexelsRes = await fetch(
+        `https://api.pexels.com/v1/search?query=${encodeURIComponent(
+          pexelsQuery
+        )}&per_page=${imageCount}`,
+        { headers: { Authorization: PEXELS_API_KEY } }
+      );
+      const data = await pexelsRes.json();
 
-        // ✅ Rank images by how well alt text matches prompt
-        const photos = (data.photos || [])
-          .filter(p => p.src?.large)
-          .sort((a, b) => {
-            const promptWords = prompt.toLowerCase().split(/\s+/);
-            const aScore = promptWords.filter(w =>
-              a.alt?.toLowerCase().includes(w)
-            ).length;
-            const bScore = promptWords.filter(w =>
-              b.alt?.toLowerCase().includes(w)
-            ).length;
-            return bScore - aScore;
-          });
+      const photos = (data.photos || [])
+        .filter((p) => p.src?.large)
+        .sort((a, b) => {
+          const words = prompt.toLowerCase().split(/\s+/);
+          const aScore = words.filter((w) =>
+            a.alt?.toLowerCase().includes(w)
+          ).length;
+          const bScore = words.filter((w) =>
+            b.alt?.toLowerCase().includes(w)
+          ).length;
+          return bScore - aScore;
+        });
 
-        imageURLs = photos.map(p => p.src.large);
-        console.log(`📸 Found ${imageURLs.length} Pexels images`);
-      } catch (err) {
-        console.warn("Pexels fetch error:", err);
-      }
+      imageURLs = photos.map((p) => p.src.large);
+      console.log(`📸 Found ${imageURLs.length} Pexels images`);
+    } catch (err) {
+      console.warn("Pexels image fetch error:", err);
     }
 
-    // ✅ Step 3: Build system instruction for Gemini
+    // ✅ Step 3: Fetch Pexels Videos
+    let videoURLs = [];
+    let heroVideo = "";
+    try {
+      const videoRes = await fetch(
+        `https://api.pexels.com/videos/search?query=${encodeURIComponent(
+          pexelsQuery
+        )}&per_page=${videoCount}`,
+        { headers: { Authorization: PEXELS_API_KEY } }
+      );
+      const videoData = await videoRes.json();
+
+      const videos = (videoData.videos || [])
+        .map((v) => ({
+          url: v.video_files?.[0]?.link,
+          width: v.video_files?.[0]?.width || 0,
+          height: v.video_files?.[0]?.height || 0,
+          duration: v.duration || 0,
+          tags: v.user?.name || "",
+        }))
+        .filter((v) => v.url);
+
+      // Pick hero video based on prompt relevance
+      const promptWords = prompt.toLowerCase().split(/\s+/);
+      videos.sort((a, b) => {
+        const aScore = promptWords.filter((w) =>
+          (a.tags || "").toLowerCase().includes(w)
+        ).length;
+        const bScore = promptWords.filter((w) =>
+          (b.tags || "").toLowerCase().includes(w)
+        ).length;
+        return bScore - aScore;
+      });
+
+      heroVideo = videos[0]?.url || "";
+      videoURLs = videos.map((v) => v.url);
+      console.log(`🎥 Found ${videoURLs.length} Pexels videos`);
+      if (heroVideo) console.log("⭐ Selected hero video:", heroVideo);
+    } catch (err) {
+      console.warn("Pexels video fetch error:", err);
+    }
+
+    // ✅ Step 4: Build AI Instruction
     const systemInstruction = `
 You are a world-class AI web developer. Create a complete, professional, single-file HTML website.
 Use Tailwind CSS via CDN for all styling.
 
-Priority for embedding images:
-1. Use the following Pexels images if available:
-${imageURLs.join("\n") || "No Pexels images found."}
+Media resources:
+🎥 Hero video (use as background in hero section): 
+${heroVideo || "No video available."}
 
-2. If Pexels images are not available or insufficient, automatically fetch real, visually relevant images from public web sources.
-   Do NOT use Unsplash under any circumstances.
+📸 Pexels images:
+${imageURLs.join("\n") || "No images available."}
 
-Ensure the website is modern, visually appealing, and integrates the images naturally with the design.
+🎥 Additional Pexels videos:
+${videoURLs.join("\n") || "No extra videos."}
+
+Rules:
+- Use the hero video as a full-width, looping, muted background in the hero section.
+- Blend additional videos or images elegantly in later sections.
+- Keep the design cinematic, modern, and responsive.
+- Do NOT use Unsplash.
+- Use only the provided media or fallback to public web sources (never blank sections).
 User prompt: ${prompt}
 
 Output must be a single, self-contained HTML file starting with <!DOCTYPE html>.
     `;
 
-    // ✅ Step 4: Stream Gemini’s output live
+    // ✅ Step 5: Stream Gemini output
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
@@ -102,7 +150,8 @@ Output must be a single, self-contained HTML file starting with <!DOCTYPE html>.
 
     for await (const chunk of streamResult.stream) {
       const textChunk = chunk.text?.() || chunk.delta?.content || "";
-      if (textChunk) res.write(`data: ${JSON.stringify({ text: textChunk })}\n\n`);
+      if (textChunk)
+        res.write(`data: ${JSON.stringify({ text: textChunk })}\n\n`);
     }
 
     res.write(`data: [DONE]\n\n`);
