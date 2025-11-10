@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Use POST." });
 
   try {
-    const { prompt, pexelsQuery: userQuery, imageCount = 5 } = req.body;
+    const { prompt, pexelsQuery: userQuery, imageCount = 10 } = req.body;
     if (!prompt) return res.status(400).json({ error: "Missing 'prompt'." });
 
     // ✅ Step 1: Use Gemini to generate a *focused visual query* for Pexels
