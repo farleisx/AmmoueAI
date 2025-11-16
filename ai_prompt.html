@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+     <link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">
     <title>Ammoue | AI Site Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -150,7 +151,6 @@
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
     import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
     
-    // NOTE: This Firebase configuration is visible and should be treated as insecure in a real application.
     const firebaseConfig = {
         apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
         authDomain: "ammoueai.firebaseapp.com",
@@ -273,8 +273,6 @@
         setPreviewButton(latestDeploymentUrl, true);
         
         try {
-            // NOTE: This call relies on a backend endpoint /api/deploy which is NOT included in this client-side code.
-            // This call will fail unless a proper Vercel/GitHub integration is set up on the server.
             const response = await fetch("/api/deploy", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -301,7 +299,7 @@
                     previewBtn.textContent = `Preview Site (Wait ${countdown}s)`;
                     if (countdown <= 0) {
                         clearInterval(interval);
-                        // After the delay, enable the button and set the final success state
+                        // After 15 seconds, enable the button and set the final success state
                         setPreviewButton(latestDeploymentUrl, false); 
                         showMessage("Deployment is likely complete. You can now preview the site!", false);
                     }
@@ -367,8 +365,6 @@
         setPreviewButton(null, false); // Disable and reset preview button
         latestPrompt = prompt;
 
-        // NOTE: This call relies on a backend endpoint /api/generate.js which is NOT included in this client-side code.
-        // This will likely fail to connect to the AI model.
         const response = await fetch("/api/generate.js", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -444,8 +440,6 @@
 
         for (let attempt = 0; attempt < maxRetries; attempt++) {
             try {
-                // NOTE: This call relies on a backend endpoint /api/refine.js which is NOT included in this client-side code.
-                // This will likely fail to connect to the AI model.
                 const response = await fetch('/api/refine.js', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
