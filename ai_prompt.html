@@ -92,7 +92,7 @@
 
         <div id="interaction-container" class="flex flex-col lg:flex-row lg:space-x-8">
             
-            <div id="input-col" class="w-full lg:w-1/2">
+            <div id="input-col" class="w-full lg:w-1/2"> 
                 
                 <textarea id="ai-prompt" rows="6" class="w-full p-4 border-2 border-ammoue/30 rounded-2xl focus:ring-ammoue focus:border-ammoue transition duration-150 shadow-md mb-6" placeholder="e.g., 'A vibrant landing page for a dog grooming salon called Paws & Claws, focusing on luxury services and online booking.'"></textarea>
 
@@ -190,11 +190,9 @@
     const refineBtn = document.getElementById('refine-btn');
     
     // 💡 NEW ELEMENTS FOR LAYOUT MANAGEMENT
-    const interactionContainer = document.getElementById('interaction-container');
     const inputCol = document.getElementById('input-col');
     const outputCol = document.getElementById('output-col');
     const refinementSection = document.getElementById('refinement-section');
-    const initialControls = document.getElementById('initial-controls');
     // ------------------------------------
 
     let listenersAttached = false;
@@ -244,7 +242,7 @@
         previewBtn.classList.remove('bg-green-600', 'bg-blue-600', 'bg-yellow-600', 'bg-red-500', 'bg-gray-400', 'cursor-not-allowed', 'cursor-pointer');
 
         if (isDeploying) {
-            previewBtn.textContent = 'Deployment in Progress (Wait 30s)';
+            previewBtn.textContent = 'Deployment in Progress (Wait 15s)';
             previewBtn.classList.add('bg-yellow-600', 'cursor-not-allowed');
         } else if (url) {
             previewBtn.textContent = 'Preview Site (Open Deployment)';
@@ -281,7 +279,7 @@
         showMessage("Download started!", false);
     }
 
-    // Handle Vercel Deployment with 30-second delay
+    // Handle Vercel Deployment with 15-second delay
     async function handleDeployment() {
         if (!currentUserId) return showMessage("Authentication error: User ID is missing.", true); 
         if (!latestHtmlContent) return showMessage("No HTML content to deploy.", true);
@@ -304,10 +302,10 @@
             if (response.ok && result.deploymentUrl) {
                 latestDeploymentUrl = result.deploymentUrl;
 
-                showMessage("✅ Deployment initiated. Waiting 30 seconds for propagation...", false);
+                showMessage("✅ Deployment initiated. Waiting 15 seconds for propagation...", false);
 
-                // --- START OF 30 SECOND DELAY LOGIC ---
-                const delayInSeconds = 30;
+                // --- START OF 15 SECOND DELAY LOGIC (Corrected delayInSeconds variable) ---
+                const delayInSeconds = 15; 
                 let countdown = delayInSeconds;
                 const interval = setInterval(() => {
                     countdown--;
@@ -315,12 +313,12 @@
                     previewBtn.textContent = `Preview Site (Wait ${countdown}s)`;
                     if (countdown <= 0) {
                         clearInterval(interval);
-                        // After 30 seconds, enable the button and set the final success state
+                        // After 15 seconds, enable the button and set the final success state
                         setPreviewButton(latestDeploymentUrl, false); 
                         showMessage("Deployment is likely complete. You can now preview the site!", false);
                     }
                 }, 1000);
-                // --- END OF 30 SECOND DELAY LOGIC ---
+                // --- END OF 15 SECOND DELAY LOGIC ---
 
             } else {
                 console.error("Vercel Deployment Failed:", result);
@@ -378,6 +376,7 @@
 
         // Show the output column (the right side)
         outputCol.classList.remove('hidden');
+        outputDiv.classList.remove('hidden'); // Ensure the output content inside the column is visible
 
         // Show the Refinement Agent section (it will stack under the prompt on the left)
         refinementSection.classList.remove('hidden');
@@ -386,9 +385,6 @@
         promptInput.rows = 3; 
         promptInput.classList.add('border-b-2', 'border-gray-300', 'pb-4', 'mb-4');
         promptInput.setAttribute('readonly', 'true'); // Make it read-only for history
-
-        // Optional: Hide the dashboard/logout buttons from the main input flow for focus
-        // initialControls.classList.add('hidden'); 
     }
 
 
