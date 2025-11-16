@@ -146,12 +146,11 @@
     </div>
 
   <script type="module">
-    // --- Firebase & Utilities Imports ---
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
     import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
     
-    // --- Configuration (Kept exactly as provided) ---
+    // NOTE: This Firebase configuration is visible and should be treated as insecure in a real application.
     const firebaseConfig = {
         apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
         authDomain: "ammoueai.firebaseapp.com",
@@ -167,7 +166,6 @@
     const appId = firebaseConfig.projectId;
     let currentUserId = null;
 
-    // --- DOM Elements ---
     const loadingState = document.getElementById('loading-state');
     const mainContent = document.getElementById('main-content');
     const logoutBtn = document.getElementById('logout-btn');
@@ -182,13 +180,11 @@
     const refinePromptInput = document.getElementById('refine-prompt');
     const refineBtn = document.getElementById('refine-btn');
 
-    // --- State Variables ---
     let listenersAttached = false;
     let latestHtmlContent = ''; 
     let latestPrompt = ''; 
-    let latestDeploymentUrl = ''; 
+    let latestDeploymentUrl = ''; // ✅ per-user GitHub Pages URL
 
-    // --- Utility Functions ---
     function showMessage(message, isError) {
         messageBox.textContent = message;
         messageBox.classList.toggle('bg-red-500', isError);
@@ -225,12 +221,13 @@
      * @param {boolean} isDeploying - Whether a deployment is currently in progress.
      */
     function setPreviewButton(url, isDeploying = false) {
+        // Disable if no URL or if currently deploying (before the countdown finishes)
         previewBtn.disabled = !url || isDeploying; 
         
         previewBtn.classList.remove('bg-green-600', 'bg-blue-600', 'bg-yellow-600', 'bg-red-500', 'bg-gray-400', 'cursor-not-allowed', 'cursor-pointer');
 
         if (isDeploying) {
-            previewBtn.textContent = 'Deployment in Progress (Wait 30s)';
+            previewBtn.textContent = 'Deployment in Progress (Wait 15s)';
             previewBtn.classList.add('bg-yellow-600', 'cursor-not-allowed');
         } else if (url) {
             previewBtn.textContent = 'Preview Site (Open Deployment)';
@@ -267,7 +264,7 @@
         showMessage("Download started!", false);
     }
 
-    // Handle Vercel Deployment with 30-second delay (per your provided logic)
+    // ✅ Handle Vercel Deployment with 15-second delay
     async function handleDeployment() {
         if (!currentUserId) return showMessage("Authentication error: User ID is missing.", true); 
         if (!latestHtmlContent) return showMessage("No HTML content to deploy.", true);
@@ -276,6 +273,8 @@
         setPreviewButton(latestDeploymentUrl, true);
         
         try {
+            // NOTE: This call relies on a backend endpoint /api/deploy which is NOT included in this client-side code.
+            // This call will fail unless a proper Vercel/GitHub integration is set up on the server.
             const response = await fetch("/api/deploy", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -290,26 +289,24 @@
             if (response.ok && result.deploymentUrl) {
                 latestDeploymentUrl = result.deploymentUrl;
 
-                showMessage("✅ Deployment initiated. Waiting 30 seconds for propagation...", false);
+                showMessage("✅ Deployment initiated. Waiting 15 seconds for propagation...", false);
 
-                // --- START OF 30 SECOND DELAY LOGIC ---
+                // --- START OF 15 SECOND DELAY LOGIC ---
+                // Keep the button in the 'deploying' state for 15 seconds
                 const delayInSeconds = 30;
                 let countdown = delayInSeconds;
-                // Update the button text to show the initial countdown value
-                previewBtn.textContent = `Preview Site (Wait ${countdown}s)`; 
-
                 const interval = setInterval(() => {
                     countdown--;
                     // Update the button text with the countdown
                     previewBtn.textContent = `Preview Site (Wait ${countdown}s)`;
                     if (countdown <= 0) {
                         clearInterval(interval);
-                        // After 30 seconds, enable the button and set the final success state
+                        // After the delay, enable the button and set the final success state
                         setPreviewButton(latestDeploymentUrl, false); 
                         showMessage("Deployment is likely complete. You can now preview the site!", false);
                     }
                 }, 1000);
-                // --- END OF 30 SECOND DELAY LOGIC ---
+                // --- END OF 15 SECOND DELAY LOGIC ---
 
             } else {
                 console.error("Vercel Deployment Failed:", result);
@@ -329,7 +326,7 @@
         }
     }
 
-    // Handle Preview Button Click
+    // ✅ Updated: Handle Preview Button Click
     function handlePreview() {
         if (!latestDeploymentUrl) {
             showMessage("Site not deployed yet or deployment failed.", true);
@@ -338,7 +335,7 @@
         window.open(latestDeploymentUrl, "_blank");
     }
 
-    // Auto-Save with Deployment URL
+    // ✅ Auto-Save with Deployment URL
     async function autoSaveProject(htmlContent, userPrompt) {
         if (!currentUserId || !htmlContent) return;
 
@@ -347,7 +344,7 @@
             await addDoc(projectsRef, {
                 prompt: userPrompt.replace(/\\n/g, "\n"),
                 htmlContent,
-                deploymentUrl: latestDeploymentUrl || null, // Safe fallback
+                deploymentUrl: latestDeploymentUrl || null, // ✅ Safe fallback
                 createdAt: serverTimestamp(),
             });
             console.log("Project auto-saved successfully.");
@@ -370,8 +367,9 @@
         setPreviewButton(null, false); // Disable and reset preview button
         latestPrompt = prompt;
 
-        // Note: The /api/generate.js path assumes a serverless function endpoint.
-        const response = await fetch("/api/generate.js", { 
+        // NOTE: This call relies on a backend endpoint /api/generate.js which is NOT included in this client-side code.
+        // This will likely fail to connect to the AI model.
+        const response = await fetch("/api/generate.js", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ prompt }),
@@ -387,7 +385,7 @@
         let buffer = "";
         let html = "";
 
-        // Live typing effect logic (Streaming)
+        // Live typing effect logic
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
@@ -446,8 +444,9 @@
 
         for (let attempt = 0; attempt < maxRetries; attempt++) {
             try {
-                // Note: The /api/refine.js path assumes a serverless function endpoint.
-                const response = await fetch('/api/refine.js', { 
+                // NOTE: This call relies on a backend endpoint /api/refine.js which is NOT included in this client-side code.
+                // This will likely fail to connect to the AI model.
+                const response = await fetch('/api/refine.js', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -482,7 +481,6 @@
         setLoading(false);
     }
 
-    // --- Typing Placeholder Effect Logic ---
     const placeholderPrompts = [
         "A minimalist portfolio for a futuristic fashion designer.",
         "A quirky online café with interactive menu animations.",
@@ -533,7 +531,6 @@
         }
     });
 
-    // --- Authentication and Initialization ---
     onAuthStateChanged(auth, (user) => {
         if (user) {
             currentUserId = user.uid;
