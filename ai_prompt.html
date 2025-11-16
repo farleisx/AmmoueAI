@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-     <link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">
+    <link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">
     <title>Ammoue | AI Site Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -86,67 +86,76 @@
         </div>
     </div>
 
-    <div id="main-content" class="max-w-4xl mx-auto p-6 lg:p-10 hidden">
+    <div id="main-content" class="max-w-7xl mx-auto p-6 lg:p-10 hidden">
         <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Generate Your AI Website</h1>
         <p class="text-xl text-gray-500 mb-8">Tell Ammoue exactly what website you want to generate (e.g., 'A modern portfolio site for a UX designer with a dark theme').</p>
 
-        <textarea id="ai-prompt" rows="6" class="w-full p-4 border-2 border-ammoue/30 rounded-2xl focus:ring-ammoue focus:border-ammoue transition duration-150 shadow-md" placeholder="e.g., 'A vibrant landing page for a dog grooming salon called Paws & Claws, focusing on luxury services and online booking.'"></textarea>
+        <div id="interaction-container" class="flex flex-col lg:flex-row lg:space-x-8">
+            
+            <div id="input-col" class="w-full lg:w-1/2">
+                
+                <textarea id="ai-prompt" rows="6" class="w-full p-4 border-2 border-ammoue/30 rounded-2xl focus:ring-ammoue focus:border-ammoue transition duration-150 shadow-md mb-6" placeholder="e.g., 'A vibrant landing page for a dog grooming salon called Paws & Claws, focusing on luxury services and online booking.'"></textarea>
 
-        <div class="mt-6 flex justify-end space-x-4">
-            <a href="dashboard.html" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300 flex items-center">
-                <i data-lucide="layout-dashboard" class="w-4 h-4 mr-1"></i> Dashboard
-            </a>
-            <button id="logout-btn" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300">
-                Log Out
-            </button>
-            <button id="generate-btn" class="px-8 py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-lg shadow-teal-500/30 transform hover:scale-[1.01]">
-                Generate HTML Code
-            </button>
-        </div>
-
-        <div class="mt-10 p-6 bg-white border border-gray-200 rounded-2xl shadow-xl">
-            <h2 class="text-3xl font-extrabold text-ammoue mb-3 flex items-center">
-                <i data-lucide="sparkles" class="w-6 h-6 mr-2"></i> AI Refinement Agent
-            </h2>
-            <p class="text-lg text-gray-500 mb-6">
-                Refine the **current generated code**. Tell the agent what to change, add, or remove.
-            </p>
-
-            <textarea id="refine-prompt" rows="3" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 transition duration-150" placeholder="e.g., 'Make the primary button color a bright orange' or 'Add a 3-column feature section under the hero.'"></textarea>
-
-            <div class="mt-4 flex justify-end">
-                <button id="refine-btn" disabled class="px-8 py-3 text-lg font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300 shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed">
-                    Refine Code
-                </button>
-            </div>
-        </div>
-        <div id="generation-output" class="mt-12 p-6 bg-white border border-gray-100 rounded-2xl shadow-lg hidden">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-2xl font-bold text-gray-800 flex items-center">
-                    <i data-lucide="code" class="w-5 h-5 mr-2 text-ammoue"></i>
-                    Generated HTML Code
-                </h3>
-                <div class="flex space-x-3">
-                    <button id="copy-btn" class="text-sm font-medium text-ammoue hover:text-teal-600 flex items-center transition duration-200">
-                        <i data-lucide="copy" class="w-4 h-4 mr-1"></i> Copy Code
+                <div id="initial-controls" class="flex justify-end space-x-4 mb-10">
+                    <a href="dashboard.html" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300 flex items-center">
+                        <i data-lucide="layout-dashboard" class="w-4 h-4 mr-1"></i> Dashboard
+                    </a>
+                    <button id="logout-btn" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300">
+                        Log Out
                     </button>
-                    <button id="download-btn" disabled class="text-sm font-medium text-blue-600 hover:text-blue-700 disabled:text-gray-400 flex items-center transition duration-200">
-                        <i data-lucide="download" class="w-4 h-4 mr-1"></i> Download HTML
+                    <button id="generate-btn" class="px-8 py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-lg shadow-teal-500/30 transform hover:scale-[1.01]">
+                        Generate HTML Code
                     </button>
+                </div>
+
+                <div id="refinement-section" class="p-6 bg-white border border-gray-200 rounded-2xl shadow-xl hidden">
+                    <h2 class="text-3xl font-extrabold text-ammoue mb-3 flex items-center">
+                        <i data-lucide="sparkles" class="w-6 h-6 mr-2"></i> AI Refinement Agent
+                    </h2>
+                    <p class="text-lg text-gray-500 mb-6">
+                        Refine the **current generated code**. Tell the agent what to change, add, or remove.
+                    </p>
+
+                    <textarea id="refine-prompt" rows="3" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 transition duration-150" placeholder="e.g., 'Make the primary button color a bright orange' or 'Add a 3-column feature section under the hero.'"></textarea>
+
+                    <div class="mt-4 flex justify-end">
+                        <button id="refine-btn" disabled class="px-8 py-3 text-lg font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300 shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed">
+                            Refine Code
+                        </button>
                     </div>
+                </div>
             </div>
-            
-            <pre class="bg-gray-100 p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm">
-                <code id="output-code" class="whitespace-pre"></code>
-            </pre>
-            
-            <button id="preview-btn" class="mt-4 px-6 py-2 text-base font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300">
-                Preview Site (Will open in a new tab)
-            </button>
+
+            <div id="output-col" class="w-full lg:w-1/2 mt-10 lg:mt-0 hidden">
+                <div id="generation-output" class="p-6 bg-white border border-gray-100 rounded-2xl shadow-lg">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-2xl font-bold text-gray-800 flex items-center">
+                            <i data-lucide="code" class="w-5 h-5 mr-2 text-ammoue"></i>
+                            Generated HTML Code
+                        </h3>
+                        <div class="flex space-x-3">
+                            <button id="copy-btn" class="text-sm font-medium text-ammoue hover:text-teal-600 flex items-center transition duration-200">
+                                <i data-lucide="copy" class="w-4 h-4 mr-1"></i> Copy Code
+                            </button>
+                            <button id="download-btn" disabled class="text-sm font-medium text-blue-600 hover:text-blue-700 disabled:text-gray-400 flex items-center transition duration-200">
+                                <i data-lucide="download" class="w-4 h-4 mr-1"></i> Download HTML
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <pre class="bg-gray-100 p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm h-96">
+                        <code id="output-code" class="whitespace-pre"></code>
+                    </pre>
+                    
+                    <button id="preview-btn" class="mt-4 px-6 py-2 text-base font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300">
+                        Preview Site (Will open in a new tab)
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
-  <script type="module">
+ <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
     import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
@@ -179,11 +188,19 @@
     const messageBox = document.getElementById('message-box');
     const refinePromptInput = document.getElementById('refine-prompt');
     const refineBtn = document.getElementById('refine-btn');
+    
+    // 💡 NEW ELEMENTS FOR LAYOUT MANAGEMENT
+    const interactionContainer = document.getElementById('interaction-container');
+    const inputCol = document.getElementById('input-col');
+    const outputCol = document.getElementById('output-col');
+    const refinementSection = document.getElementById('refinement-section');
+    const initialControls = document.getElementById('initial-controls');
+    // ------------------------------------
 
     let listenersAttached = false;
     let latestHtmlContent = ''; 
     let latestPrompt = ''; 
-    let latestDeploymentUrl = ''; // ✅ per-user GitHub Pages URL
+    let latestDeploymentUrl = '';
 
     function showMessage(message, isError) {
         messageBox.textContent = message;
@@ -227,7 +244,7 @@
         previewBtn.classList.remove('bg-green-600', 'bg-blue-600', 'bg-yellow-600', 'bg-red-500', 'bg-gray-400', 'cursor-not-allowed', 'cursor-pointer');
 
         if (isDeploying) {
-            previewBtn.textContent = 'Deployment in Progress (Wait 15s)';
+            previewBtn.textContent = 'Deployment in Progress (Wait 30s)';
             previewBtn.classList.add('bg-yellow-600', 'cursor-not-allowed');
         } else if (url) {
             previewBtn.textContent = 'Preview Site (Open Deployment)';
@@ -264,7 +281,7 @@
         showMessage("Download started!", false);
     }
 
-    // ✅ Handle Vercel Deployment with 15-second delay
+    // Handle Vercel Deployment with 30-second delay
     async function handleDeployment() {
         if (!currentUserId) return showMessage("Authentication error: User ID is missing.", true); 
         if (!latestHtmlContent) return showMessage("No HTML content to deploy.", true);
@@ -287,10 +304,9 @@
             if (response.ok && result.deploymentUrl) {
                 latestDeploymentUrl = result.deploymentUrl;
 
-                showMessage("✅ Deployment initiated. Waiting 15 seconds for propagation...", false);
+                showMessage("✅ Deployment initiated. Waiting 30 seconds for propagation...", false);
 
-                // --- START OF 15 SECOND DELAY LOGIC ---
-                // Keep the button in the 'deploying' state for 15 seconds
+                // --- START OF 30 SECOND DELAY LOGIC ---
                 const delayInSeconds = 30;
                 let countdown = delayInSeconds;
                 const interval = setInterval(() => {
@@ -299,12 +315,12 @@
                     previewBtn.textContent = `Preview Site (Wait ${countdown}s)`;
                     if (countdown <= 0) {
                         clearInterval(interval);
-                        // After 15 seconds, enable the button and set the final success state
+                        // After 30 seconds, enable the button and set the final success state
                         setPreviewButton(latestDeploymentUrl, false); 
                         showMessage("Deployment is likely complete. You can now preview the site!", false);
                     }
                 }, 1000);
-                // --- END OF 15 SECOND DELAY LOGIC ---
+                // --- END OF 30 SECOND DELAY LOGIC ---
 
             } else {
                 console.error("Vercel Deployment Failed:", result);
@@ -324,7 +340,7 @@
         }
     }
 
-    // ✅ Updated: Handle Preview Button Click
+    // Handle Preview Button Click
     function handlePreview() {
         if (!latestDeploymentUrl) {
             showMessage("Site not deployed yet or deployment failed.", true);
@@ -333,7 +349,7 @@
         window.open(latestDeploymentUrl, "_blank");
     }
 
-    // ✅ Auto-Save with Deployment URL
+    // Auto-Save with Deployment URL
     async function autoSaveProject(htmlContent, userPrompt) {
         if (!currentUserId || !htmlContent) return;
 
@@ -342,7 +358,7 @@
             await addDoc(projectsRef, {
                 prompt: userPrompt.replace(/\\n/g, "\n"),
                 htmlContent,
-                deploymentUrl: latestDeploymentUrl || null, // ✅ Safe fallback
+                deploymentUrl: latestDeploymentUrl || null, 
                 createdAt: serverTimestamp(),
             });
             console.log("Project auto-saved successfully.");
@@ -352,17 +368,39 @@
         }
     }
 
+    /**
+     * 💡 NEW: Activates the side-by-side layout and shows the refinement section.
+     */
+    function activateRefinementMode() {
+        // Change main content max width for more space
+        mainContent.classList.remove('max-w-4xl');
+        mainContent.classList.add('max-w-7xl');
+
+        // Show the output column (the right side)
+        outputCol.classList.remove('hidden');
+
+        // Show the Refinement Agent section (it will stack under the prompt on the left)
+        refinementSection.classList.remove('hidden');
+        
+        // Adjust the height of the original prompt for better context/history view
+        promptInput.rows = 3; 
+        promptInput.classList.add('border-b-2', 'border-gray-300', 'pb-4', 'mb-4');
+        promptInput.setAttribute('readonly', 'true'); // Make it read-only for history
+
+        // Optional: Hide the dashboard/logout buttons from the main input flow for focus
+        // initialControls.classList.add('hidden'); 
+    }
+
 
     async function handleGeneration() {
         const prompt = promptInput.value.trim();
         if (prompt.length < 10) return showMessage("Please provide a detailed prompt (min 10 chars).", true);
 
         setLoading(true);
-        outputDiv.classList.remove("hidden");
         outputCode.textContent = "";
         latestHtmlContent = "";
-        latestDeploymentUrl = ""; // Reset deployment URL
-        setPreviewButton(null, false); // Disable and reset preview button
+        latestDeploymentUrl = ""; 
+        setPreviewButton(null, false); 
         latestPrompt = prompt;
 
         const response = await fetch("/api/generate.js", {
@@ -410,8 +448,12 @@
             showMessage("Website built live! Starting deployment.", false);
             downloadBtn.disabled = false;
             refineBtn.disabled = false;
-            await handleDeployment(); // <--- Initiate deployment after generation
-            autoSaveProject(latestHtmlContent, prompt); // Save after deployment attempt
+            
+            // 💡 NEW: Activate side-by-side mode after generation
+            activateRefinementMode();
+            
+            await handleDeployment(); 
+            autoSaveProject(latestHtmlContent, prompt); 
         } else {
             showMessage("No HTML generated.", true);
         }
