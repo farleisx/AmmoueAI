@@ -266,63 +266,57 @@
 
     // ✅ Handle Vercel Deployment with 15-second delay
     async function handleDeployment() {
-        if (!currentUserId) return showMessage("Authentication error: User ID is missing.", true); 
-        if (!latestHtmlContent) return showMessage("No HTML content to deploy.", true);
+    if (!currentUserId) return showMessage("Authentication error: User ID is missing.", true); 
+    if (!latestHtmlContent) return showMessage("No HTML content to deploy.", true);
 
-        // Set the button to a 'deploying' state, immediately disabled
-        setPreviewButton(latestDeploymentUrl, true);
-        
-        try {
-            const response = await fetch("/api/deploy", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ 
-                    htmlContent: latestHtmlContent,
-                    userId: currentUserId 
-                }),
-            });
+    setPreviewButton(latestDeploymentUrl, true); // Show deploying state
 
-            const result = await response.json();
+    try {
+        const response = await fetch("/api/deploy", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+                htmlContent: latestHtmlContent,
+                userId: currentUserId 
+            }),
+        });
 
-            if (response.ok && result.deploymentUrl) {
-                latestDeploymentUrl = result.deploymentUrl;
+        const result = await response.json();
 
-                showMessage("✅ Deployment initiated. Waiting 15 seconds for propagation...", false);
-
-                // --- START OF 15 SECOND DELAY LOGIC ---
-                // Keep the button in the 'deploying' state for 15 seconds
-                const delayInSeconds = 30;
-                let countdown = delayInSeconds;
-                const interval = setInterval(() => {
-                    countdown--;
-                    // Update the button text with the countdown
-                    previewBtn.textContent = `Preview Site (Wait ${countdown}s)`;
-                    if (countdown <= 0) {
-                        clearInterval(interval);
-                        // After 15 seconds, enable the button and set the final success state
-                        setPreviewButton(latestDeploymentUrl, false); 
-                        showMessage("Deployment is likely complete. You can now preview the site!", false);
-                    }
-                }, 1000);
-                // --- END OF 15 SECOND DELAY LOGIC ---
-
-            } else {
-                console.error("Vercel Deployment Failed:", result);
-                throw new Error(result.details || result.error || "Deployment failed on Vercel.");
-            }
-        } catch (error) {
-            console.error("Deployment Error:", error);
-
-            latestDeploymentUrl = "";
-            setPreviewButton(latestDeploymentUrl, false); // Reset button state
-            
-            previewBtn.classList.remove("bg-yellow-600");
-            previewBtn.classList.add("bg-red-500");
-            previewBtn.textContent = "Deployment Failed (Retry?)";
-
-            showMessage(`❌ Deployment failed: ${error.message}`, true);
+        if (!response.ok) {
+            // Show plan limit or other backend errors
+            const errorMessage = result.error || "Deployment failed.";
+            showMessage(`❌ ${errorMessage}`, true);
+            setPreviewButton(null, false);
+            return;
         }
+
+        if (result.deploymentUrl) {
+            latestDeploymentUrl = result.deploymentUrl;
+
+            showMessage("✅ Deployment initiated. Waiting 15 seconds for propagation...", false);
+
+            // Countdown 15 seconds
+            let countdown = 15;
+            const interval = setInterval(() => {
+                countdown--;
+                previewBtn.textContent = `Preview Site (Wait ${countdown}s)`;
+                if (countdown <= 0) {
+                    clearInterval(interval);
+                    setPreviewButton(latestDeploymentUrl, false);
+                    showMessage("Deployment is likely complete. You can now preview the site!", false);
+                }
+            }, 1000);
+        }
+
+    } catch (error) {
+        console.error("Deployment Error:", error);
+        latestDeploymentUrl = "";
+        setPreviewButton(null, false);
+        showMessage(`❌ Deployment failed: ${error.message}`, true);
     }
+}
+
 
     // ✅ Updated: Handle Preview Button Click
     function handlePreview() {
