@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">
+     <link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">
     <title>Ammoue | Login & Sign Up</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -215,9 +215,7 @@
                 </div>
         </div>
 
-    </div> 
-    
-    <script type="module">
+    </div> <script type="module">
         // --- TESTIMONIAL DATA & LOGIC ---
 
         const reviewsData = [
@@ -266,19 +264,21 @@
             const reviewsHtml = data.map(createReviewCard).join('');
 
             // To make the seamless loop work, the content must be duplicated!
+            // The container's height must be 200% of the viewport and it scrolls to 50%
             container.innerHTML = reviewsHtml + reviewsHtml;
         }
 
         // --- Run Testimonial Setup ---
+        // For the right column, we can reverse the array to make the scrolling content different
         populateReviews('left-reviews', reviewsData);
         populateReviews('right-reviews', [...reviewsData].reverse()); 
 
 
         // ----------------------------------------------------------------------------------
-        // --- START OF FIREBASE LOGIC AND UTILITIES (INTEGRATED) ---
+        // --- START OF FIREBASE LOGIC (NO CHANGES APPLIED TO THE CORE AUTHENTICATION CODE) ---
         // ----------------------------------------------------------------------------------
 
-        // Firebase Imports from CDN
+        // Updated Imports to Firebase SDK v12.4.0
         import { 
             initializeApp 
         } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
@@ -290,16 +290,10 @@
             signInWithPopup,
             GoogleAuthProvider,
             GithubAuthProvider, 
-            linkWithCredential, // Needed for conflict handling
-            getRedirectResult
+            // 🚨 We need this import to handle the error, even if we don't call it yet!
+            linkWithCredential 
         } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-        import { 
-            getFirestore, 
-            doc, 
-            getDoc, 
-            setDoc, 
-            setLogLevel 
-        } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+        import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
         // --- FIREBASE CONFIGURATION (Hardcoded with user's data) ---
         const firebaseConfig = {
@@ -330,6 +324,7 @@
         const loginBtn = document.getElementById('login-btn');
         const signupBtn = document.getElementById('signup-btn');
 
+        // --- Utility Functions (No changes needed here) ---
 
         /**
          * Displays a temporary, custom message box.
@@ -358,14 +353,15 @@
         }
 
         /**
-         * Toggles loading state on buttons. (This function is fully implemented below)
+         * Toggles loading state on buttons.
          */
         function setLoading(button, isLoading) {
             if (isLoading) {
                 button.disabled = true;
-                button.setAttribute('data-original-text', button.innerHTML);
+                button.setAttribute('data-original-text', button.innerHTML); // Save original content
                 button.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Authenticating...';
                 
+                // For social buttons, change background to reflect loading state
                 if (button.id.includes('google') || button.id.includes('github')) { 
                     button.classList.add('bg-gray-100', 'text-gray-400');
                     button.classList.remove('hover:bg-gray-50');
@@ -375,6 +371,7 @@
 
             } else {
                 button.disabled = false;
+                // Restore original content
                 if (button.getAttribute('data-original-text')) {
                     button.innerHTML = button.getAttribute('data-original-text');
                 } else if (button.id === 'login-btn') {
@@ -383,6 +380,7 @@
                     button.textContent = 'Sign Up & Generate Site';
                 }
                 
+                // Restore social button styling
                 if (button.id.includes('google') || button.id.includes('github')) { 
                     button.classList.remove('bg-gray-100', 'text-gray-400');
                     button.classList.add('hover:bg-gray-50');
@@ -392,6 +390,7 @@
         
         /**
          * Extracts the redirect path from the URL query parameters.
+         * Defaults to 'dashboard.html' if no 'redirect' parameter is found.
          */
         function getRedirectPath() {
             const params = new URLSearchParams(window.location.search);
@@ -400,47 +399,14 @@
         }
 
         /**
-         * Redirects the user to the path specified in the 'redirect' URL parameter.
+         * Redirects the user to the path specified in the 'redirect' URL parameter, 
+         * or to 'dashboard.html' by default.
          */
         function redirectToNextPage() {
             const path = getRedirectPath();
             window.location.href = path;
         }
-
-
-        // --- INTEGRATED FIRESTORE USER INITIALIZATION (FROM FILE 2) ---
-
-        /**
-         * Initializes a user's Firestore document upon first successful login/signup.
-         * If the document already exists, it does nothing.
-         * @param {string} uid - The Firebase User ID.
-         */
-        async function initUser(uid) {
-            if (!db) {
-                console.error("Firestore DB is not initialized. Cannot init user.");
-                return;
-            }
-            const ref = doc(db, "users", uid);
-
-            // Check if user already exists
-            const snap = await getDoc(ref);
-            if (snap.exists()) return; // do nothing if user already has data
-
-            // Set up the default free plan + 5 deployment slots
-            await setDoc(ref, {
-                plan: "free",
-                deployments: {
-                    project1: { used: false, url: null },
-                    project2: { used: false, url: null },
-                    project3: { used: false, url: null },
-                    project4: { used: false, url: null },
-                    project5: { used: false, url: null }
-                }
-            });
-
-            console.log(`🔥 Firestore: New user profile created for ${uid}`);
-        }
-
+        
         // --- Firebase Core Logic ---
 
         /**
@@ -453,18 +419,20 @@
                 auth = getAuth(app); 
                 db = getFirestore(app);
 
-                // If a user is already logged in, redirect.
+                // If a user is already logged in (from a previous session), redirect to their intended destination.
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
+                        // Redirect to the path specified in the URL, or dashboard.html by default
                         showMessage(`Welcome back, ${user.email || 'User'}! Redirecting...`, false);
                         setTimeout(redirectToNextPage, 50);
                     }
                 });
 
             } catch (error) {
+                // If initialization fails, catch the error, log it, and set auth/db to null.
                 console.error("Firebase initialization failed:", error);
                 showMessage(`Firebase initialization failed. Check your console for details.`, true);
-                auth = null; 
+                auth = null; // Crucial: ensure subsequent calls fail gracefully
                 db = null;
             }
         }
@@ -476,6 +444,7 @@
         window.handleLogin = async function(event) {
             event.preventDefault();
             
+            // CRITICAL CHECK: Prevent TypeError if auth failed to initialize
             if (!auth) {
                 showMessage("Authentication service failed to load. Please try refreshing the page.", true);
                 return;
@@ -487,12 +456,11 @@
             const password = document.getElementById('login-password').value;
 
             try {
+                // Sign in with Firebase Auth
                 await signInWithEmailAndPassword(auth, email, password);
                 showMessage("Login successful! Redirecting...", false);
                 
-                // Initialization is called here, but only runs if the user is truly new
-                await initUser(auth.currentUser.uid); 
-
+                // Redirect on success (handled by onAuthStateChanged listener, but call here for immediacy)
                 setTimeout(redirectToNextPage, 1000);
 
             } catch (error) {
@@ -501,9 +469,16 @@
                 if (error.code === 'auth/user-not-found') {
                     errorMessage = 'No account found with this email.';
                 } else if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+                    // Combine these two common errors for simplicity
                     errorMessage = 'Invalid credentials. Please check your email and password.';
-                } else if (error.code === 'auth/account-exists-with-different-credential') {
-                    errorMessage = `Account conflict for ${error.customData.email}. This email is already registered using a social provider. Please use the social login button.`;
+                } else if (error.code === 'auth/popup-closed-by-user') {
+                     errorMessage = "Sign-in cancelled. Pop-up was closed.";
+                }
+                
+                // 💡 Check for external provider conflict
+                if (error.code === 'auth/account-exists-with-different-credential') {
+                    const email = error.customData.email;
+                    errorMessage = `Account conflict for ${email}. This email is already registered using a social provider (Google/GitHub). Please use the social login button.`;
                 }
                 
                 showMessage(errorMessage, true);
@@ -518,6 +493,7 @@
         window.handleSignup = async function(event) {
             event.preventDefault();
 
+            // CRITICAL CHECK: Prevent TypeError if auth failed to initialize
             if (!auth) {
                 showMessage("Authentication service failed to load. Please try refreshing the page.", true);
                 return;
@@ -529,12 +505,11 @@
             const password = document.getElementById('signup-password').value;
 
             try {
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                
-                // Call initUser after successful creation
-                await initUser(userCredential.user.uid);
-
+                // Create user with Firebase Auth
+                await createUserWithEmailAndPassword(auth, email, password);
                 showMessage("Account created successfully! Redirecting to the site builder...", false);
+
+                // Redirect on success (handled by onAuthStateChanged listener, but call here for immediacy)
                 setTimeout(redirectToNextPage, 1000);
 
             } catch (error) {
@@ -551,6 +526,7 @@
             }
         }
 
+        // --- UPDATED GOOGLE AUTH LOGIC (Handles GitHub-first conflicts) ---
         /**
          * Handles Google Sign-In/Sign-Up via popup.
          */
@@ -561,17 +537,16 @@
             }
 
             setLoading(button, true);
-            window.pendingCredential = null; 
+            window.pendingCredential = null; // Clear any old pending link attempts
 
             try {
                 showMessage("Redirecting to Google for sign-in...", false);
                 const result = await signInWithPopup(auth, googleProvider);
-                const user = result.user;
                 
-                // Call initUser after successful sign-in (will only run if it's the first time)
-                await initUser(user.uid);
-
+                // NOTE: No need for account linking logic here, just proceed on success
+                const user = result.user;
                 showMessage(`Welcome, ${user.displayName || user.email}! Redirecting...`, false);
+                // The onAuthStateChanged listener handles the final redirect.
 
             } catch (error) {
                 console.error("Google Sign-in failed:", error);
@@ -580,7 +555,12 @@
                 if (error.code === 'auth/popup-closed-by-user' || (error.message && error.message.includes('popup-closed-by-user'))) {
                     errorMessage = "Sign-in cancelled. Pop-up was closed.";
                 } else if (error.code === 'auth/account-exists-with-different-credential') {
-                    errorMessage = `⚠️ Account Conflict! An account for ${error.customData.email} already exists, but was originally registered using **GitHub** or **Email/Password**. Please try signing in with your original method.`;
+                    // 💡 THE CONFLICT WARNING MESSAGE FOR GOOGLE LOGIN
+                    window.pendingCredential = error.credential; // Save the new Google credential
+                    window.conflictingEmail = error.customData.email;
+                    const providerId = error.customData.tenantId || error.customData.providerId; // Find the existing provider
+
+                    errorMessage = `⚠️ Account Conflict! An account for ${window.conflictingEmail} already exists, but was originally registered using **GitHub**. Please try signing in with GitHub.`;
                 }
 
                 showMessage(errorMessage, true);
@@ -588,6 +568,7 @@
             }
         }
         
+        // --- UPDATED GITHUB AUTH LOGIC (Handles Google-first conflicts) ---
         /**
          * Handles GitHub Sign-In/Sign-Up via popup.
          */
@@ -598,17 +579,16 @@
             }
 
             setLoading(button, true);
-            window.pendingCredential = null; 
+            window.pendingCredential = null; // Clear any old pending link attempts
 
             try {
                 showMessage("Redirecting to GitHub for sign-in...", false);
                 const result = await signInWithPopup(auth, githubProvider);
-                const user = result.user;
                 
-                // Call initUser after successful sign-in (will only run if it's the first time)
-                await initUser(user.uid);
-
+                // NOTE: No need for account linking logic here, just proceed on success
+                const user = result.user;
                 showMessage(`Welcome, ${user.displayName || user.email || user.uid}! Redirecting...`, false);
+                // The onAuthStateChanged listener handles the final redirect.
 
             } catch (error) {
                 console.error("GitHub Sign-in failed:", error);
@@ -617,7 +597,12 @@
                 if (error.code === 'auth/popup-closed-by-user' || (error.message && error.message.includes('popup-closed-by-user'))) {
                     errorMessage = "Sign-in cancelled. Pop-up was closed.";
                 } else if (error.code === 'auth/account-exists-with-different-credential') {
-                    errorMessage = `⚠️ Account Conflict! An account for ${error.customData.email} already exists, but was originally registered using **Google** or **Email/Password**. Please try signing in with your original method.`;
+                    // 💡 THE CONFLICT WARNING MESSAGE FOR GITHUB LOGIN
+                    window.pendingCredential = error.credential; // Save the new GitHub credential
+                    window.conflictingEmail = error.customData.email;
+                    const providerId = error.customData.tenantId || error.customData.providerId; // Find the existing provider
+
+                    errorMessage = `⚠️ Account Conflict! An account for ${window.conflictingEmail} already exists, but was originally registered using **Google** or **Email/Password**. Please try signing in with your original method.`;
                 }
 
                 showMessage(errorMessage, true);
@@ -625,7 +610,7 @@
             }
         }
         
-        // --- UI Toggling Logic ---
+        // --- UI Toggling Logic (No changes needed) ---
 
         /**
          * Sets the initial state to the Log In form.
@@ -635,11 +620,11 @@
             loginForm.classList.remove('hidden');
             signupForm.classList.add('hidden');
             
-            // Set Login tab as active
+            // Set Login tab as active (white, shadow, teal text)
             loginTab.classList.add('bg-white', 'shadow', 'text-ammoue');
             loginTab.classList.remove('text-gray-500');
             
-            // Set Signup tab as inactive
+            // Set Signup tab as inactive (gray text)
             signupTab.classList.remove('bg-white', 'shadow', 'text-ammoue');
             signupTab.classList.add('text-gray-500');
         }
@@ -653,9 +638,11 @@
                 loginForm.classList.remove('hidden');
                 signupForm.classList.add('hidden');
                 
+                // Activate Login Tab
                 loginTab.classList.add('bg-white', 'shadow', 'text-ammoue');
                 loginTab.classList.remove('text-gray-500');
 
+                // Deactivate Signup Tab
                 signupTab.classList.remove('bg-white', 'shadow', 'text-ammoue');
                 signupTab.classList.add('text-gray-500');
 
@@ -663,9 +650,11 @@
                 loginForm.classList.add('hidden');
                 signupForm.classList.remove('hidden');
 
+                // Activate Signup Tab
                 signupTab.classList.add('bg-white', 'shadow', 'text-ammoue');
                 signupTab.classList.remove('text-gray-500');
 
+                // Deactivate Login Tab
                 loginTab.classList.remove('bg-white', 'shadow', 'text-ammoue');
                 loginTab.classList.add('text-gray-500');
             }
