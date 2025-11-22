@@ -1,14 +1,5 @@
 import fetch from 'node-fetch';
 import { Buffer } from 'buffer';
-import admin from 'firebase-admin';
-
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.applicationDefault(),
-  });
-}
-
-const db = admin.firestore();
 
 // Environment variables
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
@@ -31,28 +22,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 🔹 Check user's plan
-    const userDoc = await db.collection('users').doc(userId).get();
-    const plan = userDoc.exists ? userDoc.data().plan || 'free' : 'free';
-
-    // 🔹 Count existing deployments
-    const projectsSnap = await db
-      .collection('artifacts')
-      .doc(process.env.FIREBASE_APP_ID) // your appId
-      .collection('users')
-      .doc(userId)
-      .collection('projects')
-      .get();
-
-    const deployedCount = projectsSnap.size;
-
-    // 🔹 Enforce deployment limit
-    if (plan === 'free' && deployedCount >= 1) {
-      return res.status(403).json({ error: 'Free plan users can deploy only 1 project. Upgrade to Pro for more.' });
-    } else if (plan === 'pro' && deployedCount >= 5) {
-      return res.status(403).json({ error: 'Pro plan users can deploy up to 5 projects only.' });
-    }
-
     // 1️⃣ Check if branch exists
     let baseSHA = null;
     let branchExists = true;
@@ -134,20 +103,7 @@ export default async function handler(req, res) {
       return res.status(refRes.status).json({ error: 'Failed to update/create branch', details: err });
     }
 
-    // 6️⃣ Record deployment in Firestore
-    await db
-      .collection('artifacts')
-      .doc(process.env.FIREBASE_APP_ID)
-      .collection('users')
-      .doc(userId)
-      .collection('projects')
-      .add({
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        htmlContent,
-        plan
-      });
-
-    // 7️⃣ Return the live GitHub Pages URL for this user
+    // 6️⃣ Return the live GitHub Pages URL for this user
     const deploymentUrl = `https://${GITHUB_REPO.split('/')[0]}.github.io/${GITHUB_REPO.split('/')[1]}/users/${userId}/`;
     console.log('✅ GitHub Pages deployment URL:', deploymentUrl);
 
