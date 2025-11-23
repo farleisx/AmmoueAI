@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">
+     <link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">
     <title>Ammoue | Login & Sign Up</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -275,7 +275,7 @@
 
 
         // ----------------------------------------------------------------------------------
-        // --- START OF FIREBASE LOGIC (PLAN ASSIGNMENT ADDED HERE) ---
+        // --- START OF FIREBASE LOGIC (NO CHANGES APPLIED TO THE CORE AUTHENTICATION CODE) ---
         // ----------------------------------------------------------------------------------
 
         // Updated Imports to Firebase SDK v12.4.0
@@ -293,12 +293,7 @@
             // 🚨 We need this import to handle the error, even if we don't call it yet!
             linkWithCredential 
         } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-        import { 
-            getFirestore, 
-            setLogLevel, 
-            doc, // <-- ADDED: for document reference
-            setDoc // <-- ADDED: for creating/updating documents
-        } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+        import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
         // --- FIREBASE CONFIGURATION (Hardcoded with user's data) ---
         const firebaseConfig = {
@@ -494,7 +489,6 @@
 
         /**
          * Handles user sign-up with email and password.
-         * *** MODIFIED TO ASSIGN 'Free' PLAN TO FIRESTORE ***
          */
         window.handleSignup = async function(event) {
             event.preventDefault();
@@ -511,21 +505,9 @@
             const password = document.getElementById('signup-password').value;
 
             try {
-                // 1. Create user with Firebase Auth
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                const user = userCredential.user;
-                
-                // 2. Assign default 'Free' plan in Firestore
-                if (db) {
-                    await setDoc(doc(db, "users", user.uid), {
-                        email: user.email,
-                        plan: 'Free', // <-- Default plan set here
-                        createdAt: new Date(),
-                        // Add other initial data points
-                    });
-                }
-
-                showMessage("Account created successfully! You are on the Free Plan. Redirecting to the site builder...", false);
+                // Create user with Firebase Auth
+                await createUserWithEmailAndPassword(auth, email, password);
+                showMessage("Account created successfully! Redirecting to the site builder...", false);
 
                 // Redirect on success (handled by onAuthStateChanged listener, but call here for immediacy)
                 setTimeout(redirectToNextPage, 1000);
@@ -543,31 +525,8 @@
                 setLoading(signupBtn, false);
             }
         }
-        
-        /**
-         * Placeholder function to show how a user's plan would be updated to 'Pro'.
-         */
-        window.upgradeToPro = async function(userId) {
-            if (!db) {
-                console.error("Firestore not initialized.");
-                return;
-            }
-            try {
-                // Update the user's document in the 'users' collection
-                await setDoc(doc(db, "users", userId), {
-                    plan: 'Pro', 
-                }, { merge: true }); 
-                
-                console.log(`User ${userId} successfully upgraded to Pro plan.`);
-                showMessage("🎉 Success! Your account is now Pro. Enjoy the premium features!", false);
-            } catch (error) {
-                console.error("Error upgrading plan:", error);
-                showMessage("Failed to upgrade plan. Please try again or contact support.", true);
-            }
-        }
 
-
-        // --- GOOGLE AUTH LOGIC (No major change, keeps conflict handling) ---
+        // --- UPDATED GOOGLE AUTH LOGIC (Handles GitHub-first conflicts) ---
         /**
          * Handles Google Sign-In/Sign-Up via popup.
          */
@@ -584,6 +543,9 @@
                 showMessage("Redirecting to Google for sign-in...", false);
                 const result = await signInWithPopup(auth, googleProvider);
                 
+                // NOTE: No need for account linking logic here, just proceed on success
+                const user = result.user;
+                showMessage(`Welcome, ${user.displayName || user.email}! Redirecting...`, false);
                 // The onAuthStateChanged listener handles the final redirect.
 
             } catch (error) {
@@ -606,7 +568,7 @@
             }
         }
         
-        // --- GITHUB AUTH LOGIC (No major change, keeps conflict handling) ---
+        // --- UPDATED GITHUB AUTH LOGIC (Handles Google-first conflicts) ---
         /**
          * Handles GitHub Sign-In/Sign-Up via popup.
          */
@@ -623,6 +585,9 @@
                 showMessage("Redirecting to GitHub for sign-in...", false);
                 const result = await signInWithPopup(auth, githubProvider);
                 
+                // NOTE: No need for account linking logic here, just proceed on success
+                const user = result.user;
+                showMessage(`Welcome, ${user.displayName || user.email || user.uid}! Redirecting...`, false);
                 // The onAuthStateChanged listener handles the final redirect.
 
             } catch (error) {
@@ -690,16 +655,16 @@
                 signupTab.classList.remove('text-gray-500');
 
                 // Deactivate Login Tab
-                loginTab.classList.remove('bg-white');
-                loginTab.classList.remove('shadow');
-                loginTab.classList.remove('text-ammoue');
+                loginTab.classList.remove('bg-white', 'shadow', 'text-ammoue');
                 loginTab.classList.add('text-gray-500');
             }
         }
         
-        // Run Initialization
-        initializeForms();
+        // --- Run Initialization Immediately ---
         initializeAppAndAuth();
+        initializeForms();
+        lucide.createIcons();
+
     </script>
 </body>
 </html>
