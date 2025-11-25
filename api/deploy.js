@@ -1,28 +1,45 @@
+// file: pages/api/deploy.js
 import fetch from 'node-fetch';
 import { Buffer } from 'buffer';
 
-// Environment variables
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const GITHUB_REPO = process.env.GITHUB_REPO; // format: username/repo
+// --- CONFIG: GitHub + Plan limits ---
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN; // Add in Vercel Environment Variables
+const GITHUB_REPO = process.env.GITHUB_REPO;   // format: username/repo
 const GITHUB_BRANCH = process.env.GITHUB_BRANCH || 'main';
 
-if (!GITHUB_TOKEN || !GITHUB_REPO) {
-  console.error("Missing GITHUB_TOKEN or GITHUB_REPO in environment.");
-}
+// Define plan limits here
+const PLAN_LIMITS = {
+  free: 1,
+  pro: 5
+};
+
+// Temporary in-memory deployment tracking for demo purposes
+// Replace with Firestore later
+const deployments = {}; // { userId: deploymentCount }
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed. Use POST.' });
   }
 
-  const { htmlContent, userId } = req.body;
+  const { htmlContent, userId, plan } = req.body;
 
-  if (!htmlContent || !userId) {
-    return res.status(400).json({ error: 'Missing htmlContent or userId.' });
+  if (!htmlContent || !userId || !plan) {
+    return res.status(400).json({ error: 'Missing htmlContent, userId, or plan.' });
   }
 
   try {
-    // 1️⃣ Check if branch exists
+    // --- 1️⃣ Check plan limits ---
+    const maxDeployments = PLAN_LIMITS[plan] || 1;
+    const currentDeployments = deployments[userId] || 0;
+
+    if (currentDeployments >= maxDeployments) {
+      return res.status(403).json({
+        error: `${plan.toUpperCase()} plan limit reached. Max ${maxDeployments} deployments.`,
+      });
+    }
+
+    // --- 2️⃣ Check branch ---
     let baseSHA = null;
     let branchExists = true;
     const branchRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/branches/${GITHUB_BRANCH}`, {
@@ -35,7 +52,7 @@ export default async function handler(req, res) {
       baseSHA = branchData.commit.sha;
     }
 
-    // 2️⃣ Create a blob for user's HTML
+    // --- 3️⃣ Create blob ---
     const blobRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/blobs`, {
       method: 'POST',
       headers: { Authorization: `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
@@ -49,7 +66,7 @@ export default async function handler(req, res) {
 
     const blobData = await blobRes.json();
 
-    // 3️⃣ Create a tree with the user-specific folder
+    // --- 4️⃣ Create tree ---
     const treeRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/trees`, {
       method: 'POST',
       headers: { Authorization: `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
@@ -66,13 +83,12 @@ export default async function handler(req, res) {
 
     const treeData = await treeRes.json();
 
-    // 4️⃣ Create a commit
-    const commitMessage = `Deploy site for user ${userId}`;
+    // --- 5️⃣ Create commit ---
     const commitRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/commits`, {
       method: 'POST',
       headers: { Authorization: `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        message: commitMessage,
+        message: `Deploy site for user ${userId}`,
         tree: treeData.sha,
         parents: baseSHA ? [baseSHA] : []
       })
@@ -85,7 +101,7 @@ export default async function handler(req, res) {
 
     const commitData = await commitRes.json();
 
-    // 5️⃣ Update or create branch
+    // --- 6️⃣ Update or create branch ---
     const refUrl = `https://api.github.com/repos/${GITHUB_REPO}/git/refs/heads/${GITHUB_BRANCH}`;
     const refMethod = branchExists ? 'PATCH' : 'POST';
     const refBody = branchExists
@@ -103,14 +119,15 @@ export default async function handler(req, res) {
       return res.status(refRes.status).json({ error: 'Failed to update/create branch', details: err });
     }
 
-    // 6️⃣ Return the live GitHub Pages URL for this user
-    const deploymentUrl = `https://${GITHUB_REPO.split('/')[0]}.github.io/${GITHUB_REPO.split('/')[1]}/users/${userId}/`;
-    console.log('✅ GitHub Pages deployment URL:', deploymentUrl);
+    // --- 7️⃣ Track deployment (temporary) ---
+    deployments[userId] = currentDeployments + 1;
 
-    return res.status(200).json({ deploymentUrl });
+    // --- 8️⃣ Return URL ---
+    const deploymentUrl = `https://${GITHUB_REPO.split('/')[0]}.github.io/${GITHUB_REPO.split('/')[1]}/users/${userId}/`;
+
+    return res.status(200).json({ deploymentUrl, currentDeployments: deployments[userId], maxDeployments });
 
   } catch (error) {
-    console.error('Deployment Error:', error);
     return res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 }
