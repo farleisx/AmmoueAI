@@ -3,11 +3,14 @@
 import fetch from 'node-fetch';
 import { Buffer } from 'buffer'; 
 import { initializeApp, getApps, getApp } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore'; // Only getFirestore is a named export
+import { getFirestore } from 'firebase-admin/firestore'; 
 
-// CRITICAL FIX: Import 'firebase-admin' via default export, then destructure components
+// --- CRITICAL FIX: Correctly access credential and FieldValue ---
 import admin from 'firebase-admin';
-const { credential, FieldValue } = admin; 
+
+// Correctly define credential and FieldValue from the admin namespace
+const credential = admin.credential;
+const FieldValue = admin.firestore.FieldValue; // ✅ FIX: Resolves "Cannot read properties of undefined (reading 'increment')"
 
 // --- CONFIG: GitHub + Firebase ---
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN; // Must be set in Vercel Environment Variables
@@ -26,7 +29,6 @@ if (!getApps().length) {
     const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
     
     if (!serviceAccountJson) {
-        // This logs to Vercel and is the likely cause of the 500 error if missing
         console.error("CRITICAL: FIREBASE_SERVICE_ACCOUNT environment variable is missing."); 
     } else {
         try {
@@ -38,7 +40,6 @@ if (!getApps().length) {
         } catch (error) {
             console.error("!!! CRITICAL FAILURE: Firebase Admin initialization failed. !!!");
             console.error("Parsing Error Details:", error.message);
-            // Log the start of the malformed JSON for debugging in Vercel logs
             console.error("Start of ENV Variable:", serviceAccountJson.substring(0, 100)); 
         }
     }
@@ -67,7 +68,7 @@ async function incrementDeploymentCount(userId) {
   
   // Use FieldValue.increment(1) for atomic updates
   await docRef.set({
-    count: FieldValue.increment(1) 
+    count: FieldValue.increment(1) // This now correctly calls increment on the FieldValue object
   }, { merge: true });
 }
 
@@ -78,6 +79,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed. Use POST.' });
   }
 
+  // Expecting all four parameters from the client-side call
   const { htmlContent, userId, plan, projectId } = req.body; 
 
   if (!htmlContent || !userId || !plan || !projectId) {
@@ -204,11 +206,8 @@ export default async function handler(req, res) {
         currentDeployments++; // Update the local count for the response
     }
 
-    // B. Update the project document with the new deployment URL
-    await projectDocRef.update({
-        deploymentUrl: deploymentUrl,
-        lastDeployed: FieldValue.serverTimestamp() // Use server timestamp
-    });
+    // B. Note: The deployment URL update logic is handled on the client (ai_prompt.html) 
+    // after the successful deployment response. The server simply responds.
 
     // --- 8️⃣ Return URL ---
     return res.status(200).json({ deploymentUrl, currentDeployments, maxDeployments });
