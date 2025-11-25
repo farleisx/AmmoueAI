@@ -269,70 +269,88 @@
     }
 
     // 🚨 UPDATED: Now accepts plan and projectId
-    async function handleDeployment(plan, projectId) {
-        if (!currentUserId) return showMessage("Authentication error: User ID is missing.", true); 
-        if (!latestHtmlContent) return showMessage("No HTML content to deploy.", true);
-        if (!plan) return showMessage("System Error: User plan is missing.", true);
-        if (!projectId) return showMessage("System Error: Project ID is missing.", true);
+   async function handleDeployment(plan, projectId) {
+    if (!currentUserId) return showMessage("Authentication error: User ID is missing.", true); 
+    if (!latestHtmlContent) return showMessage("No HTML content to deploy.", true);
+    if (!plan) return showMessage("System Error: User plan is missing.", true);
+    if (!projectId) return showMessage("System Error: Project ID is missing.", true);
 
-        // Set the button to a 'deploying' state, immediately disabled
-        setPreviewButton(latestDeploymentUrl, true);
-        
-        try {
-            const response = await fetch("/api/deploy", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ 
-                    htmlContent: latestHtmlContent,
-                    userId: currentUserId,
-                    plan: plan,         // <--- ADDED 
-                    projectId: projectId // <--- ADDED
-                }),
-            });
+    // Set the button to a 'deploying' state, immediately disabled
+    setPreviewButton(latestDeploymentUrl, true);
+    
+    try {
+        const response = await fetch("/api/deploy", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+                htmlContent: latestHtmlContent,
+                userId: currentUserId,
+                plan: plan,      // <--- ADDED 
+                projectId: projectId // <--- ADDED
+            }),
+        });
 
-            const result = await response.json();
+        const result = await response.json();
 
-            if (response.ok && result.deploymentUrl) {
-                latestDeploymentUrl = result.deploymentUrl;
+        if (response.ok && result.deploymentUrl) {
+            latestDeploymentUrl = result.deploymentUrl;
 
-                showMessage("✅ Deployment initiated. Waiting 30 seconds for propagation...", false);
+            showMessage("✅ Deployment initiated. Waiting 30 seconds for propagation...", false);
 
-                // --- START OF 30 SECOND DELAY LOGIC (Updated to 30s) ---
-                const delayInSeconds = 30;
-                let countdown = delayInSeconds;
-                const interval = setInterval(() => {
-                    countdown--;
-                    // Update the button text with the countdown
-                    previewBtn.textContent = `Preview Site (Wait ${countdown}s)`;
-                    if (countdown <= 0) {
-                        clearInterval(interval);
-                        // After 30 seconds, enable the button and set the final success state
-                        setPreviewButton(latestDeploymentUrl, false); 
-                        showMessage("Deployment is likely complete. You can now preview the site!", false);
-                    }
-                }, 1000);
-                // --- END OF 30 SECOND DELAY LOGIC ---
-                
-                // Update Firestore with the final URL immediately to prevent re-deployment from counting against limit
-                await updateProjectDeploymentUrl(projectId, latestDeploymentUrl);
-
-            } else {
-                console.error("Vercel Deployment Failed:", result);
-                throw new Error(result.error || result.details || "Deployment failed on Vercel.");
-            }
-        } catch (error) {
-            console.error("Deployment Error:", error);
-
-            latestDeploymentUrl = "";
-            setPreviewButton(latestDeploymentUrl, false); // Reset button state
+            // --- START OF 30 SECOND DELAY LOGIC (Updated to 30s) ---
+            const delayInSeconds = 30;
+            let countdown = delayInSeconds;
+            const interval = setInterval(() => {
+                countdown--;
+                // Update the button text with the countdown
+                previewBtn.textContent = `Preview Site (Wait ${countdown}s)`;
+                if (countdown <= 0) {
+                    clearInterval(interval);
+                    // After 30 seconds, enable the button and set the final success state
+                    setPreviewButton(latestDeploymentUrl, false); 
+                    showMessage("Deployment is likely complete. You can now preview the site!", false);
+                }
+            }, 1000);
+            // --- END OF 30 SECOND DELAY LOGIC ---
             
-            previewBtn.classList.remove("bg-yellow-600", "bg-green-600");
-            previewBtn.classList.add("bg-red-500");
-            previewBtn.textContent = "Deployment Failed (Retry?)";
+            // Update Firestore with the final URL immediately to prevent re-deployment from counting against limit
+            await updateProjectDeploymentUrl(projectId, latestDeploymentUrl);
 
-            showMessage(`❌ Deployment failed: ${error.message}`, true);
+        } else {
+            console.error("Vercel Deployment Failed:", result);
+
+            // 🚨 CRITICAL FIX: Explicitly check for the 403 Forbidden status
+            if (response.status === 403) {
+                // Use data from the result object if available, otherwise default
+                const maxDeployments = result.maxDeployments || 1; 
+                const errorMessage = `❌ FREE Plan Limit Reached: You have reached your maximum of ${maxDeployments} live deployment. Upgrade to deploy more sites, or refine your existing site via the Dashboard.`;
+                throw new Error(errorMessage);
+            }
+
+            throw new Error(result.error || result.details || "Deployment failed on Vercel.");
         }
+    } catch (error) {
+        console.error("Deployment Error:", error);
+
+        // Check if the error is the FREE plan limit error and avoid resetting the URL 
+        // if the user had a previous deployment (allowing them to retry/view it)
+        const isFreePlanError = error.message.includes('FREE Plan Limit Reached');
+        
+        // Only clear the latestDeploymentUrl if the error is NOT the free plan limit 
+        // (because for the free plan, they still have 1 project to go back to)
+        if (!isFreePlanError) {
+             latestDeploymentUrl = "";
+        }
+       
+        setPreviewButton(latestDeploymentUrl, false); // Reset button state
+        
+        previewBtn.classList.remove("bg-yellow-600", "bg-green-600");
+        previewBtn.classList.add("bg-red-500");
+        previewBtn.textContent = isFreePlanError ? "Deployment Failed" : "Deployment Failed (Retry?)";
+
+        showMessage(`❌ Deployment failed: ${error.message}`, true);
     }
+}
 
     // ✅ Updated: Handle Preview Button Click
     function handlePreview() {
