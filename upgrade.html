@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ammoue | Upgrade</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        .text-ammoue { color: #0d9488; }
+        .bg-ammoue { background-color: #0d9488; }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex items-center justify-center">
+
+    <div id="main-content" class="max-w-md mx-auto p-8 bg-white border border-gray-200 rounded-2xl shadow-xl text-center">
+        <div id="loading-indicator">
+            <svg class="animate-spin h-8 w-8 text-ammoue mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <h2 class="text-2xl font-bold text-gray-900 mb-2">Initiating Secure Upgrade...</h2>
+            <p class="text-gray-600">You are being redirected to our secure payment gateway.</p>
+        </div>
+
+        <div id="error-message" class="hidden">
+            <i data-lucide="alert-triangle" class="w-8 h-8 text-red-500 mx-auto mb-4"></i>
+            <h2 class="text-2xl font-bold text-red-700 mb-2">Upgrade Failed</h2>
+            <p class="text-gray-600 mb-4">We could not start the secure checkout session. Please try again or contact support.</p>
+            <button id="retry-btn" class="px-6 py-3 text-base font-semibold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 transform hover:scale-[1.01]">
+                Retry Upgrade
+            </button>
+        </div>
+    </div>
+    
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+        
+        // --- Firebase Configuration ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
+            authDomain: "ammoueai.firebaseapp.com",
+            projectId: "ammoueai",
+            storageBucket: "ammoueai.firebasestorage.app",
+            messagingSenderId: "135818868149",
+            appId: "1:135818868149:web:db9280baf9540a3339d5fc",
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        
+        let currentUserId = null;
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const errorMessageDiv = document.getElementById('error-message');
+        const retryBtn = document.getElementById('retry-btn');
+        
+        /**
+         * Hides loading and shows the error state.
+         * @param {string} msg - The error message.
+         */
+        function showErrorState(msg) {
+            loadingIndicator.classList.add('hidden');
+            errorMessageDiv.classList.remove('hidden');
+            console.error(msg);
+        }
+
+        /**
+         * Initiates the call to the server to create a Stripe Checkout Session
+         * and redirects the user to the returned URL.
+         * @param {string} userId - The authenticated user's ID.
+         */
+        async function redirectToStripeCheckout(userId) {
+            try {
+                loadingIndicator.classList.remove('hidden');
+                errorMessageDiv.classList.add('hidden');
+
+                const response = await fetch('/api/create-checkout-session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: userId, plan: 'pro' }) 
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.url) {
+                    // Redirect the user to the Stripe hosted page
+                    window.location.href = result.url;
+                } else {
+                    throw new Error(result.error || "Server response missing checkout URL.");
+                }
+
+            } catch (error) {
+                showErrorState(`Upgrade Redirection Failed: ${error.message}`);
+            }
+        }
+
+        // --- Event Listeners ---
+        // Retry button attempts the whole process again
+        retryBtn.addEventListener('click', () => {
+             if (currentUserId) {
+                redirectToStripeCheckout(currentUserId);
+             } else {
+                window.location.replace('login.html');
+             }
+        });
+        
+        // --- Authentication Check ---
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUserId = user.uid;
+                redirectToStripeCheckout(currentUserId);
+            } else {
+                // Not authenticated, redirect to login
+                const redirectUrl = 'login.html?redirect=' + encodeURIComponent(window.location.pathname);
+                window.location.replace(redirectUrl); 
+            }
+        });
+
+        lucide.createIcons();
+    </script>
+</body>
+</html>
