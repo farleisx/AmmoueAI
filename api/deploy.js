@@ -1,15 +1,16 @@
 // file: pages/api/deploy.js
 
 import fetch from 'node-fetch';
-import { Buffer } from 'buffer'; // Buffer is often needed but sometimes implicitly available in Next.js/Vercel
+import { Buffer } from 'buffer'; 
 import { initializeApp, getApps, getApp } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore'; // Import FieldValue for increment
 import { credential } from 'firebase-admin';
 
 // --- CONFIG: GitHub + Firebase ---
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN; // Add in Vercel Environment Variables
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN; // Must be set in Vercel Environment Variables
 const GITHUB_REPO = process.env.GITHUB_REPO;    // format: username/repo
 const GITHUB_BRANCH = process.env.GITHUB_BRANCH || 'main';
+const APP_PROJECT_ID = 'ammoueai'; // Hardcoded project ID for Firestore path
 
 // Define plan limits here
 const PLAN_LIMITS = {
@@ -17,19 +18,27 @@ const PLAN_LIMITS = {
   pro: 5
 };
 
-// --- Firebase Admin Initialization ---
-// This uses Firebase Admin SDK to securely access Firestore from the server
-// Requires service account JSON in Vercel environment variables as FIREBASE_SERVICE_ACCOUNT
+// --- Firebase Admin Initialization (Diagnostic Version) ---
 if (!getApps().length) {
-  try {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    initializeApp({
-      credential: credential.cert(serviceAccount)
-    });
-  } catch (error) {
-    console.error("Firebase Admin initialization failed. Check FIREBASE_SERVICE_ACCOUNT environment variable.");
-    console.error(error);
-  }
+    const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
+    
+    if (!serviceAccountJson) {
+        // This logs to Vercel and is the likely cause of the 500 error if missing
+        console.error("CRITICAL: FIREBASE_SERVICE_ACCOUNT environment variable is missing."); 
+    } else {
+        try {
+            const serviceAccount = JSON.parse(serviceAccountJson);
+            initializeApp({
+                credential: credential.cert(serviceAccount)
+            });
+            console.log("Firebase Admin SDK successfully initialized.");
+        } catch (error) {
+            console.error("!!! CRITICAL FAILURE: Firebase Admin initialization failed. !!!");
+            console.error("Parsing Error Details:", error.message);
+            // Log the start of the malformed JSON for debugging in Vercel logs
+            console.error("Start of ENV Variable:", serviceAccountJson.substring(0, 100)); 
+        }
+    }
 }
 
 const db = getFirestore();
@@ -48,15 +57,14 @@ async function getDeploymentCount(userId) {
 }
 
 /**
- * Increments the deployment count for a user.
+ * Increments the deployment count for a user using server-side increment.
  */
 async function incrementDeploymentCount(userId) {
   const docRef = db.collection('deployments').doc(userId);
   
+  // Use FieldValue.increment(1) for atomic updates
   await docRef.set({
-    count: getDeploymentCount.name === 'incrementDeploymentCount' // This is a placeholder for a proper server-side increment
-      ? db.FieldValue.increment(1) // Use FieldValue.increment if you set it up to avoid race conditions
-      : await getDeploymentCount(userId) + 1 // Simple read-then-write for safety in this example
+    count: FieldValue.increment(1) 
   }, { merge: true });
 }
 
@@ -67,22 +75,33 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed. Use POST.' });
   }
 
-  const { htmlContent, userId, plan, projectId } = req.body; // Added projectId
+  const { htmlContent, userId, plan, projectId } = req.body; 
 
   if (!htmlContent || !userId || !plan || !projectId) {
     return res.status(400).json({ error: 'Missing required body parameters (htmlContent, userId, plan, or projectId).' });
   }
 
+  // Check if Firebase initialization failed earlier
+  if (!getApps().length) {
+      console.error("Deployment request blocked because Firebase Admin SDK failed to initialize.");
+      // Return a 500 error that is guaranteed JSON
+      return res.status(500).json({ 
+          error: 'Server Initialization Failure', 
+          details: 'The Firebase Admin SDK could not be initialized. Check Vercel logs for FIREBASE_SERVICE_ACCOUNT parsing errors.' 
+      });
+  }
+
   try {
     // --- 1️⃣ Check plan limits using Firestore ---
     const maxDeployments = PLAN_LIMITS[plan] || 1;
-    let currentDeployments = await getDeploymentCount(userId); // Fetch count from Firestore
+    let currentDeployments = await getDeploymentCount(userId); 
     
-    // Check if this project has already been deployed (i.e., this is an update)
-    // We only count new deployments towards the limit. Updates to existing deployments are free.
-    const projectDocRef = db.collection('artifacts').doc('ammoueai').collection('users').doc(userId).collection('projects').doc(projectId);
+    // Path: artifacts/{appId}/users/{userId}/projects/{projectId}
+    const projectDocRef = db.collection('artifacts').doc(APP_PROJECT_ID).collection('users').doc(userId).collection('projects').doc(projectId);
     const projectDoc = await projectDocRef.get();
-    const isUpdate = projectDoc.exists && projectDoc.data().deploymentUrl; // Assume if it has a URL, it's deployed
+    
+    // Check if this project has a deployment URL (i.e., this is an update)
+    const isUpdate = projectDoc.exists && projectDoc.data().deploymentUrl; 
 
     if (!isUpdate && currentDeployments >= maxDeployments) {
       return res.status(403).json({
@@ -90,7 +109,7 @@ export default async function handler(req, res) {
       });
     }
     
-    // --- 2️⃣ Check branch ---
+    // --- 2️⃣ Check branch (GitHub API) ---
     let baseSHA = null;
     let branchExists = true;
     const branchRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/branches/${GITHUB_BRANCH}`, {
@@ -104,7 +123,6 @@ export default async function handler(req, res) {
     }
 
     // --- 3️⃣ Create blob ---
-    // The rest of the GitHub deployment logic remains unchanged...
     const blobRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/blobs`, {
       method: 'POST',
       headers: { Authorization: `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
@@ -119,12 +137,12 @@ export default async function handler(req, res) {
     const blobData = await blobRes.json();
 
     // --- 4️⃣ Create tree ---
+    // Path: users/{userId}/{projectId}/index.html
     const treeRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/trees`, {
       method: 'POST',
       headers: { Authorization: `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         base_tree: baseSHA,
-        // CRITICAL: Use the projectId as the folder name to get a unique URL path
         tree: [{ path: `users/${userId}/${projectId}/index.html`, mode: '100644', type: 'blob', sha: blobData.sha }] 
       })
     });
@@ -186,7 +204,7 @@ export default async function handler(req, res) {
     // B. Update the project document with the new deployment URL
     await projectDocRef.update({
         deploymentUrl: deploymentUrl,
-        lastDeployed: new Date() // Add a timestamp for the last deployment
+        lastDeployed: FieldValue.serverTimestamp() // Use server timestamp
     });
 
     // --- 8️⃣ Return URL ---
@@ -194,6 +212,7 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error("Deployment Error:", error);
+    // Ensure we always return a JSON 500 error for client-side consumption
     return res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 }
