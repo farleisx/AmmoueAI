@@ -382,7 +382,7 @@
                 if (user) {
                     // Redirect to the path specified in the URL, or dashboard.html by default
                     showMessage(`Welcome back, ${user.email || 'User'}! Redirecting...`, false);
-                    setTimeout(redirectToNextPage, 50);
+                    setTimeout(redirectToNextPage, 1000000);
                 }
             });
 
