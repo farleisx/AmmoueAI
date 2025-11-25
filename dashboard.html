@@ -150,121 +150,148 @@
     </div>
     
     <script type="module">
-    // Using SDK v12.4.0 to match your previous setup
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-    import { getFirestore, collection, onSnapshot, query, deleteDoc, doc, Timestamp, updateDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+ // Using SDK v12.4.0 to match your previous setup
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+import { getFirestore, collection, onSnapshot, query, deleteDoc, doc, getDoc, Timestamp, updateDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
-    // IMPORTANT: Hardcoded configuration from login.html for this specific app instance
-    const firebaseConfig = {
-        apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
-        authDomain: "ammoueai.firebaseapp.com",
-        projectId: "ammoueai",
-        storageBucket: "ammoueai.firebasestorage.app",
-        messagingSenderId: "135818868149",
-        appId: "1:135818868149:web:db9280baf9540a3339d5fc",
-    };
+// IMPORTANT: Hardcoded configuration from login.html for this specific app instance
+const firebaseConfig = {
+    apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
+    authDomain: "ammoueai.firebaseapp.com",
+    projectId: "ammoueai",
+    storageBucket: "ammoueai.firebasestorage.app",
+    messagingSenderId: "135818868149",
+    appId: "1:135818868149:web:db9280baf9540a3339d5fc",
+};
 
-    let auth = null;
-    let db = null;
-    let currentUserId = null;
-    let isAuthReady = false;
-    const appId = firebaseConfig.projectId;
-    
-    // ⭐ CRITICAL FIX: Global map to store projects in memory, avoiding complex strings in HTML.
-    let projectsData = new Map();
-    let allProjectsArray = []; // NEW: Array to hold all projects for searching/filtering
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+let currentUserId = null;
+let isAuthReady = false;
+const appId = firebaseConfig.projectId;
 
-    // --- DOM Elements ---
-    const loadingScreen = document.getElementById('loading-screen');
-    const dashboardContent = document.getElementById('dashboard-content');
-    const userEmailSpan = document.getElementById('user-email');
-    const msgBox = document.getElementById('message-box');
-    const projectsContainer = document.getElementById('projects-container');
-    const createCardElement = document.querySelector('div.cursor-pointer');
-    
-    // --- Modal DOM Elements ---
-    const editModal = document.getElementById('edit-modal');
-    const editModalContent = document.getElementById('edit-modal-content');
-    const editForm = document.getElementById('edit-project-form');
+// ⭐ Global map to store projects in memory
+let projectsData = new Map();
+let allProjectsArray = [];
 
-    // --- NEW Delete Modal DOM Elements ---
-    const deleteConfirmModal = document.getElementById('delete-confirm-modal');
-    const deleteModalContent = document.getElementById('delete-modal-content');
-    const confirmDeleteButton = document.getElementById('confirm-delete-button');
+// --- DOM Elements ---
+const loadingScreen = document.getElementById('loading-screen');
+const dashboardContent = document.getElementById('dashboard-content');
+const userEmailSpan = document.getElementById('user-email');
+const planBadge = document.getElementById('plan-badge');
+const msgBox = document.getElementById('message-box');
+const projectsContainer = document.getElementById('projects-container');
+const createCardElement = document.querySelector('div.cursor-pointer');
 
+// --- Modal Elements ---
+const editModal = document.getElementById('edit-modal');
+const editModalContent = document.getElementById('edit-modal-content');
+const editForm = document.getElementById('edit-project-form');
 
-    // --- Utility Functions ---
+const deleteConfirmModal = document.getElementById('delete-confirm-modal');
+const deleteModalContent = document.getElementById('delete-modal-content');
+const confirmDeleteButton = document.getElementById('confirm-delete-button');
 
-    /**
-     * Converts raw code (like HTML or JS) into a displayable string
-     * by escaping HTML special characters.
-     */
-    function escapeHtml(unsafe) {
-        if (!unsafe) return '';
-        return unsafe.replace(/&/g, "&amp;")
-                     .replace(/</g, "&lt;")
-                     .replace(/>/g, "&gt;")
-                     .replace(/"/g, "&quot;")
-                     .replace(/'/g, "&#039;");
+// --- Utility Functions ---
+function escapeHtml(unsafe) {
+    if (!unsafe) return '';
+    return unsafe.replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
+}
+
+function showMessage(message, isError) {
+    if (!msgBox) return;
+    msgBox.textContent = message;
+    msgBox.className = 'p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 z-50';
+    msgBox.classList.add(isError ? 'bg-red-500' : 'bg-green-500');
+    msgBox.classList.add('opacity-100');
+    setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
+}
+
+// --- Firebase Auth Listener ---
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        currentUserId = user.uid;
+        isAuthReady = true;
+        userEmailSpan.textContent = user.email || user.uid;
+
+        // --- Plan Badge Integration ---
+        if (planBadge) {
+            let plan = "Free";
+            let planColor = "bg-amber-500";
+            try {
+                const userDocRef = doc(db, 'artifacts', appId, 'users', currentUserId);
+                const userSnap = await getDoc(userDocRef);
+                if (userSnap.exists()) {
+                    const userData = userSnap.data();
+                    if (userData.plan && userData.plan.toLowerCase() === "pro") {
+                        plan = "Pro";
+                        planColor = "bg-green-600";
+                    }
+                }
+            } catch (err) {
+                console.error("Error fetching user plan:", err);
+            }
+            planBadge.textContent = plan;
+            planBadge.className = `ml-2 px-2 py-1 text-xs font-semibold rounded-full text-white ${planColor}`;
+        }
+        // --- End Plan Badge ---
+    } else {
+        currentUserId = null;
+        isAuthReady = false;
+    }
+});
+
+// --- Preview & Download Functions ---
+window.handlePreview = function(projectId) {
+    const project = projectsData.get(projectId);
+    if (!project) {
+        showMessage("Project data is missing.", true);
+        return;
     }
 
-    /** Shows a temporary message box (replaces alert()) */
-    function showMessage(message, isError) {
-        if (!msgBox) return;
-        msgBox.textContent = message;
-
-        msgBox.className = 'p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 z-50';
-        msgBox.classList.add(isError ? 'bg-red-500' : 'bg-green-500');
-        msgBox.classList.add('opacity-100');
-        setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
+    if (project.deploymentUrl) {
+        window.open(project.deploymentUrl, "_blank");
+        showMessage("Opening live deployed site!", false);
+        return;
     }
 
-    /** Opens the generated HTML in a new window for a live preview. */
-    // ⭐ MODIFIED: Check for deploymentUrl first.
-    window.handlePreview = function(projectId) {
-        const project = projectsData.get(projectId);
-        
-        if (!project) {
-            showMessage("Project data is missing.", true);
-            return;
-        }
-
-        // --- NEW: Check for Live Deployment URL ---
-        if (project.deploymentUrl) {
-            window.open(project.deploymentUrl, "_blank");
-            showMessage("Opening live deployed site!", false);
-            return; // Exit after opening the live site
-        }
-        // --- END NEW ---
-
-        // --- Fallback to Local Preview (Original Logic) ---
-        if (!project.encodedHtmlContent) {
-            showMessage("No deployed URL and no preview data available.", true);
-            return;
-        }
-        
-        // Decode the Base64 string back to a UTF-8 safe string
-        const decodedHtml = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
-        
-        const previewWindow = window.open('', '_blank');
-        if (!previewWindow) {
-             showMessage("Pop-ups must be enabled to view the preview.", true);
-             return;
-        }
-        previewWindow.document.write(decodedHtml);
-        previewWindow.document.close();
-        showMessage("Opening local HTML preview.", false);
+    if (!project.encodedHtmlContent) {
+        showMessage("No deployed URL and no preview data available.", true);
+        return;
     }
 
-    /** Downloads the generated HTML code as a file. */
-    // ⭐ REFACTORED: Takes ID, retrieves content from projectsData
-    window.handleDownload = function(projectId) {
-        const project = projectsData.get(projectId);
-        if (!project || !project.encodedHtmlContent) {
-            showMessage("Nothing to download.", true);
-            return;
-        }
+    const decodedHtml = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
+    const previewWindow = window.open('', '_blank');
+    if (!previewWindow) {
+        showMessage("Pop-ups must be enabled to view the preview.", true);
+        return;
+    }
+    previewWindow.document.write(decodedHtml);
+    previewWindow.document.close();
+    showMessage("Opening local HTML preview.", false);
+}
+
+window.handleDownload = function(projectId) {
+    const project = projectsData.get(projectId);
+    if (!project || !project.encodedHtmlContent) {
+        showMessage("Nothing to download.", true);
+        return;
+    }
+    const blob = new Blob([decodeURIComponent(escape(atob(project.encodedHtmlContent)))], { type: "text/html" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `${project.name || "project"}.html`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    showMessage("Download started!", false);
+}
+
         
         // Decode the Base64 string back to a UTF-8 safe string
         const htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
