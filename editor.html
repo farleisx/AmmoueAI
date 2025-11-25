@@ -178,10 +178,37 @@
         }
     }
 
-    // New: Handles the actual deployment process
-    async function handleDeployment(htmlContent) {
+    /**
+     * Fetches the user's current plan (free, pro, etc.).
+     * @param {string} userId - The current user's ID.
+     * @returns {Promise<string>} The user's plan name (e.g., 'free').
+     */
+    async function getUserPlan(userId) {
+        if (!db || !userId) return 'free'; 
+        try {
+            // Path: /users/{userId}
+            const docRef = doc(db, 'users', userId);
+            const docSnap = await getDoc(docRef);
+            return docSnap.exists() && docSnap.data().plan ? docSnap.data().plan : 'free';
+        } catch (error) {
+            console.error("Error fetching user plan:", error);
+            return 'free'; 
+        }
+    }
+
+    /** * Handles the actual deployment process by calling the server API.
+     * @param {string} htmlContent - The HTML content to deploy.
+     * @param {string} plan - The user's current plan (required by server).
+     * @param {string} projectId - The ID of the project being deployed (required by server).
+     * @returns {Promise<string|null>} The new deployment URL on success, or null on failure.
+     */
+    async function handleDeployment(htmlContent, plan, projectId) {
         if (!currentUserId) {
             showMessage("Authentication error: User ID is missing.", true);
+            return null;
+        }
+        if (!plan || !projectId) {
+            showMessage("System error: Missing Plan or Project ID for deployment.", true);
             return null;
         }
 
@@ -194,7 +221,9 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ 
                     htmlContent: htmlContent,
-                    userId: currentUserId 
+                    userId: currentUserId,
+                    plan: plan,         // ✅ FIX: Added plan
+                    projectId: projectId // ✅ FIX: Added projectId
                 }),
             });
 
@@ -222,6 +251,7 @@
                 return newUrl; // Return the new URL
             } else {
                 console.error("Vercel Deployment Failed:", result);
+                // The server now returns a useful error like "FREE plan limit reached..."
                 throw new Error(result.details || result.error || "Deployment failed on Vercel.");
             }
         } catch (error) {
@@ -268,7 +298,7 @@
                 let cleanHtmlContent = data.htmlContent || '';
                 cleanHtmlContent = cleanHtmlContent
                     .replace(/^```(html)?\s*\n?/i, "") // Remove starting fences and optional newline
-                    .replace(/\n?```$/i, "")           // Remove trailing fences and optional newline
+                    .replace(/\n?```$/i, "")            // Remove trailing fences and optional newline
                     .trim();
 
                 return {
@@ -304,15 +334,18 @@
         const newPrompt = promptInput.value.trim();
         const newHtmlContent = codeEditor.value;
 
-        if (!newTitle || !newPrompt || !newHtmlContent) {
-            showMessage("Title, Prompt, and Code cannot be empty.", true);
+        if (!newTitle || !newPrompt || !newHtmlContent || !projectId) {
+            showMessage("Title, Prompt, Code, and Project ID cannot be empty.", true);
             return;
         }
 
         showMessage("Saving changes and re-deploying site...", false);
 
+        // 🚨 CRITICAL FIX: Fetch plan before deployment
+        const userPlan = await getUserPlan(currentUserId);
+
         // 1. Trigger deployment first to get the URL
-        const updatedDeploymentUrl = await handleDeployment(newHtmlContent);
+        const updatedDeploymentUrl = await handleDeployment(newHtmlContent, userPlan, projectId);
         latestDeploymentUrl = updatedDeploymentUrl || latestDeploymentUrl; // Update global URL, keep old one if failed
 
         // 2. Update Firestore
@@ -343,9 +376,10 @@
     async function handleCodeRefine() {
         const currentHtml = codeEditor.value;
         const refinePrompt = promptInput.value.trim(); // Use the existing prompt field for the request
+        const projectId = projectIdInput.value;
 
-        if (!currentHtml || !refinePrompt) {
-            showMessage("Code and a Refinement Description are required for AI refinement.", true);
+        if (!currentHtml || !refinePrompt || !projectId) {
+            showMessage("Code, Refinement Description, and Project ID are required for AI refinement and deployment.", true);
             return;
         }
 
@@ -355,7 +389,7 @@
         showMessage("Sending code to AI for refinement. Please wait...", false);
 
         try {
-            // CRITICAL FIX: Calling the correct serverless endpoint /api/refine
+            // 1. Send code to AI refine endpoint
             const response = await fetch('/api/refine', { 
                 method: 'POST',
                 headers: {
@@ -370,7 +404,6 @@
             });
 
             if (!response.ok) {
-                // Try to read error body if it's JSON (e.g., status 400/500 with error message)
                 const errorText = await response.text();
                 let errorData = { error: `HTTP error! status: ${response.status}` };
                 try {
@@ -390,12 +423,15 @@
                 codeEditor.value = refinedCode;
                 showMessage("Code refined successfully by AI! Starting re-deployment...", false);
 
+                // 🚨 CRITICAL FIX: Fetch plan before deployment
+                const userPlan = await getUserPlan(currentUserId);
+                
                 // 2. Re-deploy the new code
-                const updatedDeploymentUrl = await handleDeployment(refinedCode);
+                // ✅ FIX: Pass the required plan and projectId to handleDeployment
+                const updatedDeploymentUrl = await handleDeployment(refinedCode, userPlan, projectId);
                 latestDeploymentUrl = updatedDeploymentUrl || latestDeploymentUrl;
 
                 // 3. Auto-save the changes to Firestore (including new URL)
-                const projectId = projectIdInput.value;
                 const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
                 await updateDoc(docRef, {
                     prompt: promptInput.value.replace(/\n/g, '\\n'),
