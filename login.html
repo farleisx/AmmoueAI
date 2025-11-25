@@ -3,219 +3,160 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-     <link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">
     <title>Ammoue | Login & Sign Up</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        /* Custom Font Setup */
+        /* Custom Font and Color Setup */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f8fafc; /* Light gray background */
+        body { font-family: 'Inter', sans-serif; }
+        .text-ammoue { color: #0d9488; } /* Teal-700 equivalent */
+        .bg-ammoue { background-color: #0d9488; }
+        
+        /* Custom scroll animation for testimonials */
+        @keyframes scroll-left {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
         }
-        .text-ammoue {
-            color: #0d9488; /* Teal-700 for Ammoue branding */
+        @keyframes scroll-right {
+            0% { transform: translateX(-50%); }
+            100% { transform: translateX(0); }
         }
-        .bg-ammoue {
-            background-color: #0d9488; /* Teal-700 for Ammoue branding */
-        }
-        /* Custom styles for message box */
-        #message-box {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
-            opacity: 0;
-            transition: opacity 0.3s ease-in-out;
-            max-width: 90%; /* Ensure it fits on smaller screens */
-            text-align: center;
-        }
-
-        /* --- TESTIMONIAL STYLES & ANIMATION --- */
-
-        /* Hides the testimonial columns on smaller screens */
-        .testimonial-col {
-            display: none; 
-            overflow: hidden;
-        }
-
-        /* Shows testimonial columns on large screens (Tailwind's 'lg' breakpoint) */
-        @media (min-width: 1024px) {
-            .testimonial-col {
-                display: block;
-                height: 90vh; /* Set a fixed viewport height for the scrolling area */
-                width: 250px; /* Fixed width for the columns */
-                mask-image: linear-gradient(to top, transparent, black 15%, black 85%, transparent); /* Fade effect at top/bottom */
-            }
-        }
-
-        /* Keyframe animation for scrolling */
-        @keyframes scroll-up {
-            to {
-                transform: translateY(-50%); /* Scroll up by exactly half (to create the loop) */
-            }
-        }
-        @keyframes scroll-down {
-            to {
-                transform: translateY(0%); /* Scroll down by exactly half (to create the loop) */
-            }
-        }
-
-        /* Class for the container holding the duplicated reviews */
         .reviews-container {
             display: flex;
-            flex-direction: column;
-            gap: 1.5rem; /* Gap between reviews */
-            padding: 1.5rem;
+            width: fit-content; /* Allows content to be wider than the wrapper */
         }
-
-        /* Apply the animation */
         #left-reviews {
-            animation: scroll-up 60s linear infinite; /* Left moves up */
+            animation: scroll-left 40s linear infinite;
         }
         #right-reviews {
-            /* To create the loop, we effectively scroll from -50% to 0% and repeat */
-            animation: scroll-down 60s linear infinite; /* Right moves down */
-            transform: translateY(-50%); /* Start at the bottom half */
+            animation: scroll-right 40s linear infinite;
         }
-
-        /* Stop animation on hover */
-        .testimonial-col:hover .reviews-container {
+        .review-wrapper:hover #left-reviews {
+            animation-play-state: paused;
+        }
+        .review-wrapper:hover #right-reviews {
             animation-play-state: paused;
         }
     </style>
 </head>
-<body class="antialiased min-h-screen flex items-center justify-center p-4">
+<body class="bg-gray-50 antialiased min-h-screen flex flex-col">
 
-    <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold"></div>
-
-    <div class="flex justify-center items-center w-full lg:max-w-6xl">
-
-        <div class="testimonial-col mr-8">
-            <div id="left-reviews" class="reviews-container">
-                </div>
+    <div id="message-box" class="fixed top-4 right-4 z-50 p-4 text-white font-semibold rounded-lg shadow-xl transition-opacity duration-500 opacity-0 min-w-80">
         </div>
 
-        <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 sm:p-10 border border-gray-100">
-
-            <a href="index.html" class="flex flex-col items-center mb-8">
-                <span class="text-4xl font-extrabold text-ammoue">Ammoue</span>
-                <p class="text-sm text-gray-500 mt-1">AI Website Builder</p>
-            </a>
-
-            <div class="flex mb-6 p-1 bg-gray-100 rounded-xl shadow-inner">
-                <button id="login-tab" onclick="toggleForm('login')" type="button" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-colors duration-200">Log In</button>
-                <button id="signup-tab" onclick="toggleForm('signup')" type="button" class="flex-1 py-2 text-sm font-semibold rounded-lg transition-colors duration-200">Sign Up</button>
+    <main class="flex flex-1">
+        
+        <div class="hidden lg:flex flex-col flex-1 bg-white shadow-2xl p-10 justify-between">
+            <header>
+                <h1 class="text-3xl font-extrabold text-ammoue">Ammoue AI</h1>
+                <p class="mt-2 text-gray-500">Your AI-Powered Site Builder.</p>
+            </header>
+            
+            <div class="py-10">
+                <h2 class="text-4xl font-bold text-gray-800 leading-snug">
+                    <span class="text-ammoue">Build your site</span><br> in under 5 minutes.
+                </h2>
+                <ul class="mt-6 space-y-3 text-gray-600">
+                    <li class="flex items-center space-x-2"><i data-lucide="zap" class="w-5 h-5 text-ammoue"></i> <span>Instant AI Generation</span></li>
+                    <li class="flex items-center space-x-2"><i data-lucide="paintbrush" class="w-5 h-5 text-ammoue"></i> <span>Stunning Design Templates</span></li>
+                    <li class="flex items-center space-x-2"><i data-lucide="trending-up" class="w-5 h-5 text-ammoue"></i> <span>SEO Optimized from the start</span></li>
+                </ul>
             </div>
-
-            <form id="login-form" class="space-y-6" onsubmit="handleLogin(event)">
-                <h2 class="text-2xl font-bold text-gray-800 text-center mb-4">Welcome Back</h2>
-
-                <div>
-                    <label for="login-email" class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                    <input type="email" id="login-email" required class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-ammoue focus:border-ammoue transition duration-150" placeholder="you@example.com">
-                </div>
-
-                <div>
-                    <label for="login-password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                    <input type="password" id="login-password" required class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-ammoue focus:border-ammoue transition duration-150" placeholder="••••••••">
-                </div>
-
-                <div class="flex items-center justify-between text-sm">
-                    <a href="#" class="font-medium text-ammoue hover:text-teal-600">Forgot Password?</a>
-                </div>
-
-                <button type="submit" id="login-btn" class="w-full py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-lg shadow-teal-500/30 transform hover:scale-[1.01]">
-                    Log In
-                </button>
-
-                <div class="relative pt-2">
-                    <div class="absolute inset-0 flex items-center">
-                        <div class="w-full border-t border-gray-300"></div>
-                    </div>
-                    <div class="relative flex justify-center text-sm">
-                        <span class="px-2 bg-white text-gray-500">Or continue with</span>
-                    </div>
-                </div>
-
-                <button type="button" 
-                        id="google-login-btn" 
-                        onclick="handleGoogleAuth(this)" 
-                        class="w-full flex items-center justify-center py-2.5 border border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 transition duration-150">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/4/4a/Logo_and_wordmark_of_Google.svg" class="w-5 h-5 mr-2" alt="Google logo">
-                    Sign in with Google
-                </button>
-
-                <button type="button" 
-                        id="github-login-btn" 
-                        onclick="handleGitHubAuth(this)" 
-                        class="w-full flex items-center justify-center py-2.5 border border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 transition duration-150">
-                    <img src="https://github.githubassets.com/assets/GitHub-Mark-ea2971cee799.png" class="w-5 h-5 mr-2" alt="GitHub logo">
-                    Sign in with GitHub
-                </button>
-
-            </form>
-
-            <form id="signup-form" class="space-y-6 hidden" onsubmit="handleSignup(event)">
-                <h2 class="text-2xl font-bold text-gray-800 text-center mb-4">Create Your Free Account</h2>
-
-                <div>
-                    <label for="signup-email" class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                    <input type="email" id="signup-email" required class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-ammoue focus:border-ammoue transition duration-150" placeholder="you@example.com">
-                </div>
-
-                <div>
-                    <label for="signup-password" class="block text-sm font-medium text-gray-700 mb-1">Create Password</label>
-                    <input type="password" id="signup-password" required class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-ammoue focus:border-ammoue transition duration-150" placeholder="Min. 8 characters">
-                </div>
-
-                <div class="flex items-center text-sm">
-                    <input id="agree-terms" type="checkbox" required class="h-4 w-4 text-ammoue border-gray-300 rounded focus:ring-ammoue">
-                    <label for="agree-terms" class="ml-2 block text-gray-700">
-                        I agree to the <a href="#" class="font-medium text-ammoue hover:text-teal-600">Terms</a> and <a href="#" class="font-medium text-ammoue hover:text-teal-600">Privacy Policy</a>
-                    </label>
-                </div>
-
-                <button type="submit" id="signup-btn" class="w-full py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-lg shadow-teal-500/30 transform hover:scale-[1.01]">
-                    Sign Up & Generate Site
-                </button>
+            
+            <div class="relative overflow-hidden pt-4 pb-8">
+                <h3 class="text-lg font-semibold text-gray-700 mb-4">What our users say:</h3>
                 
-                <div class="relative pt-2">
-                    <div class="absolute inset-0 flex items-center">
-                        <div class="w-full border-t border-gray-300"></div>
-                    </div>
-                    <div class="relative flex justify-center text-sm">
-                        <span class="px-2 bg-white text-gray-500">Or quickly sign up with</span>
-                    </div>
+                <div class="review-wrapper overflow-hidden mb-4">
+                    <div id="left-reviews" class="reviews-container">
+                        </div>
                 </div>
-
-                <button type="button" 
-                        id="google-signup-btn" 
-                        onclick="handleGoogleAuth(this)" 
-                        class="w-full flex items-center justify-center py-2.5 border border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 transition duration-150">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/4/4a/Logo_and_wordmark_of_Google.svg" class="w-5 h-5 mr-2" alt="Google logo">
-                    Sign up with Google
-                </button>
                 
-                <button type="button" 
-                        id="github-signup-btn" 
-                        onclick="handleGitHubAuth(this)" 
-                        class="w-full flex items-center justify-center py-2.5 border border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 transition duration-150">
-                    <img src="https://github.githubassets.com/assets/GitHub-Mark-ea2971cee799.png" class="w-5 h-5 mr-2" alt="GitHub logo">
-                    Sign up with GitHub
-                </button>
-
-            </form>
+                <div class="review-wrapper overflow-hidden">
+                    <div id="right-reviews" class="reviews-container" style="animation-direction: reverse;">
+                        </div>
+                </div>
+            </div>
         </div>
 
-        <div class="testimonial-col ml-8">
-            <div id="right-reviews" class="reviews-container">
-                </div>
-        </div>
+        <div class="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-12">
+            <div class="w-full max-w-md bg-white rounded-xl lg:shadow-xl p-8 space-y-6">
+                
+                <h2 class="text-3xl font-extrabold text-gray-900 text-center lg:hidden">
+                    Ammoue AI
+                </h2>
 
-    </div> <script type="module">
+                <div class="flex p-1 bg-gray-100 rounded-xl shadow-inner">
+                    <button id="login-tab" onclick="toggleForm('login')" class="flex-1 text-center py-2 px-4 rounded-xl transition duration-300 font-semibold text-sm">
+                        Log In
+                    </button>
+                    <button id="signup-tab" onclick="toggleForm('signup')" class="flex-1 text-center py-2 px-4 rounded-xl transition duration-300 font-semibold text-sm">
+                        Sign Up
+                    </button>
+                </div>
+
+                <form id="login-form" class="space-y-6 hidden" onsubmit="handleLogin(event)">
+                    <div>
+                        <label for="login-email" class="block text-sm font-medium text-gray-700">Email Address</label>
+                        <input id="login-email" type="email" required class="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-3 focus:ring-ammoue focus:border-ammoue">
+                    </div>
+                    <div>
+                        <label for="login-password" class="block text-sm font-medium text-gray-700">Password</label>
+                        <input id="login-password" type="password" required class="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-3 focus:ring-ammoue focus:border-ammoue">
+                    </div>
+                    <button id="login-btn" type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-ammoue hover:bg-teal-700 transition duration-300">
+                        Log In
+                    </button>
+                    <p class="text-center text-sm text-gray-500">
+                        <a href="#" class="font-medium text-ammoue hover:text-teal-700">Forgot your password?</a>
+                    </p>
+                </form>
+
+                <form id="signup-form" class="space-y-6 hidden" onsubmit="handleSignup(event)">
+                    <div>
+                        <label for="signup-email" class="block text-sm font-medium text-gray-700">Email Address</label>
+                        <input id="signup-email" type="email" required class="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-3 focus:ring-ammoue focus:border-ammoue">
+                    </div>
+                    <div>
+                        <label for="signup-password" class="block text-sm font-medium text-gray-700">Password</label>
+                        <input id="signup-password" type="password" required minlength="6" class="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-3 focus:ring-ammoue focus:border-ammoue">
+                        <p class="mt-1 text-xs text-gray-500">Minimum 6 characters.</p>
+                    </div>
+                    <button id="signup-btn" type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-ammoue hover:bg-teal-700 transition duration-300">
+                        Sign Up & Generate Site
+                    </button>
+                    <p class="text-center text-sm text-gray-500">
+                        By signing up, you agree to our <a href="#" class="font-medium text-ammoue hover:text-teal-700">Terms of Service</a>.
+                    </p>
+                </form>
+                
+                <div class="mt-6">
+                    <div class="relative">
+                        <div class="absolute inset-0 flex items-center" aria-hidden="true">
+                            <div class="w-full border-t border-gray-300"></div>
+                        </div>
+                        <div class="relative flex justify-center text-sm">
+                            <span class="px-2 bg-white text-gray-500">Or continue with</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 grid grid-cols-2 gap-3">
+                        <button id="google-auth-btn" onclick="handleGoogleAuth(this)" type="button" class="w-full inline-flex justify-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition">
+                            <i data-lucide="mail" class="w-5 h-5 mr-2"></i>
+                            Google
+                        </button>
+                        <button id="github-auth-btn" onclick="handleGitHubAuth(this)" type="button" class="w-full inline-flex justify-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition">
+                            <i data-lucide="github" class="w-5 h-5 mr-2"></i>
+                            GitHub
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
         // --- TESTIMONIAL DATA & LOGIC ---
 
         const reviewsData = [
@@ -264,18 +205,16 @@
             const reviewsHtml = data.map(createReviewCard).join('');
 
             // To make the seamless loop work, the content must be duplicated!
-            // The container's height must be 200% of the viewport and it scrolls to 50%
             container.innerHTML = reviewsHtml + reviewsHtml;
         }
 
         // --- Run Testimonial Setup ---
-        // For the right column, we can reverse the array to make the scrolling content different
         populateReviews('left-reviews', reviewsData);
-        populateReviews('right-reviews', [...reviewsData].reverse()); 
+        populateReviews('right-reviews', [...reviewsData].reverse());
 
 
         // ----------------------------------------------------------------------------------
-        // --- START OF FIREBASE LOGIC (NO CHANGES APPLIED TO THE CORE AUTHENTICATION CODE) ---
+        // 🔥 --- START OF FIREBASE LOGIC AND PLAN INJECTION --- 🔥
         // ----------------------------------------------------------------------------------
 
         // Updated Imports to Firebase SDK v12.4.0
@@ -290,10 +229,17 @@
             signInWithPopup,
             GoogleAuthProvider,
             GithubAuthProvider, 
-            // 🚨 We need this import to handle the error, even if we don't call it yet!
             linkWithCredential 
         } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-        import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+        
+        // 🚨 NEW IMPORTS FOR FIRESTORE AND TIMESTAMPS 🚨
+        import { 
+            getFirestore, 
+            doc, 
+            setDoc, 
+            Timestamp, 
+            setLogLevel 
+        } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
         // --- FIREBASE CONFIGURATION (Hardcoded with user's data) ---
         const firebaseConfig = {
@@ -306,8 +252,8 @@
         };
         
         let auth = null; 
-        let db = null; 
-
+        let db = null; // 👈 Firestore instance
+        
         // 💡 GLOBAL VARIABLES TO STORE CONFLICT DATA
         window.pendingCredential = null;
         window.conflictingEmail = null;
@@ -324,12 +270,10 @@
         const loginBtn = document.getElementById('login-btn');
         const signupBtn = document.getElementById('signup-btn');
 
-        // --- Utility Functions (No changes needed here) ---
+        // --- Utility Functions ---
 
         /**
          * Displays a temporary, custom message box.
-         * @param {string} message - The message to display.
-         * @param {boolean} isError - True for error (red), false for success (green).
          */
         function showMessage(message, isError) {
             const msgBox = document.getElementById('message-box');
@@ -406,7 +350,43 @@
             const path = getRedirectPath();
             window.location.href = path;
         }
-        
+
+        // ----------------------------------------------------------------------
+        // 🔥 NEW FIRESTORE HELPER FUNCTION: Create User Document
+        // ----------------------------------------------------------------------
+
+        /**
+         * Creates a user document in Firestore with the default 'free' plan.
+         * This is called ONLY when a new user is created via any method.
+         * @param {object} user - The Firebase User object (from Auth result).
+         */
+        async function createUserDocument(user) {
+            if (!db) {
+                console.error("Firestore not initialized. Cannot create user document.");
+                return;
+            }
+            try {
+                // Document reference in 'users' collection with UID as the ID
+                const userDocRef = doc(db, "users", user.uid);
+                
+                // Set the document with the critical 'plan: "free"' field
+                await setDoc(userDocRef, {
+                    uid: user.uid,
+                    email: user.email,
+                    displayName: user.displayName || null,
+                    plan: "free", // 🚨 INJECTED LOGIC: Default to Free Plan
+                    signupDate: Timestamp.now(),
+                }, { merge: true }); // Use merge: true for social logins that might trigger this twice
+
+                console.log(`Firestore user document created for ${user.email} with plan: free.`);
+            } catch (error) {
+                console.error("Error creating Firestore user document:", error);
+                // Non-critical error: Auth succeeded, but database write failed. User can still log in.
+                showMessage("Warning: Account created, but plan status failed to save. Contact support.", true);
+            }
+        }
+        // ----------------------------------------------------------------------
+
         // --- Firebase Core Logic ---
 
         /**
@@ -416,9 +396,9 @@
             try {
                 // setLogLevel('debug'); // Uncomment for debugging
                 const app = initializeApp(firebaseConfig);
-                auth = getAuth(app); 
-                db = getFirestore(app);
-
+                auth = getAuth(app);
+                db = getFirestore(app); // 👈 Initialize Firestore
+                
                 // If a user is already logged in (from a previous session), redirect to their intended destination.
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
@@ -429,11 +409,10 @@
                 });
 
             } catch (error) {
-                // If initialization fails, catch the error, log it, and set auth/db to null.
                 console.error("Firebase initialization failed:", error);
                 showMessage(`Firebase initialization failed. Check your console for details.`, true);
-                auth = null; // Crucial: ensure subsequent calls fail gracefully
-                db = null;
+                auth = null; 
+                db = null; // Crucial: ensure subsequent calls fail gracefully
             }
         }
 
@@ -444,7 +423,6 @@
         window.handleLogin = async function(event) {
             event.preventDefault();
             
-            // CRITICAL CHECK: Prevent TypeError if auth failed to initialize
             if (!auth) {
                 showMessage("Authentication service failed to load. Please try refreshing the page.", true);
                 return;
@@ -456,11 +434,8 @@
             const password = document.getElementById('login-password').value;
 
             try {
-                // Sign in with Firebase Auth
                 await signInWithEmailAndPassword(auth, email, password);
                 showMessage("Login successful! Redirecting...", false);
-                
-                // Redirect on success (handled by onAuthStateChanged listener, but call here for immediacy)
                 setTimeout(redirectToNextPage, 1000);
 
             } catch (error) {
@@ -469,13 +444,11 @@
                 if (error.code === 'auth/user-not-found') {
                     errorMessage = 'No account found with this email.';
                 } else if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-                    // Combine these two common errors for simplicity
                     errorMessage = 'Invalid credentials. Please check your email and password.';
                 } else if (error.code === 'auth/popup-closed-by-user') {
                      errorMessage = "Sign-in cancelled. Pop-up was closed.";
                 }
                 
-                // 💡 Check for external provider conflict
                 if (error.code === 'auth/account-exists-with-different-credential') {
                     const email = error.customData.email;
                     errorMessage = `Account conflict for ${email}. This email is already registered using a social provider (Google/GitHub). Please use the social login button.`;
@@ -483,7 +456,6 @@
                 
                 showMessage(errorMessage, true);
                 setLoading(loginBtn, false);
-
             }
         }
 
@@ -493,7 +465,6 @@
         window.handleSignup = async function(event) {
             event.preventDefault();
 
-            // CRITICAL CHECK: Prevent TypeError if auth failed to initialize
             if (!auth) {
                 showMessage("Authentication service failed to load. Please try refreshing the page.", true);
                 return;
@@ -505,11 +476,14 @@
             const password = document.getElementById('signup-password').value;
 
             try {
-                // Create user with Firebase Auth
-                await createUserWithEmailAndPassword(auth, email, password);
-                showMessage("Account created successfully! Redirecting to the site builder...", false);
+                // 1. Create user with Firebase Auth
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
 
-                // Redirect on success (handled by onAuthStateChanged listener, but call here for immediacy)
+                // 2. 🔥 INJECTION POINT: Create the Firestore document with default 'free' plan
+                await createUserDocument(user);
+
+                showMessage("Account created successfully! Redirecting to the site builder...", false);
                 setTimeout(redirectToNextPage, 1000);
 
             } catch (error) {
@@ -526,28 +500,30 @@
             }
         }
 
-        // --- UPDATED GOOGLE AUTH LOGIC (Handles GitHub-first conflicts) ---
         /**
          * Handles Google Sign-In/Sign-Up via popup.
          */
         window.handleGoogleAuth = async function(button) {
-            if (!auth) {
+            if (!auth) { 
                 showMessage("Authentication service failed to load.", true);
-                return;
+                return; 
             }
 
             setLoading(button, true);
-            window.pendingCredential = null; // Clear any old pending link attempts
+            window.pendingCredential = null; 
 
             try {
                 showMessage("Redirecting to Google for sign-in...", false);
                 const result = await signInWithPopup(auth, googleProvider);
                 
-                // NOTE: No need for account linking logic here, just proceed on success
                 const user = result.user;
-                showMessage(`Welcome, ${user.displayName || user.email}! Redirecting...`, false);
-                // The onAuthStateChanged listener handles the final redirect.
+                
+                // 🔥 INJECTION POINT: Check if this is a NEW user sign-up
+                if (result.operationType === 'signIn' && result.additionalUserInfo.isNewUser) {
+                    await createUserDocument(user);
+                }
 
+                showMessage(`Welcome, ${user.displayName || user.email}! Redirecting...`, false);
             } catch (error) {
                 console.error("Google Sign-in failed:", error);
                 let errorMessage = "Google sign-in failed.";
@@ -555,11 +531,8 @@
                 if (error.code === 'auth/popup-closed-by-user' || (error.message && error.message.includes('popup-closed-by-user'))) {
                     errorMessage = "Sign-in cancelled. Pop-up was closed.";
                 } else if (error.code === 'auth/account-exists-with-different-credential') {
-                    // 💡 THE CONFLICT WARNING MESSAGE FOR GOOGLE LOGIN
-                    window.pendingCredential = error.credential; // Save the new Google credential
+                    window.pendingCredential = error.credential;
                     window.conflictingEmail = error.customData.email;
-                    const providerId = error.customData.tenantId || error.customData.providerId; // Find the existing provider
-
                     errorMessage = `⚠️ Account Conflict! An account for ${window.conflictingEmail} already exists, but was originally registered using **GitHub**. Please try signing in with GitHub.`;
                 }
 
@@ -568,28 +541,30 @@
             }
         }
         
-        // --- UPDATED GITHUB AUTH LOGIC (Handles Google-first conflicts) ---
         /**
          * Handles GitHub Sign-In/Sign-Up via popup.
          */
         window.handleGitHubAuth = async function(button) {
-            if (!auth) {
+            if (!auth) { 
                 showMessage("Authentication service failed to load.", true);
-                return;
+                return; 
             }
 
             setLoading(button, true);
-            window.pendingCredential = null; // Clear any old pending link attempts
+            window.pendingCredential = null; 
 
             try {
                 showMessage("Redirecting to GitHub for sign-in...", false);
                 const result = await signInWithPopup(auth, githubProvider);
                 
-                // NOTE: No need for account linking logic here, just proceed on success
                 const user = result.user;
-                showMessage(`Welcome, ${user.displayName || user.email || user.uid}! Redirecting...`, false);
-                // The onAuthStateChanged listener handles the final redirect.
+                
+                // 🔥 INJECTION POINT: Check if this is a NEW user sign-up
+                if (result.operationType === 'signIn' && result.additionalUserInfo.isNewUser) {
+                    await createUserDocument(user);
+                }
 
+                showMessage(`Welcome, ${user.displayName || user.email || user.uid}! Redirecting...`, false);
             } catch (error) {
                 console.error("GitHub Sign-in failed:", error);
                 let errorMessage = "GitHub sign-in failed.";
@@ -597,11 +572,8 @@
                 if (error.code === 'auth/popup-closed-by-user' || (error.message && error.message.includes('popup-closed-by-user'))) {
                     errorMessage = "Sign-in cancelled. Pop-up was closed.";
                 } else if (error.code === 'auth/account-exists-with-different-credential') {
-                    // 💡 THE CONFLICT WARNING MESSAGE FOR GITHUB LOGIN
-                    window.pendingCredential = error.credential; // Save the new GitHub credential
+                    window.pendingCredential = error.credential;
                     window.conflictingEmail = error.customData.email;
-                    const providerId = error.customData.tenantId || error.customData.providerId; // Find the existing provider
-
                     errorMessage = `⚠️ Account Conflict! An account for ${window.conflictingEmail} already exists, but was originally registered using **Google** or **Email/Password**. Please try signing in with your original method.`;
                 }
 
@@ -610,7 +582,7 @@
             }
         }
         
-        // --- UI Toggling Logic (No changes needed) ---
+        // --- UI Toggling Logic ---
 
         /**
          * Sets the initial state to the Log In form.
@@ -663,7 +635,10 @@
         // --- Run Initialization Immediately ---
         initializeAppAndAuth();
         initializeForms();
-        lucide.createIcons();
+        // Call Lucide to render icons
+        if (typeof lucide !== 'undefined' && lucide.createIcons) {
+            lucide.createIcons();
+        }
 
     </script>
 </body>
