@@ -156,490 +156,466 @@
         </div>
     </main>
 
-    <script type="module">
-        // --- TESTIMONIAL DATA & LOGIC ---
+   <script type="module">
+    // --- TESTIMONIAL DATA & LOGIC ---
 
-        const reviewsData = [
-            { name: "Sarah K.", rating: 5, text: "Built my entire portfolio in an hour. Absolutely incredible speed and quality!", avatar: "https://i.pravatar.cc/150?img=1" },
-            { name: "Jake D.", rating: 5, text: "The AI suggestions are spot-on. My e-commerce site traffic doubled after the redesign.", avatar: "https://i.pravatar.cc/150?img=2" },
-            { name: "Aisha M.", rating: 4, text: "Great value for money. Minor tweaks needed, but the foundation was perfect.", avatar: "https://i.pravatar.cc/150?img=3" },
-            { name: "Chris T.", rating: 5, text: "Finally, a site builder that understands design! Highly recommend Ammoue.", avatar: "https://i.pravatar.cc/150?img=4" },
-            { name: "Maria L.", rating: 5, text: "Switched from a competitor and haven't looked back. The interface is flawless.", avatar: "https://i.pravatar.cc/150?img=5" },
-            { name: "David B.", rating: 4, text: "A powerful tool for non-coders. Made my small business look professional overnight.", avatar: "https://i.pravatar.cc/150?img=6" },
-        ];
+    const reviewsData = [
+        // ... (Your reviewsData array remains unchanged)
+        { name: "Sarah K.", rating: 5, text: "Built my entire portfolio in an hour. Absolutely incredible speed and quality!", avatar: "https://i.pravatar.cc/150?img=1" },
+        { name: "Jake D.", rating: 5, text: "The AI suggestions are spot-on. My e-commerce site traffic doubled after the redesign.", avatar: "https://i.pravatar.cc/150?img=2" },
+        { name: "Aisha M.", rating: 4, text: "Great value for money. Minor tweaks needed, but the foundation was perfect.", avatar: "https://i.pravatar.cc/150?img=3" },
+        { name: "Chris T.", rating: 5, text: "Finally, a site builder that understands design! Highly recommend Ammoue.", avatar: "https://i.pravatar.cc/150?img=4" },
+        { name: "Maria L.", rating: 5, text: "Switched from a competitor and haven't looked back. The interface is flawless.", avatar: "https://i.pravatar.cc/150?img=5" },
+        { name: "David B.", rating: 4, text: "A powerful tool for non-coders. Made my small business look professional overnight.", avatar: "https://i.pravatar.cc/150?img=6" },
+    ];
 
-        /**
-         * Creates the HTML for a single review card.
-         * @param {object} review - The review data object.
-         */
-        function createReviewCard(review) {
-            const stars = '★'.repeat(review.rating) + '☆'.repeat(5 - review.rating);
-            
-            // Randomly flip the text and image for variation
-            const flip = Math.random() < 0.5;
+    function createReviewCard(review) {
+        // ... (Your createReviewCard function remains unchanged)
+        const stars = '★'.repeat(review.rating) + '☆'.repeat(5 - review.rating);
+        const flip = Math.random() < 0.5;
 
-            return `
-                <div class="p-4 bg-white rounded-xl shadow-lg border border-gray-100 max-w-xs transition-transform duration-300 hover:scale-[1.02]">
-                    <div class="flex ${flip ? 'flex-row-reverse' : 'flex-row'} items-center ${flip ? 'justify-between' : 'space-x-3'} mb-2">
-                        <img class="w-8 h-8 rounded-full object-cover" src="${review.avatar}" alt="${review.name}'s avatar">
-                        <div class="flex flex-col ${flip ? 'text-right' : 'text-left'}">
-                            <p class="text-xs font-bold text-gray-800">${review.name}</p>
-                            <p class="text-xs text-yellow-500">${stars}</p>
-                        </div>
+        return `
+            <div class="p-4 bg-white rounded-xl shadow-lg border border-gray-100 max-w-xs transition-transform duration-300 hover:scale-[1.02]">
+                <div class="flex ${flip ? 'flex-row-reverse' : 'flex-row'} items-center ${flip ? 'justify-between' : 'space-x-3'} mb-2">
+                    <img class="w-8 h-8 rounded-full object-cover" src="${review.avatar}" alt="${review.name}'s avatar">
+                    <div class="flex flex-col ${flip ? 'text-right' : 'text-left'}">
+                        <p class="text-xs font-bold text-gray-800">${review.name}</p>
+                        <p class="text-xs text-yellow-500">${stars}</p>
                     </div>
-                    <p class="text-sm text-gray-600 italic leading-snug">"${review.text}"</p>
                 </div>
-            `;
+                <p class="text-sm text-gray-600 italic leading-snug">"${review.text}"</p>
+            </div>
+        `;
+    }
+
+    function populateReviews(containerId, data) {
+        // ... (Your populateReviews function remains unchanged)
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        const reviewsHtml = data.map(createReviewCard).join('');
+        container.innerHTML = reviewsHtml + reviewsHtml;
+    }
+
+    // --- Run Testimonial Setup ---
+    populateReviews('left-reviews', reviewsData);
+    populateReviews('right-reviews', [...reviewsData].reverse());
+
+
+    // ----------------------------------------------------------------------------------
+    // 🔥 --- START OF FIREBASE LOGIC AND PLAN INJECTION --- 🔥
+    // ----------------------------------------------------------------------------------
+
+    // Updated Imports to Firebase SDK v12.4.0
+    import { 
+        initializeApp 
+    } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+    import { 
+        getAuth, 
+        signInWithEmailAndPassword, 
+        createUserWithEmailAndPassword, 
+        onAuthStateChanged,
+        signInWithPopup,
+        GoogleAuthProvider,
+        GithubAuthProvider, 
+        linkWithCredential 
+    } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+    
+    // 🚨 NEW IMPORTS FOR FIRESTORE AND TIMESTAMPS 🚨
+    import { 
+        getFirestore, 
+        doc, 
+        setDoc, 
+        Timestamp, 
+        setLogLevel 
+    } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+
+    // --- FIREBASE CONFIGURATION (Hardcoded with user's data) ---
+    const firebaseConfig = {
+        apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
+        authDomain: "ammoueai.firebaseapp.com",
+        projectId: "ammoueai",
+        storageBucket: "ammoueai.firebasestorage.app",
+        messagingSenderId: "135818868149",
+        appId: "1:135818868149:web:db9280baf9540a3339d5fc",
+    };
+    
+    let auth = null; 
+    let db = null; // 👈 Firestore instance
+    
+    // 💡 GLOBAL VARIABLES TO STORE CONFLICT DATA
+    window.pendingCredential = null;
+    window.conflictingEmail = null;
+
+    // --- Providers ---
+    const googleProvider = new GoogleAuthProvider();
+    const githubProvider = new GithubAuthProvider();
+
+    // --- DOM Elements ---
+    const loginForm = document.getElementById('login-form');
+    const signupForm = document.getElementById('signup-form');
+    const loginTab = document.getElementById('login-tab');
+    const signupTab = document.getElementById('signup-tab');
+    const loginBtn = document.getElementById('login-btn');
+    const signupBtn = document.getElementById('signup-btn');
+
+    // --- Utility Functions ---
+
+    function showMessage(message, isError) {
+        // ... (Your showMessage function remains unchanged)
+        const msgBox = document.getElementById('message-box');
+        msgBox.textContent = message;
+        
+        if (isError) {
+            msgBox.classList.remove('bg-green-500');
+            msgBox.classList.add('bg-red-500');
+        } else {
+            msgBox.classList.remove('bg-red-500');
+            msgBox.classList.add('bg-green-500');
         }
 
-        /**
-         * Populates the review containers and duplicates the content for seamless looping.
-         * @param {string} containerId - The ID of the reviews container ('left-reviews' or 'right-reviews').
-         * @param {Array} data - The array of review data.
-         */
-        function populateReviews(containerId, data) {
-            const container = document.getElementById(containerId);
-            if (!container) return;
+        msgBox.classList.remove('opacity-0');
+        msgBox.classList.add('opacity-100');
 
-            // Generate HTML for all reviews
-            const reviewsHtml = data.map(createReviewCard).join('');
+        setTimeout(() => {
+            msgBox.classList.remove('opacity-100');
+            msgBox.classList.add('opacity-0');
+        }, 4000);
+    }
 
-            // To make the seamless loop work, the content must be duplicated!
-            container.innerHTML = reviewsHtml + reviewsHtml;
-        }
-
-        // --- Run Testimonial Setup ---
-        populateReviews('left-reviews', reviewsData);
-        populateReviews('right-reviews', [...reviewsData].reverse());
-
-
-        // ----------------------------------------------------------------------------------
-        // 🔥 --- START OF FIREBASE LOGIC AND PLAN INJECTION --- 🔥
-        // ----------------------------------------------------------------------------------
-
-        // Updated Imports to Firebase SDK v12.4.0
-        import { 
-            initializeApp 
-        } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-        import { 
-            getAuth, 
-            signInWithEmailAndPassword, 
-            createUserWithEmailAndPassword, 
-            onAuthStateChanged,
-            signInWithPopup,
-            GoogleAuthProvider,
-            GithubAuthProvider, 
-            linkWithCredential 
-        } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-        
-        // 🚨 NEW IMPORTS FOR FIRESTORE AND TIMESTAMPS 🚨
-        import { 
-            getFirestore, 
-            doc, 
-            setDoc, 
-            Timestamp, 
-            setLogLevel 
-        } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
-
-        // --- FIREBASE CONFIGURATION (Hardcoded with user's data) ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
-            authDomain: "ammoueai.firebaseapp.com",
-            projectId: "ammoueai",
-            storageBucket: "ammoueai.firebasestorage.app",
-            messagingSenderId: "135818868149",
-            appId: "1:135818868149:web:db9280baf9540a3339d5fc",
-        };
-        
-        let auth = null; 
-        let db = null; // 👈 Firestore instance
-        
-        // 💡 GLOBAL VARIABLES TO STORE CONFLICT DATA
-        window.pendingCredential = null;
-        window.conflictingEmail = null;
-
-        // --- Providers ---
-        const googleProvider = new GoogleAuthProvider();
-        const githubProvider = new GithubAuthProvider();
-
-        // --- DOM Elements ---
-        const loginForm = document.getElementById('login-form');
-        const signupForm = document.getElementById('signup-form');
-        const loginTab = document.getElementById('login-tab');
-        const signupTab = document.getElementById('signup-tab');
-        const loginBtn = document.getElementById('login-btn');
-        const signupBtn = document.getElementById('signup-btn');
-
-        // --- Utility Functions ---
-
-        /**
-         * Displays a temporary, custom message box.
-         */
-        function showMessage(message, isError) {
-            const msgBox = document.getElementById('message-box');
-            msgBox.textContent = message;
+    function setLoading(button, isLoading) {
+        // ... (Your setLoading function remains unchanged)
+        if (isLoading) {
+            button.disabled = true;
+            button.setAttribute('data-original-text', button.innerHTML);
+            button.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Authenticating...';
             
-            if (isError) {
-                msgBox.classList.remove('bg-green-500');
-                msgBox.classList.add('bg-red-500');
+            if (button.id.includes('google') || button.id.includes('github')) { 
+                button.classList.add('bg-gray-100', 'text-gray-400');
+                button.classList.remove('hover:bg-gray-50');
             } else {
-                msgBox.classList.remove('bg-red-500');
-                msgBox.classList.add('bg-green-500');
+                button.classList.add('bg-teal-700');
             }
 
-            msgBox.classList.remove('opacity-0');
-            msgBox.classList.add('opacity-100');
-
-            setTimeout(() => {
-                msgBox.classList.remove('opacity-100');
-                msgBox.classList.add('opacity-0');
-            }, 4000);
+        } else {
+            button.disabled = false;
+            if (button.getAttribute('data-original-text')) {
+                button.innerHTML = button.getAttribute('data-original-text');
+            } else if (button.id === 'login-btn') {
+                button.textContent = 'Log In';
+            } else if (button.id === 'signup-btn') {
+                button.textContent = 'Sign Up & Generate Site';
+            }
+            
+            if (button.id.includes('google') || button.id.includes('github')) { 
+                button.classList.remove('bg-gray-100', 'text-gray-400');
+                button.classList.add('hover:bg-gray-50');
+            }
         }
+    }
+    
+    function getRedirectPath() {
+        // ... (Your getRedirectPath function remains unchanged)
+        const params = new URLSearchParams(window.location.search);
+        const redirectPath = params.get('redirect') ? decodeURIComponent(params.get('redirect')) : 'dashboard.html';
+        return redirectPath.startsWith('/') ? redirectPath.substring(1) : redirectPath;
+    }
 
-        /**
-         * Toggles loading state on buttons.
-         */
-        function setLoading(button, isLoading) {
-            if (isLoading) {
-                button.disabled = true;
-                button.setAttribute('data-original-text', button.innerHTML); // Save original content
-                button.innerHTML = '<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Authenticating...';
-                
-                // For social buttons, change background to reflect loading state
-                if (button.id.includes('google') || button.id.includes('github')) { 
-                    button.classList.add('bg-gray-100', 'text-gray-400');
-                    button.classList.remove('hover:bg-gray-50');
-                } else {
-                    button.classList.add('bg-teal-700');
-                }
+    function redirectToNextPage() {
+        // ... (Your redirectToNextPage function remains unchanged)
+        const path = getRedirectPath();
+        window.location.href = path;
+    }
 
-            } else {
-                button.disabled = false;
-                // Restore original content
-                if (button.getAttribute('data-original-text')) {
-                    button.innerHTML = button.getAttribute('data-original-text');
-                } else if (button.id === 'login-btn') {
-                    button.textContent = 'Log In';
-                } else if (button.id === 'signup-btn') {
-                    button.textContent = 'Sign Up & Generate Site';
-                }
-                
-                // Restore social button styling
-                if (button.id.includes('google') || button.id.includes('github')) { 
-                    button.classList.remove('bg-gray-100', 'text-gray-400');
-                    button.classList.add('hover:bg-gray-50');
-                }
-            }
+    // ----------------------------------------------------------------------
+    // 🔥 NEW FIRESTORE HELPER FUNCTION: Create User Document (WITH DIAGNOSTICS)
+    // ----------------------------------------------------------------------
+
+    /**
+     * Creates a user document in Firestore with the default 'free' plan.
+     * @param {object} user - The Firebase User object (from Auth result).
+     */
+    async function createUserDocument(user) {
+        if (!db) {
+            console.error("DEBUG ERROR: Firestore instance (db) is null. Initialization failed.");
+            showMessage("Critical Error: Database failed to initialize.", true);
+            return;
         }
         
-        /**
-         * Extracts the redirect path from the URL query parameters.
-         * Defaults to 'dashboard.html' if no 'redirect' parameter is found.
-         */
-        function getRedirectPath() {
-            const params = new URLSearchParams(window.location.search);
-            const redirectPath = params.get('redirect') ? decodeURIComponent(params.get('redirect')) : 'dashboard.html';
-            return redirectPath.startsWith('/') ? redirectPath.substring(1) : redirectPath;
-        }
+        console.log(`DEBUG: Attempting to create/merge document for UID: ${user.uid} with email: ${user.email}`);
 
-        /**
-         * Redirects the user to the path specified in the 'redirect' URL parameter, 
-         * or to 'dashboard.html' by default.
-         */
-        function redirectToNextPage() {
-            const path = getRedirectPath();
-            window.location.href = path;
-        }
-
-        // ----------------------------------------------------------------------
-        // 🔥 NEW FIRESTORE HELPER FUNCTION: Create User Document
-        // ----------------------------------------------------------------------
-
-        /**
-         * Creates a user document in Firestore with the default 'free' plan.
-         * This is called ONLY when a new user is created via any method.
-         * @param {object} user - The Firebase User object (from Auth result).
-         */
-        async function createUserDocument(user) {
-            if (!db) {
-                console.error("Firestore not initialized. Cannot create user document.");
-                return;
-            }
-            try {
-                // Document reference in 'users' collection with UID as the ID
-                const userDocRef = doc(db, "users", user.uid);
-                
-                // Set the document with the critical 'plan: "free"' field
-                await setDoc(userDocRef, {
-                    uid: user.uid,
-                    email: user.email,
-                    displayName: user.displayName || null,
-                    plan: "free", // 🚨 INJECTED LOGIC: Default to Free Plan
-                    signupDate: Timestamp.now(),
-                }, { merge: true }); // Use merge: true for social logins that might trigger this twice
-
-                console.log(`Firestore user document created for ${user.email} with plan: free.`);
-            } catch (error) {
-                console.error("Error creating Firestore user document:", error);
-                // Non-critical error: Auth succeeded, but database write failed. User can still log in.
-                showMessage("Warning: Account created, but plan status failed to save. Contact support.", true);
-            }
-        }
-        // ----------------------------------------------------------------------
-
-        // --- Firebase Core Logic ---
-
-        /**
-         * Initializes Firebase services (Auth and Firestore) using the hardcoded config.
-         */
-        async function initializeAppAndAuth() {
-            try {
-                // setLogLevel('debug'); // Uncomment for debugging
-                const app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app); // 👈 Initialize Firestore
-                
-                // If a user is already logged in (from a previous session), redirect to their intended destination.
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        // Redirect to the path specified in the URL, or dashboard.html by default
-                        showMessage(`Welcome back, ${user.email || 'User'}! Redirecting...`, false);
-                        setTimeout(redirectToNextPage, 50);
-                    }
-                });
-
-            } catch (error) {
-                console.error("Firebase initialization failed:", error);
-                showMessage(`Firebase initialization failed. Check your console for details.`, true);
-                auth = null; 
-                db = null; // Crucial: ensure subsequent calls fail gracefully
-            }
-        }
-
-
-        /**
-         * Handles user login with email and password.
-         */
-        window.handleLogin = async function(event) {
-            event.preventDefault();
+        try {
+            // Document reference in 'users' collection with UID as the ID
+            const userDocRef = doc(db, "users", user.uid);
             
-            if (!auth) {
-                showMessage("Authentication service failed to load. Please try refreshing the page.", true);
-                return;
-            }
+            // Set the document with the critical 'plan: "free"' field
+            await setDoc(userDocRef, {
+                uid: user.uid,
+                email: user.email,
+                displayName: user.displayName || null,
+                plan: "free", // 🚨 INJECTED LOGIC: Default to Free Plan
+                signupDate: Timestamp.now(),
+            }, { merge: true }); // Use merge: true for safety
 
-            setLoading(loginBtn, true);
+            console.log(`DEBUG SUCCESS: Firestore user document created/updated successfully! Plan set to "free".`);
+        } catch (error) {
+            console.error("DEBUG FATAL ERROR: Error creating Firestore user document:", error);
+            // Non-critical error: Auth succeeded, but database write failed.
+            showMessage("Warning: Account created, but plan status failed to save. Contact support.", true);
+        }
+    }
+    // ----------------------------------------------------------------------
 
-            const email = document.getElementById('login-email').value;
-            const password = document.getElementById('login-password').value;
+    // --- Firebase Core Logic ---
 
-            try {
-                await signInWithEmailAndPassword(auth, email, password);
-                showMessage("Login successful! Redirecting...", false);
-                setTimeout(redirectToNextPage, 1000);
-
-            } catch (error) {
-                console.error("Login failed:", error);
-                let errorMessage = 'Login failed. Please check your email and password.';
-                if (error.code === 'auth/user-not-found') {
-                    errorMessage = 'No account found with this email.';
-                } else if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-                    errorMessage = 'Invalid credentials. Please check your email and password.';
-                } else if (error.code === 'auth/popup-closed-by-user') {
-                     errorMessage = "Sign-in cancelled. Pop-up was closed.";
+    /**
+     * Initializes Firebase services (Auth and Firestore) using the hardcoded config.
+     */
+    async function initializeAppAndAuth() {
+        try {
+            // setLogLevel('debug'); // Uncomment for debugging
+            const app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app); // 👈 Initialize Firestore
+            
+            // If a user is already logged in (from a previous session), redirect to their intended destination.
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    // Redirect to the path specified in the URL, or dashboard.html by default
+                    showMessage(`Welcome back, ${user.email || 'User'}! Redirecting...`, false);
+                    setTimeout(redirectToNextPage, 50);
                 }
-                
-                if (error.code === 'auth/account-exists-with-different-credential') {
-                    const email = error.customData.email;
-                    errorMessage = `Account conflict for ${email}. This email is already registered using a social provider (Google/GitHub). Please use the social login button.`;
-                }
-                
-                showMessage(errorMessage, true);
-                setLoading(loginBtn, false);
-            }
+            });
+
+        } catch (error) {
+            console.error("Firebase initialization failed:", error);
+            showMessage(`Firebase initialization failed. Check your console for details.`, true);
+            auth = null; 
+            db = null; // Crucial: ensure subsequent calls fail gracefully
+        }
+    }
+
+
+    /**
+     * Handles user login with email and password.
+     */
+    window.handleLogin = async function(event) {
+        // ... (Your handleLogin function remains unchanged)
+        event.preventDefault();
+        
+        if (!auth) {
+            showMessage("Authentication service failed to load. Please try refreshing the page.", true);
+            return;
         }
 
-        /**
-         * Handles user sign-up with email and password.
-         */
-        window.handleSignup = async function(event) {
-            event.preventDefault();
+        setLoading(loginBtn, true);
 
-            if (!auth) {
-                showMessage("Authentication service failed to load. Please try refreshing the page.", true);
-                return;
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
+            showMessage("Login successful! Redirecting...", false);
+            setTimeout(redirectToNextPage, 1000);
+
+        } catch (error) {
+            console.error("Login failed:", error);
+            let errorMessage = 'Login failed. Please check your email and password.';
+            if (error.code === 'auth/user-not-found') {
+                errorMessage = 'No account found with this email.';
+            } else if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+                errorMessage = 'Invalid credentials. Please check your email and password.';
+            } else if (error.code === 'auth/popup-closed-by-user') {
+                errorMessage = "Sign-in cancelled. Pop-up was closed.";
             }
             
-            setLoading(signupBtn, true);
+            if (error.code === 'auth/account-exists-with-different-credential') {
+                const email = error.customData.email;
+                errorMessage = `Account conflict for ${email}. This email is already registered using a social provider (Google/GitHub). Please use the social login button.`;
+            }
+            
+            showMessage(errorMessage, true);
+            setLoading(loginBtn, false);
+        }
+    }
 
-            const email = document.getElementById('signup-email').value;
-            const password = document.getElementById('signup-password').value;
+    // ----------------------------------------------------------------------
+    // 🔥 HANDLESIGNUP FUNCTION (WITH DIAGNOSTICS)
+    // ----------------------------------------------------------------------
+    /**
+     * Handles user sign-up with email and password.
+     */
+    window.handleSignup = async function(event) {
+        event.preventDefault();
 
-            try {
-                // 1. Create user with Firebase Auth
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                const user = userCredential.user;
+        if (!auth) {
+            showMessage("Authentication service failed to load. Please try refreshing the page.", true);
+            return;
+        }
+        
+        setLoading(signupBtn, true);
 
-                // 2. 🔥 INJECTION POINT: Create the Firestore document with default 'free' plan
+        const email = document.getElementById('signup-email').value;
+        const password = document.getElementById('signup-password').value;
+
+        try {
+            // 1. Create user with Firebase Auth
+            console.log("DEBUG: Step 1 - Calling createUserWithEmailAndPassword...");
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const user = userCredential.user;
+
+            console.log("DEBUG: Step 1 SUCCESS - Auth user created.");
+
+            // 2. 🔥 INJECTION POINT: Create the Firestore document with default 'free' plan
+            console.log("DEBUG: Step 2 - Calling createUserDocument...");
+            await createUserDocument(user);
+            console.log("DEBUG: Step 2 SUCCESS - createUserDocument call completed.");
+
+            showMessage("Account created successfully! Redirecting to the site builder...", false);
+            setTimeout(redirectToNextPage, 1000);
+
+        } catch (error) {
+            console.error("Sign-up failed:", error);
+            let errorMessage = 'Sign-up failed.';
+            if (error.code === 'auth/email-already-in-use') {
+                errorMessage = 'This email is already in use. Please log in instead.';
+            } else if (error.code === 'auth/weak-password') {
+                errorMessage = 'Password should be at least 6 characters.';
+            }
+            
+            showMessage(errorMessage, true);
+            setLoading(signupBtn, false);
+        }
+    }
+    // ----------------------------------------------------------------------
+
+    /**
+     * Handles Google Sign-In/Sign-Up via popup.
+     */
+    window.handleGoogleAuth = async function(button) {
+        if (!auth) { 
+            showMessage("Authentication service failed to load.", true);
+            return; 
+        }
+
+        setLoading(button, true);
+        window.pendingCredential = null; 
+
+        try {
+            showMessage("Redirecting to Google for sign-in...", false);
+            const result = await signInWithPopup(auth, googleProvider);
+            
+            const user = result.user;
+            
+            // 🔥 INJECTION POINT: Check if this is a NEW user sign-up
+            if (result.operationType === 'signIn' && result.additionalUserInfo.isNewUser) {
                 await createUserDocument(user);
-
-                showMessage("Account created successfully! Redirecting to the site builder...", false);
-                setTimeout(redirectToNextPage, 1000);
-
-            } catch (error) {
-                console.error("Sign-up failed:", error);
-                let errorMessage = 'Sign-up failed.';
-                if (error.code === 'auth/email-already-in-use') {
-                    errorMessage = 'This email is already in use. Please log in instead.';
-                } else if (error.code === 'auth/weak-password') {
-                    errorMessage = 'Password should be at least 6 characters.';
-                }
-                
-                showMessage(errorMessage, true);
-                setLoading(signupBtn, false);
             }
+
+            showMessage(`Welcome, ${user.displayName || user.email}! Redirecting...`, false);
+        } catch (error) {
+            console.error("Google Sign-in failed:", error);
+            let errorMessage = "Google sign-in failed.";
+
+            if (error.code === 'auth/popup-closed-by-user' || (error.message && error.message.includes('popup-closed-by-user'))) {
+                errorMessage = "Sign-in cancelled. Pop-up was closed.";
+            } else if (error.code === 'auth/account-exists-with-different-credential') {
+                window.pendingCredential = error.credential;
+                window.conflictingEmail = error.customData.email;
+                errorMessage = `⚠️ Account Conflict! An account for ${window.conflictingEmail} already exists, but was originally registered using **GitHub**. Please try signing in with GitHub.`;
+            }
+
+            showMessage(errorMessage, true);
+            setLoading(button, false);
+        }
+    }
+    
+    /**
+     * Handles GitHub Sign-In/Sign-Up via popup.
+     */
+    window.handleGitHubAuth = async function(button) {
+        if (!auth) { 
+            showMessage("Authentication service failed to load.", true);
+            return; 
         }
 
-        /**
-         * Handles Google Sign-In/Sign-Up via popup.
-         */
-        window.handleGoogleAuth = async function(button) {
-            if (!auth) { 
-                showMessage("Authentication service failed to load.", true);
-                return; 
+        setLoading(button, true);
+        window.pendingCredential = null; 
+
+        try {
+            showMessage("Redirecting to GitHub for sign-in...", false);
+            const result = await signInWithPopup(auth, githubProvider);
+            
+            const user = result.user;
+            
+            // 🔥 INJECTION POINT: Check if this is a NEW user sign-up
+            if (result.operationType === 'signIn' && result.additionalUserInfo.isNewUser) {
+                await createUserDocument(user);
             }
 
-            setLoading(button, true);
-            window.pendingCredential = null; 
+            showMessage(`Welcome, ${user.displayName || user.email || user.uid}! Redirecting...`, false);
+        } catch (error) {
+            console.error("GitHub Sign-in failed:", error);
+            let errorMessage = "GitHub sign-in failed.";
 
-            try {
-                showMessage("Redirecting to Google for sign-in...", false);
-                const result = await signInWithPopup(auth, googleProvider);
-                
-                const user = result.user;
-                
-                // 🔥 INJECTION POINT: Check if this is a NEW user sign-up
-                if (result.operationType === 'signIn' && result.additionalUserInfo.isNewUser) {
-                    await createUserDocument(user);
-                }
-
-                showMessage(`Welcome, ${user.displayName || user.email}! Redirecting...`, false);
-            } catch (error) {
-                console.error("Google Sign-in failed:", error);
-                let errorMessage = "Google sign-in failed.";
-
-                if (error.code === 'auth/popup-closed-by-user' || (error.message && error.message.includes('popup-closed-by-user'))) {
-                    errorMessage = "Sign-in cancelled. Pop-up was closed.";
-                } else if (error.code === 'auth/account-exists-with-different-credential') {
-                    window.pendingCredential = error.credential;
-                    window.conflictingEmail = error.customData.email;
-                    errorMessage = `⚠️ Account Conflict! An account for ${window.conflictingEmail} already exists, but was originally registered using **GitHub**. Please try signing in with GitHub.`;
-                }
-
-                showMessage(errorMessage, true);
-                setLoading(button, false);
+            if (error.code === 'auth/popup-closed-by-user' || (error.message && error.message.includes('popup-closed-by-user'))) {
+                errorMessage = "Sign-in cancelled. Pop-up was closed.";
+            } else if (error.code === 'auth/account-exists-with-different-credential') {
+                window.pendingCredential = error.credential;
+                window.conflictingEmail = error.customData.email;
+                errorMessage = `⚠️ Account Conflict! An account for ${window.conflictingEmail} already exists, but was originally registered using **Google** or **Email/Password**. Please try signing in with your original method.`;
             }
+
+            showMessage(errorMessage, true);
+            setLoading(button, false);
         }
+    }
+    
+    // --- UI Toggling Logic ---
+
+    function initializeForms() {
+        // ... (Your initializeForms function remains unchanged)
+        loginForm.classList.remove('hidden');
+        signupForm.classList.add('hidden');
         
-        /**
-         * Handles GitHub Sign-In/Sign-Up via popup.
-         */
-        window.handleGitHubAuth = async function(button) {
-            if (!auth) { 
-                showMessage("Authentication service failed to load.", true);
-                return; 
-            }
-
-            setLoading(button, true);
-            window.pendingCredential = null; 
-
-            try {
-                showMessage("Redirecting to GitHub for sign-in...", false);
-                const result = await signInWithPopup(auth, githubProvider);
-                
-                const user = result.user;
-                
-                // 🔥 INJECTION POINT: Check if this is a NEW user sign-up
-                if (result.operationType === 'signIn' && result.additionalUserInfo.isNewUser) {
-                    await createUserDocument(user);
-                }
-
-                showMessage(`Welcome, ${user.displayName || user.email || user.uid}! Redirecting...`, false);
-            } catch (error) {
-                console.error("GitHub Sign-in failed:", error);
-                let errorMessage = "GitHub sign-in failed.";
-
-                if (error.code === 'auth/popup-closed-by-user' || (error.message && error.message.includes('popup-closed-by-user'))) {
-                    errorMessage = "Sign-in cancelled. Pop-up was closed.";
-                } else if (error.code === 'auth/account-exists-with-different-credential') {
-                    window.pendingCredential = error.credential;
-                    window.conflictingEmail = error.customData.email;
-                    errorMessage = `⚠️ Account Conflict! An account for ${window.conflictingEmail} already exists, but was originally registered using **Google** or **Email/Password**. Please try signing in with your original method.`;
-                }
-
-                showMessage(errorMessage, true);
-                setLoading(button, false);
-            }
-        }
+        loginTab.classList.add('bg-white', 'shadow', 'text-ammoue');
+        loginTab.classList.remove('text-gray-500');
         
-        // --- UI Toggling Logic ---
+        signupTab.classList.remove('bg-white', 'shadow', 'text-ammoue');
+        signupTab.classList.add('text-gray-500');
+    }
 
-        /**
-         * Sets the initial state to the Log In form.
-         */
-        function initializeForms() {
-            // Display only the Login form initially
+    window.toggleForm = function(formType) {
+        // ... (Your toggleForm function remains unchanged)
+        if (formType === 'login') {
             loginForm.classList.remove('hidden');
             signupForm.classList.add('hidden');
             
-            // Set Login tab as active (white, shadow, teal text)
             loginTab.classList.add('bg-white', 'shadow', 'text-ammoue');
             loginTab.classList.remove('text-gray-500');
-            
-            // Set Signup tab as inactive (gray text)
+
             signupTab.classList.remove('bg-white', 'shadow', 'text-ammoue');
             signupTab.classList.add('text-gray-500');
+
+        } else if (formType === 'signup') {
+            loginForm.classList.add('hidden');
+            signupForm.classList.remove('hidden');
+
+            signupTab.classList.add('bg-white', 'shadow', 'text-ammoue');
+            signupTab.classList.remove('text-gray-500');
+
+            loginTab.classList.remove('bg-white', 'shadow', 'text-ammoue');
+            loginTab.classList.add('text-gray-500');
         }
+    }
+    
+    // --- Run Initialization Immediately ---
+    initializeAppAndAuth();
+    initializeForms();
+    // Call Lucide to render icons
+    if (typeof lucide !== 'undefined' && lucide.createIcons) {
+        lucide.createIcons();
+    }
 
-        /**
-         * Function to toggle between login and sign-up forms, updating button styling.
-         * @param {string} formType - 'login' or 'signup'.
-         */
-        window.toggleForm = function(formType) {
-            if (formType === 'login') {
-                loginForm.classList.remove('hidden');
-                signupForm.classList.add('hidden');
-                
-                // Activate Login Tab
-                loginTab.classList.add('bg-white', 'shadow', 'text-ammoue');
-                loginTab.classList.remove('text-gray-500');
-
-                // Deactivate Signup Tab
-                signupTab.classList.remove('bg-white', 'shadow', 'text-ammoue');
-                signupTab.classList.add('text-gray-500');
-
-            } else if (formType === 'signup') {
-                loginForm.classList.add('hidden');
-                signupForm.classList.remove('hidden');
-
-                // Activate Signup Tab
-                signupTab.classList.add('bg-white', 'shadow', 'text-ammoue');
-                signupTab.classList.remove('text-gray-500');
-
-                // Deactivate Login Tab
-                loginTab.classList.remove('bg-white', 'shadow', 'text-ammoue');
-                loginTab.classList.add('text-gray-500');
-            }
-        }
-        
-        // --- Run Initialization Immediately ---
-        initializeAppAndAuth();
-        initializeForms();
-        // Call Lucide to render icons
-        if (typeof lucide !== 'undefined' && lucide.createIcons) {
-            lucide.createIcons();
-        }
-
-    </script>
+</script>
 </body>
 </html>
