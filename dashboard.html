@@ -49,21 +49,15 @@
 
 
     <div id="dashboard-content" class="min-h-screen hidden transition-opacity duration-500">
-    <nav class="bg-white shadow-md p-4 flex justify-between items-center sticky top-0 z-10">
-        <div class="text-2xl font-extrabold text-ammoue">Ammoue Dashboard</div>
-        <div class="flex items-center space-x-4">
-            <span class="text-gray-600 text-sm flex items-center">
-                Welcome, <span id="user-email" class="font-semibold ml-1">Loading...</span>
-                <span id="plan-badge" class="ml-2 px-2 py-1 text-xs font-semibold rounded-full bg-amber-500 text-white">
-                    Free
-                </span>
-            </span>
-            <button onclick="handleLogout()" class="px-3 py-2 text-sm font-medium rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150 shadow-md">
-                Log Out
-            </button>
-        </div>
-    </nav>
-
+        <nav class="bg-white shadow-md p-4 flex justify-between items-center sticky top-0 z-10">
+            <div class="text-2xl font-extrabold text-ammoue">Ammoue Dashboard</div>
+            <div class="flex items-center space-x-4">
+                <span class="text-gray-600 text-sm">Welcome, <span id="user-email" class="font-semibold">Loading...</span></span>
+                <button onclick="handleLogout()" class="px-3 py-2 text-sm font-medium rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150 shadow-md">
+                    Log Out
+                </button>
+            </div>
+        </nav>
 
         <main class="p-4 md:p-8 max-w-6xl mx-auto">
             <h1 class="text-4xl font-bold text-gray-800 mb-6">Your Sites & Projects</h1>
@@ -148,266 +142,312 @@
             </div>
         </div>
     </div>
+    
     <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-import { getFirestore, collection, onSnapshot, query, deleteDoc, doc, getDoc, Timestamp, updateDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+    // Using SDK v12.4.0 to match your previous setup
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+    import { getFirestore, collection, onSnapshot, query, deleteDoc, doc, Timestamp, updateDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
-// Firebase config
-const firebaseConfig = {
-    apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
-    authDomain: "ammoueai.firebaseapp.com",
-    projectId: "ammoueai",
-    storageBucket: "ammoueai.firebasestorage.app",
-    messagingSenderId: "135818868149",
-    appId: "1:135818868149:web:db9280baf9540a3339d5fc",
-};
+    // IMPORTANT: Hardcoded configuration from login.html for this specific app instance
+    const firebaseConfig = {
+        apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
+        authDomain: "ammoueai.firebaseapp.com",
+        projectId: "ammoueai",
+        storageBucket: "ammoueai.firebasestorage.app",
+        messagingSenderId: "135818868149",
+        appId: "1:135818868149:web:db9280baf9540a3339d5fc",
+    };
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-let currentUserId = null;
-let isAuthReady = false;
-const appId = firebaseConfig.projectId;
+    let auth = null;
+    let db = null;
+    let currentUserId = null;
+    let isAuthReady = false;
+    const appId = firebaseConfig.projectId;
+    
+    // ⭐ CRITICAL FIX: Global map to store projects in memory, avoiding complex strings in HTML.
+    let projectsData = new Map();
+    let allProjectsArray = []; // NEW: Array to hold all projects for searching/filtering
 
-// Global map to store projects
-let projectsData = new Map();
-let allProjectsArray = [];
+    // --- DOM Elements ---
+    const loadingScreen = document.getElementById('loading-screen');
+    const dashboardContent = document.getElementById('dashboard-content');
+    const userEmailSpan = document.getElementById('user-email');
+    const msgBox = document.getElementById('message-box');
+    const projectsContainer = document.getElementById('projects-container');
+    const createCardElement = document.querySelector('div.cursor-pointer');
+    
+    // --- Modal DOM Elements ---
+    const editModal = document.getElementById('edit-modal');
+    const editModalContent = document.getElementById('edit-modal-content');
+    const editForm = document.getElementById('edit-project-form');
 
-// --- DOM Elements ---
-const loadingScreen = document.getElementById('loading-screen');
-const dashboardContent = document.getElementById('dashboard-content');
-const userEmailSpan = document.getElementById('user-email');
-const planBadge = document.getElementById('plan-badge');
-const msgBox = document.getElementById('message-box');
-const projectsContainer = document.getElementById('projects-container');
-const createCardElement = document.querySelector('div.cursor-pointer');
+    // --- NEW Delete Modal DOM Elements ---
+    const deleteConfirmModal = document.getElementById('delete-confirm-modal');
+    const deleteModalContent = document.getElementById('delete-modal-content');
+    const confirmDeleteButton = document.getElementById('confirm-delete-button');
 
-// Modal elements
-const editModal = document.getElementById('edit-modal');
-const editModalContent = document.getElementById('edit-modal-content');
-const editForm = document.getElementById('edit-project-form');
 
-const deleteConfirmModal = document.getElementById('delete-confirm-modal');
-const deleteModalContent = document.getElementById('delete-modal-content');
-const confirmDeleteButton = document.getElementById('confirm-delete-button');
+    // --- Utility Functions ---
 
-// --- Utility Functions ---
-function escapeHtml(unsafe) {
-    if (!unsafe) return '';
-    return unsafe.replace(/&/g, "&amp;")
-                 .replace(/</g, "&lt;")
-                 .replace(/>/g, "&gt;")
-                 .replace(/"/g, "&quot;")
-                 .replace(/'/g, "&#039;");
-}
+    /**
+     * Converts raw code (like HTML or JS) into a displayable string
+     * by escaping HTML special characters.
+     */
+    function escapeHtml(unsafe) {
+        if (!unsafe) return '';
+        return unsafe.replace(/&/g, "&amp;")
+                     .replace(/</g, "&lt;")
+                     .replace(/>/g, "&gt;")
+                     .replace(/"/g, "&quot;")
+                     .replace(/'/g, "&#039;");
+    }
 
-function showMessage(message, isError) {
-    if (!msgBox) return;
-    msgBox.textContent = message;
-    msgBox.className = 'p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 z-50';
-    msgBox.classList.add(isError ? 'bg-red-500' : 'bg-green-500');
-    msgBox.classList.add('opacity-100');
-    setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
-}
+    /** Shows a temporary message box (replaces alert()) */
+    function showMessage(message, isError) {
+        if (!msgBox) return;
+        msgBox.textContent = message;
 
-// --- Firebase Auth Listener ---
-onAuthStateChanged(auth, async (user) => {
-    if (user) {
-        currentUserId = user.uid;
-        isAuthReady = true;
-        userEmailSpan.textContent = user.email || user.uid;
+        msgBox.className = 'p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 z-50';
+        msgBox.classList.add(isError ? 'bg-red-500' : 'bg-green-500');
+        msgBox.classList.add('opacity-100');
+        setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
+    }
 
-        // Plan Badge
-        if (planBadge) {
-            let plan = "Free";
-            let planColor = "bg-amber-500";
-            try {
-                const userDocRef = doc(db, 'artifacts', appId, 'users', currentUserId);
-                const userSnap = await getDoc(userDocRef);
-                if (userSnap.exists()) {
-                    const userData = userSnap.data();
-                    if (userData.plan && userData.plan.toLowerCase() === "pro") {
-                        plan = "Pro";
-                        planColor = "bg-green-600";
-                    }
-                }
-            } catch (err) {
-                console.error("Error fetching user plan:", err);
-            }
-            planBadge.textContent = plan;
-            planBadge.className = `ml-2 px-2 py-1 text-xs font-semibold rounded-full text-white ${planColor}`;
+    /** Opens the generated HTML in a new window for a live preview. */
+    // ⭐ MODIFIED: Check for deploymentUrl first.
+    window.handlePreview = function(projectId) {
+        const project = projectsData.get(projectId);
+        
+        if (!project) {
+            showMessage("Project data is missing.", true);
+            return;
         }
-    } else {
-        currentUserId = null;
-        isAuthReady = false;
+
+        // --- NEW: Check for Live Deployment URL ---
+        if (project.deploymentUrl) {
+            window.open(project.deploymentUrl, "_blank");
+            showMessage("Opening live deployed site!", false);
+            return; // Exit after opening the live site
+        }
+        // --- END NEW ---
+
+        // --- Fallback to Local Preview (Original Logic) ---
+        if (!project.encodedHtmlContent) {
+            showMessage("No deployed URL and no preview data available.", true);
+            return;
+        }
+        
+        // Decode the Base64 string back to a UTF-8 safe string
+        const decodedHtml = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
+        
+        const previewWindow = window.open('', '_blank');
+        if (!previewWindow) {
+             showMessage("Pop-ups must be enabled to view the preview.", true);
+             return;
+        }
+        previewWindow.document.write(decodedHtml);
+        previewWindow.document.close();
+        showMessage("Opening local HTML preview.", false);
     }
-});
 
-// --- Preview ---
-window.handlePreview = function(projectId) {
-    const project = projectsData.get(projectId);
-    if (!project) return showMessage("Project data is missing.", true);
+    /** Downloads the generated HTML code as a file. */
+    // ⭐ REFACTORED: Takes ID, retrieves content from projectsData
+    window.handleDownload = function(projectId) {
+        const project = projectsData.get(projectId);
+        if (!project || !project.encodedHtmlContent) {
+            showMessage("Nothing to download.", true);
+            return;
+        }
+        
+        // Decode the Base64 string back to a UTF-8 safe string
+        const htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
+        
+        const cleanTitle = project.title; 
 
-    if (project.deploymentUrl) {
-        window.open(project.deploymentUrl, "_blank");
-        return showMessage("Opening live deployed site!", false);
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        const filename = cleanTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'ammoue_project';
+        a.download = `${filename}.html`;
+
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        showMessage("HTML file prepared for download!", false);
+    }
+    
+    // ⭐ REFACTORED: Takes ID, retrieves content from projectsData
+    window.handleCopyCode = function(projectId) {
+        const project = projectsData.get(projectId);
+        if (!project || !project.encodedHtmlContent) {
+            showMessage("No code to copy.", true);
+            return;
+        }
+        
+        // Decode the Base64 string back to a UTF-8 safe string
+        const htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
+
+        // Use a temporary textarea as execCommand is more reliable in iFrames than navigator.clipboard
+        const tempTextArea = document.createElement('textarea');
+        tempTextArea.value = htmlContent;
+        document.body.appendChild(tempTextArea);
+        tempTextArea.select();
+        try {
+            document.execCommand('copy');
+            showMessage("Code copied to clipboard!", false);
+        } catch (err) {
+            console.error('Failed to copy text:', err);
+            showMessage("Failed to copy code.", true);
+        }
+        document.body.removeChild(tempTextArea);
     }
 
-    if (!project.encodedHtmlContent) return showMessage("No preview available.", true);
+    /** NEW: Opens the delete confirmation modal. */
+    window.openDeleteModal = function(projectId) {
+        const project = projectsData.get(projectId);
+        if (!project) {
+            showMessage("Project data not found for deletion.", true);
+            return;
+        }
+        
+        // Set the project title in the modal for confirmation
+        document.getElementById('delete-project-title').textContent = project.title;
+        // Set a data attribute on the button to store the ID
+        confirmDeleteButton.setAttribute('data-project-id', projectId);
 
-    const decodedHtml = atob(project.encodedHtmlContent);
-    const previewWindow = window.open('', '_blank');
-    if (!previewWindow) return showMessage("Enable pop-ups to preview.", true);
-
-    previewWindow.document.write(decodedHtml);
-    previewWindow.document.close();
-    showMessage("Opening local HTML preview.", false);
-}
-
-// --- Download ---
-window.handleDownload = function(projectId) {
-    const project = projectsData.get(projectId);
-    if (!project || !project.encodedHtmlContent) return showMessage("Nothing to download.", true);
-
-    const htmlContent = atob(project.encodedHtmlContent);
-    const cleanTitle = project.title?.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'ammoue_project';
-    const blob = new Blob([htmlContent], { type: 'text/html' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `${cleanTitle}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    showMessage("HTML file prepared for download!", false);
-}
-
-// --- Copy Code ---
-window.handleCopyCode = function(projectId) {
-    const project = projectsData.get(projectId);
-    if (!project || !project.encodedHtmlContent) return showMessage("No code to copy.", true);
-
-    const htmlContent = atob(project.encodedHtmlContent);
-    const tempTextArea = document.createElement('textarea');
-    tempTextArea.value = htmlContent;
-    document.body.appendChild(tempTextArea);
-    tempTextArea.select();
-    try {
-        document.execCommand('copy');
-        showMessage("Code copied to clipboard!", false);
-    } catch (err) {
-        console.error('Copy failed:', err);
-        showMessage("Failed to copy code.", true);
+        deleteConfirmModal.classList.remove('hidden');
+        deleteConfirmModal.classList.add('flex');
+        
+        setTimeout(() => {
+            deleteModalContent.classList.remove('scale-95', 'opacity-0');
+            deleteModalContent.classList.add('scale-100', 'opacity-100');
+        }, 10);
+        lucide.createIcons();
     }
-    document.body.removeChild(tempTextArea);
-}
 
-// --- Delete Modal ---
-window.openDeleteModal = function(projectId) {
-    const project = projectsData.get(projectId);
-    if (!project) return showMessage("Project not found for deletion.", true);
-
-    document.getElementById('delete-project-title').textContent = project.title;
-    confirmDeleteButton.setAttribute('data-project-id', projectId);
-
-    deleteConfirmModal.classList.remove('hidden');
-    deleteConfirmModal.classList.add('flex');
-    setTimeout(() => {
-        deleteModalContent.classList.remove('scale-95', 'opacity-0');
-        deleteModalContent.classList.add('scale-100', 'opacity-100');
-    }, 10);
-    lucide.createIcons();
-}
-
-window.closeDeleteModal = function() {
-    deleteModalContent.classList.remove('scale-100', 'opacity-100');
-    deleteModalContent.classList.add('scale-95', 'opacity-0');
-    setTimeout(() => {
-        deleteConfirmModal.classList.remove('flex');
-        deleteConfirmModal.classList.add('hidden');
-        confirmDeleteButton.removeAttribute('data-project-id'); 
-    }, 300);
-}
-
-async function executeDeleteProject(projectId) {
-    if (!isAuthReady || !currentUserId) return showMessage("System not ready or user ID missing.", true);
-
-    showMessage("Initiating project deletion...", false);
-    window.closeDeleteModal();
-
-    try {
-        const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
-        await deleteDoc(docRef);
-        showMessage("Project deleted successfully!", false);
-    } catch (error) {
-        console.error("Error deleting document:", error);
-        showMessage("Failed to delete project.", true);
+    /** NEW: Closes the delete confirmation modal. */
+    window.closeDeleteModal = function() {
+        deleteModalContent.classList.remove('scale-100', 'opacity-100');
+        deleteModalContent.classList.add('scale-95', 'opacity-0');
+        
+        setTimeout(() => {
+            deleteConfirmModal.classList.remove('flex');
+            deleteConfirmModal.classList.add('hidden');
+            // Clear the project ID from the button after closing
+            confirmDeleteButton.removeAttribute('data-project-id'); 
+        }, 300);
     }
-}
 
-confirmDeleteButton.addEventListener('click', () => {
-    const projectId = confirmDeleteButton.getAttribute('data-project-id');
-    if (projectId) executeDeleteProject(projectId);
-    else {
-        showMessage("Project ID missing for deletion.", true);
-        window.closeDeleteModal();
+
+    /** Handles final deletion of a project from Firestore. */
+    // MODIFIED: Renamed to private function, triggered by confirmation button
+    async function executeDeleteProject(projectId) {
+        if (!isAuthReady || !currentUserId) {
+            showMessage("System not ready or user ID missing.", true);
+            return;
+        }
+
+        showMessage("Initiating project deletion...", false);
+        window.closeDeleteModal(); // Close the confirmation modal
+
+        try {
+            // Document path: /artifacts/{appId}/users/{userId}/projects/{projectId}
+            const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
+            await deleteDoc(docRef);
+            showMessage("Project deleted successfully!", false);
+        } catch (error) {
+            console.error("Error deleting document:", error);
+            showMessage("Failed to delete project.", true);
+        }
     }
-});
 
-// --- Edit Modal ---
-window.openEditModal = function(projectId) {
-    const project = projectsData.get(projectId);
-    if (!project) return showMessage("Project data not found for editing.", true);
+    // Attach listener to the confirmation button
+    confirmDeleteButton.addEventListener('click', () => {
+        const projectId = confirmDeleteButton.getAttribute('data-project-id');
+        if (projectId) {
+            executeDeleteProject(projectId);
+        } else {
+            showMessage("Project ID missing for deletion.", true);
+            window.closeDeleteModal();
+        }
+    });
 
-    document.getElementById('edit-project-id').value = projectId;
-    document.getElementById('edit-title').value = project.title;
-    document.getElementById('edit-prompt').value = project.prompt;
+    // --- Edit Modal Control Functions ---
+    
+    /** Shows the edit modal and pre-fills data. */
+    // ⭐ REFACTORED: Takes ID, retrieves content from projectsData
+    window.openEditModal = function(projectId) {
+        const project = projectsData.get(projectId);
+        if (!project) {
+            showMessage("Project data not found for editing.", true);
+            return;
+        }
+        
+        document.getElementById('edit-project-id').value = projectId;
+        document.getElementById('edit-title').value = project.title;
+        document.getElementById('edit-prompt').value = project.prompt; 
 
-    editModal.classList.remove('hidden');
-    editModal.classList.add('flex');
-    setTimeout(() => {
-        editModalContent.classList.remove('scale-95', 'opacity-0');
-        editModalContent.classList.add('scale-100', 'opacity-100');
-    }, 10);
-    lucide.createIcons();
-}
-
-window.closeEditModal = function() {
-    editModalContent.classList.remove('scale-100', 'opacity-100');
-    editModalContent.classList.add('scale-95', 'opacity-0');
-    setTimeout(() => {
-        editModal.classList.remove('flex');
-        editModal.classList.add('hidden');
-    }, 300);
-}
-
-// --- Handle Edit Form ---
-async function handleEditFormSubmit(e) {
-    e.preventDefault();
-    if (!isAuthReady || !currentUserId) return showMessage("System not ready or user ID missing.", true);
-
-    const projectId = document.getElementById('edit-project-id').value;
-    const newTitle = document.getElementById('edit-title').value.trim();
-    const newPrompt = document.getElementById('edit-prompt').value.trim();
-
-    if (!newTitle || !newPrompt) return showMessage("Title and Prompt cannot be empty.", true);
-
-    showMessage("Saving changes...", false);
-    window.closeEditModal();
-
-    try {
-        const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
-        await updateDoc(docRef, {
-            title: newTitle,
-            prompt: newPrompt,
-            updatedAt: Timestamp.fromDate(new Date())
-        });
-        showMessage(`Project "${newTitle}" updated successfully!`, false);
-    } catch (error) {
-        console.error("Error updating document:", error);
-        showMessage("Failed to save changes.", true);
+        editModal.classList.remove('hidden');
+        editModal.classList.add('flex');
+        
+        setTimeout(() => {
+            editModalContent.classList.remove('scale-95', 'opacity-0');
+            editModalContent.classList.add('scale-100', 'opacity-100');
+        }, 10);
+        lucide.createIcons();
     }
-}
+
+    /** Hides the edit modal. */
+    window.closeEditModal = function() {
+        editModalContent.classList.remove('scale-100', 'opacity-100');
+        editModalContent.classList.add('scale-95', 'opacity-0');
+        
+        setTimeout(() => {
+            editModal.classList.remove('flex');
+            editModal.classList.add('hidden');
+        }, 300);
+    }
+
+    /** Handles form submission to update Firestore. */
+    async function handleEditFormSubmit(e) {
+        e.preventDefault();
+        
+        if (!isAuthReady || !currentUserId) {
+            showMessage("System not ready or user ID missing.", true);
+            return;
+        }
+
+        const projectId = document.getElementById('edit-project-id').value;
+        const newTitle = document.getElementById('edit-title').value.trim();
+        const newPrompt = document.getElementById('edit-prompt').value.trim();
+
+        if (!newTitle || !newPrompt) {
+            showMessage("Title and Prompt cannot be empty.", true);
+            return;
+        }
+
+        showMessage("Saving changes...", false);
+        window.closeEditModal();
+        
+        try {
+            // Document path: /artifacts/{appId}/users/{userId}/projects/{projectId}
+            const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
+            
+            await updateDoc(docRef, {
+                title: newTitle, 
+                prompt: newPrompt,
+                updatedAt: Timestamp.fromDate(new Date()) // Use Firestore Timestamp
+            });
+
+            showMessage(`Project "${newTitle}" updated successfully!`, false);
+            
+        } catch (error) {
+            console.error("Error updating document:", error);
+            showMessage("Failed to save changes.", true);
+        }
+    }
 
     // Attach the submit listener to the form element
     if (editForm) {
