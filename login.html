@@ -382,7 +382,7 @@
                 if (user) {
                     // Redirect to the path specified in the URL, or dashboard.html by default
                     showMessage(`Welcome back, ${user.email || 'User'}! Redirecting...`, false);
-                    setTimeout(redirectToNextPage, 1000000);
+                    setTimeout(redirectToNextPage, 1000);
                 }
             });
 
@@ -471,7 +471,7 @@
             console.log("DEBUG: Step 2 SUCCESS - createUserDocument call completed.");
 
             showMessage("Account created successfully! Redirecting to the site builder...", false);
-            setTimeout(redirectToNextPage, 100000000);
+            setTimeout(redirectToNextPage, 1000);
 
         } catch (error) {
             console.error("Sign-up failed:", error);
