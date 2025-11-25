@@ -3,8 +3,11 @@
 import fetch from 'node-fetch';
 import { Buffer } from 'buffer'; 
 import { initializeApp, getApps, getApp } from 'firebase-admin/app';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore'; // Import FieldValue for increment
-import { credential } from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore'; // Only getFirestore is a named export
+
+// CRITICAL FIX: Import 'firebase-admin' via default export, then destructure components
+import admin from 'firebase-admin';
+const { credential, FieldValue } = admin; 
 
 // --- CONFIG: GitHub + Firebase ---
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN; // Must be set in Vercel Environment Variables
