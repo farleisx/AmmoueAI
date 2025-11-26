@@ -91,15 +91,23 @@
                     body: JSON.stringify({ userId: userId, plan: 'pro' }) 
                 });
 
+                // 🎯 CRITICAL FIX: Check for non-200 status codes first
+                if (!response.ok) {
+                    // Try to read the error response as text, as it might be an HTML/plain text error page (404/500)
+                    const errorData = await response.text(); 
+                    // Throw a clean error message, truncating the response to avoid logging huge HTML pages
+                    throw new Error(`HTTP Error ${response.status} calling backend API. Server Response: ${errorData.substring(0, 100)}...`);
+                }
+
                 const result = await response.json();
 
                 // 🎯 SUCCESS CHECK: The Vercel API must return a 'url' for the redirect
-                if (response.ok && result.url) {
+                if (result.url) {
                     // Redirect the user to the PayPal hosted approval page
                     window.location.href = result.url;
                 } else {
-                    // The server responded but something was wrong (e.g., missing URL)
-                    throw new Error(result.error || `Server responded with status ${response.status}: Missing PayPal approval URL.`);
+                    // The server responded with 200 but the JSON payload was bad
+                    throw new Error(result.error || `Server responded with 200: Missing PayPal approval URL.`);
                 }
 
             } catch (error) {
