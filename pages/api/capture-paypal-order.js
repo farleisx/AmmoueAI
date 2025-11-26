@@ -13,7 +13,7 @@ const {
 // --- Firebase Admin Setup ---
 // You must set the FIREBASE_SERVICE_ACCOUNT_KEY environment variable on Vercel.
 // It should contain the JSON content of your service account key.
-const serviceAccountKey = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}');
+const serviceAccountKey = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || '{}');
 
 // Initialize Firebase Admin SDK only if the service key is available and it hasn't been initialized
 if (Object.keys(serviceAccountKey).length > 0 && !initializeApp.length) {
