@@ -7,7 +7,7 @@
     }
   ],
   "routes": [
-    // --- Static File Routes ---
+  
     {
       "src": "/upgrade.html",
       "dest": "/upgrade.html"
@@ -16,7 +16,7 @@
       "src": "/dashboard.html",
       "dest": "/dashboard.html"
     },
-    // --- API Routes ---
+ 
     {
       "src": "/api/create-checkout-session",
       "dest": "pages/api/create-checkout-session.js",
