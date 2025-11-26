@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "pages/api/create-checkout-session.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "pages/api/capture-paypal-order.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/create-checkout-session",
+      "dest": "pages/api/create-checkout-session.js",
+      "methods": ["POST"]
+    },
+    {
+      "src": "/api/capture-paypal-order",
+      "dest": "pages/api/capture-paypal-order.js",
+      "methods": ["GET"]
+    }
+  ]
+}
