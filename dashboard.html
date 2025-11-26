@@ -162,7 +162,7 @@
         </div>
     </div>
     
-    <script type="module">
+  <script type="module">
     // Using SDK v12.4.0 to match your previous setup
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
@@ -212,7 +212,6 @@
     const deleteConfirmModal = document.getElementById('delete-confirm-modal');
     const deleteModalContent = document.getElementById('delete-modal-content');
     const confirmDeleteButton = document.getElementById('confirm-delete-button');
-
 
     // --- Utility Functions ---
 
@@ -289,17 +288,18 @@
         // Decode the Base64 string back to a UTF-8 safe string
         const htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
         
-        const cleanTitle = project.title; 
+        // Ensure title is safe for filename
+        const cleanTitle = project.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'ammoue_project'; 
 
         const blob = new Blob([htmlContent], { type: 'text/html' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        const filename = cleanTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'ammoue_project';
-        a.download = `${filename}.html`;
+        a.download = `${cleanTitle}.html`;
 
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+        URL.revokeObjectURL(a.href); // Clean up the object URL
 
         showMessage("HTML file prepared for download!", false);
     }
@@ -315,20 +315,36 @@
         // Decode the Base64 string back to a UTF-8 safe string
         const htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
 
-        // Use a temporary textarea as execCommand is more reliable in iFrames than navigator.clipboard
-        const tempTextArea = document.createElement('textarea');
-        tempTextArea.value = htmlContent;
-        document.body.appendChild(tempTextArea);
-        tempTextArea.select();
-        try {
-            document.execCommand('copy');
-            showMessage("Code copied to clipboard!", false);
-        } catch (err) {
-            console.error('Failed to copy text:', err);
-            showMessage("Failed to copy code.", true);
+        // Use modern clipboard API if available, fallback to textarea
+        if (navigator.clipboard) {
+             navigator.clipboard.writeText(htmlContent).then(() => {
+                showMessage("Code copied to clipboard!", false);
+             }).catch(err => {
+                console.error('Failed to copy text using clipboard API:', err);
+                showMessage("Failed to copy code.", true);
+             });
+        } else {
+            // Fallback for older browsers or restricted environments
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = htmlContent;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            try {
+                document.execCommand('copy');
+                showMessage("Code copied to clipboard!", false);
+            } catch (err) {
+                console.error('Failed to copy text (execCommand fallback):', err);
+                showMessage("Failed to copy code.", true);
+            }
+            document.body.removeChild(tempTextArea);
         }
-        document.body.removeChild(tempTextArea);
     }
+
+    // ⭐ NEW: Redirection function for the Upgrade button
+    window.handleUpgradeClick = function() {
+        window.location.href = 'upgrade.html';
+    };
+    // ----------------------------------------------------
 
     /** NEW: Opens the delete confirmation modal. */
     window.openDeleteModal = function(projectId) {
@@ -390,15 +406,17 @@
     }
 
     // Attach listener to the confirmation button
-    confirmDeleteButton.addEventListener('click', () => {
-        const projectId = confirmDeleteButton.getAttribute('data-project-id');
-        if (projectId) {
-            executeDeleteProject(projectId);
-        } else {
-            showMessage("Project ID missing for deletion.", true);
-            window.closeDeleteModal();
-        }
-    });
+    if (confirmDeleteButton) {
+        confirmDeleteButton.addEventListener('click', () => {
+            const projectId = confirmDeleteButton.getAttribute('data-project-id');
+            if (projectId) {
+                executeDeleteProject(projectId);
+            } else {
+                showMessage("Project ID missing for deletion.", true);
+                window.closeDeleteModal();
+            }
+        });
+    }
 
     // --- Edit Modal Control Functions ---
     
@@ -487,7 +505,8 @@
 
         if (searchTerm) {
             filteredProjects = allProjectsArray.filter(project => 
-                project.title.toLowerCase().includes(searchTerm)
+                project.title.toLowerCase().includes(searchTerm) ||
+                project.prompt.toLowerCase().includes(searchTerm) // Also search in the prompt
             );
         }
         
@@ -497,30 +516,46 @@
 
     /** Renders the list of projects from Firestore data. */
     function renderProjects(projectsToRender) {
+        if (!projectsContainer) return; // Guard against missing container
+
         // Find the original 'Create New Site' card HTML
         let createCardHtml = '';
-        if (createCardElement) {
-            createCardHtml = createCardElement.outerHTML;
+        // ⭐ CRITICAL FIX: The `createCardElement` is removed from the DOM during the `projectsContainer.innerHTML = ''` call below, 
+        // leading to it being null on subsequent renders. We must grab its outerHTML before clearing the container.
+        const cachedCreateCardHtml = document.querySelector('div.cursor-pointer')?.outerHTML; 
+
+        if (cachedCreateCardHtml) {
+            createCardHtml = cachedCreateCardHtml;
         } else {
              // Fallback if the element is not found immediately on load
              createCardHtml = `
                  <div onclick="window.location.href='ai_prompt.html'"
                      class="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:border-ammoue transition duration-300 cursor-pointer hover:shadow-lg h-full min-h-[200px]">
-                     <i data-lucide="plus-circle" class="w-12 h-12 text-gray-400 mb-3"></i>
-                     <p class="text-lg font-semibold text-gray-700">Create New AI Site</p>
-                     <p class="text-sm text-gray-500 mt-1">Start generating a new website</p>
+                      <i data-lucide="plus-circle" class="w-12 h-12 text-gray-400 mb-3"></i>
+                      <p class="text-lg font-semibold text-gray-700">Create New AI Site</p>
+                      <p class="text-sm text-gray-500 mt-1">Start generating a new website</p>
                  </div>
              `;
         }
         
         // Ensure to remove existing content before prepending the 'Create Card'
         projectsContainer.innerHTML = '';
-        let projectsHtml = createCardHtml;
+        let projectsHtml = createCardHtml; // Start with the Create Card
 
         if (projectsToRender.length === 0) {
             // Show the 'Create New Site' card and the empty message
-            const emptyMessage = document.getElementById('no-projects-message') || `<p id="no-projects-message" class="col-span-full text-center text-gray-500 text-lg mt-10">You haven't saved any projects yet. Click above to start!</p>`;
-            projectsContainer.innerHTML = createCardHtml + (typeof emptyMessage === 'string' ? emptyMessage : emptyMessage.outerHTML);
+            const emptyMessageHtml = `<p id="no-projects-message" class="col-span-full text-center text-gray-500 text-lg mt-10">You haven't saved any projects yet. Click above to start!</p>`;
+            // Check if the current list is a result of an empty search
+            const currentSearch = document.getElementById('project-search')?.value || '';
+            
+            if (currentSearch) {
+                 // Show a search-specific empty message
+                 projectsContainer.innerHTML = createCardHtml + `<p class="col-span-full text-center text-gray-500 text-lg mt-10">No projects found matching "${currentSearch}".</p>`;
+            } else {
+                 // Show the initial empty state message
+                 projectsContainer.innerHTML = createCardHtml + emptyMessageHtml;
+            }
+            
             lucide.createIcons();
             return;
         }
@@ -538,12 +573,13 @@
             } else if (project.createdAt && project.createdAt.seconds) {
                 dateObj = new Date(project.createdAt.seconds * 1000);
             } else {
-                dateObj = new Date();
+                dateObj = new Date(0); // Fallback to a safe, recognizable date
             }
             const timestamp = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
             // *** Escape the HTML content for display in the snippet box ***
-            const escapedCodeSnippet = escapeHtml(project.htmlContent);
+            // The original logic uses project.htmlContent which might be undefined/null on first load or for older projects
+            const escapedCodeSnippet = escapeHtml(project.htmlContent || 'No code snippet available');
 
             // --- Determine button style and text based on deployment status ---
             const isDeployed = project.deploymentUrl && project.deploymentUrl.startsWith('http');
@@ -565,7 +601,7 @@
 
                     <div class="bg-gray-100 border border-gray-300 rounded-lg p-2 mb-4 h-32 overflow-y-scroll text-sm pointer-events-none">
                         <pre class="whitespace-pre-wrap">
-                            <code class="text-xs text-gray-700">${escapedCodeSnippet}</code>
+                             <code class="text-xs text-gray-700">${escapedCodeSnippet}</code>
                         </pre>
                     </div>
 
@@ -627,7 +663,8 @@
                 const cleanPrompt = data.prompt ? data.prompt.replace(/\\n/g, '\n') : "No prompt available";
                 
                 // Use UTF-8 safe encoding before btoa() for the preview/download buttons
-                const utf8Encoded = unescape(encodeURIComponent(data.htmlContent || ''));
+                const rawHtmlContent = data.htmlContent || ''; // Ensure it's always a string
+                const utf8Encoded = unescape(encodeURIComponent(rawHtmlContent));
                 const encodedHtmlContent = btoa(utf8Encoded);
 
                 const project = {
@@ -636,7 +673,7 @@
                     // Use more sensible default fields for robust rendering
                     title: data.title || (cleanPrompt.split('\n')[0].substring(0, 30).trim() + (cleanPrompt.split('\n')[0].length > 30 ? '...' : '') || "Untitled Project"),
                     prompt: cleanPrompt, // The cleaned prompt string
-                    htmlContent: data.htmlContent || "", // The original raw HTML
+                    htmlContent: rawHtmlContent, // The original raw HTML
                     encodedHtmlContent: encodedHtmlContent, // The Base64 encoded HTML
                     deploymentUrl: data.deploymentUrl || null, // ⭐ CRITICAL: Get the deployment URL
                     createdAt: data.createdAt 
@@ -690,7 +727,7 @@
             const planText = plan.toUpperCase();
             currentPlanEl.textContent = planText;
             // Apply visual styling based on plan
-            currentPlanEl.classList.remove('text-ammoue');
+            currentPlanEl.classList.remove('text-ammoue', 'text-yellow-600'); // Remove both before adding one
             currentPlanEl.classList.add(plan === "pro" ? "text-yellow-600" : "text-ammoue"); 
 
             // 2. Gate Content
@@ -702,8 +739,9 @@
                 // Hide PRO content and show upgrade prompt
                 proContent.classList.add('hidden');
                 // Insert the upgrade button
+                // ⭐ FIX: Change to use the correct global function (handleUpgradeClick) defined below
                 upgradeCardWrapper.innerHTML = `
-                    <button onclick="showMessage('This feature is not yet implemented!', false)"
+                    <button onclick="handleUpgradeClick()"
                         class="px-4 py-2 text-sm font-semibold rounded-xl text-white bg-yellow-500 hover:bg-yellow-600 transition duration-150 shadow-md">
                         Upgrade Now
                     </button>
@@ -745,7 +783,8 @@
                 } else {
                     // **FAILURE** - User is NOT authenticated: Redirect to login page
                     console.log("No valid session found. Redirecting to login.html...");
-                    window.location.href = 'login.html';
+                    // Add a small delay for message box visibility before redirect
+                    setTimeout(() => { window.location.href = 'login.html'; }, 500);
                 }
             });
 
@@ -777,16 +816,27 @@
 
     // Rerender Lucide icons once everything is ready
     window.onload = function() {
-        lucide.createIcons();
+        // Ensure lucide.createIcons is called after the main dashboard is visible 
+        // and after the project list has been rendered once.
+        // It's already in renderProjects/modal functions, but a final call ensures all initial non-dynamic icons load.
+        if (typeof lucide !== 'undefined' && lucide.createIcons) {
+             lucide.createIcons();
+        }
     }
     
-    // Export functions needed by inline HTML for global access
-    // executeDeleteProject is private, only openDeleteModal/closeDeleteModal/handleDownload/handlePreview/handleCopyCode/openEditModal/closeEditModal/filterProjects need to be global
-    // The following were already implicitly or explicitly global (window.)
-    // window.filterProjects = filterProjects; 
-    // window.handleDownload = handleDownload;
-    // ...etc
+    // Explicitly define global functions for clarity, though 'window.' already makes them global in a browser script.
+    // The following functions are called directly from HTML onclick attributes:
+    // window.handlePreview
+    // window.handleDownload
+    // window.handleCopyCode
+    // window.handleUpgradeClick
+    // window.openDeleteModal
+    // window.closeDeleteModal
+    // window.openEditModal
+    // window.closeEditModal
+    // window.filterProjects
+    // window.handleLogout 
     
-    </script>
+</script>
 </body>
 </html>
