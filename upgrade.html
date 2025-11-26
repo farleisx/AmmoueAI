@@ -25,13 +25,13 @@
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
             <h2 class="text-2xl font-bold text-gray-900 mb-2">Initiating Secure Upgrade...</h2>
-            <p class="text-gray-600">You are being redirected to our secure payment gateway.</p>
+            <p class="text-gray-600">You are being redirected to PayPal's secure payment page.</p>
         </div>
 
         <div id="error-message" class="hidden">
             <i data-lucide="alert-triangle" class="w-8 h-8 text-red-500 mx-auto mb-4"></i>
             <h2 class="text-2xl font-bold text-red-700 mb-2">Upgrade Failed</h2>
-            <p class="text-gray-600 mb-4">We could not start the secure checkout session. Please try again or contact support.</p>
+            <p class="text-gray-600 mb-4" id="error-details">We could not start the secure checkout session. Please try again or contact support.</p>
             <button id="retry-btn" class="px-6 py-3 text-base font-semibold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 transform hover:scale-[1.01]">
                 Retry Upgrade
             </button>
@@ -58,6 +58,7 @@
         let currentUserId = null;
         const loadingIndicator = document.getElementById('loading-indicator');
         const errorMessageDiv = document.getElementById('error-message');
+        const errorDetails = document.getElementById('error-details');
         const retryBtn = document.getElementById('retry-btn');
         
         /**
@@ -67,16 +68,20 @@
         function showErrorState(msg) {
             loadingIndicator.classList.add('hidden');
             errorMessageDiv.classList.remove('hidden');
-            console.error(msg);
+            // Display a user-friendly message, while logging the full error to the console
+            errorDetails.textContent = "We could not start the secure checkout session. Please try again or contact support.";
+            console.error("PayPal Checkout Initiation Failed:", msg);
+            lucide.createIcons(); // Rerender icons
         }
 
         /**
-         * Initiates the call to the server to create a Stripe Checkout Session
-         * and redirects the user to the returned URL.
+         * Initiates the call to the server to create a PayPal Order
+         * and redirects the user to the returned PayPal approval URL.
          * @param {string} userId - The authenticated user's ID.
          */
-        async function redirectToStripeCheckout(userId) {
+        async function redirectToPayPalCheckout(userId) {
             try {
+                // Show loading state
                 loadingIndicator.classList.remove('hidden');
                 errorMessageDiv.classList.add('hidden');
 
@@ -88,25 +93,27 @@
 
                 const result = await response.json();
 
+                // 🎯 SUCCESS CHECK: The Vercel API must return a 'url' for the redirect
                 if (response.ok && result.url) {
-                    // Redirect the user to the Stripe hosted page
+                    // Redirect the user to the PayPal hosted approval page
                     window.location.href = result.url;
                 } else {
-                    throw new Error(result.error || "Server response missing checkout URL.");
+                    // The server responded but something was wrong (e.g., missing URL)
+                    throw new Error(result.error || `Server responded with status ${response.status}: Missing PayPal approval URL.`);
                 }
 
             } catch (error) {
-                showErrorState(`Upgrade Redirection Failed: ${error.message}`);
+                showErrorState(error.message);
             }
         }
 
         // --- Event Listeners ---
-        // Retry button attempts the whole process again
         retryBtn.addEventListener('click', () => {
              if (currentUserId) {
-                redirectToStripeCheckout(currentUserId);
+                 redirectToPayPalCheckout(currentUserId);
              } else {
-                window.location.replace('login.html');
+                 // If no user ID, force re-authentication
+                 window.location.replace('login.html');
              }
         });
         
@@ -114,7 +121,8 @@
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUserId = user.uid;
-                redirectToStripeCheckout(currentUserId);
+                // Start the PayPal flow once authenticated
+                redirectToPayPalCheckout(currentUserId);
             } else {
                 // Not authenticated, redirect to login
                 const redirectUrl = 'login.html?redirect=' + encodeURIComponent(window.location.pathname);
@@ -122,6 +130,7 @@
             }
         });
 
+        // Initial icon rendering
         lucide.createIcons();
     </script>
 </body>
