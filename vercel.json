@@ -2,15 +2,21 @@
   "version": 2,
   "builds": [
     {
-      "src": "pages/api/create-checkout-session.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "pages/api/capture-paypal-order.js",
+      "src": "pages/api/*.js",
       "use": "@vercel/node"
     }
   ],
   "routes": [
+    // --- Static File Routes ---
+    {
+      "src": "/upgrade.html",
+      "dest": "/upgrade.html"
+    },
+    {
+      "src": "/dashboard.html",
+      "dest": "/dashboard.html"
+    },
+    // --- API Routes ---
     {
       "src": "/api/create-checkout-session",
       "dest": "pages/api/create-checkout-session.js",
