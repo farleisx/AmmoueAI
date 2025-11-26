@@ -9,7 +9,7 @@ const {
 } = process.env;
 
 // PayPal environment (change to 'api.paypal.com' for production)
-const PAYPAL_BASE_URL = 'https://api.sandbox.paypal.com'; 
+const PAYPAL_BASE_URL = 'https://api.paypal.com'; 
 const CURRENCY = 'USD'; // Define your currency
 
 // 1. Function to get an access token from PayPal (REMAINS THE SAME)
