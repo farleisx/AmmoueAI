@@ -15,7 +15,7 @@ if (!getApps().length) {
 const db = getFirestore();
 
 const { PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET } = process.env;
-const PAYPAL_BASE_URL = 'https://api.sandbox.paypal.com'; 
+const PAYPAL_BASE_URL = 'https://api.paypal.com'; 
 
 // Helper to get an Access Token (needed for capture)
 async function getAccessToken() {
