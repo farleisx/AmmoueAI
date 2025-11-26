@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upgrade Successful! | Ammoue</title>
+    <title id="pageTitle">Transaction Status | Ammoue</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -14,29 +14,78 @@
         }
         .text-ammoue { color: #0d9488; }
         .bg-ammoue { background-color: #0d9488; }
+        .text-error { color: #ef4444; } /* Red for errors */
     </style>
 </head>
 <body class="antialiased min-h-screen flex items-center justify-center">
 
-    <div class="max-w-md mx-auto p-10 bg-white border border-gray-200 rounded-2xl shadow-xl text-center">
-        <i data-lucide="circle-check" class="w-16 h-16 text-ammoue mx-auto mb-6"></i>
-        <h2 class="text-3xl font-bold text-gray-900 mb-3">🚀 Upgrade Complete!</h2>
-        <p class="text-lg text-gray-700 mb-6">
-            Thank you for upgrading to the **PRO Plan**! Your new deployment limit is now active.
-        </p>
-        
-        <div class="space-y-4">
-             <a href="dashboard.html" class="block w-full px-6 py-3 text-lg font-semibold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300">
-                Go to Dashboard
-            </a>
-            <p class="text-sm text-gray-500">
-                You can now use up to 5 deployments.
-            </p>
-        </div>
+    <div id="statusContainer" class="max-w-md mx-auto p-10 bg-white border border-gray-200 rounded-2xl shadow-xl text-center">
+        <i data-lucide="loader" class="w-16 h-16 text-gray-500 mx-auto mb-6 animate-spin"></i>
+        <p class="text-gray-600">Checking payment status...</p>
     </div>
     
     <script>
-        // Use a simple script to render icons
+        // Use URLSearchParams to read the 'status' query parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const status = urlParams.get('status');
+        const container = document.getElementById('statusContainer');
+        const pageTitle = document.getElementById('pageTitle');
+        let icon, title, message, colorClass;
+
+        if (status === 'success') {
+            // SUCCESS CASE
+            icon = 'circle-check';
+            title = '🚀 Upgrade Complete!';
+            message = 'Thank you for upgrading to the **PRO Plan**! Your new deployment limit is now active.';
+            colorClass = 'text-ammoue';
+            pageTitle.textContent = 'Upgrade Successful! | Ammoue';
+
+            // Optional: Remove the 'status' parameter from the URL for a cleaner look
+            window.history.replaceState({}, document.title, window.location.pathname);
+
+        } else if (status === 'payment_failed') {
+            // FAILURE CASE (Redirected from capture-paypal-order.js)
+            icon = 'circle-x';
+            title = 'Payment Failed';
+            message = 'The payment capture failed. Please ensure your payment details are correct and try again from the dashboard.';
+            colorClass = 'text-error';
+            pageTitle.textContent = 'Payment Failed | Ammoue';
+        
+        } else if (status === 'server_error') {
+            // SERVER ERROR CASE
+            icon = 'server-crash';
+            title = 'Server Error';
+            message = 'An unexpected error occurred while finalizing your payment. Please contact support or try again later.';
+            colorClass = 'text-error';
+            pageTitle.textContent = 'Server Error | Ammoue';
+
+        } else {
+            // UNKNOWN/DEFAULT CASE (User navigated directly here)
+            icon = 'help-circle';
+            title = 'Status Unknown';
+            message = 'We could not confirm your payment status. Please check your dashboard to verify your current plan.';
+            colorClass = 'text-gray-500';
+            pageTitle.textContent = 'Status Unknown | Ammoue';
+        }
+        
+        // --- Render the Final Content ---
+        container.innerHTML = `
+            <i data-lucide="${icon}" class="w-16 h-16 ${colorClass} mx-auto mb-6"></i>
+            <h2 class="text-3xl font-bold text-gray-900 mb-3">${title}</h2>
+            <p class="text-lg text-gray-700 mb-6">
+                ${message.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}
+            </p>
+            <div class="space-y-4">
+                <a href="dashboard.html" class="block w-full px-6 py-3 text-lg font-semibold rounded-xl text-white ${status === 'success' ? 'bg-ammoue hover:bg-teal-700' : 'bg-gray-500 hover:bg-gray-600'} transition duration-300">
+                    Go to Dashboard
+                </a>
+                <p class="text-sm text-gray-500">
+                    ${status === 'success' ? 'You can now use up to 5 deployments.' : ''}
+                </p>
+            </div>
+        `;
+
+        // Re-create icons after updating innerHTML
         lucide.createIcons();
     </script>
 </body>
