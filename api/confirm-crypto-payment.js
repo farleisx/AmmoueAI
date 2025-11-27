@@ -1,15 +1,15 @@
-// file: /api/confirm-crypto-payment.js
 import admin from "firebase-admin";
-import serviceAccount from "../serviceAccountKey.json" assert { type: "json" };
+import fetch from "node-fetch";
 
-// Initialize Firebase Admin
 if (!admin.apps.length) {
   admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
+    credential: admin.credential.cert(
+      JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
+    ),
   });
 }
-const db = admin.firestore();
 
+const db = admin.firestore();
 const SOLANA_RPC = "https://api.mainnet-beta.solana.com";
 const RECEIVER_WALLET = "3XcK6mfubPZbsNGSKe4MZc7YNJyxJx8rDGkCJcomNSnc";
 
@@ -20,7 +20,6 @@ export default async function handler(req, res) {
     const { userId, reference } = req.body;
     if (!userId || !reference) return res.status(400).json({ error: "Missing parameters" });
 
-    // Fetch recent signatures
     const sigResponse = await fetch(SOLANA_RPC, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -38,7 +37,6 @@ export default async function handler(req, res) {
     let paymentFound = false;
 
     for (let sigInfo of sigData.result) {
-      // Fetch transaction details
       const txResponse = await fetch(SOLANA_RPC, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -68,10 +66,7 @@ export default async function handler(req, res) {
 
     if (!paymentFound) return res.status(400).json({ error: "Payment not found yet" });
 
-    // Upgrade user to Pro
     await db.collection("users").doc(userId).set({ plan: "pro" }, { merge: true });
-
-    // Remove pending payment
     await db.collection("pendingPayments").doc(reference).delete();
 
     res.status(200).json({ success: true });
