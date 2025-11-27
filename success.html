@@ -14,79 +14,75 @@
         }
         .text-ammoue { color: #0d9488; }
         .bg-ammoue { background-color: #0d9488; }
-        .text-error { color: #ef4444; } /* Red for errors */
+        .text-error { color: #ef4444; }
     </style>
 </head>
-<body class="antialiased min-h-screen flex items-center justify-center">
+<body class="antialiased min-h-screen flex flex-col items-center justify-center gap-6">
 
-    <div id="statusContainer" class="max-w-md mx-auto p-10 bg-white border border-gray-200 rounded-2xl shadow-xl text-center">
+    <div id="statusContainer" class="max-w-md w-full p-10 bg-white border border-gray-200 rounded-2xl shadow-xl text-center">
         <i data-lucide="loader" class="w-16 h-16 text-gray-500 mx-auto mb-6 animate-spin"></i>
         <p class="text-gray-600">Checking payment status...</p>
     </div>
-    
+
+    <!-- Mock Controls -->
+    <div class="flex gap-4">
+        <button onclick="mockStatus('success')" class="px-4 py-2 bg-ammoue text-white rounded">Simulate Success</button>
+        <button onclick="mockStatus('payment_failed')" class="px-4 py-2 bg-red-500 text-white rounded">Simulate Failure</button>
+        <button onclick="mockStatus('server_error')" class="px-4 py-2 bg-gray-700 text-white rounded">Simulate Server Error</button>
+    </div>
+
     <script>
-        // Use URLSearchParams to read the 'status' query parameter
-        const urlParams = new URLSearchParams(window.location.search);
-        const status = urlParams.get('status');
         const container = document.getElementById('statusContainer');
         const pageTitle = document.getElementById('pageTitle');
-        let icon, title, message, colorClass;
 
-        if (status === 'success') {
-            // SUCCESS CASE
-            icon = 'circle-check';
-            title = '🚀 Upgrade Complete!';
-            message = 'Thank you for upgrading to the **PRO Plan**! Your new deployment limit is now active.';
-            colorClass = 'text-ammoue';
-            pageTitle.textContent = 'Upgrade Successful! | Ammoue';
+        function mockStatus(status) {
+            let icon, title, message, colorClass;
 
-            // Optional: Remove the 'status' parameter from the URL for a cleaner look
-            window.history.replaceState({}, document.title, window.location.pathname);
+            if (status === 'success') {
+                icon = 'circle-check';
+                title = '🚀 Upgrade Complete!';
+                message = 'Thank you for upgrading to the <strong>PRO Plan</strong>! Your new deployment limit is now active.';
+                colorClass = 'text-ammoue';
+                pageTitle.textContent = 'Upgrade Successful! | Ammoue';
+            } else if (status === 'payment_failed') {
+                icon = 'circle-x';
+                title = 'Payment Failed';
+                message = 'The payment capture failed. Please ensure your payment details are correct and try again.';
+                colorClass = 'text-error';
+                pageTitle.textContent = 'Payment Failed | Ammoue';
+            } else if (status === 'server_error') {
+                icon = 'server-crash';
+                title = 'Server Error';
+                message = 'An unexpected error occurred while finalizing your payment. Please try again later.';
+                colorClass = 'text-error';
+                pageTitle.textContent = 'Server Error | Ammoue';
+            } else {
+                icon = 'help-circle';
+                title = 'Status Unknown';
+                message = 'We could not confirm your payment status. Please check your dashboard.';
+                colorClass = 'text-gray-500';
+                pageTitle.textContent = 'Status Unknown | Ammoue';
+            }
 
-        } else if (status === 'payment_failed') {
-            // FAILURE CASE (Redirected from capture-paypal-order.js)
-            icon = 'circle-x';
-            title = 'Payment Failed';
-            message = 'The payment capture failed. Please ensure your payment details are correct and try again from the dashboard.';
-            colorClass = 'text-error';
-            pageTitle.textContent = 'Payment Failed | Ammoue';
-        
-        } else if (status === 'server_error') {
-            // SERVER ERROR CASE
-            icon = 'server-crash';
-            title = 'Server Error';
-            message = 'An unexpected error occurred while finalizing your payment. Please contact support or try again later.';
-            colorClass = 'text-error';
-            pageTitle.textContent = 'Server Error | Ammoue';
+            container.innerHTML = `
+                <i data-lucide="${icon}" class="w-16 h-16 ${colorClass} mx-auto mb-6"></i>
+                <h2 class="text-3xl font-bold text-gray-900 mb-3">${title}</h2>
+                <p class="text-lg text-gray-700 mb-6">${message}</p>
+                <div class="space-y-4">
+                    <a href="dashboard.html" class="block w-full px-6 py-3 text-lg font-semibold rounded-xl text-white ${status === 'success' ? 'bg-ammoue hover:bg-teal-700' : 'bg-gray-500 hover:bg-gray-600'} transition duration-300">
+                        Go to Dashboard
+                    </a>
+                    <p class="text-sm text-gray-500">
+                        ${status === 'success' ? 'You can now use up to 5 deployments.' : ''}
+                    </p>
+                </div>
+            `;
 
-        } else {
-            // UNKNOWN/DEFAULT CASE (User navigated directly here)
-            icon = 'help-circle';
-            title = 'Status Unknown';
-            message = 'We could not confirm your payment status. Please check your dashboard to verify your current plan.';
-            colorClass = 'text-gray-500';
-            pageTitle.textContent = 'Status Unknown | Ammoue';
+            lucide.createIcons();
         }
-        
-        // --- Render the Final Content ---
-        container.innerHTML = `
-            <i data-lucide="${icon}" class="w-16 h-16 ${colorClass} mx-auto mb-6"></i>
-            <h2 class="text-3xl font-bold text-gray-900 mb-3">${title}</h2>
-            <p class="text-lg text-gray-700 mb-6">
-                ${message.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}
-            </p>
-            <div class="space-y-4">
-                <a href="dashboard.html" class="block w-full px-6 py-3 text-lg font-semibold rounded-xl text-white ${status === 'success' ? 'bg-ammoue hover:bg-teal-700' : 'bg-gray-500 hover:bg-gray-600'} transition duration-300">
-                    Go to Dashboard
-                </a>
-                <p class="text-sm text-gray-500">
-                    ${status === 'success' ? 'You can now use up to 5 deployments.' : ''}
-                </p>
-            </div>
-        `;
 
-        // Re-create icons after updating innerHTML
-        lucide.createIcons();
+        // Auto-mock success for testing
+        mockStatus('success');
     </script>
 </body>
 </html>
