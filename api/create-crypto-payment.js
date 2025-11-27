@@ -1,16 +1,14 @@
-// file: /api/create-crypto-payment.js
 import admin from "firebase-admin";
-import serviceAccount from "../serviceAccountKey.json" assert { type: "json" };
 
-// Initialize Firebase Admin
 if (!admin.apps.length) {
   admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
+    credential: admin.credential.cert(
+      JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
+    ),
   });
 }
-const db = admin.firestore();
 
-// Your Phantom/USDC receive address
+const db = admin.firestore();
 const RECEIVER_WALLET = "3XcK6mfubPZbsNGSKe4MZc7YNJyxJx8rDGkCJcomNSnc";
 
 export default async function handler(req, res) {
@@ -22,7 +20,6 @@ export default async function handler(req, res) {
 
     const reference = `ammoue-${userId}-${Date.now()}`;
 
-    // Store in Firestore
     await db.collection("pendingPayments").doc(reference).set({
       userId,
       amount: 5,
@@ -31,7 +28,6 @@ export default async function handler(req, res) {
       createdAt: Date.now(),
     });
 
-    // Return payment info to frontend
     res.status(200).json({
       amount: 5,
       token: "USDC",
