@@ -1,0 +1,63 @@
+<!-- file: admin/domains.html -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Admin Domains</title>
+  <script>
+    // Put your admin key here for testing only. In production, protect this page.
+    const ADMIN_KEY = 'REPLACE_WITH_ADMIN_KEY';
+    async function loadDomains() {
+      const r = await fetch('/api/admin/list-domains', {
+        headers: { Authorization: 'Bearer ' + ADMIN_KEY }
+      });
+      const j = await r.json();
+      const container = document.getElementById('list');
+      container.innerHTML = '';
+      if (!j.domains || j.domains.length === 0) {
+        container.innerHTML = '<div>No domain requests.</div>';
+        return;
+      }
+      j.domains.forEach(d => {
+        const el = document.createElement('div');
+        el.style.border = '1px solid #ccc';
+        el.style.padding = '10px';
+        el.style.margin = '8px 0';
+        el.innerHTML = `
+          <div><strong>${d.domain}</strong> — <em>${d.status}</em></div>
+          <div>User: ${d.userId} / Project: ${d.projectId}</div>
+          <div style="margin-top:6px;">
+            <button data-user="${d.userId}" data-project="${d.projectId}" data-action="approve">Approve</button>
+            <button data-user="${d.userId}" data-project="${d.projectId}" data-action="reject">Reject</button>
+          </div>
+        `;
+        container.appendChild(el);
+      });
+    }
+
+    async function doAction(userId, projectId, action) {
+      const r = await fetch('/api/admin/update-domain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + ADMIN_KEY },
+        body: JSON.stringify({ userId, projectId, action })
+      });
+      const j = await r.json();
+      alert(j.message || j.error || JSON.stringify(j));
+      loadDomains();
+    }
+
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-action]');
+      if (!btn) return;
+      doAction(btn.dataset.user, btn.dataset.project, btn.dataset.action);
+    });
+
+    window.onload = loadDomains;
+  </script>
+</head>
+<body style="font-family: system-ui, sans-serif; padding: 20px;">
+  <h1>Domain requests</h1>
+  <div id="list">Loading…</div>
+  <p style="margin-top:20px;color:#666">Note: This is a minimal admin UI. Restrict access in production.</p>
+</body>
+</html>
