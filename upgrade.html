@@ -1,99 +1,131 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ammoue AI | Upgrade to Pro</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
-        .text-ammoue { color: #0d9488; }
-        .bg-ammoue { background-color: #0d9488; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Upgrade to Pro | Ammoue</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+    body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+    .text-ammoue { color: #0d9488; }
+    .bg-ammoue { background-color: #0d9488; }
+    .text-error { color: #ef4444; }
+</style>
 </head>
-<body class="antialiased min-h-screen flex items-center justify-center">
+<body class="antialiased min-h-screen flex flex-col items-center justify-center gap-6">
 
-    <div class="max-w-md mx-auto p-8 bg-white border border-gray-200 rounded-2xl shadow-xl text-center">
-        <h1 class="text-3xl font-bold text-gray-900 mb-6">Upgrade to <span class="text-ammoue">Pro</span></h1>
+<div class="max-w-md w-full p-8 bg-white border border-gray-200 rounded-2xl shadow-xl text-center">
+    <h1 class="text-3xl font-bold text-gray-900 mb-6">Upgrade to <span class="text-ammoue">Pro</span></h1>
 
-        <!-- Instructions -->
-        <div id="instructions" class="mb-6 text-left">
-            <h3 class="text-xl font-semibold mb-2">How to Pay</h3>
-            <ol class="list-decimal list-inside text-gray-700 space-y-1">
-                <li>Open your <strong>Phantom Wallet</strong> or another Solana wallet.</li>
-                <li>Scan the QR code below, or copy the payment link.</li>
-                <li>Send exactly <strong>$5</strong> worth of SOL.</li>
-                <li>Include this reference code in your payment:</li>
-                <pre id="reference-code" class="bg-gray-100 p-2 rounded text-sm">TEST1234567890</pre>
-                <li>Once the payment is received, this page will automatically confirm your upgrade.</li>
-            </ol>
-        </div>
-
-        <!-- QR code / Payment link -->
-        <div id="crypto-qr" class="bg-gray-100 p-6 rounded-lg mb-4 text-center text-sm">
-            [QR Code Placeholder]
-        </div>
-
-        <!-- Status message -->
-        <p id="status-message" class="mt-4 text-gray-600 font-medium">Waiting for payment...</p>
-
-        <!-- Retry button -->
-        <button id="retry-btn" class="mt-6 px-6 py-3 rounded-xl bg-ammoue text-white hover:bg-teal-700 transition">
-            Retry Payment
-        </button>
+    <!-- Instructions -->
+    <div id="instructions" class="mb-6 text-left">
+        <h3 class="text-xl font-semibold mb-2">How to Pay</h3>
+        <ol class="list-decimal list-inside text-gray-700 space-y-1">
+            <li>Open your <strong>Phantom Wallet</strong> or another Solana wallet.</li>
+            <li>Scan the QR code below, or copy the payment link.</li>
+            <li>Send exactly <strong>$5</strong> worth of SOL.</li>
+            <li>Include this reference code in your payment:</li>
+            <pre id="reference-code" class="bg-gray-100 p-2 rounded text-sm">TEST1234567890</pre>
+            <li>Once the payment is received, your plan will be upgraded automatically.</li>
+        </ol>
     </div>
 
-    <script type="module">
-        // Mock data for testing
-        const mockPaymentLink = "https://solana.com/fake-payment-link";
-        const mockReferenceCode = "TEST1234567890";
+    <!-- QR code / Payment link -->
+    <div id="crypto-qr" class="bg-gray-100 p-6 rounded-lg mb-4 text-center text-sm">
+        [QR Code Placeholder]
+    </div>
 
-        const qrElement = document.getElementById("crypto-qr");
-        const statusMessage = document.getElementById("status-message");
-        const referenceElement = document.getElementById("reference-code");
-        const retryBtn = document.getElementById("retry-btn");
+    <!-- Status -->
+    <p id="status-message" class="mt-4 text-gray-600 font-medium">Waiting for payment...</p>
 
-        // Display mock QR and reference
-        qrElement.textContent = `Scan this QR or visit: ${mockPaymentLink}`;
-        referenceElement.textContent = mockReferenceCode;
+    <!-- Retry button -->
+    <button id="retry-btn" class="mt-6 px-6 py-3 rounded-xl bg-ammoue text-white hover:bg-teal-700 transition">
+        Retry Payment
+    </button>
+</div>
 
-        // Mock payment confirmation flow
-        let paymentConfirmed = false;
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
-        async function startCryptoPayment() {
-            try {
-                statusMessage.textContent = "Waiting for payment confirmation...";
+// ------------------ FIREBASE CONFIG ------------------
+const firebaseConfig = {
+    apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
+    authDomain: "ammoueai.firebaseapp.com",
+    projectId: "ammoueai",
+    storageBucket: "ammoueai.firebasestorage.app",
+    messagingSenderId: "135818868149",
+    appId: "1:135818868149:web:db9280baf9540a3339d5fc",
+};
 
-                // Mock polling interval
-                let attempts = 0;
-                const interval = setInterval(() => {
-                    attempts++;
-                    // Simulate payment confirmation after 5 seconds
-                    if (attempts === 5) {
-                        paymentConfirmed = true;
-                        clearInterval(interval);
-                        statusMessage.textContent = "Payment received! Redirecting...";
-                        setTimeout(() => {
-                            window.location.href = "success.html";
-                        }, 1500);
-                    }
-                }, 1000);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-            } catch (err) {
-                console.error("Payment initiation error:", err);
-                statusMessage.textContent = "Failed to initiate payment. Please retry.";
-            }
+const qrElement = document.getElementById("crypto-qr");
+const statusMessage = document.getElementById("status-message");
+const referenceElement = document.getElementById("reference-code");
+const retryBtn = document.getElementById("retry-btn");
+
+const mockPaymentLink = "https://solana.com/fake-payment-link";
+const mockReferenceCode = "TEST1234567890";
+qrElement.textContent = `Scan this QR or visit: ${mockPaymentLink}`;
+referenceElement.textContent = mockReferenceCode;
+
+let paymentConfirmed = false;
+let currentUser = null;
+
+// ------------------ FIRESTORE PLAN UPDATE ------------------
+async function setPlanToPro(uid) {
+    try {
+        const userDocRef = doc(db, "users", uid);
+        await setDoc(userDocRef, { plan: "pro" }, { merge: true });
+        console.log("Plan updated to PRO in Firestore.");
+        statusMessage.textContent = "Payment received! Your plan is now PRO 🚀";
+    } catch (err) {
+        console.error("Failed to update plan:", err);
+        statusMessage.textContent = "Payment received but failed to update plan. Contact support.";
+    }
+}
+
+// ------------------ MOCK PAYMENT FLOW ------------------
+async function startCryptoPayment() {
+    if (!currentUser) {
+        statusMessage.textContent = "User not logged in. Please log in first.";
+        return;
+    }
+
+    statusMessage.textContent = "Waiting for payment confirmation...";
+
+    let attempts = 0;
+    const interval = setInterval(async () => {
+        attempts++;
+        if (attempts === 5) { // Simulate payment after 5 seconds
+            clearInterval(interval);
+            paymentConfirmed = true;
+            await setPlanToPro(currentUser.uid);
         }
+    }, 1000);
+}
 
-        // Retry button
-        retryBtn.addEventListener("click", () => {
-            if (!paymentConfirmed) startCryptoPayment();
-        });
-
-        // Start payment flow immediately
+// ------------------ AUTH STATE ------------------
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        currentUser = user;
+        console.log("User detected:", user.uid);
         startCryptoPayment();
-    </script>
+    } else {
+        statusMessage.textContent = "Please log in to upgrade.";
+    }
+});
+
+// ------------------ RETRY BUTTON ------------------
+retryBtn.addEventListener("click", () => {
+    if (!paymentConfirmed && currentUser) startCryptoPayment();
+});
+</script>
 </body>
 </html>
