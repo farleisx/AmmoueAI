@@ -1,42 +1,39 @@
+// File: api/create-crypto-payment.js
 import admin from "firebase-admin";
 
+// Initialize Firebase Admin if not already initialized
 if (!admin.apps.length) {
   admin.initializeApp({
-    credential: admin.credential.cert(
-      JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-    ),
+    credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
   });
 }
 
 const db = admin.firestore();
-const RECEIVER_WALLET = "3XcK6mfubPZbsNGSKe4MZc7YNJyxJx8rDGkCJcomNSnc";
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
 
   try {
-    const { userId } = req.body;
-    if (!userId) return res.status(400).json({ error: "Missing userId" });
+    const { uid } = req.body;
 
-    const reference = `ammoue-${userId}-${Date.now()}`;
+    if (!uid) return res.status(400).json({ error: "Missing UID" });
 
-    await db.collection("pendingPayments").doc(reference).set({
-      userId,
-      amount: 5,
-      token: "USDC",
-      receiver: RECEIVER_WALLET,
-      createdAt: Date.now(),
+    // Generate a mock paymentId
+    const paymentId = `mockpay_${Date.now()}`;
+
+    // Generate a mock QR/barcode URL (you can render this on frontend)
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${paymentId}`;
+
+    // Optionally, store this in Firestore for testing
+    await db.collection("mockPayments").doc(paymentId).set({
+      uid,
+      status: "pending",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    res.status(200).json({
-      amount: 5,
-      token: "USDC",
-      network: "solana",
-      receiver: RECEIVER_WALLET,
-      reference,
-    });
+    return res.status(200).json({ paymentId, qrUrl });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to create crypto payment session", details: err.message });
+    console.error("Error creating payment:", err);
+    return res.status(500).json({ error: "Server error creating payment" });
   }
 }
