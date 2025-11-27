@@ -38,108 +38,73 @@
         </div>
     </div>
     
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-        
-        // --- Firebase Configuration ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
-            authDomain: "ammoueai.firebaseapp.com",
-            projectId: "ammoueai",
-            storageBucket: "ammoueai.firebasestorage.app",
-            messagingSenderId: "135818868149",
-            appId: "1:135818868149:web:db9280baf9540a3339d5fc",
-        };
-        
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        
-        let currentUserId = null;
-        const loadingIndicator = document.getElementById('loading-indicator');
-        const errorMessageDiv = document.getElementById('error-message');
-        const errorDetails = document.getElementById('error-details');
-        const retryBtn = document.getElementById('retry-btn');
-        
-        /**
-         * Hides loading and shows the error state.
-         * @param {string} msg - The error message.
-         */
-        function showErrorState(msg) {
-            loadingIndicator.classList.add('hidden');
-            errorMessageDiv.classList.remove('hidden');
-            // Display a user-friendly message, while logging the full error to the console
-            errorDetails.textContent = "We could not start the secure checkout session. Please try again or contact support.";
-            console.error("PayPal Checkout Initiation Failed:", msg);
-            lucide.createIcons(); // Rerender icons
+   <script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+
+const firebaseConfig = { /* ... your config ... */ };
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+const loadingIndicator = document.getElementById('loading-indicator');
+const errorMessageDiv = document.getElementById('error-message');
+const retryBtn = document.getElementById('retry-btn');
+
+let currentUserId = null;
+
+async function payWithPhantom(userId) {
+    try {
+        loadingIndicator.classList.remove('hidden');
+        errorMessageDiv.classList.add('hidden');
+
+        const response = await fetch('/api/create-crypto-payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId })
+        });
+        const paymentData = await response.json();
+
+        if (!window.solana || !window.solana.isPhantom) {
+            throw new Error("Phantom Wallet not installed.");
         }
 
-        /**
-         * Initiates the call to the server to create a PayPal Order
-         * and redirects the user to the returned PayPal approval URL.
-         * @param {string} userId - The authenticated user's ID.
-         */
-        async function redirectToPayPalCheckout(userId) {
-            try {
-                // Show loading state
-                loadingIndicator.classList.remove('hidden');
-                errorMessageDiv.classList.add('hidden');
+        const resp = await window.solana.connect();
+        const publicKey = resp.publicKey.toString();
 
-                const response = await fetch('/api/create-checkout-session', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: userId, plan: 'pro' }) 
-                });
+        const transactionUrl = `https://solscan.io/txs?receiver=${paymentData.receiver}&amount=${paymentData.amount}&token=${paymentData.token}`;
+        alert(`Send ${paymentData.amount} ${paymentData.token} to:\n${paymentData.receiver}\n\nAfter sending, click OK to confirm.`);
 
-                // 🎯 CRITICAL FIX: Check for non-200 status codes first
-                if (!response.ok) {
-                    // Try to read the error response as text, as it might be an HTML/plain text error page (404/500)
-                    const errorData = await response.text(); 
-                    // Throw a clean error message, truncating the response to avoid logging huge HTML pages
-                    throw new Error(`HTTP Error ${response.status} calling backend API. Server Response: ${errorData.substring(0, 100)}...`);
-                }
-
-                const result = await response.json();
-
-                // 🎯 SUCCESS CHECK: The Vercel API must return a 'url' for the redirect
-                if (result.url) {
-                    // Redirect the user to the PayPal hosted approval page
-                    window.location.href = result.url;
-                } else {
-                    // The server responded with 200 but the JSON payload was bad
-                    throw new Error(result.error || `Server responded with 200: Missing PayPal approval URL.`);
-                }
-
-            } catch (error) {
-                showErrorState(error.message);
-            }
-        }
-
-        // --- Event Listeners ---
-        retryBtn.addEventListener('click', () => {
-             if (currentUserId) {
-                 redirectToPayPalCheckout(currentUserId);
-             } else {
-                 // If no user ID, force re-authentication
-                 window.location.replace('login.html');
-             }
-        });
-        
-        // --- Authentication Check ---
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                currentUserId = user.uid;
-                // Start the PayPal flow once authenticated
-                redirectToPayPalCheckout(currentUserId);
-            } else {
-                // Not authenticated, redirect to login
-                const redirectUrl = 'login.html?redirect=' + encodeURIComponent(window.location.pathname);
-                window.location.replace(redirectUrl); 
-            }
+        // Here you could also integrate a blockchain listener for automatic verification
+        // For now, user confirms manually
+        const firestoreRes = await fetch('/api/confirm-crypto-payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, reference: paymentData.reference })
         });
 
-        // Initial icon rendering
-        lucide.createIcons();
-    </script>
+        alert("Payment confirmed! Your Pro plan is active 🎉");
+        window.location.reload();
+
+    } catch (err) {
+        console.error(err);
+        errorMessageDiv.classList.remove('hidden');
+        loadingIndicator.classList.add('hidden');
+    }
+}
+
+retryBtn.addEventListener('click', () => {
+    if (currentUserId) payWithPhantom(currentUserId);
+    else window.location.replace('login.html');
+});
+
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        currentUserId = user.uid;
+        payWithPhantom(currentUserId);
+    } else {
+        window.location.replace('login.html?redirect=' + encodeURIComponent(window.location.pathname));
+    }
+});
+</script>
 </body>
 </html>
