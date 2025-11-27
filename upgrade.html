@@ -1,102 +1,122 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ammoue | Upgrade</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f8fafc;
-        }
-        .text-ammoue { color: #0d9488; }
-        .bg-ammoue { background-color: #0d9488; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ammoue | Upgrade</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+    body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+    .text-ammoue { color: #0d9488; }
+    .bg-ammoue { background-color: #0d9488; }
+</style>
 </head>
 <body class="antialiased min-h-screen flex items-center justify-center">
 
-    <div id="main-content" class="max-w-md mx-auto p-8 bg-white border border-gray-200 rounded-2xl shadow-xl text-center">
-        <div id="loading-indicator">
-            <svg class="animate-spin h-8 w-8 text-ammoue mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <h2 class="text-2xl font-bold text-gray-900 mb-2">Initiating Secure Upgrade...</h2>
-            <p class="text-gray-600">You are being redirected to PayPal's secure payment page.</p>
-        </div>
-
-        <div id="error-message" class="hidden">
-            <i data-lucide="alert-triangle" class="w-8 h-8 text-red-500 mx-auto mb-4"></i>
-            <h2 class="text-2xl font-bold text-red-700 mb-2">Upgrade Failed</h2>
-            <p class="text-gray-600 mb-4" id="error-details">We could not start the secure checkout session. Please try again or contact support.</p>
-            <button id="retry-btn" class="px-6 py-3 text-base font-semibold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 transform hover:scale-[1.01]">
-                Retry Upgrade
-            </button>
-        </div>
+<div id="main-content" class="max-w-md mx-auto p-8 bg-white border border-gray-200 rounded-2xl shadow-xl text-center">
+    <div id="loading-indicator">
+        <svg class="animate-spin h-8 w-8 text-ammoue mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <h2 class="text-2xl font-bold text-gray-900 mb-2">Initiating Secure Upgrade...</h2>
+        <p class="text-gray-600">You are being redirected to Phantom Wallet to complete your payment.</p>
     </div>
-    
-   <script type="module">
+
+    <div id="error-message" class="hidden">
+        <i data-lucide="alert-triangle" class="w-8 h-8 text-red-500 mx-auto mb-4"></i>
+        <h2 class="text-2xl font-bold text-red-700 mb-2">Upgrade Failed</h2>
+        <p class="text-gray-600 mb-4" id="error-details">We could not start the secure checkout session. Please try again or contact support.</p>
+        <button id="retry-btn" class="px-6 py-3 text-base font-semibold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 transform hover:scale-[1.01]">
+            Retry Upgrade
+        </button>
+    </div>
+</div>
+
+<script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 
-const firebaseConfig = { /* ... your config ... */ };
+const firebaseConfig = {
+    apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
+    authDomain: "ammoueai.firebaseapp.com",
+    projectId: "ammoueai",
+    storageBucket: "ammoueai.firebasestorage.app",
+    messagingSenderId: "135818868149",
+    appId: "1:135818868149:web:db9280baf9540a3339d5fc",
+};
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
+let currentUserId = null;
 const loadingIndicator = document.getElementById('loading-indicator');
 const errorMessageDiv = document.getElementById('error-message');
+const errorDetails = document.getElementById('error-details');
 const retryBtn = document.getElementById('retry-btn');
 
-let currentUserId = null;
+// --- Display error
+function showErrorState(msg) {
+    loadingIndicator.classList.add('hidden');
+    errorMessageDiv.classList.remove('hidden');
+    errorDetails.textContent = "Payment initiation failed. Please ensure Phantom Wallet is installed and try again.";
+    console.error("Payment initiation error:", msg);
+    lucide.createIcons();
+}
 
+// --- Phantom Wallet payment
 async function payWithPhantom(userId) {
     try {
         loadingIndicator.classList.remove('hidden');
         errorMessageDiv.classList.add('hidden');
 
-        const response = await fetch('/api/create-crypto-payment', {
+        // Step 1: Request payment info from backend
+        const res = await fetch('/api/create-crypto-payment', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId })
         });
-        const paymentData = await response.json();
+        const paymentData = await res.json();
 
-        if (!window.solana || !window.solana.isPhantom) {
-            throw new Error("Phantom Wallet not installed.");
+        if (!window.solana || !window.solana.isPhantom) throw new Error("Phantom Wallet not installed.");
+
+        // Step 2: Connect Phantom Wallet
+        await window.solana.connect();
+
+        // Step 3: Display QR / prompt user to send USDC
+        alert(`Send ${paymentData.amount} ${paymentData.token} to:\n${paymentData.receiver}\nReference: ${paymentData.reference}\n\nAfter sending, click OK to confirm.`);
+
+        // Step 4: Poll backend to verify payment
+        let confirmed = false;
+        while (!confirmed) {
+            const confirmRes = await fetch('/api/confirm-crypto-payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, reference: paymentData.reference })
+            });
+            const confirmData = await confirmRes.json();
+            if (confirmData.success) confirmed = true;
+            else await new Promise(r => setTimeout(r, 5000)); // retry every 5s
         }
 
-        const resp = await window.solana.connect();
-        const publicKey = resp.publicKey.toString();
-
-        const transactionUrl = `https://solscan.io/txs?receiver=${paymentData.receiver}&amount=${paymentData.amount}&token=${paymentData.token}`;
-        alert(`Send ${paymentData.amount} ${paymentData.token} to:\n${paymentData.receiver}\n\nAfter sending, click OK to confirm.`);
-
-        // Here you could also integrate a blockchain listener for automatic verification
-        // For now, user confirms manually
-        const firestoreRes = await fetch('/api/confirm-crypto-payment', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, reference: paymentData.reference })
-        });
-
-        alert("Payment confirmed! Your Pro plan is active 🎉");
-        window.location.reload();
+        // Step 5: Redirect to success page
+        window.location.href = 'success.html';
 
     } catch (err) {
         console.error(err);
-        errorMessageDiv.classList.remove('hidden');
-        loadingIndicator.classList.add('hidden');
+        showErrorState(err.message);
     }
 }
 
+// --- Event Listeners
 retryBtn.addEventListener('click', () => {
     if (currentUserId) payWithPhantom(currentUserId);
     else window.location.replace('login.html');
 });
 
+// --- Firebase Auth
 onAuthStateChanged(auth, (user) => {
     if (user) {
         currentUserId = user.uid;
@@ -105,6 +125,10 @@ onAuthStateChanged(auth, (user) => {
         window.location.replace('login.html?redirect=' + encodeURIComponent(window.location.pathname));
     }
 });
+
+// Initial icon rendering
+lucide.createIcons();
 </script>
+
 </body>
 </html>
