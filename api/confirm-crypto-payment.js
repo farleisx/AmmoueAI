@@ -1,56 +1,43 @@
-// file: api/confirm-crypto-payment.js
+// File: api/confirm-crypto-payment.js
 import admin from "firebase-admin";
 
-// Initialize Firebase Admin only once
+// ----------------------
+// Initialize Firebase Admin
+// ----------------------
 if (!admin.apps.length) {
-  const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-
   admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
+    credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
   });
 }
 
 const db = admin.firestore();
 
-/**
- * Endpoint to confirm crypto payment and upgrade user's plan
- */
+// ----------------------
+// Confirm Crypto Payment Handler
+// ----------------------
 export default async function handler(req, res) {
+  if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
+
   try {
-    if (req.method !== "POST") {
-      return res.status(405).json({ error: "Method not allowed" });
+    const { uid, paymentId } = req.body;
+
+    if (!uid || !paymentId) {
+      return res.status(400).json({ error: "Missing UID or paymentId" });
     }
 
-    const { userId, reference } = req.body;
+    // TODO: Insert your crypto payment verification logic here.
+    // For example, call your crypto provider API with `paymentId` to confirm success.
+    const paymentSuccess = true; // Mock: Replace with actual verification
+    if (!paymentSuccess) return res.status(400).json({ error: "Payment not verified" });
 
-    if (!userId || !reference) {
-      return res.status(400).json({ error: "Missing userId or payment reference" });
-    }
+    // 🔥 Update user plan to PRO in Firestore
+    const userRef = db.collection("users").doc(uid);
+    await userRef.set({ plan: "pro" }, { merge: true });
 
-    // 🔹 STEP 1: Verify crypto payment
-    // TODO: Replace this with real Solana/Phantom blockchain verification
-    const paymentValid = true; // Mock for now
-
-    if (!paymentValid) {
-      return res.status(400).json({ error: "Payment not valid" });
-    }
-
-    // 🔹 STEP 2: Update user's plan in Firestore
-    const userRef = db.collection("users").doc(userId);
-
-    await userRef.set(
-      {
-        plan: "pro",
-        upgradedAt: new Date().toISOString()
-      },
-      { merge: true } // Merge to keep existing fields
-    );
-
-    // 🔹 STEP 3: Return success response
-    return res.status(200).json({ success: true, message: "User upgraded to Pro" });
+    return res.status(200).json({ message: "Payment verified, plan upgraded to PRO" });
 
   } catch (err) {
-    console.error("Error confirming crypto payment:", err);
-    return res.status(500).json({ error: "Server error confirming payment" });
+    console.error("Error confirming payment:", err);
+    return res.status(500).json({ error: "Server error during payment confirmation" });
   }
 }
