@@ -85,11 +85,18 @@ async function setPlanToPro(uid) {
         await setDoc(userDocRef, { plan: "pro" }, { merge: true });
         console.log("Plan updated to PRO in Firestore.");
         statusMessage.textContent = "Payment received! Your plan is now PRO 🚀";
+
+        // ✅ Redirect to dashboard after 1.5s
+        setTimeout(() => {
+            window.location.href = "dashboard.html";
+        }, 1500);
+
     } catch (err) {
         console.error("Failed to update plan:", err);
         statusMessage.textContent = "Payment received but failed to update plan. Contact support.";
     }
 }
+
 
 // ------------------ MOCK PAYMENT FLOW ------------------
 async function startCryptoPayment() {
