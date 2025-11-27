@@ -70,6 +70,9 @@ let currentUserId = null;
 let currentReference = null;
 let pollInterval = null;
 
+// USDC mainnet mint address
+const USDC_MINT = "Es9vMFrzaCERG6D3L2ewqz7X7b4m49BDJh4o2hT2P4k";
+
 function showError(msg) {
     loadingIndicator.classList.add('hidden');
     qrContainer.classList.add('hidden');
@@ -94,24 +97,27 @@ async function startCryptoPayment(userId) {
 
         currentReference = data.reference;
 
-        // Show QR code + address
-        qrContainer.classList.remove('hidden');
-        cryptoAddressEl.textContent = `${data.receiver}?amount=${data.amount}&memo=${data.reference}`;
+        // Generate Solana Pay URL
+        const solanaPayUrl = `solana:${data.receiver}?amount=${data.amount}&spl-token=${USDC_MINT}&reference=${data.reference}`;
+
+        cryptoAddressEl.textContent = solanaPayUrl;
+
         new QRCode(document.getElementById("qrcode"), {
-            text: `${data.receiver}?amount=${data.amount}&memo=${data.reference}`,
+            text: solanaPayUrl,
             width: 200,
             height: 200
         });
 
         loadingIndicator.classList.add('hidden');
+        qrContainer.classList.remove('hidden');
 
-        // Copy button functionality
+        // Copy button
         copyBtn.onclick = () => {
-            navigator.clipboard.writeText(`${data.receiver}?amount=${data.amount}&memo=${data.reference}`);
+            navigator.clipboard.writeText(solanaPayUrl);
             alert("Address copied to clipboard!");
         };
 
-        // Poll for payment every 5s
+        // Poll backend every 5 seconds
         pollInterval = setInterval(async () => {
             try {
                 const confirmRes = await fetch('/api/confirm-crypto-payment', {
@@ -122,6 +128,8 @@ async function startCryptoPayment(userId) {
                 const confirmData = await confirmRes.json();
                 if (confirmData.success) {
                     clearInterval(pollInterval);
+                    // Optional: show a success overlay
+                    alert("Payment received! Redirecting...");
                     window.location.href = 'success.html';
                 }
             } catch (err) {
@@ -140,7 +148,6 @@ retryBtn.addEventListener('click', () => {
     else window.location.replace('login.html');
 });
 
-// Auth check
 onAuthStateChanged(auth, (user) => {
     if (user) {
         currentUserId = user.uid;
