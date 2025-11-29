@@ -2,7 +2,9 @@ import admin from "firebase-admin";
 
 if (!admin.apps.length) {
     admin.initializeApp({
-        credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
+        credential: admin.credential.cert(
+            JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
+        ),
     });
 }
 
@@ -17,8 +19,10 @@ export default async function handler(req, res) {
             process.env.PAYPAL_CLIENT_ID + ":" + process.env.PAYPAL_CLIENT_SECRET
         ).toString("base64");
 
+        const PAYPAL_API = "https://api-m.paypal.com"; // Live API
+
         const response = await fetch(
-            `https://api-m.sandbox.paypal.com/v2/checkout/orders/${orderID}/capture`,
+            `${PAYPAL_API}/v2/checkout/orders/${orderID}/capture`,
             {
                 method: "POST",
                 headers: {
@@ -31,6 +35,7 @@ export default async function handler(req, res) {
         const payment = await response.json();
 
         if (payment.status !== "COMPLETED") {
+            console.error("PayPal capture failed:", payment);
             return res.status(400).json({ error: "Payment not completed" });
         }
 
