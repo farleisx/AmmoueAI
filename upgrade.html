@@ -22,26 +22,24 @@
         Upgrade to <span class="text-ammoue">Pro</span>
     </h1>
 
-    <p class="text-gray-700 mb-6">Pay once — get lifetime PRO access! 🔥</p>
+    <p class="text-gray-700 mb-6">One-time payment. Lifetime access. 🚀</p>
 
-    <!-- PAYPAL BUTTON HERE -->
-    <div id="paypal-button-container"></div>
+    <!-- PAYPAL BUTTON -->
+    <div id="paypal-button-container" class="mb-4"></div>
 
     <!-- STATUS -->
-    <p id="status-message" class="mt-4 text-gray-600 font-medium"></p>
+    <p id="status-message" class="mt-4 text-red-600 font-semibold"></p>
 </div>
 
-
-<!-- PAYPAL SDK (IMPORTANT: Insert your Client ID) -->
-<script src="https://www.paypal.com/sdk/js?client-id=YOUR_PAYPAL_CLIENT_ID_HERE&currency=USD"></script>
+<!-- PayPal Sandbox SDK -->
+<script src="https://www.paypal.com/sdk/js?client-id=sb&currency=USD"></script>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
-
-// 🔥 Firebase Config
+// Firebase Config
 const firebaseConfig = {
     apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
     authDomain: "ammoueai.firebaseapp.com",
@@ -58,50 +56,59 @@ const db = getFirestore(app);
 let currentUser = null;
 const statusMessage = document.getElementById("status-message");
 
-// Update Firestore Plan
+// Update plan in Firestore and redirect
 async function setPlanToPro(uid) {
     await setDoc(doc(db, "users", uid), { plan: "pro" }, { merge: true });
-    statusMessage.textContent = "Payment complete! Upgrading your plan… 🚀";
-
-    setTimeout(() => {
-        window.location.href = "dashboard.html";
-    }, 1500);
+    statusMessage.textContent = "Success! Redirecting… 🚀";
+    setTimeout(() => window.location.href = "dashboard.html", 1200);
 }
 
-// Monitor User Login
+// Monitor login state
 onAuthStateChanged(auth, (user) => {
     currentUser = user;
-    if (!user) {
-        statusMessage.textContent = "Please login to upgrade your plan.";
-    }
+    if (!user) statusMessage.textContent = "⚠ Please log in to upgrade.";
 });
 
 // PayPal Smart Buttons
 paypal.Buttons({
     createOrder: () => {
-        return fetch("/api/paypal-order", {
-            method: "POST"
-        })
-        .then(res => res.json())
-        .then(data => data.orderID)
+        if (!currentUser) {
+            statusMessage.textContent = "⚠ You must log in first.";
+            return;
+        }
+        statusMessage.textContent = "Creating PayPal order…";
+
+        return fetch("/api/paypal-order", { method: "POST" })
+            .then(res => res.json())
+            .then(data => data.orderID)
+            .catch(() => {
+                statusMessage.textContent = "Error creating order. Backend may be missing.";
+            });
     },
 
     onApprove: (data) => {
-        if (!currentUser) return statusMessage.textContent = "You must login first!";
+        if (!currentUser) {
+            statusMessage.textContent = "⚠ You must log in first.";
+            return;
+        }
+        statusMessage.textContent = "Processing payment…";
 
-        return fetch(`/api/paypal-capture?orderID=${data.orderID}`)
+        return fetch(`/api/paypal-capture?orderID=${data.orderID}`, {
+            headers: { "x-user-id": currentUser.uid }
+        })
         .then(res => res.json())
-        .then(async () => {
-            await setPlanToPro(currentUser.uid);
+        .then(async () => setPlanToPro(currentUser.uid))
+        .catch(() => {
+            statusMessage.textContent = "Payment verification failed!";
         });
     },
 
     onError: () => {
-        statusMessage.textContent = "Payment failed. Try again!";
+        statusMessage.textContent = "Something went wrong. Try again.";
     }
+
 }).render("#paypal-button-container");
 
 </script>
-
 </body>
 </html>
