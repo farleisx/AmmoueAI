@@ -47,12 +47,13 @@
     </button>
 </div>
 
+<script src="https://www.paypal.com/sdk/js?client-id=YOUR_CLIENT_ID&currency=USD"></script>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
-// ------------------ FIREBASE CONFIG ------------------
 const firebaseConfig = {
     apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
     authDomain: "ammoueai.firebaseapp.com",
@@ -66,74 +67,46 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-const qrElement = document.getElementById("crypto-qr");
-const statusMessage = document.getElementById("status-message");
-const referenceElement = document.getElementById("reference-code");
-const retryBtn = document.getElementById("retry-btn");
-
-const mockPaymentLink = "https://solana.com/fake-payment-link";
-const mockReferenceCode = "TEST1234567890";
-qrElement.textContent = `Scan this QR or visit: ${mockPaymentLink}`;
-referenceElement.textContent = mockReferenceCode;
-
-let paymentConfirmed = false;
 let currentUser = null;
+const statusMessage = document.getElementById("status-message");
 
-// ------------------ FIRESTORE PLAN UPDATE ------------------
+// Update Firestore plan
 async function setPlanToPro(uid) {
-    try {
-        const userDocRef = doc(db, "users", uid);
-        await setDoc(userDocRef, { plan: "pro" }, { merge: true });
-        console.log("Plan updated to PRO in Firestore.");
-        statusMessage.textContent = "Payment received! Your plan is now PRO 🚀";
+    await setDoc(doc(db, "users", uid), { plan: "pro" }, { merge: true });
+    statusMessage.textContent = "Payment complete! Upgrading… 🚀";
 
-        // ✅ Redirect to dashboard after 1.5s
-        setTimeout(() => {
-            window.location.href = "dashboard.html";
-        }, 1500);
-
-    } catch (err) {
-        console.error("Failed to update plan:", err);
-        statusMessage.textContent = "Payment received but failed to update plan. Contact support.";
-    }
+    setTimeout(() => window.location.href = "dashboard.html", 1500);
 }
 
-
-// ------------------ MOCK PAYMENT FLOW ------------------
-async function startCryptoPayment() {
-    if (!currentUser) {
-        statusMessage.textContent = "User not logged in. Please log in first.";
-        return;
-    }
-
-    statusMessage.textContent = "Waiting for payment confirmation...";
-
-    let attempts = 0;
-    const interval = setInterval(async () => {
-        attempts++;
-        if (attempts === 5) { // Simulate payment after 5 seconds
-            clearInterval(interval);
-            paymentConfirmed = true;
-            await setPlanToPro(currentUser.uid);
-        }
-    }, 1000);
-}
-
-// ------------------ AUTH STATE ------------------
 onAuthStateChanged(auth, (user) => {
-    if (user) {
-        currentUser = user;
-        console.log("User detected:", user.uid);
-        startCryptoPayment();
-    } else {
-        statusMessage.textContent = "Please log in to upgrade.";
+    currentUser = user;
+    if (!user) {
+        statusMessage.textContent = "You must log in first!";
     }
 });
 
-// ------------------ RETRY BUTTON ------------------
-retryBtn.addEventListener("click", () => {
-    if (!paymentConfirmed && currentUser) startCryptoPayment();
-});
+// PayPal Buttons Setup
+paypal.Buttons({
+    createOrder: () => {
+        return fetch("/api/paypal-order.php", {
+            method: "POST"
+        }).then(res => res.json()).then(data => data.orderID);
+    },
+    onApprove: (data) => {
+        if (!currentUser) {
+            statusMessage.textContent = "Login required!";
+            return;
+        }
+        return fetch(`/api/paypal-capture.php?orderID=${data.orderID}`)
+        .then(res => res.json())
+        .then(async () => {
+            await setPlanToPro(currentUser.uid);
+        });
+    },
+    onError: () => {
+        statusMessage.textContent = "Payment error. Try again.";
+    }
+}).render("#paypal-button-container");
 </script>
 </body>
 </html>
