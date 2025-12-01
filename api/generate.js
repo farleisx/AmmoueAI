@@ -23,7 +23,7 @@ export default async function handler(req, res) {
       req.body;
     if (!prompt) return res.status(400).json({ error: "Missing 'prompt'." });
 
-    // ✅ Step 1: Generate focused Pexels query
+    // Step 1: Generate focused Pexels query using Gemini (fallback to keywords)
     let pexelsQuery = userQuery;
     if (!pexelsQuery) {
       try {
@@ -45,7 +45,6 @@ RULES:
         const queryResult = await model.generateContent(queryPrompt);
         pexelsQuery = (queryResult.response.text?.() || "").trim();
 
-        // fallback if Gemini returns empty or nonsense
         if (!pexelsQuery) {
           const keywords = extractKeywords(prompt).slice(0, 5);
           pexelsQuery = keywords.join(" ");
@@ -59,7 +58,7 @@ RULES:
       }
     }
 
-    // ✅ Step 2: Fetch Pexels Images
+    // Step 2: Fetch Pexels Images
     let imageURLs = [];
     try {
       const pexelsRes = await fetch(
@@ -89,7 +88,7 @@ RULES:
       console.warn("Pexels image fetch error:", err);
     }
 
-    // ✅ Step 3: Fetch Pexels Videos
+    // Step 3: Fetch Pexels Videos
     let videoURLs = [];
     let heroVideo = "";
     try {
@@ -131,18 +130,48 @@ RULES:
       console.warn("Pexels video fetch error:", err);
     }
 
-    // ✅ Step 4: Build AI Instruction
+    // Step 4: Build AI Instruction
+    // IMPORTANT: Request model to produce JSON with files array. Each file has path + content.
     const systemInstruction = `
-You are an elite web development super-expert. Generate a single self-contained HTML website based on the user's prompt and supplied media resources.
+You are an elite fullstack web developer. Generate a complete, ready-to-run project (frontend + backend)
+based on the user's prompt and the media resources provided.
 
-Hero video: ${heroVideo || "No video available."}
-Pexels images: ${imageURLs.join("\n") || "No images available."}
-Additional videos: ${videoURLs.join("\n") || "No extra videos."}
+**OUTPUT FORMAT (mandatory)**:
+Return ONLY a single JSON object **exactly** like this (no extra text):
+{
+  "files": [
+    { "path": "<relative/path/to/file>", "content": "<file contents as a string>" },
+    ...
+  ]
+}
 
-User prompt: ${prompt}
+**REQUIREMENTS**:
+- The project must include:
+  1) frontend/index.html — a single-page static site using the user's prompt as copy and placeholders for images and hero video.
+  2) backend/server.js — Node.js + Express server that:
+     - Serves the frontend static files
+     - Exposes GET /api/media -> returns JSON { images: [...], videos: [...], hero: "..." }
+     - Exposes POST /api/contact -> accepts JSON { name, email, message } and persists into a simple SQLite DB file `db.sqlite` (create table if not exists)
+     - Includes CORS and body-parsing
+  3) package.json with start script: "node backend/server.js"
+  4) README.md with run instructions
+- Keep backend simple, secure enough for local use, and use sqlite3 for persistence (no external DB).
+- Frontend should:
+  - Fetch `/api/media` to show hero (video or large image) and a gallery.
+  - Include a contact form that posts to `/api/contact` and shows success/failure.
+  - Use plain HTML/CSS/vanilla JS (no frameworks).
+- Use the following values inside files:
+  - Hero video URL: ${heroVideo || ""}
+  - Image URLs (newline separated): ${imageURLs.join("\n") || ""}
+  - Additional videos: ${videoURLs.join("\n") || ""}
+- Keep file sizes reasonable; do not embed binary data.
+- The JSON must be parseable by JSON.parse() on the receiving end.
+
+**User prompt**:
+${prompt}
     `;
 
-    // ✅ Step 5: Stream Gemini output
+    // Step 5: Stream Gemini output and collect full text
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
@@ -152,13 +181,45 @@ User prompt: ${prompt}
     const model = genAI.getGenerativeModel({ model: API_MODEL });
     const streamResult = await model.generateContentStream(systemInstruction);
 
+    let fullResponse = "";
     try {
       for await (const chunk of streamResult.stream ?? []) {
         const textChunk = chunk.text?.() || chunk.delta?.content || "";
-        if (textChunk)
-          res.write(`data: ${JSON.stringify({ text: textChunk })}\n\n`);
+        if (!textChunk) continue;
+        // Append to collector
+        fullResponse += textChunk;
+        // Send incremental chunk to client
+        res.write(`data: ${JSON.stringify({ text: textChunk })}\n\n`);
       }
-      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+
+      // Attempt to extract and parse the JSON object from the fullResponse
+      let parsed = null;
+      try {
+        // Try to find the first JSON object in the text
+        const firstBrace = fullResponse.indexOf("{");
+        const lastBrace = fullResponse.lastIndexOf("}");
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          const maybeJson = fullResponse.slice(firstBrace, lastBrace + 1);
+          parsed = JSON.parse(maybeJson);
+        }
+      } catch (parseErr) {
+        console.warn("Could not parse JSON from model output:", parseErr);
+        parsed = null;
+      }
+
+      if (parsed && parsed.files && Array.isArray(parsed.files)) {
+        // Send the parsed files as an SSE event
+        res.write(
+          `data: ${JSON.stringify({ files: parsed.files, done: true })}\n\n`
+        );
+      } else {
+        // If parse failed, provide the raw fullResponse as a final event
+        res.write(
+          `data: ${JSON.stringify({ full: fullResponse, done: true })}\n\n`
+        );
+      }
+
+      // End stream marker
       res.write(`data: [DONE]\n\n`);
       res.end();
     } catch (streamErr) {
@@ -174,10 +235,14 @@ User prompt: ${prompt}
     }
   } catch (err) {
     console.error("Generate error:", err);
-    if (!res.headersSent) res.status(500).json({ error: err.message || "Internal server error." });
+    if (!res.headersSent)
+      res.status(500).json({ error: err.message || "Internal server error." });
     else {
       res.write(
-        `data: ${JSON.stringify({ error: err.message || "Internal server error.", done: true })}\n\n`
+        `data: ${JSON.stringify({
+          error: err.message || "Internal server error.",
+          done: true,
+        })}\n\n`
       );
       res.write(`data: [DONE]\n\n`);
       res.end();
