@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-     <link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">
+    <link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">
     <title>Ammoue | AI Site Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -70,6 +70,22 @@
             transform: none;
             box-shadow: none;
         }
+        
+        /* New Styles for Split View */
+        #split-generator-view {
+            min-height: calc(100vh - 4rem); /* Ensure it takes up most of the screen */
+            margin-top: 2rem;
+            border-radius: 1.5rem;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+        }
+
+        #output-code {
+            height: 100%;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
     </style>
 </head>
 <body class="antialiased min-h-screen">
@@ -86,72 +102,106 @@
         </div>
     </div>
 
-    <div id="main-content" class="max-w-4xl mx-auto p-6 lg:p-10 hidden">
-        <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Generate Your AI Website</h1>
-        <p class="text-xl text-gray-500 mb-8">Tell Ammoue exactly what website you want to generate (e.g., 'A modern portfolio site for a UX designer with a dark theme').</p>
+    <div id="main-content" class="max-w-7xl mx-auto p-6 lg:p-10 hidden">
 
-        <textarea id="ai-prompt" rows="6" class="w-full p-4 border-2 border-ammoue/30 rounded-2xl focus:ring-ammoue focus:border-ammoue transition duration-150 shadow-md" placeholder="e.g., 'A vibrant landing page for a dog grooming salon called Paws & Claws, focusing on luxury services and online booking.'"></textarea>
-
-        <div class="mt-6 flex justify-end space-x-4">
-            <a href="dashboard.html" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300 flex items-center">
-                <i data-lucide="layout-dashboard" class="w-4 h-4 mr-1"></i> Dashboard
-            </a>
-            <button id="logout-btn" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300">
-                Log Out
-            </button>
-            <button id="generate-btn" class="px-8 py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-lg shadow-teal-500/30 transform hover:scale-[1.01]">
-                Generate HTML Code
-            </button>
-        </div>
-
-        <div class="mt-10 p-6 bg-white border border-gray-200 rounded-2xl shadow-xl">
-            <h2 class="text-3xl font-extrabold text-ammoue mb-3 flex items-center">
-                <i data-lucide="sparkles" class="w-6 h-6 mr-2"></i> AI Refinement Agent
-            </h2>
-            <p class="text-lg text-gray-500 mb-6">
-                Refine the **current generated code**. Tell the agent what to change, add, or remove.
-            </p>
-
-            <textarea id="refine-prompt" rows="3" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 transition duration-150" placeholder="e.g., 'Make the primary button color a bright orange' or 'Add a 3-column feature section under the hero.'"></textarea>
-
-            <div class="mt-4 flex justify-end">
-                <button id="refine-btn" disabled class="px-8 py-3 text-lg font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300 shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed">
-                    Refine Code
+        <div id="initial-prompt-view" class="max-w-4xl mx-auto">
+            <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Generate Your AI Website</h1>
+            <p class="text-xl text-gray-500 mb-8">Tell Ammoue exactly what website you want to generate (e.g., 'A modern portfolio site for a UX designer with a dark theme').</p>
+    
+            <textarea id="ai-prompt" rows="6" class="w-full p-4 border-2 border-ammoue/30 rounded-2xl focus:ring-ammoue focus:border-ammoue transition duration-150 shadow-md" placeholder="e.g., 'A vibrant landing page for a dog grooming salon called Paws & Claws, focusing on luxury services and online booking.'"></textarea>
+    
+            <div class="mt-6 flex justify-end space-x-4">
+                <a href="dashboard.html" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300 flex items-center">
+                    <i data-lucide="layout-dashboard" class="w-4 h-4 mr-1"></i> Dashboard
+                </a>
+                <button id="logout-btn" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300">
+                    Log Out
+                </button>
+                <button id="generate-btn" class="px-8 py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-lg shadow-teal-500/30 transform hover:scale-[1.01]">
+                    Generate HTML Code
                 </button>
             </div>
         </div>
-        <div id="generation-output" class="mt-12 p-6 bg-white border border-gray-100 rounded-2xl shadow-lg hidden">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-2xl font-bold text-gray-800 flex items-center">
-                    <i data-lucide="code" class="w-5 h-5 mr-2 text-ammoue"></i>
-                    Generated HTML Code
-                </h3>
-                <div class="flex space-x-3">
-                    <button id="copy-btn" class="text-sm font-medium text-ammoue hover:text-teal-600 flex items-center transition duration-200">
-                        <i data-lucide="copy" class="w-4 h-4 mr-1"></i> Copy Code
-                    </button>
-                    <button id="download-btn" disabled class="text-sm font-medium text-blue-600 hover:text-blue-700 disabled:text-gray-400 flex items-center transition duration-200">
-                        <i data-lucide="download" class="w-4 h-4 mr-1"></i> Download HTML
-                    </button>
+
+
+        <div id="split-generator-view" class="hidden flex-row bg-white border border-gray-200 shadow-2xl">
+
+            <div id="chat-panel" class="w-2/5 lg:w-1/3 p-6 flex flex-col">
+                <h2 class="text-3xl font-extrabold text-ammoue mb-2 flex items-center">
+                    <i data-lucide="sparkles" class="w-6 h-6 mr-2"></i> AI Refinement Agent
+                </h2>
+                <p class="text-sm text-gray-500 mb-4">
+                    Modify the **client-side preview** instantly, then deploy.
+                </p>
+
+                <div id="chat-history" class="flex-grow overflow-y-auto mb-4 p-3 rounded-xl bg-gray-50 border border-gray-200">
+                    <p class="text-gray-500 italic text-sm">
+                        Conversation history will appear here. Initial Prompt: **"<span id="initial-prompt-display"></span>"**
+                    </p>
+                </div>
+                
+                <div id="refine-agent-controls" class="mt-auto">
+                    <textarea id="refine-prompt" rows="3" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 transition duration-150 mb-3" placeholder="e.g., 'Make the primary button color a bright orange' or 'Add a 3-column feature section under the hero.'"></textarea>
+    
+                    <div class="flex justify-end space-x-3">
+                        <button id="refine-btn" disabled class="px-6 py-2 text-base font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300 shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed">
+                            Refine Code
+                        </button>
+                    </div>
                 </div>
             </div>
-            
-            <pre class="bg-gray-100 p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm">
-                <code id="output-code" class="whitespace-pre"></code>
-            </pre>
-            
-            <button id="preview-btn" class="mt-4 px-6 py-2 text-base font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300">
-                Preview Site (Will open in a new tab)
-            </button>
 
-            <div id="deployment-error-message" class="mt-4 p-4 rounded-xl text-center border-2 border-red-400 bg-red-100 text-red-700 font-semibold text-sm hidden">
+            <div id="output-panel" class="w-3/5 lg:w-2/3 p-6 bg-gray-50 border-l border-gray-200 flex flex-col">
+                
+                <div class="flex justify-between items-center mb-4">
+                    <div class="flex space-x-4 border-b border-gray-300">
+                        <button id="tab-code" data-target="code-view" class="tab-button p-2 text-base font-semibold text-ammoue border-b-2 border-ammoue transition duration-200 flex items-center">
+                            <i data-lucide="code" class="w-4 h-4 mr-1"></i> HTML Code
+                        </button>
+                        <button id="tab-preview" data-target="preview-view" class="tab-button p-2 text-base font-semibold text-gray-500 hover:text-ammoue transition duration-200 flex items-center">
+                            <i data-lucide="monitor" class="w-4 h-4 mr-1"></i> Live Preview (Client-Side)
+                        </button>
+                    </div>
+                    <div class="flex space-x-3">
+                        <button id="copy-btn" class="text-sm font-medium text-ammoue hover:text-teal-600 flex items-center transition duration-200">
+                            <i data-lucide="copy" class="w-4 h-4 mr-1"></i> Copy
+                        </button>
+                        <button id="download-btn" disabled class="text-sm font-medium text-gray-600 hover:text-blue-700 disabled:text-gray-400 flex items-center transition duration-200">
+                            <i data-lucide="download" class="w-4 h-4 mr-1"></i> Download
+                        </button>
+                    </div>
                 </div>
+
+                <div class="flex-grow relative">
+
+                    <div id="code-view" class="absolute inset-0">
+                        <pre class="bg-white p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm h-full">
+                            <code id="output-code" class="whitespace-pre"></code>
+                        </pre>
+                    </div>
+                    
+                    <div id="preview-view" class="absolute inset-0 hidden">
+                        <iframe id="live-preview-iframe" class="w-full h-full border border-gray-300 rounded-xl bg-white shadow-inner"></iframe>
+                    </div>
+
+                </div>
+
+                <div class="mt-4 pt-4 border-t border-gray-200">
+                    <button id="deploy-btn" disabled class="px-8 py-3 text-lg font-bold rounded-xl text-white bg-green-600 hover:bg-green-700 transition duration-300 shadow-lg shadow-green-500/30 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.01]">
+                        Deploy Site Now (Uses 1 Deployment)
+                    </button>
+                    
+                    <div id="deployment-error-message" class="mt-3 p-4 rounded-xl text-center border-2 border-red-400 bg-red-100 text-red-700 font-semibold text-sm hidden">
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
+
+
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-    // 🚨 UPDATED: Added doc, getDoc, updateDoc for plan fetching and project ID management
     import { getFirestore, collection, addDoc, doc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
     
     const firebaseConfig = {
@@ -172,27 +222,41 @@
     const loadingState = document.getElementById('loading-state');
     const mainContent = document.getElementById('main-content');
     const logoutBtn = document.getElementById('logout-btn');
+    
+    // --- Initial View Elements ---
+    const initialPromptView = document.getElementById('initial-prompt-view');
     const generateBtn = document.getElementById('generate-btn');
-    const downloadBtn = document.getElementById('download-btn');
     const promptInput = document.getElementById('ai-prompt');
-    const outputDiv = document.getElementById('generation-output');
-    const outputCode = document.getElementById('output-code');
-    const copyBtn = document.getElementById('copy-btn');
-    const previewBtn = document.getElementById('preview-btn');
-    const messageBox = document.getElementById('message-box');
+
+    // --- Split View Elements ---
+    const splitGeneratorView = document.getElementById('split-generator-view');
+    const initialPromptDisplay = document.getElementById('initial-prompt-display');
+    const chatHistory = document.getElementById('chat-history');
     const refinePromptInput = document.getElementById('refine-prompt');
     const refineBtn = document.getElementById('refine-btn');
-    // 🚨 NEW DOM ELEMENT
+
+    // --- Output Panel Elements ---
+    const outputCode = document.getElementById('output-code');
+    const copyBtn = document.getElementById('copy-btn');
+    const downloadBtn = document.getElementById('download-btn');
+    const deployBtn = document.getElementById('deploy-btn'); // NEW DEPLOY BUTTON
     const deploymentErrorMessage = document.getElementById('deployment-error-message'); 
+    
+    // --- Tab Elements ---
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const codeView = document.getElementById('code-view');
+    const previewView = document.getElementById('preview-view');
+    const livePreviewIframe = document.getElementById('live-preview-iframe');
 
     let listenersAttached = false;
     let latestHtmlContent = ''; 
     let latestPrompt = ''; 
     let latestDeploymentUrl = ''; // ✅ per-user GitHub Pages URL
-    let currentProjectId = null; // 🚨 NEW: Store the project ID after initial save
+    let currentProjectId = null; 
+    let currentBlobUrl = null; // NEW: For client-side preview
 
     function showMessage(message, isError) {
-        // ... (showMessage function body)
+        // Implementation remains the same
         messageBox.textContent = message;
         messageBox.classList.toggle('bg-red-500', isError);
         messageBox.classList.toggle('bg-ammoue', !isError);
@@ -204,49 +268,70 @@
         }, 4000);
     }
 
-    // Consolidated loading function for primary button
+    // Consolidated loading function for primary buttons
     function setLoading(isLoading, isRefining = false) {
-        // ... (setLoading function body)
         if (isLoading) {
             generateBtn.disabled = true;
             refineBtn.disabled = true;
-            downloadBtn.disabled = true;
+            deployBtn.disabled = true; // Disable deploy button during generation/refinement
+            
             const loadingText = isRefining ? 'Refining...' : 'Building...';
             const buttonToUpdate = isRefining ? refineBtn : generateBtn;
+            
+            // Only update the Generate/Refine button text
             buttonToUpdate.innerHTML = `<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> ${loadingText}`;
         } else {
             generateBtn.disabled = false;
             refineBtn.disabled = !latestHtmlContent;
+            deployBtn.disabled = !latestHtmlContent; // Enable deploy button after success
             downloadBtn.disabled = !latestHtmlContent;
+
             generateBtn.innerHTML = 'Generate HTML Code';
             refineBtn.innerHTML = 'Refine Code';
         }
     }
 
     /**
-     * Helper to set Preview Button state (deployed vs. not).
+     * Helper to update the client-side iframe preview using Blob URL.
      */
-    function setPreviewButton(url, isDeploying = false) {
-        // ... (setPreviewButton function body)
-        previewBtn.disabled = !url || isDeploying; 
-        
-        previewBtn.classList.remove('bg-green-600', 'bg-blue-600', 'bg-yellow-600', 'bg-red-500', 'bg-gray-400', 'cursor-not-allowed', 'cursor-pointer');
+    function updateLivePreview(html) {
+        if (currentBlobUrl) {
+            URL.revokeObjectURL(currentBlobUrl); // Clean up previous Blob URL
+        }
+        const blob = new Blob([html], { type: 'text/html' });
+        currentBlobUrl = URL.createObjectURL(blob);
+        livePreviewIframe.src = currentBlobUrl;
+    }
+
+    /**
+     * Helper to set Deploy Button state.
+     */
+    function setDeployButton(url, isDeploying = false) {
+        const btn = deployBtn;
+        btn.classList.remove('bg-green-600', 'bg-yellow-600', 'bg-red-500', 'bg-gray-400');
 
         if (isDeploying) {
-            // Note: The countdown logic updates the text in handleDeployment
-            previewBtn.textContent = 'Deployment in Progress (Wait 15s)'; 
-            previewBtn.classList.add('bg-yellow-600', 'cursor-not-allowed');
+            btn.textContent = 'Deployment in Progress (Wait 30s)'; 
+            btn.classList.add('bg-yellow-600', 'cursor-not-allowed');
+            btn.disabled = true;
         } else if (url) {
-            previewBtn.textContent = 'Preview Site (Open Deployment)';
-            previewBtn.classList.add('bg-green-600', 'cursor-pointer');
+            btn.textContent = 'Preview Deployed Site';
+            btn.classList.add('bg-green-600', 'cursor-pointer');
+            btn.disabled = false;
+            // Attach external preview handler here if needed, or rely on a generic click handler
+        } else if (latestHtmlContent) {
+            btn.textContent = 'Deploy Site Now (Uses 1 Deployment)';
+            btn.classList.add('bg-green-600', 'cursor-pointer');
+            btn.disabled = false;
         } else {
-            previewBtn.textContent = 'Preview Site (Deployment Pending)';
-            previewBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+            btn.textContent = 'Deploy Site (Generate First)';
+            btn.classList.add('bg-gray-400', 'cursor-not-allowed');
+            btn.disabled = true;
         }
     }
 
     function copyToClipboard(text) {
-        // ... (copyToClipboard function body)
+        // ... (copyToClipboard function body remains the same)
         try {
             const textarea = document.createElement('textarea');
             textarea.value = text;
@@ -261,7 +346,7 @@
     }
 
     function handleDownload() {
-        // ... (handleDownload function body)
+        // ... (handleDownload function body remains the same)
         if (!outputCode.textContent) return showMessage("No HTML code to download.", true);
         const blob = new Blob([outputCode.textContent], { type: "text/html" });
         const link = document.createElement("a");
@@ -273,18 +358,19 @@
         showMessage("Download started!", false);
     }
 
-    // 🚨 UPDATED: Handle Deployment
-    async function handleDeployment(plan, projectId) {
-        // 1. Hide the error container at the start of any new deployment attempt
+    // 🚨 UPDATED: Handle Deployment (Called manually by deployBtn)
+    async function handleDeployment() {
+        const userPlan = await getUserPlan(currentUserId);
+
         deploymentErrorMessage.classList.add('hidden'); 
 
         if (!currentUserId) return showMessage("Authentication error: User ID is missing.", true); 
         if (!latestHtmlContent) return showMessage("No HTML content to deploy.", true);
-        if (!plan) return showMessage("System Error: User plan is missing.", true);
-        if (!projectId) return showMessage("System Error: Project ID is missing.", true);
+        if (!userPlan) return showMessage("System Error: User plan is missing.", true);
+        if (!currentProjectId) return showMessage("System Error: Project ID is missing. Generate a new site.", true);
+        if (latestDeploymentUrl) return window.open(latestDeploymentUrl, "_blank"); // If already deployed, open it
 
-        // Set the button to a 'deploying' state, immediately disabled
-        setPreviewButton(latestDeploymentUrl, true);
+        setDeployButton(null, true); // Set the button to a 'deploying' state
         
         try {
             const response = await fetch("/api/deploy", {
@@ -293,8 +379,8 @@
                 body: JSON.stringify({ 
                     htmlContent: latestHtmlContent,
                     userId: currentUserId,
-                    plan: plan,      // <--- ADDED 
-                    projectId: projectId // <--- ADDED
+                    plan: userPlan,
+                    projectId: currentProjectId 
                 }),
             });
 
@@ -305,33 +391,28 @@
 
                 showMessage("✅ Deployment initiated. Waiting 30 seconds for propagation...", false);
 
-                // --- START OF 30 SECOND DELAY LOGIC (Updated to 30s) ---
+                // --- START OF 30 SECOND DELAY LOGIC ---
                 const delayInSeconds = 30;
                 let countdown = delayInSeconds;
                 const interval = setInterval(() => {
                     countdown--;
-                    // Update the button text with the countdown
-                    previewBtn.textContent = `Preview Site (Wait ${countdown}s)`;
+                    deployBtn.textContent = `Deployment Live (Wait ${countdown}s for DNS)`;
                     if (countdown <= 0) {
                         clearInterval(interval);
-                        // After 30 seconds, enable the button and set the final success state
-                        setPreviewButton(latestDeploymentUrl, false); 
-                        showMessage("Deployment is likely complete. You can now preview the site!", false);
+                        setDeployButton(latestDeploymentUrl, false); 
+                        showMessage("Deployment is complete. You can now preview the live URL!", false);
                     }
                 }, 1000);
                 // --- END OF 30 SECOND DELAY LOGIC ---
                 
-                // Update Firestore with the final URL immediately to prevent re-deployment from counting against limit
-                await updateProjectDeploymentUrl(projectId, latestDeploymentUrl);
+                // Update Firestore with the final URL immediately
+                await updateProjectDeploymentUrl(currentProjectId, latestDeploymentUrl);
 
             } else {
                 console.error("Vercel Deployment Failed:", result);
 
-                // 🚨 CRITICAL FIX: Explicitly check for the 403 Forbidden status
                 if (response.status === 403) {
                     const maxDeployments = result.maxDeployments || 1; 
-                    
-                    // 💥 NEW: Populate and display the dedicated error container
                     deploymentErrorMessage.innerHTML = `
                         <div class="text-xl mb-1 flex items-center justify-center">
                             <i data-lucide="alert-triangle" class="w-6 h-6 mr-2"></i>
@@ -341,9 +422,7 @@
                         Please **upgrade your plan** to deploy more new sites, or use the **AI Refinement Agent** to modify your existing site.
                     `;
                     deploymentErrorMessage.classList.remove('hidden');
-                    lucide.createIcons(); // Re-render icons inside the new div
-                    
-                    // Throw an error to ensure the rest of the 'catch' block runs for button resetting
+                    lucide.createIcons();
                     throw new Error("FREE Plan Limit Reached."); 
                 }
 
@@ -352,54 +431,52 @@
         } catch (error) {
             console.error("Deployment Error:", error);
 
-            // Check if the error is the FREE plan limit error
             const isFreePlanError = error.message.includes('FREE Plan Limit Reached');
             
-            // If it's a generic error (not the free plan limit error), still use the floating box
             if (!isFreePlanError) {
-                 showMessage(`❌ Deployment failed: ${error.message}`, true);
-                 latestDeploymentUrl = ""; // Only clear the URL for non-limit fatal errors
+                showMessage(`❌ Deployment failed: ${error.message}`, true);
+                latestDeploymentUrl = ""; // Clear URL for fatal errors
             }
-           
-            setPreviewButton(latestDeploymentUrl, false); // Reset button state
             
-            previewBtn.classList.remove("bg-yellow-600", "bg-green-600");
-            previewBtn.classList.add("bg-red-500");
-            previewBtn.textContent = isFreePlanError ? "Deployment Failed" : "Deployment Failed (Retry?)";
+            setDeployButton(latestDeploymentUrl, false); 
+            
+            deployBtn.classList.remove("bg-yellow-600", "bg-green-600");
+            deployBtn.classList.add("bg-red-500");
+            deployBtn.textContent = isFreePlanError ? "Deployment Failed" : "Deployment Failed (Retry?)";
         }
     }
-
-    // ✅ Updated: Handle Preview Button Click
+    
+    // Function to handle the opening of the live deployment URL
     function handlePreview() {
-        // ... (handlePreview function body)
-        if (!latestDeploymentUrl) {
-            showMessage("Site not deployed yet or deployment failed.", true);
-            return;
+        if (!deployBtn.disabled && latestDeploymentUrl) {
+            window.open(latestDeploymentUrl, "_blank");
+        } else if (currentBlobUrl) {
+             // If we are in the initial state, show the client-side preview
+             window.open(currentBlobUrl, "_blank");
         }
-        window.open(latestDeploymentUrl, "_blank");
     }
 
-    // 🚨 NEW: Function to get the user's plan
+
     async function getUserPlan(userId) {
+        // ... (getUserPlan function body remains the same)
         try {
             const userDocRef = doc(db, "users", userId);
             const userDoc = await getDoc(userDocRef);
             return userDoc.exists() ? userDoc.data().plan || 'free' : 'free';
         } catch (error) {
             console.error("Failed to fetch user plan:", error);
-            return 'free'; // Default to free plan on error
+            return 'free'; 
         }
     }
 
-    // 🚨 UPDATED: Auto-Save Project and return the Document ID
     async function autoSaveProject(htmlContent, userPrompt, existingProjectId = null) {
+        // ... (autoSaveProject function body remains the same)
         if (!currentUserId || !htmlContent) return null;
 
         try {
             const projectsRef = collection(db, "artifacts", appId, "users", currentUserId, "projects");
             
             if (existingProjectId) {
-                // Case 1: Updating an existing project (Refine scenario)
                 const docRef = doc(projectsRef, existingProjectId);
                 await updateDoc(docRef, {
                     prompt: userPrompt.replace(/\\n/g, "\n"),
@@ -410,15 +487,14 @@
                 return existingProjectId;
 
             } else {
-                // Case 2: Creating a brand new project (Generate scenario)
                 const newDocRef = await addDoc(projectsRef, {
                     prompt: userPrompt.replace(/\\n/g, "\n"),
                     htmlContent,
-                    deploymentUrl: null, // Initial save without deployment URL
+                    deploymentUrl: null,
                     createdAt: serverTimestamp(),
                 });
                 console.log("New project saved successfully (Generate).");
-                return newDocRef.id; // CRITICAL: Return the new ID
+                return newDocRef.id;
             }
         } catch (error) {
             console.error("Error during auto-save:", error);
@@ -427,8 +503,8 @@
         }
     }
     
-    // 🚨 NEW: Function to update the deployment URL after deployment succeeds
     async function updateProjectDeploymentUrl(projectId, deploymentUrl) {
+        // ... (updateProjectDeploymentUrl function body remains the same)
         if (!currentUserId || !projectId) return;
         try {
             const projectDocRef = doc(db, "artifacts", appId, "users", currentUserId, "projects", projectId);
@@ -439,19 +515,35 @@
             console.error("Failed to update deployment URL in Firestore:", error);
         }
     }
+    
+    // Function to add a message to the chat history panel
+    function addChatMessage(text, isUser) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `p-3 my-2 rounded-xl text-sm ${isUser ? 'bg-blue-100 text-blue-900 self-end' : 'bg-green-100 text-green-900 self-start'} max-w-[90%] break-words`;
+        messageDiv.style.alignSelf = isUser ? 'flex-end' : 'flex-start';
+        messageDiv.textContent = text;
+        chatHistory.appendChild(messageDiv);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
 
     async function handleGeneration() {
         const prompt = promptInput.value.trim();
         if (prompt.length < 10) return showMessage("Please provide a detailed prompt (min 10 chars).", true);
 
         setLoading(true);
-        outputDiv.classList.remove("hidden");
         outputCode.textContent = "";
         latestHtmlContent = "";
-        latestDeploymentUrl = ""; // Reset deployment URL
-        setPreviewButton(null, false); // Disable and reset preview button
-        latestPrompt = prompt;
-        currentProjectId = null; // Reset project ID for a new generation
+        latestDeploymentUrl = ""; 
+        currentProjectId = null; 
+        deploymentErrorMessage.classList.add('hidden');
+
+        // 1. Transition to split view and set initial prompt display
+        initialPromptView.classList.add('hidden');
+        splitGeneratorView.classList.remove('hidden');
+        initialPromptDisplay.textContent = prompt;
+        chatHistory.innerHTML = ''; // Clear chat history
+        addChatMessage(prompt, true); // Add user prompt to chat history
 
         const response = await fetch("/api/generate.js", {
             method: "POST",
@@ -469,7 +561,11 @@
         let buffer = "";
         let html = "";
 
-        // ... (Live typing effect logic remains the same)
+        // Start adding AI message for streaming effect
+        addChatMessage("", false); 
+        const aiMessageDiv = chatHistory.lastElementChild;
+        let aiMessageText = "";
+
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
@@ -486,39 +582,40 @@
                 try {
                     const parsed = JSON.parse(data);
                     if (parsed.text) {
+                        // Stream HTML to code block
                         html += parsed.text;
                         await typeHtmlLive(parsed.text);
+                        
+                        // Stream a generic "Thinking..." message to chat (optional/can be removed if too fast)
+                        // aiMessageText += parsed.text; // Uncomment if you want to stream the code into the chat too
+                        // aiMessageDiv.textContent = aiMessageText; 
+                        // chatHistory.scrollTop = chatHistory.scrollHeight;
                     }
                 } catch {}
             }
         }
-
+        
+        // Finalize AI Chat message
+        aiMessageDiv.textContent = "HTML code generated successfully. Ready for refinement or deployment.";
+        
         latestHtmlContent = html.trim();
         if (latestHtmlContent) {
-            showMessage("Website built live! Starting deployment.", false);
-            downloadBtn.disabled = false;
-            refineBtn.disabled = false;
+            showMessage("Website built live! View the preview on the right.", false);
             
-            // 🚨 CRITICAL: Get plan and project ID BEFORE deployment
+            // 2. Update Live Preview
+            updateLivePreview(latestHtmlContent);
+
+            // 3. Auto-Save Project and enable refinement/deployment
             currentProjectId = await autoSaveProject(latestHtmlContent, prompt, null);
-            const userPlan = await getUserPlan(currentUserId);
-
-            if (currentProjectId) {
-                await handleDeployment(userPlan, currentProjectId); // <--- PASS REQUIRED PARAMS
-            } else {
-                 showMessage("Deployment skipped: Failed to save project for ID.", true);
-            }
-
+            setLoading(false); // This enables refineBtn and deployBtn
+            
         } else {
             showMessage("No HTML generated.", true);
+            setLoading(false);
         }
-
-        setLoading(false);
     }
 
-    // Live typing effect function
     async function typeHtmlLive(newText) {
-        // ... (typeHtmlLive function body)
         for (let i = 0; i < newText.length; i++) {
             outputCode.textContent += newText[i];
             outputCode.scrollTop = outputCode.scrollHeight; 
@@ -530,9 +627,16 @@
         const refinePrompt = refinePromptInput.value.trim();
         if (!latestHtmlContent) return showMessage("Generate HTML first.", true);
         if (refinePrompt.length < 5) return showMessage("Enter refinement instruction.", true);
-        if (!currentProjectId) return showMessage("Cannot refine: Project ID missing. Generate a new site.", true); // Should not happen
+        if (!currentProjectId) return showMessage("Cannot refine: Project ID missing. Generate a new site.", true);
 
-        setLoading(true, true); // Use the combined loading function for refining
+        setLoading(true, true); 
+        deploymentErrorMessage.classList.add('hidden');
+        latestDeploymentUrl = ""; // Reset deployment URL on refinement
+        setDeployButton(null, false); // Reset deploy button state (back to initial deploy)
+        
+        addChatMessage(refinePrompt, true); // Add user refinement prompt
+        addChatMessage("Refining code based on your instruction...", false); // AI response placeholder
+        const aiMessageDiv = chatHistory.lastElementChild;
 
         const payload = { currentHtml: latestHtmlContent, refinePrompt };
         const maxRetries = 3;
@@ -552,32 +656,54 @@
                 if (generatedHtml) {
                     latestHtmlContent = generatedHtml.trim();
                     outputCode.textContent = latestHtmlContent;
-                    latestDeploymentUrl = ""; // Reset deployment URL on refinement
-                    setPreviewButton(null, false); // Reset preview button
                     
-                    // 🚨 CRITICAL: Get plan for re-deployment
-                    const userPlan = await getUserPlan(currentUserId);
-                    await handleDeployment(userPlan, currentProjectId); // <--- PASS REQUIRED PARAMS
+                    updateLivePreview(latestHtmlContent); // Update client-side preview instantly
 
                     latestPrompt += `\n\n[Refined]: ${refinePrompt}`;
                     await autoSaveProject(latestHtmlContent, latestPrompt, currentProjectId); // Update existing project
                     
-                    showMessage("Code refined, deployed, and auto-saved!", false);
+                    aiMessageDiv.textContent = "Code successfully refined. Check the updated preview.";
+                    showMessage("Code refined and auto-saved! Deployment reset.", false);
                     refinePromptInput.value = '';
                     break;
                 } else {
                     throw new Error("API missing htmlCode.");
                 }
             } catch (error) {
-                if (attempt === maxRetries - 1) showMessage("Refinement failed.", true);
+                if (attempt === maxRetries - 1) {
+                    aiMessageDiv.textContent = "Refinement failed. Try a simpler instruction.";
+                    showMessage("Refinement failed.", true);
+                }
                 else await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 1000));
             }
         }
 
         setLoading(false);
     }
+    
+    // --- Tab Switching Logic ---
+    function handleTabSwitch(e) {
+        const target = e.currentTarget.dataset.target;
 
-    // ... (Placeholder typing effect logic) ...
+        tabButtons.forEach(btn => {
+            btn.classList.remove('text-ammoue', 'border-ammoue');
+            btn.classList.add('text-gray-500');
+        });
+
+        e.currentTarget.classList.add('text-ammoue', 'border-ammoue');
+        e.currentTarget.classList.remove('text-gray-500');
+        
+        if (target === 'code-view') {
+            codeView.classList.remove('hidden');
+            previewView.classList.add('hidden');
+        } else {
+            codeView.classList.add('hidden');
+            previewView.classList.remove('hidden');
+        }
+    }
+
+
+    // ... (Placeholder typing effect logic remains the same) ...
     const placeholderPrompts = [
         "A minimalist portfolio for a futuristic fashion designer.",
         "A quirky online café with interactive menu animations.",
@@ -635,14 +761,24 @@
             loadingState.classList.add('hidden');
             loadingState.style.opacity = '0';
             mainContent.classList.remove('hidden');
-            setPreviewButton(latestDeploymentUrl, false); // Initial button state
+            setDeployButton(latestDeploymentUrl, false); // Initial button state
+            
             if (!listenersAttached) {
+                // Initial View Listeners
                 generateBtn.addEventListener('click', handleGeneration);
+                
+                // Split View Listeners
                 refineBtn.addEventListener('click', handleRefine);
+                deployBtn.addEventListener('click', handleDeployment); // Manual deployment trigger
+                
+                // Output/Tab Listeners
                 copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
                 downloadBtn.addEventListener('click', handleDownload);
-                previewBtn.addEventListener('click', handlePreview);
+                tabButtons.forEach(btn => btn.addEventListener('click', handleTabSwitch));
+                
+                // Global Listeners
                 logoutBtn.addEventListener('click', async () => { try { await signOut(auth); } catch {} });
+                
                 typePlaceholderEffect();
                 listenersAttached = true;
             }
