@@ -74,7 +74,6 @@
             padding-top: 1rem;
             border-top: 1px solid #e5e7eb;
             background-color: #ffffff;
-            /* Optional: Make it slightly stick to the bottom edge of the panel */
         }
 
         /* Ensure Code View and Preview take max height inside the 60% panel */
@@ -226,8 +225,8 @@
                     <textarea id="refine-prompt" rows="3" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 transition duration-150 mb-3" placeholder="Tell the AI what to change, e.g., 'Make the primary button color a bright orange'"></textarea>
     
                     <div class="flex justify-end space-x-3">
-                        <button id="refine-btn" disabled class="px-6 py-2 text-base font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300 shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed">
-                            Send Message
+                        <button id="refine-btn" disabled class="px-6 py-2 text-xl font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300 shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center">
+                            ➤
                         </button>
                     </div>
                 </div>
@@ -364,7 +363,13 @@
             const loadingText = isRefining ? 'Refining...' : 'Building...';
             const buttonToUpdate = isRefining ? refineBtn : generateBtn;
             
-            buttonToUpdate.innerHTML = `<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> ${loadingText}`;
+            if (buttonToUpdate === generateBtn) {
+                buttonToUpdate.innerHTML = `<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> ${loadingText}`;
+            } else {
+                // Refine button shows the spinner and loading text temporarily
+                buttonToUpdate.innerHTML = `<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+            }
+
         } else {
             generateBtn.disabled = false;
             refineBtn.disabled = !latestHtmlContent;
@@ -372,7 +377,7 @@
             downloadBtn.disabled = !latestHtmlContent;
 
             generateBtn.innerHTML = 'Generate HTML Code';
-            buttonToUpdate.innerHTML = 'Send Message';
+            refineBtn.innerHTML = '➤'; 
         }
     }
 
@@ -700,6 +705,7 @@
         setDeployButton(null, false); 
         
         addChatMessage(refinePrompt, true);
+        refinePromptInput.value = ''; // Clear input immediately
         const aiMessageDiv = addChatMessage("Got it! I'm updating the code now. Give me a moment...", false);
 
         // This is the call to the refinement handler API
@@ -729,7 +735,6 @@
                     
                     aiMessageDiv.textContent = "Refinement complete! Your site is updated on the right. What's the next change?";
                     showMessage("Code refined and auto-saved! Deployment reset.", false);
-                    refinePromptInput.value = '';
                     break;
                 } else {
                     throw new Error("API missing htmlCode.");
