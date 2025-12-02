@@ -52,19 +52,40 @@
             height: 100vh; 
             padding-top: 5rem; /* Space for the fixed header */
             box-sizing: border-box; /* Include padding in height calculation */
+            position: relative; /* Needed for absolute positioning of chat input */
         }
         
+        /* Chat Panel Setup */
+        #chat-panel {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Chat History Box (takes all vertical space between header/title and input) */
+        #chat-history {
+            flex-grow: 1; 
+            overflow-y: auto;
+            display: flex; /* Makes the chat bubbles stack nicely */
+            flex-direction: column;
+        }
+
+        /* Chat Input Area (fixed to the bottom of the panel) */
+        #refine-agent-controls {
+            padding-top: 1rem;
+            border-top: 1px solid #e5e7eb;
+            background-color: #ffffff;
+            /* Optional: Make it slightly stick to the bottom edge of the panel */
+        }
+
         /* Ensure Code View and Preview take max height inside the 60% panel */
         #code-view, #preview-view {
-            /* This flex-grow handles the space between tabs and footer */
             flex-grow: 1; 
-            position: relative; /* Need this for absolute inset-0 children */
-            min-height: 0; /* Important for flex items to shrink correctly */
+            position: relative; 
+            min-height: 0; 
         }
 
         /* Make the code readable and scrollable, stretching to fill available space */
         #output-code-container {
-            /* This is the PRE element */
             height: 100%;
             overflow-y: auto;
             white-space: pre-wrap;
@@ -75,35 +96,33 @@
         #chat-history .chat-bubble {
             padding: 10px 15px;
             margin-bottom: 10px;
-            border-radius: 12px;
+            border-radius: 18px; /* More rounded, "lovelier" look */
             font-size: 0.95rem;
             max-width: 90%;
             line-height: 1.4;
-            display: flex; /* For inline emoji/text alignment */
+            display: flex; 
             align-items: flex-start;
         }
         #chat-history .user-message {
-            background-color: #dbeafe; /* Blue-100 */
-            color: #1e40af; /* Blue-800 */
+            background-color: #dbeafe; 
+            color: #1e40af; 
             align-self: flex-end;
             border-bottom-right-radius: 4px;
         }
         #chat-history .ai-message {
-            background-color: #ecfdf5; /* Teal-50 */
-            color: #047857; /* Teal-700 */
+            background-color: #ecfdf5; 
+            color: #047857; 
             align-self: flex-start;
             border-bottom-left-radius: 4px;
-            /* Added margin for icon space */
-            padding-left: 5px; 
         }
         #chat-history .ai-message .agent-icon {
             margin-right: 8px;
             font-size: 1.2rem;
+            line-height: 1;
         }
 
         /* Initial Prompt View positioning */
         #initial-prompt-view-wrapper {
-            /* Ensures initial view is centered */
             max-width: 7xl;
             margin-left: auto;
             margin-right: auto;
@@ -121,7 +140,7 @@
             align-items: center;
             justify-content: center;
             background-color: #fff;
-            z-index: 1000; /* Increased z-index */
+            z-index: 1000;
             transition: opacity 0.3s ease-in-out; 
         }
         #message-box {
@@ -129,7 +148,7 @@
             top: 20px;
             left: 50%;
             transform: translateX(-50%);
-            z-index: 2000; /* Highest z-index */
+            z-index: 2000; 
             opacity: 0;
             transition: opacity 0.3s ease-in-out;
         }
@@ -187,14 +206,14 @@
         </div>
 
 
-        <div id="split-generator-view" class="hidden flex-row bg-white">
+        <div id="split-generator-view" class="hidden flex flex-row bg-white">
 
             <div id="chat-panel" class="w-2/5 p-6 flex flex-col border-r border-gray-200">
                 <h2 class="text-3xl font-extrabold text-ammoue mb-2 flex items-center">
-                    <i data-lucide="message-square-text" class="w-6 h-6 mr-2"></i> AI Refinement Chat
+                    <i data-lucide="message-square-text" class="w-6 h-6 mr-2"></i> AI Chat Agent
                 </h2>
                 <p class="text-sm text-gray-500 mb-4">
-                    Refine the client-side preview instantly. The chat saves your conversation.
+                    Ask the agent to refine, change colors, or add sections to your site instantly.
                 </p>
 
                 <div id="chat-history" class="flex-grow overflow-y-auto mb-4 p-3 rounded-xl bg-gray-50 border border-gray-200 flex flex-col">
@@ -203,12 +222,12 @@
                     </p>
                 </div>
                 
-                <div id="refine-agent-controls" class="mt-auto pt-4 border-t border-gray-200">
-                    <textarea id="refine-prompt" rows="3" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 transition duration-150 mb-3" placeholder="e.g., 'Make the primary button color a bright orange' or 'Add a 3-column feature section under the hero.'"></textarea>
+                <div id="refine-agent-controls" class="mt-auto pt-4 border-t border-gray-200 bg-white">
+                    <textarea id="refine-prompt" rows="3" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 transition duration-150 mb-3" placeholder="Tell the AI what to change, e.g., 'Make the primary button color a bright orange'"></textarea>
     
                     <div class="flex justify-end space-x-3">
                         <button id="refine-btn" disabled class="px-6 py-2 text-base font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300 shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed">
-                            Refine Code
+                            Send Message
                         </button>
                     </div>
                 </div>
@@ -353,7 +372,7 @@
             downloadBtn.disabled = !latestHtmlContent;
 
             generateBtn.innerHTML = 'Generate HTML Code';
-            refineBtn.innerHTML = 'Refine Code';
+            buttonToUpdate.innerHTML = 'Send Message';
         }
     }
 
@@ -567,6 +586,7 @@
         messageDiv.className = `chat-bubble ${isUser ? 'user-message' : 'ai-message'}`;
         
         if (!isUser) {
+            // Added the 🤖 emoji for the AI message
             messageDiv.innerHTML = `<span class="agent-icon">🤖</span><span class="message-text">${text}</span>`;
         } else {
             messageDiv.textContent = text;
@@ -616,7 +636,7 @@
         let buffer = "";
         let html = "";
 
-        const aiMessageDiv = addChatMessage("Generating HTML...", false);
+        const aiMessageDiv = addChatMessage("Generating HTML... Hold tight! I'm weaving the code now.", false);
 
         while (true) {
             const { done, value } = await reader.read();
@@ -636,14 +656,14 @@
                     if (parsed.text) {
                         html += parsed.text;
                         await typeHtmlLive(parsed.text);
-                        aiMessageDiv.textContent = "HTML Code streaming...";
+                        aiMessageDiv.textContent = "HTML Code streaming... The preview is coming to life on the right!";
                     }
                 } catch {}
             }
         }
         
         // 3. Finalization, Auto-Save, and READY FOR REFINEMENT (Refinement Handler setup)
-        aiMessageDiv.textContent = "HTML code generated successfully. Ready for refinement or deployment.";
+        aiMessageDiv.textContent = "HTML code generated successfully. Tell me what you'd like to refine or change next!";
         
         latestHtmlContent = html.trim();
         if (latestHtmlContent) {
@@ -680,7 +700,7 @@
         setDeployButton(null, false); 
         
         addChatMessage(refinePrompt, true);
-        const aiMessageDiv = addChatMessage("Refining code based on your instruction...", false);
+        const aiMessageDiv = addChatMessage("Got it! I'm updating the code now. Give me a moment...", false);
 
         // This is the call to the refinement handler API
         const payload = { currentHtml: latestHtmlContent, refinePrompt };
@@ -707,7 +727,7 @@
                     latestPrompt += `\n\n[Refined]: ${refinePrompt}`;
                     await autoSaveProject(latestHtmlContent, latestPrompt, currentProjectId);
                     
-                    aiMessageDiv.textContent = "Code successfully refined. Check the updated preview.";
+                    aiMessageDiv.textContent = "Refinement complete! Your site is updated on the right. What's the next change?";
                     showMessage("Code refined and auto-saved! Deployment reset.", false);
                     refinePromptInput.value = '';
                     break;
@@ -716,7 +736,7 @@
                 }
             } catch (error) {
                 if (attempt === maxRetries - 1) {
-                    aiMessageDiv.textContent = "Refinement failed. Try a simpler instruction.";
+                    aiMessageDiv.textContent = "Whoops! Refinement failed. Could you try a different instruction? I might be confused!";
                     showMessage("Refinement failed.", true);
                 }
                 else await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 1000));
