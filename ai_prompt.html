@@ -73,18 +73,48 @@
         
         /* New Styles for Split View */
         #split-generator-view {
-            min-height: calc(100vh - 4rem); /* Ensure it takes up most of the screen */
+            /* Maximize vertical space for a better coding experience */
+            min-height: calc(100vh - 4rem); 
             margin-top: 2rem;
             border-radius: 1.5rem;
             overflow: hidden;
             box-shadow: 0 10px 25px rgba(0,0,0,0.05);
         }
 
+        /* Ensure the pre/code block and iframe fill the available height */
+        #code-view, #preview-view {
+            height: 100%;
+            flex-grow: 1; /* Make sure these children grow inside their container */
+        }
+
+        /* Make the code readable */
         #output-code {
             height: 100%;
             overflow-y: auto;
             white-space: pre-wrap;
             word-break: break-word;
+        }
+        
+        /* Custom Chat Bubble Styling */
+        #chat-history .chat-bubble {
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            max-width: 90%;
+            line-height: 1.4;
+        }
+        #chat-history .user-message {
+            background-color: #dbeafe; /* Blue-100 */
+            color: #1e40af; /* Blue-800 */
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+        #chat-history .ai-message {
+            background-color: #ecfdf5; /* Teal-50 */
+            color: #047857; /* Teal-700 */
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
         }
     </style>
 </head>
@@ -126,17 +156,17 @@
 
         <div id="split-generator-view" class="hidden flex-row bg-white border border-gray-200 shadow-2xl">
 
-            <div id="chat-panel" class="w-2/5 lg:w-1/3 p-6 flex flex-col">
+            <div id="chat-panel" class="w-2/5 p-6 flex flex-col">
                 <h2 class="text-3xl font-extrabold text-ammoue mb-2 flex items-center">
-                    <i data-lucide="sparkles" class="w-6 h-6 mr-2"></i> AI Refinement Agent
+                    <i data-lucide="message-square-text" class="w-6 h-6 mr-2"></i> AI Refinement Chat
                 </h2>
                 <p class="text-sm text-gray-500 mb-4">
-                    Modify the **client-side preview** instantly, then deploy.
+                    Refine the client-side preview instantly. The chat saves your conversation.
                 </p>
 
-                <div id="chat-history" class="flex-grow overflow-y-auto mb-4 p-3 rounded-xl bg-gray-50 border border-gray-200">
-                    <p class="text-gray-500 italic text-sm">
-                        Conversation history will appear here. Initial Prompt: **"<span id="initial-prompt-display"></span>"**
+                <div id="chat-history" class="flex-grow overflow-y-auto mb-4 p-3 rounded-xl bg-gray-50 border border-gray-200 flex flex-col">
+                    <p class="text-gray-500 italic text-sm mb-2">
+                        Initial Prompt: **"<span id="initial-prompt-display"></span>"**
                     </p>
                 </div>
                 
@@ -151,10 +181,10 @@
                 </div>
             </div>
 
-            <div id="output-panel" class="w-3/5 lg:w-2/3 p-6 bg-gray-50 border-l border-gray-200 flex flex-col">
+            <div id="output-panel" class="w-3/5 p-6 bg-gray-50 border-l border-gray-200 flex flex-col">
                 
-                <div class="flex justify-between items-center mb-4">
-                    <div class="flex space-x-4 border-b border-gray-300">
+                <div class="flex justify-between items-center mb-4 border-b border-gray-300">
+                    <div class="flex space-x-4">
                         <button id="tab-code" data-target="code-view" class="tab-button p-2 text-base font-semibold text-ammoue border-b-2 border-ammoue transition duration-200 flex items-center">
                             <i data-lucide="code" class="w-4 h-4 mr-1"></i> HTML Code
                         </button>
@@ -162,7 +192,7 @@
                             <i data-lucide="monitor" class="w-4 h-4 mr-1"></i> Live Preview (Client-Side)
                         </button>
                     </div>
-                    <div class="flex space-x-3">
+                    <div class="flex space-x-3 pb-2">
                         <button id="copy-btn" class="text-sm font-medium text-ammoue hover:text-teal-600 flex items-center transition duration-200">
                             <i data-lucide="copy" class="w-4 h-4 mr-1"></i> Copy
                         </button>
@@ -172,7 +202,7 @@
                     </div>
                 </div>
 
-                <div class="flex-grow relative">
+                <div class="flex-grow relative min-h-0">
 
                     <div id="code-view" class="absolute inset-0">
                         <pre class="bg-white p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm h-full">
@@ -239,7 +269,7 @@
     const outputCode = document.getElementById('output-code');
     const copyBtn = document.getElementById('copy-btn');
     const downloadBtn = document.getElementById('download-btn');
-    const deployBtn = document.getElementById('deploy-btn'); // NEW DEPLOY BUTTON
+    const deployBtn = document.getElementById('deploy-btn'); 
     const deploymentErrorMessage = document.getElementById('deployment-error-message'); 
     
     // --- Tab Elements ---
@@ -251,12 +281,11 @@
     let listenersAttached = false;
     let latestHtmlContent = ''; 
     let latestPrompt = ''; 
-    let latestDeploymentUrl = ''; // ✅ per-user GitHub Pages URL
+    let latestDeploymentUrl = ''; 
     let currentProjectId = null; 
-    let currentBlobUrl = null; // NEW: For client-side preview
+    let currentBlobUrl = null; 
 
     function showMessage(message, isError) {
-        // Implementation remains the same
         messageBox.textContent = message;
         messageBox.classList.toggle('bg-red-500', isError);
         messageBox.classList.toggle('bg-ammoue', !isError);
@@ -268,22 +297,20 @@
         }, 4000);
     }
 
-    // Consolidated loading function for primary buttons
     function setLoading(isLoading, isRefining = false) {
         if (isLoading) {
             generateBtn.disabled = true;
             refineBtn.disabled = true;
-            deployBtn.disabled = true; // Disable deploy button during generation/refinement
+            deployBtn.disabled = true;
             
             const loadingText = isRefining ? 'Refining...' : 'Building...';
             const buttonToUpdate = isRefining ? refineBtn : generateBtn;
             
-            // Only update the Generate/Refine button text
             buttonToUpdate.innerHTML = `<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> ${loadingText}`;
         } else {
             generateBtn.disabled = false;
             refineBtn.disabled = !latestHtmlContent;
-            deployBtn.disabled = !latestHtmlContent; // Enable deploy button after success
+            deployBtn.disabled = !latestHtmlContent;
             downloadBtn.disabled = !latestHtmlContent;
 
             generateBtn.innerHTML = 'Generate HTML Code';
@@ -296,7 +323,7 @@
      */
     function updateLivePreview(html) {
         if (currentBlobUrl) {
-            URL.revokeObjectURL(currentBlobUrl); // Clean up previous Blob URL
+            URL.revokeObjectURL(currentBlobUrl); 
         }
         const blob = new Blob([html], { type: 'text/html' });
         currentBlobUrl = URL.createObjectURL(blob);
@@ -318,7 +345,6 @@
             btn.textContent = 'Preview Deployed Site';
             btn.classList.add('bg-green-600', 'cursor-pointer');
             btn.disabled = false;
-            // Attach external preview handler here if needed, or rely on a generic click handler
         } else if (latestHtmlContent) {
             btn.textContent = 'Deploy Site Now (Uses 1 Deployment)';
             btn.classList.add('bg-green-600', 'cursor-pointer');
@@ -331,7 +357,6 @@
     }
 
     function copyToClipboard(text) {
-        // ... (copyToClipboard function body remains the same)
         try {
             const textarea = document.createElement('textarea');
             textarea.value = text;
@@ -346,7 +371,6 @@
     }
 
     function handleDownload() {
-        // ... (handleDownload function body remains the same)
         if (!outputCode.textContent) return showMessage("No HTML code to download.", true);
         const blob = new Blob([outputCode.textContent], { type: "text/html" });
         const link = document.createElement("a");
@@ -358,7 +382,6 @@
         showMessage("Download started!", false);
     }
 
-    // 🚨 UPDATED: Handle Deployment (Called manually by deployBtn)
     async function handleDeployment() {
         const userPlan = await getUserPlan(currentUserId);
 
@@ -368,9 +391,9 @@
         if (!latestHtmlContent) return showMessage("No HTML content to deploy.", true);
         if (!userPlan) return showMessage("System Error: User plan is missing.", true);
         if (!currentProjectId) return showMessage("System Error: Project ID is missing. Generate a new site.", true);
-        if (latestDeploymentUrl) return window.open(latestDeploymentUrl, "_blank"); // If already deployed, open it
+        if (latestDeploymentUrl) return window.open(latestDeploymentUrl, "_blank"); 
 
-        setDeployButton(null, true); // Set the button to a 'deploying' state
+        setDeployButton(null, true);
         
         try {
             const response = await fetch("/api/deploy", {
@@ -391,7 +414,6 @@
 
                 showMessage("✅ Deployment initiated. Waiting 30 seconds for propagation...", false);
 
-                // --- START OF 30 SECOND DELAY LOGIC ---
                 const delayInSeconds = 30;
                 let countdown = delayInSeconds;
                 const interval = setInterval(() => {
@@ -403,9 +425,7 @@
                         showMessage("Deployment is complete. You can now preview the live URL!", false);
                     }
                 }, 1000);
-                // --- END OF 30 SECOND DELAY LOGIC ---
                 
-                // Update Firestore with the final URL immediately
                 await updateProjectDeploymentUrl(currentProjectId, latestDeploymentUrl);
 
             } else {
@@ -435,7 +455,7 @@
             
             if (!isFreePlanError) {
                 showMessage(`❌ Deployment failed: ${error.message}`, true);
-                latestDeploymentUrl = ""; // Clear URL for fatal errors
+                latestDeploymentUrl = "";
             }
             
             setDeployButton(latestDeploymentUrl, false); 
@@ -446,19 +466,16 @@
         }
     }
     
-    // Function to handle the opening of the live deployment URL
     function handlePreview() {
         if (!deployBtn.disabled && latestDeploymentUrl) {
             window.open(latestDeploymentUrl, "_blank");
         } else if (currentBlobUrl) {
-             // If we are in the initial state, show the client-side preview
              window.open(currentBlobUrl, "_blank");
         }
     }
 
 
     async function getUserPlan(userId) {
-        // ... (getUserPlan function body remains the same)
         try {
             const userDocRef = doc(db, "users", userId);
             const userDoc = await getDoc(userDocRef);
@@ -470,7 +487,6 @@
     }
 
     async function autoSaveProject(htmlContent, userPrompt, existingProjectId = null) {
-        // ... (autoSaveProject function body remains the same)
         if (!currentUserId || !htmlContent) return null;
 
         try {
@@ -483,7 +499,6 @@
                     htmlContent,
                     updatedAt: serverTimestamp(), 
                 });
-                console.log("Project updated successfully (Refine).");
                 return existingProjectId;
 
             } else {
@@ -493,7 +508,6 @@
                     deploymentUrl: null,
                     createdAt: serverTimestamp(),
                 });
-                console.log("New project saved successfully (Generate).");
                 return newDocRef.id;
             }
         } catch (error) {
@@ -504,7 +518,6 @@
     }
     
     async function updateProjectDeploymentUrl(projectId, deploymentUrl) {
-        // ... (updateProjectDeploymentUrl function body remains the same)
         if (!currentUserId || !projectId) return;
         try {
             const projectDocRef = doc(db, "artifacts", appId, "users", currentUserId, "projects", projectId);
@@ -516,14 +529,14 @@
         }
     }
     
-    // Function to add a message to the chat history panel
+    // UPDATED: Use specific CSS classes for styling
     function addChatMessage(text, isUser) {
         const messageDiv = document.createElement('div');
-        messageDiv.className = `p-3 my-2 rounded-xl text-sm ${isUser ? 'bg-blue-100 text-blue-900 self-end' : 'bg-green-100 text-green-900 self-start'} max-w-[90%] break-words`;
-        messageDiv.style.alignSelf = isUser ? 'flex-end' : 'flex-start';
+        messageDiv.className = `chat-bubble ${isUser ? 'user-message' : 'ai-message'}`;
         messageDiv.textContent = text;
         chatHistory.appendChild(messageDiv);
         chatHistory.scrollTop = chatHistory.scrollHeight;
+        return messageDiv; // Return AI element for streaming
     }
 
 
@@ -541,10 +554,13 @@
         // 1. Transition to split view and set initial prompt display
         initialPromptView.classList.add('hidden');
         splitGeneratorView.classList.remove('hidden');
+        
+        // Save initial prompt to display and start chat history
         initialPromptDisplay.textContent = prompt;
-        chatHistory.innerHTML = ''; // Clear chat history
-        addChatMessage(prompt, true); // Add user prompt to chat history
-
+        chatHistory.innerHTML = `<p class="text-gray-500 italic text-sm mb-2">Initial Prompt: <strong>"${prompt}"</strong></p>`;
+        addChatMessage(prompt, true);
+        
+        // 2. Start API call
         const response = await fetch("/api/generate.js", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -561,10 +577,8 @@
         let buffer = "";
         let html = "";
 
-        // Start adding AI message for streaming effect
-        addChatMessage("", false); 
-        const aiMessageDiv = chatHistory.lastElementChild;
-        let aiMessageText = "";
+        // Add the AI message placeholder
+        const aiMessageDiv = addChatMessage("Generating HTML...", false);
 
         while (true) {
             const { done, value } = await reader.read();
@@ -582,14 +596,10 @@
                 try {
                     const parsed = JSON.parse(data);
                     if (parsed.text) {
-                        // Stream HTML to code block
                         html += parsed.text;
                         await typeHtmlLive(parsed.text);
-                        
-                        // Stream a generic "Thinking..." message to chat (optional/can be removed if too fast)
-                        // aiMessageText += parsed.text; // Uncomment if you want to stream the code into the chat too
-                        // aiMessageDiv.textContent = aiMessageText; 
-                        // chatHistory.scrollTop = chatHistory.scrollHeight;
+                        // Optional: Update AI message status periodically
+                        aiMessageDiv.textContent = "HTML Code streaming...";
                     }
                 } catch {}
             }
@@ -602,12 +612,10 @@
         if (latestHtmlContent) {
             showMessage("Website built live! View the preview on the right.", false);
             
-            // 2. Update Live Preview
             updateLivePreview(latestHtmlContent);
 
-            // 3. Auto-Save Project and enable refinement/deployment
             currentProjectId = await autoSaveProject(latestHtmlContent, prompt, null);
-            setLoading(false); // This enables refineBtn and deployBtn
+            setLoading(false);
             
         } else {
             showMessage("No HTML generated.", true);
@@ -619,7 +627,7 @@
         for (let i = 0; i < newText.length; i++) {
             outputCode.textContent += newText[i];
             outputCode.scrollTop = outputCode.scrollHeight; 
-            await new Promise(r => setTimeout(r, 2));
+            await new Promise(r => setTimeout(r, 1)); // Faster streaming for better user experience
         }
     }
 
@@ -631,12 +639,11 @@
 
         setLoading(true, true); 
         deploymentErrorMessage.classList.add('hidden');
-        latestDeploymentUrl = ""; // Reset deployment URL on refinement
-        setDeployButton(null, false); // Reset deploy button state (back to initial deploy)
+        latestDeploymentUrl = ""; 
+        setDeployButton(null, false); 
         
-        addChatMessage(refinePrompt, true); // Add user refinement prompt
-        addChatMessage("Refining code based on your instruction...", false); // AI response placeholder
-        const aiMessageDiv = chatHistory.lastElementChild;
+        addChatMessage(refinePrompt, true);
+        const aiMessageDiv = addChatMessage("Refining code based on your instruction...", false);
 
         const payload = { currentHtml: latestHtmlContent, refinePrompt };
         const maxRetries = 3;
@@ -657,10 +664,10 @@
                     latestHtmlContent = generatedHtml.trim();
                     outputCode.textContent = latestHtmlContent;
                     
-                    updateLivePreview(latestHtmlContent); // Update client-side preview instantly
+                    updateLivePreview(latestHtmlContent);
 
                     latestPrompt += `\n\n[Refined]: ${refinePrompt}`;
-                    await autoSaveProject(latestHtmlContent, latestPrompt, currentProjectId); // Update existing project
+                    await autoSaveProject(latestHtmlContent, latestPrompt, currentProjectId);
                     
                     aiMessageDiv.textContent = "Code successfully refined. Check the updated preview.";
                     showMessage("Code refined and auto-saved! Deployment reset.", false);
@@ -681,7 +688,6 @@
         setLoading(false);
     }
     
-    // --- Tab Switching Logic ---
     function handleTabSwitch(e) {
         const target = e.currentTarget.dataset.target;
 
@@ -703,7 +709,6 @@
     }
 
 
-    // ... (Placeholder typing effect logic remains the same) ...
     const placeholderPrompts = [
         "A minimalist portfolio for a futuristic fashion designer.",
         "A quirky online café with interactive menu animations.",
@@ -761,22 +766,15 @@
             loadingState.classList.add('hidden');
             loadingState.style.opacity = '0';
             mainContent.classList.remove('hidden');
-            setDeployButton(latestDeploymentUrl, false); // Initial button state
+            setDeployButton(latestDeploymentUrl, false);
             
             if (!listenersAttached) {
-                // Initial View Listeners
                 generateBtn.addEventListener('click', handleGeneration);
-                
-                // Split View Listeners
                 refineBtn.addEventListener('click', handleRefine);
-                deployBtn.addEventListener('click', handleDeployment); // Manual deployment trigger
-                
-                // Output/Tab Listeners
+                deployBtn.addEventListener('click', handleDeployment);
                 copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
                 downloadBtn.addEventListener('click', handleDownload);
                 tabButtons.forEach(btn => btn.addEventListener('click', handleTabSwitch));
-                
-                // Global Listeners
                 logoutBtn.addEventListener('click', async () => { try { await signOut(auth); } catch {} });
                 
                 typePlaceholderEffect();
