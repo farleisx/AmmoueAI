@@ -71,20 +71,33 @@
             box-shadow: none;
         }
         
-        /* New Styles for Split View */
+        /* NEW STYLES FOR FULL VERTICAL STRETCH */
+        #main-content {
+            min-height: calc(100vh - 40px); /* Adjust to give max space */
+        }
+
         #split-generator-view {
-            /* Maximize vertical space for a better coding experience */
-            min-height: calc(100vh - 4rem); 
-            margin-top: 2rem;
+            /* Use min-h-full to occupy the remaining space of the main-content */
+            min-height: calc(100vh - 10rem); 
             border-radius: 1.5rem;
             overflow: hidden;
             box-shadow: 0 10px 25px rgba(0,0,0,0.05);
         }
 
+        /* Ensure Chat Panel fills its 40% height */
+        #chat-panel {
+            min-height: 100%; 
+        }
+
+        /* Ensure Output Panel fills its 60% height */
+        #output-panel {
+            min-height: 100%; 
+        }
+
         /* Ensure the pre/code block and iframe fill the available height */
         #code-view, #preview-view {
             height: 100%;
-            flex-grow: 1; /* Make sure these children grow inside their container */
+            flex-grow: 1; 
         }
 
         /* Make the code readable */
@@ -132,9 +145,9 @@
         </div>
     </div>
 
-    <div id="main-content" class="max-w-7xl mx-auto p-6 lg:p-10 hidden">
+    <div id="main-content" class="max-w-7xl mx-auto p-6 lg:p-10 flex flex-col hidden">
 
-        <div id="initial-prompt-view" class="max-w-4xl mx-auto">
+        <div id="initial-prompt-view" class="max-w-4xl mx-auto mb-8">
             <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Generate Your AI Website</h1>
             <p class="text-xl text-gray-500 mb-8">Tell Ammoue exactly what website you want to generate (e.g., 'A modern portfolio site for a UX designer with a dark theme').</p>
     
@@ -154,7 +167,7 @@
         </div>
 
 
-        <div id="split-generator-view" class="hidden flex-row bg-white border border-gray-200 shadow-2xl">
+        <div id="split-generator-view" class="hidden flex-row bg-white border border-gray-200 shadow-2xl flex-grow">
 
             <div id="chat-panel" class="w-2/5 p-6 flex flex-col">
                 <h2 class="text-3xl font-extrabold text-ammoue mb-2 flex items-center">
@@ -286,6 +299,8 @@
     let currentBlobUrl = null; 
 
     function showMessage(message, isError) {
+        // Implementation remains the same
+        const messageBox = document.getElementById('message-box');
         messageBox.textContent = message;
         messageBox.classList.toggle('bg-red-500', isError);
         messageBox.classList.toggle('bg-ammoue', !isError);
@@ -298,6 +313,7 @@
     }
 
     function setLoading(isLoading, isRefining = false) {
+        // Implementation remains the same
         if (isLoading) {
             generateBtn.disabled = true;
             refineBtn.disabled = true;
@@ -318,10 +334,8 @@
         }
     }
 
-    /**
-     * Helper to update the client-side iframe preview using Blob URL.
-     */
     function updateLivePreview(html) {
+        // Implementation remains the same
         if (currentBlobUrl) {
             URL.revokeObjectURL(currentBlobUrl); 
         }
@@ -330,10 +344,8 @@
         livePreviewIframe.src = currentBlobUrl;
     }
 
-    /**
-     * Helper to set Deploy Button state.
-     */
     function setDeployButton(url, isDeploying = false) {
+        // Implementation remains the same
         const btn = deployBtn;
         btn.classList.remove('bg-green-600', 'bg-yellow-600', 'bg-red-500', 'bg-gray-400');
 
@@ -357,6 +369,7 @@
     }
 
     function copyToClipboard(text) {
+        // Implementation remains the same
         try {
             const textarea = document.createElement('textarea');
             textarea.value = text;
@@ -371,6 +384,7 @@
     }
 
     function handleDownload() {
+        // Implementation remains the same
         if (!outputCode.textContent) return showMessage("No HTML code to download.", true);
         const blob = new Blob([outputCode.textContent], { type: "text/html" });
         const link = document.createElement("a");
@@ -383,6 +397,7 @@
     }
 
     async function handleDeployment() {
+        // Implementation remains the same (Manual Deployment)
         const userPlan = await getUserPlan(currentUserId);
 
         deploymentErrorMessage.classList.add('hidden'); 
@@ -467,6 +482,7 @@
     }
     
     function handlePreview() {
+        // Implementation remains the same
         if (!deployBtn.disabled && latestDeploymentUrl) {
             window.open(latestDeploymentUrl, "_blank");
         } else if (currentBlobUrl) {
@@ -476,6 +492,7 @@
 
 
     async function getUserPlan(userId) {
+        // Implementation remains the same
         try {
             const userDocRef = doc(db, "users", userId);
             const userDoc = await getDoc(userDocRef);
@@ -487,6 +504,7 @@
     }
 
     async function autoSaveProject(htmlContent, userPrompt, existingProjectId = null) {
+        // Implementation remains the same
         if (!currentUserId || !htmlContent) return null;
 
         try {
@@ -518,6 +536,7 @@
     }
     
     async function updateProjectDeploymentUrl(projectId, deploymentUrl) {
+        // Implementation remains the same
         if (!currentUserId || !projectId) return;
         try {
             const projectDocRef = doc(db, "artifacts", appId, "users", currentUserId, "projects", projectId);
@@ -529,14 +548,14 @@
         }
     }
     
-    // UPDATED: Use specific CSS classes for styling
     function addChatMessage(text, isUser) {
+        // Implementation remains the same
         const messageDiv = document.createElement('div');
         messageDiv.className = `chat-bubble ${isUser ? 'user-message' : 'ai-message'}`;
         messageDiv.textContent = text;
         chatHistory.appendChild(messageDiv);
         chatHistory.scrollTop = chatHistory.scrollHeight;
-        return messageDiv; // Return AI element for streaming
+        return messageDiv;
     }
 
 
@@ -551,16 +570,17 @@
         currentProjectId = null; 
         deploymentErrorMessage.classList.add('hidden');
 
-        // 1. Transition to split view and set initial prompt display
+        // 1. INSTANTLY Transition to split view and set initial prompt display
         initialPromptView.classList.add('hidden');
         splitGeneratorView.classList.remove('hidden');
         
         // Save initial prompt to display and start chat history
         initialPromptDisplay.textContent = prompt;
+        // Clear history but keep the static prompt reminder
         chatHistory.innerHTML = `<p class="text-gray-500 italic text-sm mb-2">Initial Prompt: <strong>"${prompt}"</strong></p>`;
         addChatMessage(prompt, true);
         
-        // 2. Start API call
+        // 2. Start API call (api/generate.js)
         const response = await fetch("/api/generate.js", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -598,14 +618,13 @@
                     if (parsed.text) {
                         html += parsed.text;
                         await typeHtmlLive(parsed.text);
-                        // Optional: Update AI message status periodically
                         aiMessageDiv.textContent = "HTML Code streaming...";
                     }
                 } catch {}
             }
         }
         
-        // Finalize AI Chat message
+        // 3. Finalization, Auto-Save, and READY FOR REFINEMENT
         aiMessageDiv.textContent = "HTML code generated successfully. Ready for refinement or deployment.";
         
         latestHtmlContent = html.trim();
@@ -615,7 +634,7 @@
             updateLivePreview(latestHtmlContent);
 
             currentProjectId = await autoSaveProject(latestHtmlContent, prompt, null);
-            setLoading(false);
+            setLoading(false); // This enables the Refine Button
             
         } else {
             showMessage("No HTML generated.", true);
@@ -624,14 +643,16 @@
     }
 
     async function typeHtmlLive(newText) {
+        // Implementation remains the same (live typing effect)
         for (let i = 0; i < newText.length; i++) {
             outputCode.textContent += newText[i];
             outputCode.scrollTop = outputCode.scrollHeight; 
-            await new Promise(r => setTimeout(r, 1)); // Faster streaming for better user experience
+            await new Promise(r => setTimeout(r, 1));
         }
     }
 
     async function handleRefine() {
+        // Implementation remains the same (Refinement handler)
         const refinePrompt = refinePromptInput.value.trim();
         if (!latestHtmlContent) return showMessage("Generate HTML first.", true);
         if (refinePrompt.length < 5) return showMessage("Enter refinement instruction.", true);
@@ -689,6 +710,7 @@
     }
     
     function handleTabSwitch(e) {
+        // Implementation remains the same
         const target = e.currentTarget.dataset.target;
 
         tabButtons.forEach(btn => {
@@ -724,6 +746,7 @@
     const defaultPlaceholder = "e.g., 'A vibrant landing page for a dog grooming salon...'";
 
     function typePlaceholderEffect() {
+        // Implementation remains the same
         if (promptInput.value.length > 0) return;
         const currentPrompt = placeholderPrompts[promptTypingIndex];
         let placeholderText = promptInput.getAttribute('placeholder') || '';
@@ -750,6 +773,7 @@
     }
 
     promptInput.addEventListener('input', () => {
+        // Implementation remains the same
         if (promptInput.value.length > 0) promptInput.setAttribute('placeholder', defaultPlaceholder);
         else {
             promptTypingIndex = 0;
