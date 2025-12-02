@@ -26,35 +26,45 @@
             width: 100vw; 
             min-height: 100vh;
             margin: 0;
-            padding-top: 5rem; /* Space for the fixed header */
             position: absolute; 
             top: 0;
             left: 0;
         }
 
-        /* Initial Prompt View positioning */
-        #initial-prompt-view-wrapper {
-            /* Ensures initial view is centered */
-            max-width: 7xl;
-            margin-left: auto;
-            margin-right: auto;
-            padding: 6rem 2.5rem;
+        /* Fixed Header Styles (adjusted z-index for fixed positioning) */
+        #fixed-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: #ffffff;
+            z-index: 100; /* Increased z-index */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            padding: 1rem 2.5rem;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
         }
         
-        /* Ensure the two panels fill their assigned space vertically */
+        /* Ensure the two panels fill their assigned space vertically, factoring in the fixed header */
         #chat-panel, #output-panel {
-            /* Ensures panels occupy full height (minus header space) */
-            height: calc(100vh - 5rem); 
+            /* Full height minus the header height (approx 5rem including padding) */
+            height: 100vh; 
+            padding-top: 5rem; /* Space for the fixed header */
+            box-sizing: border-box; /* Include padding in height calculation */
         }
         
         /* Ensure Code View and Preview take max height inside the 60% panel */
         #code-view, #preview-view {
-            height: 100%;
+            /* This flex-grow handles the space between tabs and footer */
             flex-grow: 1; 
+            position: relative; /* Need this for absolute inset-0 children */
+            min-height: 0; /* Important for flex items to shrink correctly */
         }
 
-        /* Make the code readable and scrollable */
-        #output-code {
+        /* Make the code readable and scrollable, stretching to fill available space */
+        #output-code-container {
+            /* This is the PRE element */
             height: 100%;
             overflow-y: auto;
             white-space: pre-wrap;
@@ -69,34 +79,37 @@
             font-size: 0.95rem;
             max-width: 90%;
             line-height: 1.4;
+            display: flex; /* For inline emoji/text alignment */
+            align-items: flex-start;
         }
         #chat-history .user-message {
-            background-color: #dbeafe; 
-            color: #1e40af; 
+            background-color: #dbeafe; /* Blue-100 */
+            color: #1e40af; /* Blue-800 */
             align-self: flex-end;
             border-bottom-right-radius: 4px;
         }
         #chat-history .ai-message {
-            background-color: #ecfdf5; 
-            color: #047857; 
+            background-color: #ecfdf5; /* Teal-50 */
+            color: #047857; /* Teal-700 */
             align-self: flex-start;
             border-bottom-left-radius: 4px;
+            /* Added margin for icon space */
+            padding-left: 5px; 
+        }
+        #chat-history .ai-message .agent-icon {
+            margin-right: 8px;
+            font-size: 1.2rem;
+        }
+
+        /* Initial Prompt View positioning */
+        #initial-prompt-view-wrapper {
+            /* Ensures initial view is centered */
+            max-width: 7xl;
+            margin-left: auto;
+            margin-right: auto;
+            padding: 6rem 2.5rem;
         }
         
-        /* Fixed Header Styles */
-        #fixed-header {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            background-color: #ffffff;
-            z-index: 50;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            padding: 1rem 2.5rem;
-            display: flex;
-            justify-content: flex-end;
-            align-items: center;
-        }
         /* Loading and Message Box styles remain the same */
         #loading-state {
             position: fixed;
@@ -108,7 +121,7 @@
             align-items: center;
             justify-content: center;
             background-color: #fff;
-            z-index: 100;
+            z-index: 1000; /* Increased z-index */
             transition: opacity 0.3s ease-in-out; 
         }
         #message-box {
@@ -116,7 +129,7 @@
             top: 20px;
             left: 50%;
             transform: translateX(-50%);
-            z-index: 1000;
+            z-index: 2000; /* Highest z-index */
             opacity: 0;
             transition: opacity 0.3s ease-in-out;
         }
@@ -190,7 +203,7 @@
                     </p>
                 </div>
                 
-                <div id="refine-agent-controls" class="mt-auto">
+                <div id="refine-agent-controls" class="mt-auto pt-4 border-t border-gray-200">
                     <textarea id="refine-prompt" rows="3" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 transition duration-150 mb-3" placeholder="e.g., 'Make the primary button color a bright orange' or 'Add a 3-column feature section under the hero.'"></textarea>
     
                     <div class="flex justify-end space-x-3">
@@ -225,7 +238,7 @@
                 <div class="flex-grow relative min-h-0">
 
                     <div id="code-view" class="absolute inset-0">
-                        <pre class="bg-white p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm h-full shadow-lg">
+                        <pre id="output-code-container" class="bg-white p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm h-full shadow-lg">
                             <code id="output-code" class="whitespace-pre"></code>
                         </pre>
                     </div>
@@ -552,10 +565,16 @@
     function addChatMessage(text, isUser) {
         const messageDiv = document.createElement('div');
         messageDiv.className = `chat-bubble ${isUser ? 'user-message' : 'ai-message'}`;
-        messageDiv.textContent = text;
+        
+        if (!isUser) {
+            messageDiv.innerHTML = `<span class="agent-icon">🤖</span><span class="message-text">${text}</span>`;
+        } else {
+            messageDiv.textContent = text;
+        }
+        
         chatHistory.appendChild(messageDiv);
         chatHistory.scrollTop = chatHistory.scrollHeight;
-        return messageDiv;
+        return messageDiv.querySelector('.message-text') || messageDiv;
     }
 
 
@@ -813,8 +832,12 @@
                 listenersAttached = true;
             }
             
-            // Check if we should immediately switch to split view (e.g., reloading on refinement screen)
+            // Initial check to see if we should show the fixed header
             if (splitGeneratorView.classList.contains('hidden')) {
+                // If we are on the initial prompt view, the buttons are in the wrapper, so hide the fixed header.
+                fixedHeader.classList.add('hidden'); 
+            } else {
+                // If we are in the split view, show the fixed header.
                 fixedHeader.classList.remove('hidden');
             }
         } else {
