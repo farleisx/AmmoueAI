@@ -1,68 +1,40 @@
-// api/screenshot.js
-import chromium from '@sparticuz/chromium';
-import puppeteer from 'puppeteer-core';
-import fs from 'fs';
-import path from 'path';
-import admin from 'firebase-admin';
-
-// Initialize Firebase Admin
-if (!admin.apps.length) {
-    admin.initializeApp({
-        credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
-        storageBucket: process.env.FIREBASE_STORAGE_BUCKET // e.g., "your-project.appspot.com"
-    });
-}
-const db = admin.firestore();
-const bucket = admin.storage().bucket();
+import puppeteer from "puppeteer-core";
+import pkg from "@sparticuz/chromium";
+const { chromium } = pkg;
 
 export default async function handler(req, res) {
-    if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method Not Allowed' });
-    }
-
-    const { userId, projectId, url, htmlContent } = req.body;
-    if (!userId || !projectId || (!url && !htmlContent)) {
-        return res.status(400).json({ error: 'Missing required parameters' });
-    }
-
-    let browser;
     try {
-        browser = await puppeteer.launch({
+        const { url, htmlContent, userId, projectId } = req.body;
+
+        if (!userId || !projectId || (!url && !htmlContent)) {
+            return res.status(400).json({ error: "Missing required fields" });
+        }
+
+        const browser = await puppeteer.launch({
             args: chromium.args,
             defaultViewport: chromium.defaultViewport,
-            executablePath: await chromium.executablePath,
-            headless: true
+            executablePath: await chromium.executablePath(), // ✅ call the function
+            headless: "new"
         });
 
         const page = await browser.newPage();
 
         if (url) {
-            await page.goto(url, { waitUntil: 'networkidle2' });
+            await page.goto(url, { waitUntil: "networkidle2" });
         } else {
-            await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+            await page.setContent(htmlContent, { waitUntil: "networkidle2" });
         }
 
-        const screenshotBuffer = await page.screenshot({ type: 'png' });
+        const screenshotBuffer = await page.screenshot({ fullPage: true });
+        await browser.close();
 
-        // Save to Firebase Storage
-        const file = bucket.file(`screenshots/${userId}/${projectId}.png`);
-        await file.save(screenshotBuffer, {
-            metadata: { contentType: 'image/png' },
-            public: true
-        });
+        // For demo, encode in base64 and return URL
+        const screenshotBase64 = screenshotBuffer.toString("base64");
+        const screenshotUrl = `data:image/png;base64,${screenshotBase64}`;
 
-        const publicUrl = `https://storage.googleapis.com/${bucket.name}/screenshots/${userId}/${projectId}.png`;
-
-        // Save screenshot URL to Firestore
-        await db.doc(`artifacts/ammoueai/users/${userId}/projects/${projectId}`).update({
-            screenshotUrl: publicUrl
-        });
-
-        res.status(200).json({ screenshotUrl: publicUrl });
+        res.status(200).json({ screenshotUrl });
     } catch (err) {
-        console.error('Screenshot generation failed:', err);
-        res.status(500).json({ error: 'Screenshot generation failed' });
-    } finally {
-        if (browser) await browser.close();
+        console.error("Screenshot generation failed:", err);
+        res.status(500).json({ error: err.message });
     }
 }
