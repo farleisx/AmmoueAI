@@ -333,15 +333,57 @@
     /**
      * Public handler for the screenshot button.
      */
-    window.handleGenerateScreenshot = function(projectId) {
-        const project = projectsData.get(projectId);
-        if (project && project.screenshotUrl) {
-            // Already generated, show a helpful message instead of re-running
-            showMessage("Screenshot already exists. Clear the URL in Firestore to regenerate.", false);
-            return;
-        }
-        generateScreenshot(projectId);
+    window.handleGenerateScreenshot = async function(projectId) {
+    const project = projectsData.get(projectId);
+    if (!project) return showMessage("Project not found.", true);
+
+    const screenshotBtn = document.getElementById(`screenshot-btn-${projectId}`);
+    
+    if (project.screenshotUrl) {
+        showMessage("Screenshot already exists. Clear the URL in Firestore to regenerate.", false);
+        return;
     }
+
+    if (screenshotBtn) screenshotBtn.disabled = true; // disable while generating
+    showMessage("Generating screenshot... this may take a moment.", false);
+
+    try {
+        const payload = { userId: currentUserId, projectId: projectId };
+        if (project.deploymentUrl) payload.url = project.deploymentUrl;
+        else if (project.encodedHtmlContent) 
+            payload.htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
+
+        const res = await fetch('/api/screenshot', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.error || `API call failed with status: ${res.status}`);
+        }
+
+        const data = await res.json();
+        if (!data.screenshotUrl) throw new Error("Screenshot URL missing from API response.");
+
+        // Save screenshot URL to Firestore
+        const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
+        await updateDoc(docRef, { screenshotUrl: data.screenshotUrl });
+
+        // Update in-memory project and re-render
+        project.screenshotUrl = data.screenshotUrl;
+        filterProjects(document.getElementById('project-search')?.value || '');
+
+        showMessage("Screenshot generated and saved!", false);
+
+    } catch (err) {
+        console.error('Screenshot generation failed:', err);
+        showMessage(`Failed to generate screenshot: ${err.message}`, true);
+        if (screenshotBtn) screenshotBtn.disabled = false; // re-enable on error
+    }
+}
+
 
     // --- End Screenshot Generation Function ---
 
