@@ -1,26 +1,27 @@
+// api/screenshot.js
+import chromium from "chrome-aws-lambda";
 import puppeteer from "puppeteer-core";
-import chromiumPkg from "@sparticuz/chromium";
-const chromium = chromiumPkg.default || chromiumPkg;
 
 export default async function handler(req, res) {
     if (req.method !== "POST") {
         return res.status(405).json({ error: "Method Not Allowed" });
     }
 
+    const { url, htmlContent, userId, projectId } = req.body;
+
+    if (!userId || !projectId || (!url && !htmlContent)) {
+        return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    let browser = null;
+
     try {
-        const { url, htmlContent } = req.body;
-
-        if (!url && !htmlContent) {
-            return res.status(400).json({ error: "Missing URL or HTML content" });
-        }
-
-        const executablePath = await chromium.executablePath();
-
-        const browser = await puppeteer.launch({
+        // Launch Chromium in Vercel Lambda
+        browser = await puppeteer.launch({
             args: chromium.args,
             defaultViewport: chromium.defaultViewport,
-            executablePath,
-            headless: "new",
+            executablePath: await chromium.executablePath,
+            headless: chromium.headless,
         });
 
         const page = await browser.newPage();
@@ -31,14 +32,17 @@ export default async function handler(req, res) {
             await page.setContent(htmlContent, { waitUntil: "networkidle2" });
         }
 
-        const screenshotBuffer = await page.screenshot({ fullPage: true });
-        await browser.close();
+        // Generate screenshot
+        const screenshotBuffer = await page.screenshot({ type: "png", fullPage: true });
 
-        const screenshotUrl = `data:image/png;base64,${screenshotBuffer.toString("base64")}`;
+        // For demo: return as base64 URL (you can save to Firebase Storage or S3 instead)
+        const screenshotBase64 = `data:image/png;base64,${screenshotBuffer.toString("base64")}`;
 
-        res.status(200).json({ screenshotUrl });
+        res.status(200).json({ screenshotUrl: screenshotBase64 });
     } catch (err) {
         console.error("Screenshot generation failed:", err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: "Failed to generate screenshot", details: err.message });
+    } finally {
+        if (browser) await browser.close();
     }
 }
