@@ -1,14 +1,15 @@
-const admin = require('firebase-admin');
-const puppeteer = require('puppeteer-core');
-const chromium = require('@sparticuz/chromium');
+// api/screenshot.js
+import admin from 'firebase-admin';
+import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 
-// Initialize Firebase Admin SDK (only once)
+// Initialize Firebase Admin SDK once
 if (!admin.apps.length) {
     try {
         const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
         admin.initializeApp({
             credential: admin.credential.cert(serviceAccount),
-            storageBucket: process.env.FIREBASE_STORAGE_BUCKET // e.g., 'ammoueai.appspot.com'
+            storageBucket: process.env.FIREBASE_STORAGE_BUCKET, // optional if you want to specify explicitly
         });
     } catch (error) {
         console.error("Failed to initialize Firebase Admin SDK:", error.message);
@@ -16,12 +17,9 @@ if (!admin.apps.length) {
 }
 
 const db = admin.firestore();
-const bucket = admin.storage().bucket(); // Uses the bucket specified above
+const bucket = admin.storage().bucket(); // default bucket
 
-/**
- * Vercel Serverless Function to generate project screenshots.
- */
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
     if (req.method !== 'POST') {
         res.status(405).send('Method Not Allowed');
         return;
@@ -30,91 +28,69 @@ module.exports = async (req, res) => {
     const { userId, projectId, appId = "ammoueai" } = req.body;
 
     if (!userId || !projectId) {
-        res.status(400).send('Missing userId or projectId.');
+        res.status(400).send('Missing userId or projectId in request body.');
         return;
     }
 
     const docPath = `artifacts/${appId}/users/${userId}/projects/${projectId}`;
-    console.log(`Processing screenshot for: ${docPath}`);
+    console.log(`Processing screenshot request for: ${docPath}`);
 
-    let browser = null;
-
+    let browser;
     try {
-        // 1️⃣ Fetch project document
+        // 1. Fetch document data
         const docRef = db.doc(docPath);
         const docSnap = await docRef.get();
 
         if (!docSnap.exists) {
-            res.status(404).json({ error: 'Project not found.' });
+            res.status(404).json({ error: 'Project document not found.' });
             return;
         }
 
         const projectData = docSnap.data();
-
-        // 2️⃣ Get HTML content (handle Base64 encoding if used)
-        const htmlContent = projectData.encodedHtmlContent
-            ? decodeURIComponent(escape(Buffer.from(projectData.encodedHtmlContent, 'base64').toString('utf8')))
-            : projectData.htmlContent;
-
+        const htmlContent = projectData.htmlContent;
         if (!htmlContent) {
-            res.status(400).json({ error: 'Project has no HTML content.' });
+            res.status(400).json({ error: 'Project has no HTML content to screenshot.' });
             return;
         }
 
-        // 3️⃣ Launch Puppeteer with Lambda-friendly config
-        console.log('Launching headless browser...');
+        // 2. Launch Puppeteer
+        const executablePath = await chromium.executablePath();
         browser = await puppeteer.launch({
             args: [...chromium.args, '--disable-gpu', '--single-process'],
-            executablePath: await chromium.executablePath(),
+            executablePath,
             headless: chromium.headless,
-            defaultViewport: chromium.defaultViewport
+            defaultViewport: chromium.defaultViewport,
         });
 
         const page = await browser.newPage();
-
-        // Set content
+        await page.setViewport({ width: 800, height: 600 });
         await page.setContent(htmlContent, { waitUntil: 'domcontentloaded' });
 
-        // Adjust viewport dynamically
-        const pageHeight = await page.evaluate(() => document.body.scrollHeight);
-        await page.setViewport({ width: 1200, height: Math.min(pageHeight, 2000) });
+        // 3. Take screenshot
+        const screenshotBuffer = await page.screenshot({ type: 'jpeg', quality: 80 });
 
-        // 4️⃣ Capture screenshot
-        const screenshotBuffer = await page.screenshot({
-            type: 'jpeg',
-            quality: 80,
-            fullPage: false
-        });
-
-        // 5️⃣ Upload to Firebase Storage
+        // 4. Upload to Firebase Storage
         const storagePath = `screenshots/${userId}/${projectId}.jpeg`;
         const file = bucket.file(storagePath);
-
-        console.log(`Uploading screenshot to: gs://${bucket.name}/${storagePath}`);
         await file.save(screenshotBuffer, {
-            metadata: {
-                contentType: 'image/jpeg',
-                cacheControl: 'public,max-age=31536000'
-            }
+            metadata: { contentType: 'image/jpeg', cacheControl: 'public, max-age=31536000' },
+            public: true,
         });
 
-        // Make public
-        await file.makePublic();
-        const url = `https://storage.googleapis.com/${bucket.name}/${storagePath}`;
+        const [url] = await file.getSignedUrl({ action: 'read', expires: '03-09-2491' });
 
-        // 6️⃣ Update Firestore
-        await docRef.set({
-            screenshotUrl: url,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
+        // 5. Update Firestore
+        await docRef.set(
+            { screenshotUrl: url, updatedAt: admin.firestore.FieldValue.serverTimestamp() },
+            { merge: true }
+        );
 
-        console.log('Screenshot generated and Firestore updated.');
         res.status(200).json({ success: true, url });
 
     } catch (error) {
-        console.error(`Error generating screenshot for ${projectId}:`, error);
-        res.status(500).json({ error: 'Internal server error.', details: error.message });
+        console.error(`Error generating screenshot for project ${projectId}:`, error);
+        res.status(500).json({ error: 'Internal Server Error', details: error.message });
     } finally {
         if (browser) await browser.close();
     }
-};
+}
