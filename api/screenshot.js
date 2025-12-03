@@ -1,15 +1,12 @@
-// api/screenshot.js
-import admin from 'firebase-admin';
-import puppeteer from 'puppeteer-core';
-import chromium from '@sparticuz/chromium';
+const admin = require('firebase-admin');
+const puppeteer = require('puppeteer-core');
+const chromium = require('@sparticuz/chromium');
 
-// Initialize Firebase Admin SDK once
 if (!admin.apps.length) {
     try {
         const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
         admin.initializeApp({
             credential: admin.credential.cert(serviceAccount),
-            storageBucket: process.env.FIREBASE_STORAGE_BUCKET, // optional if you want to specify explicitly
         });
     } catch (error) {
         console.error("Failed to initialize Firebase Admin SDK:", error.message);
@@ -17,9 +14,9 @@ if (!admin.apps.length) {
 }
 
 const db = admin.firestore();
-const bucket = admin.storage().bucket(); // default bucket
+const bucket = admin.storage().bucket();
 
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
     if (req.method !== 'POST') {
         res.status(405).send('Method Not Allowed');
         return;
@@ -33,27 +30,29 @@ export default async function handler(req, res) {
     }
 
     const docPath = `artifacts/${appId}/users/${userId}/projects/${projectId}`;
-    console.log(`Processing screenshot request for: ${docPath}`);
+    console.log(`Processing screenshot request for document: ${docPath}`);
 
-    let browser;
+    let browser = null;
     try {
-        // 1. Fetch document data
         const docRef = db.doc(docPath);
         const docSnap = await docRef.get();
 
         if (!docSnap.exists) {
+            console.log("Project document not found.");
             res.status(404).json({ error: 'Project document not found.' });
             return;
         }
 
         const projectData = docSnap.data();
         const htmlContent = projectData.htmlContent;
+
         if (!htmlContent) {
-            res.status(400).json({ error: 'Project has no HTML content to screenshot.' });
+            console.log("No HTML content to screenshot.");
+            res.status(400).json({ error: 'Project has no HTML content.' });
             return;
         }
 
-        // 2. Launch Puppeteer
+        console.log("Launching Puppeteer browser...");
         const executablePath = await chromium.executablePath();
         browser = await puppeteer.launch({
             args: [...chromium.args, '--disable-gpu', '--single-process'],
@@ -66,31 +65,41 @@ export default async function handler(req, res) {
         await page.setViewport({ width: 800, height: 600 });
         await page.setContent(htmlContent, { waitUntil: 'domcontentloaded' });
 
-        // 3. Take screenshot
         const screenshotBuffer = await page.screenshot({ type: 'jpeg', quality: 80 });
 
-        // 4. Upload to Firebase Storage
         const storagePath = `screenshots/${userId}/${projectId}.jpeg`;
+        console.log(`Uploading screenshot to bucket path: ${storagePath}`);
+
         const file = bucket.file(storagePath);
+
         await file.save(screenshotBuffer, {
-            metadata: { contentType: 'image/jpeg', cacheControl: 'public, max-age=31536000' },
-            public: true,
+            metadata: {
+                contentType: 'image/jpeg',
+                cacheControl: 'public, max-age=31536000',
+            },
+            public: true
         });
 
-        const [url] = await file.getSignedUrl({ action: 'read', expires: '03-09-2491' });
+        console.log("Screenshot successfully uploaded.");
 
-        // 5. Update Firestore
-        await docRef.set(
-            { screenshotUrl: url, updatedAt: admin.firestore.FieldValue.serverTimestamp() },
-            { merge: true }
-        );
+        const [url] = await file.getSignedUrl({
+            action: 'read',
+            expires: '03-09-2491'
+        });
+
+        console.log(`Screenshot URL: ${url}`);
+
+        await docRef.set({
+            screenshotUrl: url,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
 
         res.status(200).json({ success: true, url });
 
     } catch (error) {
-        console.error(`Error generating screenshot for project ${projectId}:`, error);
-        res.status(500).json({ error: 'Internal Server Error', details: error.message });
+        console.error("Error during screenshot generation:", error);
+        res.status(500).json({ error: error.message });
     } finally {
         if (browser) await browser.close();
     }
-}
+};
