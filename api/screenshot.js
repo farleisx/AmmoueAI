@@ -1,51 +1,78 @@
 // api/screenshot.js
-import { chromium } from "@sparticuz/chromium";
-import puppeteer from "puppeteer-core";
+import pkg from '@sparticuz/chromium';
+const { chromium } = pkg;
 
-// Vercel serverless handler
+import fs from 'fs';
+import path from 'path';
+
+// Example: if you plan to use Firestore to save screenshots URLs
+import admin from 'firebase-admin';
+
+// Initialize Firebase Admin (make sure you have your service account JSON in env or file)
+if (!admin.apps.length) {
+    admin.initializeApp({
+        credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
+    });
+}
+
+const db = admin.firestore();
+
 export default async function handler(req, res) {
-    if (req.method !== "POST") {
-        return res.status(405).json({ error: "Method Not Allowed" });
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method Not Allowed' });
     }
 
+    const { userId, projectId, url, htmlContent } = req.body;
+
+    if (!userId || !projectId || (!url && !htmlContent)) {
+        return res.status(400).json({ error: 'Missing required parameters' });
+    }
+
+    let browser = null;
+
     try {
-        const { userId, projectId, url, htmlContent } = req.body;
-
-        // ✅ Validate required fields
-        if (!userId || !projectId || (!url && !htmlContent)) {
-            return res.status(400).json({
-                error: "Missing required fields: userId, projectId, and url or htmlContent are required."
-            });
-        }
-
-        // Launch headless browser
-        const browser = await puppeteer.launch({
+        browser = await chromium.puppeteer.launch({
             args: chromium.args,
             defaultViewport: chromium.defaultViewport,
-            executablePath: await chromium.executablePath(),
-            headless: chromium.headless,
+            executablePath: await chromium.executablePath,
+            headless: true,
         });
 
         const page = await browser.newPage();
 
         if (url) {
-            await page.goto(url, { waitUntil: "networkidle2" });
-        } else {
-            await page.setContent(htmlContent, { waitUntil: "networkidle0" });
+            await page.goto(url, { waitUntil: 'networkidle2' });
+        } else if (htmlContent) {
+            await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
         }
 
-        // Take full-page screenshot as base64
-        const screenshotBuffer = await page.screenshot({ encoding: "base64", fullPage: true });
+        // Take a screenshot
+        const screenshotBuffer = await page.screenshot({ type: 'png' });
 
-        await browser.close();
+        // Save to Vercel filesystem temporarily (optional, or upload directly to Firebase Storage)
+        const filePath = path.join('/tmp', `${projectId}.png`);
+        fs.writeFileSync(filePath, screenshotBuffer);
 
-        // Return a data URL for the frontend to use
-        const screenshotUrl = `data:image/png;base64,${screenshotBuffer}`;
+        // Example: upload to Firebase Storage (if you want)
+        const bucket = admin.storage().bucket();
+        const storageFile = bucket.file(`screenshots/${userId}/${projectId}.png`);
+        await storageFile.save(screenshotBuffer, {
+            metadata: { contentType: 'image/png' },
+            public: true
+        });
 
-        return res.status(200).json({ screenshotUrl });
+        const publicUrl = `https://storage.googleapis.com/${bucket.name}/screenshots/${userId}/${projectId}.png`;
 
+        // Optionally: save URL to Firestore
+        await db.doc(`artifacts/ammoueai/users/${userId}/projects/${projectId}`).update({
+            screenshotUrl: publicUrl
+        });
+
+        res.status(200).json({ screenshotUrl: publicUrl });
     } catch (err) {
-        console.error("Screenshot generation error:", err);
-        return res.status(500).json({ error: err.message });
+        console.error('Screenshot generation failed:', err);
+        res.status(500).json({ error: 'Screenshot generation failed' });
+    } finally {
+        if (browser) await browser.close();
     }
 }
