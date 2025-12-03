@@ -10,10 +10,13 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: "Missing required fields" });
         }
 
+        // ✅ Correct: await the function
+        const executablePath = await chromium.executablePath();
+
         const browser = await puppeteer.launch({
             args: chromium.args,
             defaultViewport: chromium.defaultViewport,
-            executablePath: await chromium.executablePath(), // ✅ call the function
+            executablePath,       // ✅ string, not function
             headless: "new"
         });
 
@@ -28,7 +31,6 @@ export default async function handler(req, res) {
         const screenshotBuffer = await page.screenshot({ fullPage: true });
         await browser.close();
 
-        // For demo, encode in base64 and return URL
         const screenshotBase64 = screenshotBuffer.toString("base64");
         const screenshotUrl = `data:image/png;base64,${screenshotBase64}`;
 
