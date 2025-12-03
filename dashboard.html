@@ -196,9 +196,9 @@
     let isAuthReady = false;
     const appId = firebaseConfig.projectId;
     
-    // ⭐ CRITICAL FIX: Global map to store projects in memory, avoiding complex strings in HTML.
+    // ⭐ CRITICAL FIX: Global map to store projects in memory
     let projectsData = new Map();
-    let allProjectsArray = []; // NEW: Array to hold all projects for searching/filtering
+    let allProjectsArray = []; 
 
     // --- DOM Elements ---
     const loadingScreen = document.getElementById('loading-screen');
@@ -206,7 +206,6 @@
     const userEmailSpan = document.getElementById('user-email');
     const msgBox = document.getElementById('message-box');
     const projectsContainer = document.getElementById('projects-container');
-    const createCardElement = document.querySelector('div.cursor-pointer');
     
     // --- NEW PLAN GATING ELEMENTS ---
     const currentPlanEl = document.getElementById('current-plan');
@@ -250,7 +249,7 @@
         setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
     }
 
-    // --- Screenshot Generation Function (NEW) ---
+    // --- Screenshot Generation Function (FIXED) ---
 
     /**
      * Calls a backend API to generate a screenshot of the project HTML
@@ -263,40 +262,27 @@
             return;
         }
 
-        // Use the deployment URL if available
-        const targetUrl = project.deploymentUrl;
+        // ⭐ CRITICAL FIX: The Vercel API is strictly demanding a 'url' key 
+        // that points to a live site (based on the "Missing URL" 400 error).
+        const targetUrl = project.deploymentUrl; 
 
-        let htmlContent = null;
-        if (!targetUrl) {
-            if (!project.encodedHtmlContent) {
-                 showMessage("No deployment URL and no HTML content for screenshot.", true);
-                 return;
-            }
-            // Decode the Base64 string back to a UTF-8 safe string
-            htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
+        if (!targetUrl || !targetUrl.startsWith('http')) {
+            // Stop execution and show an error if no valid deployed URL is present.
+            showMessage("Screenshot generation requires a **deployed live site URL**. Please deploy your project first.", true);
+            return;
         }
 
-        // CRITICAL FIX: Structure the payload to send either the URL or the raw HTML, ensuring one is present.
+        // If we reach here, we have a valid targetUrl (e.g., https://...)
         const payload = {
             userId: currentUserId,
             projectId: projectId,
+            // We use the strict key 'url' as demanded by the API error message.
+            url: targetUrl 
         };
-
-        if (targetUrl) {
-            // Option 1: Send the deployment URL (Vercel API expects 'url' field)
-            payload.url = targetUrl;
-        } else if (htmlContent) {
-            // Option 2: Send the raw HTML content (Vercel API likely expects 'htmlContent' field)
-            payload.htmlContent = htmlContent;
-        } else {
-             showMessage("Project content is missing for screenshot generation.", true);
-             return;
-        }
 
         showMessage("Generating screenshot... this may take a moment.", false);
 
         try {
-            // NOTE: The API endpoint is the one throwing the 400 error, so we adjust the payload above.
             const res = await fetch('/api/screenshot', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -304,9 +290,15 @@
             });
 
             if (!res.ok) {
-                const errorData = await res.json();
-                // CRITICAL: Log the error message from the Vercel API for better debugging
-                throw new Error(errorData.error || `API call failed with status: ${res.status}`);
+                // Try to parse the error message from the backend
+                let errorDetails = `API call failed with status: ${res.status}`;
+                try {
+                    const errorData = await res.json();
+                    errorDetails = errorData.error || errorDetails;
+                } catch (e) {
+                    // Ignore JSON parsing error if the response is not JSON
+                }
+                throw new Error(errorDetails);
             }
 
             const data = await res.json();
@@ -692,9 +684,11 @@
 
             // --- Determine screenshot button look (UPDATED) ---
             const hasScreenshot = project.screenshotUrl && project.screenshotUrl.startsWith('http');
-            const screenshotButtonColor = hasScreenshot ? 'bg-gray-400 hover:bg-gray-500' : 'bg-pink-600 hover:bg-pink-700';
+            // Disable the screenshot button if already generated
+            const screenshotButtonDisabled = hasScreenshot ? 'disabled' : '';
+            const screenshotButtonColor = hasScreenshot ? 'bg-gray-400' : (isDeployed ? 'bg-pink-600 hover:bg-pink-700' : 'bg-pink-400');
             const screenshotButtonIcon = hasScreenshot ? 'image' : 'camera';
-            const screenshotButtonTitle = hasScreenshot ? 'Screenshot Exists' : 'Generate Screenshot';
+            const screenshotButtonTitle = hasScreenshot ? 'Screenshot Exists' : (isDeployed ? 'Generate Screenshot' : 'Requires Deployment');
             // -----------------------------------------------------------------
 
             projectsHtml += `
@@ -732,7 +726,7 @@
                             </button>
                             
                             <button onclick="event.stopPropagation(); handleGenerateScreenshot('${project.id}')" 
-                                class="px-3 py-2 text-sm font-semibold rounded-xl text-white ${screenshotButtonColor} transition duration-150 shadow-md" title="${screenshotButtonTitle}" ${hasScreenshot ? 'disabled' : ''}>
+                                class="px-3 py-2 text-sm font-semibold rounded-xl text-white ${screenshotButtonColor} transition duration-150 shadow-md" title="${screenshotButtonTitle}" ${screenshotButtonDisabled} ${!isDeployed ? 'disabled' : ''}>
                                 <i data-lucide="${screenshotButtonIcon}" class="w-4 h-4 inline-block"></i>
                             </button>
                             
