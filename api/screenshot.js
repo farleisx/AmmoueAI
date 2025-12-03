@@ -9,7 +9,7 @@ import admin from 'firebase-admin';
 if (!admin.apps.length) {
     admin.initializeApp({
         credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
-        storageBucket: process.env.FIREBASE_BUCKET // e.g., "your-project.appspot.com"
+        storageBucket: process.env.FIREBASE_STORAGE_BUCKET // e.g., "your-project.appspot.com"
     });
 }
 const db = admin.firestore();
