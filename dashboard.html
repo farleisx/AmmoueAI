@@ -174,7 +174,7 @@
         </div>
     </div>
     
-  <script type="module">
+ <script type="module">
     // Using SDK v12.4.0 to match your previous setup
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
@@ -249,6 +249,74 @@
         msgBox.classList.add('opacity-100');
         setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
     }
+
+    // --- Screenshot Generation Function (NEW) ---
+
+    /**
+     * Calls a backend API to generate a screenshot of the project HTML
+     * and saves the resulting URL to Firestore.
+     */
+    async function generateScreenshot(projectId) {
+        const project = projectsData.get(projectId);
+        if (!project || !currentUserId) {
+            showMessage("Project data is missing or user not authenticated.", true);
+            return;
+        }
+
+        showMessage("Generating screenshot... this may take a moment.", false);
+
+        try {
+            // NOTE: The API endpoint needs to be a running server (e.g., a Vercel function)
+            const res = await fetch('/api/screenshot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: currentUserId,
+                    projectId: projectId,
+                    // Use encodedHtmlContent if the backend is designed to handle Base64 payload
+                    htmlContent: project.encodedHtmlContent 
+                })
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.message || `API call failed with status: ${res.status}`);
+            }
+
+            const data = await res.json();
+            if (data?.screenshotUrl) {
+                // 1. Save screenshot URL to Firestore
+                const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
+                await updateDoc(docRef, { screenshotUrl: data.screenshotUrl });
+
+                // 2. Optimistic UI update: Update the in-memory data
+                project.screenshotUrl = data.screenshotUrl;
+
+                showMessage('Screenshot generated and saved!', false);
+            } else {
+                 throw new Error("Screenshot URL missing from API response.");
+            }
+        } catch (err) {
+            console.error('Screenshot generation failed:', err);
+            showMessage(`Failed to generate screenshot: ${err.message}`, true);
+        }
+    }
+
+    /**
+     * Public handler for the screenshot button.
+     */
+    window.handleGenerateScreenshot = function(projectId) {
+        const project = projectsData.get(projectId);
+        if (project && project.screenshotUrl) {
+            // Already generated, show a helpful message instead of re-running
+            showMessage("Screenshot already exists. Clear the URL in Firestore to regenerate.", false);
+            return;
+        }
+        generateScreenshot(projectId);
+    }
+
+    // --- End Screenshot Generation Function ---
+
 
     /** Opens the generated HTML in a new window for a live preview. */
     // ⭐ MODIFIED: Check for deploymentUrl first.
@@ -329,10 +397,10 @@
         // Use modern clipboard API if available, fallback to textarea
         if (navigator.clipboard) {
              navigator.clipboard.writeText(htmlContent).then(() => {
-                showMessage("Code copied to clipboard!", false);
+                 showMessage("Code copied to clipboard!", false);
              }).catch(err => {
-                console.error('Failed to copy text using clipboard API:', err);
-                showMessage("Failed to copy code.", true);
+                 console.error('Failed to copy text using clipboard API:', err);
+                 showMessage("Failed to copy code.", true);
              });
         } else {
             // Fallback for older browsers or restricted environments
@@ -560,11 +628,11 @@
             const currentSearch = document.getElementById('project-search')?.value || '';
             
             if (currentSearch) {
-                 // Show a search-specific empty message
-                 projectsContainer.innerHTML = createCardHtml + `<p class="col-span-full text-center text-gray-500 text-lg mt-10">No projects found matching "${currentSearch}".</p>`;
+                // Show a search-specific empty message
+                projectsContainer.innerHTML = createCardHtml + `<p class="col-span-full text-center text-gray-500 text-lg mt-10">No projects found matching "${currentSearch}".</p>`;
             } else {
-                 // Show the initial empty state message
-                 projectsContainer.innerHTML = createCardHtml + emptyMessageHtml;
+                // Show the initial empty state message
+                projectsContainer.innerHTML = createCardHtml + emptyMessageHtml;
             }
             
             lucide.createIcons();
@@ -593,6 +661,12 @@
             const previewButtonText = isDeployed ? 'Live Site' : 'Preview HTML';
             const previewButtonColor = isDeployed ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-500 hover:bg-gray-600'; // Adjusted colors
             const previewButtonIcon = isDeployed ? 'globe' : 'eye';
+
+            // --- Determine screenshot button look ---
+            const hasScreenshot = project.screenshotUrl && project.screenshotUrl.startsWith('http');
+            const screenshotButtonColor = hasScreenshot ? 'bg-gray-400 hover:bg-gray-500' : 'bg-pink-600 hover:bg-pink-700';
+            const screenshotButtonIcon = hasScreenshot ? 'image' : 'camera';
+            const screenshotButtonTitle = hasScreenshot ? 'Screenshot Exists' : 'Generate Screenshot';
             // -----------------------------------------------------------------
 
             projectsHtml += `
@@ -606,7 +680,6 @@
                         <p class="text-xs text-gray-500 mb-2 h-10 line-clamp-2">${cleanPrompt}</p>
                     </div>
 
-                    <!-- ✨ NEW: PROJECT SCREENSHOT DISPLAY BLOCK (Replaces Code Snippet) -->
                     <div class="image-container mb-4">
                         ${project.screenshotUrl ? `
                             <img src="${project.screenshotUrl}" 
@@ -621,8 +694,6 @@
                             </div>
                         `}
                     </div>
-                    <!-- END NEW BLOCK -->
-
                     <div class="mt-auto">
                         <p class="text-xs text-gray-400 mb-3">Saved: ${timestamp}</p>
                         <div class="flex space-x-2"> 
@@ -630,6 +701,11 @@
                             <button onclick="event.stopPropagation(); openEditModal('${project.id}')" 
                                 class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-amber-500 hover:bg-amber-600 transition duration-150 shadow-md" title="Edit Details">
                                 <i data-lucide="pencil" class="w-4 h-4 inline-block"></i>
+                            </button>
+                            
+                            <button onclick="event.stopPropagation(); handleGenerateScreenshot('${project.id}')" 
+                                class="px-3 py-2 text-sm font-semibold rounded-xl text-white ${screenshotButtonColor} transition duration-150 shadow-md" title="${screenshotButtonTitle}">
+                                <i data-lucide="${screenshotButtonIcon}" class="w-4 h-4 inline-block"></i>
                             </button>
                             
                             <button onclick="event.stopPropagation(); handleCopyCode('${project.id}')" 
