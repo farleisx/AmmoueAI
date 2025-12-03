@@ -1,105 +1,63 @@
-const admin = require('firebase-admin');
-const puppeteer = require('puppeteer-core');
-const chromium = require('@sparticuz/chromium');
+// api/screenshot.js
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import fetch from "node-fetch";
+import puppeteer from "puppeteer-core";
+import chromium from "@sparticuz/chromium";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
-if (!admin.apps.length) {
+// For ES modules: get __dirname equivalent
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Gemini API key
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+// Vercel Serverless Handler
+export default async function handler(req, res) {
+    if (req.method !== "POST") {
+        return res.status(405).json({ error: "Method Not Allowed" });
+    }
+
     try {
-        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount),
-        });
-    } catch (error) {
-        console.error("Failed to initialize Firebase Admin SDK:", error.message);
-    }
-}
+        const { url, projectId } = req.body;
 
-const db = admin.firestore();
-const bucket = admin.storage().bucket();
-
-module.exports = async (req, res) => {
-    if (req.method !== 'POST') {
-        res.status(405).send('Method Not Allowed');
-        return;
-    }
-
-    const { userId, projectId, appId = "ammoueai" } = req.body;
-
-    if (!userId || !projectId) {
-        res.status(400).send('Missing userId or projectId in request body.');
-        return;
-    }
-
-    const docPath = `artifacts/${appId}/users/${userId}/projects/${projectId}`;
-    console.log(`Processing screenshot request for document: ${docPath}`);
-
-    let browser = null;
-    try {
-        const docRef = db.doc(docPath);
-        const docSnap = await docRef.get();
-
-        if (!docSnap.exists) {
-            console.log("Project document not found.");
-            res.status(404).json({ error: 'Project document not found.' });
-            return;
+        if (!url) {
+            return res.status(400).json({ error: "Missing URL in request body" });
         }
 
-        const projectData = docSnap.data();
-        const htmlContent = projectData.htmlContent;
-
-        if (!htmlContent) {
-            console.log("No HTML content to screenshot.");
-            res.status(400).json({ error: 'Project has no HTML content.' });
-            return;
-        }
-
-        console.log("Launching Puppeteer browser...");
-        const executablePath = await chromium.executablePath();
-        browser = await puppeteer.launch({
-            args: [...chromium.args, '--disable-gpu', '--single-process'],
-            executablePath,
-            headless: chromium.headless,
+        // Launch headless Chromium
+        const browser = await puppeteer.launch({
+            args: chromium.args,
             defaultViewport: chromium.defaultViewport,
+            executablePath: await chromium.executablePath,
+            headless: chromium.headless,
         });
 
         const page = await browser.newPage();
-        await page.setViewport({ width: 800, height: 600 });
-        await page.setContent(htmlContent, { waitUntil: 'domcontentloaded' });
+        await page.goto(url, { waitUntil: "networkidle2" });
 
-        const screenshotBuffer = await page.screenshot({ type: 'jpeg', quality: 80 });
+        // Ensure screenshots folder exists in /tmp (Vercel writes to /tmp)
+        const screenshotDir = path.join("/tmp", "screenshots");
+        if (!fs.existsSync(screenshotDir)) {
+            fs.mkdirSync(screenshotDir, { recursive: true });
+        }
 
-        const storagePath = `screenshots/${userId}/${projectId}.jpeg`;
-        console.log(`Uploading screenshot to bucket path: ${storagePath}`);
+        const screenshotPath = path.join(screenshotDir, `${projectId || "project"}.png`);
+        await page.screenshot({ path: screenshotPath, fullPage: true });
+        await browser.close();
 
-        const file = bucket.file(storagePath);
+        // Optionally: convert to Base64 to save to Firestore
+        const imageBase64 = fs.readFileSync(screenshotPath, { encoding: "base64" });
 
-        await file.save(screenshotBuffer, {
-            metadata: {
-                contentType: 'image/jpeg',
-                cacheControl: 'public, max-age=31536000',
-            },
-            public: true
+        return res.status(200).json({
+            message: "Screenshot taken successfully",
+            screenshotPath,
+            screenshotBase64: imageBase64,
         });
-
-        console.log("Screenshot successfully uploaded.");
-
-        const [url] = await file.getSignedUrl({
-            action: 'read',
-            expires: '03-09-2491'
-        });
-
-        console.log(`Screenshot URL: ${url}`);
-
-        await docRef.set({
-            screenshotUrl: url,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-
-        res.status(200).json({ success: true, url });
-
     } catch (error) {
-        console.error("Error during screenshot generation:", error);
-        res.status(500).json({ error: error.message });
-    } finally {
-        if (browser) await browser.close();
+        console.error("Screenshot Error:", error);
+        return res.status(500).json({ error: "Failed to take screenshot", details: error.message });
     }
-};
+}
