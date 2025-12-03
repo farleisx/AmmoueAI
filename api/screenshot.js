@@ -2,38 +2,26 @@ const admin = require('firebase-admin');
 const puppeteer = require('puppeteer-core');
 const chromium = require('@sparticuz/chromium');
 
-// IMPORTANT: Initialize Firebase Admin SDK ONLY ONCE.
-// In a Vercel environment, you must use environment variables 
-// for credentials instead of relying on the Google Cloud environment.
-// For Vercel, this usually involves setting FIREBASE_ADMIN_CONFIG (or similar) 
-// in JSON format in the project settings.
-
-// The credentials should be passed via an environment variable in Vercel
-// Example: FIREBASE_SA_KEY = '{ "type": "service_account", ... }'
+// Initialize Firebase Admin SDK (only once)
 if (!admin.apps.length) {
     try {
-        // We assume the service account key is stored in a Vercel environment variable
         const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
         admin.initializeApp({
             credential: admin.credential.cert(serviceAccount),
-            // Assuming default storage bucket is implicitly handled by the service account
+            storageBucket: process.env.FIREBASE_STORAGE_BUCKET // e.g., 'ammoueai.appspot.com'
         });
     } catch (error) {
         console.error("Failed to initialize Firebase Admin SDK:", error.message);
-        // This is a common error if the environment variable is not set correctly
     }
 }
 
 const db = admin.firestore();
-const bucket = admin.storage().bucket(); // Default Storage bucket
+const bucket = admin.storage().bucket(); // Uses the bucket specified above
 
 /**
- * Vercel Serverless Function HTTP Handler.
- * This function must be triggered manually via a POST request from the dashboard 
- * whenever a project's HTML changes.
+ * Vercel Serverless Function to generate project screenshots.
  */
 module.exports = async (req, res) => {
-    // Only allow POST method
     if (req.method !== 'POST') {
         res.status(405).send('Method Not Allowed');
         return;
@@ -42,96 +30,91 @@ module.exports = async (req, res) => {
     const { userId, projectId, appId = "ammoueai" } = req.body;
 
     if (!userId || !projectId) {
-        res.status(400).send('Missing userId or projectId in request body.');
+        res.status(400).send('Missing userId or projectId.');
         return;
     }
 
-    // Path to the project document
     const docPath = `artifacts/${appId}/users/${userId}/projects/${projectId}`;
-    
-    console.log(`Processing screenshot request for: ${docPath}`);
+    console.log(`Processing screenshot for: ${docPath}`);
 
     let browser = null;
+
     try {
-        // 1. Fetch Document Data
+        // 1️⃣ Fetch project document
         const docRef = db.doc(docPath);
         const docSnap = await docRef.get();
 
         if (!docSnap.exists) {
-            res.status(404).json({ error: 'Project document not found.' });
+            res.status(404).json({ error: 'Project not found.' });
             return;
         }
 
         const projectData = docSnap.data();
-        const htmlContent = projectData.htmlContent;
+
+        // 2️⃣ Get HTML content (handle Base64 encoding if used)
+        const htmlContent = projectData.encodedHtmlContent
+            ? decodeURIComponent(escape(Buffer.from(projectData.encodedHtmlContent, 'base64').toString('utf8')))
+            : projectData.htmlContent;
 
         if (!htmlContent) {
-            res.status(400).json({ error: 'Project has no HTML content to screenshot.' });
+            res.status(400).json({ error: 'Project has no HTML content.' });
             return;
         }
 
-        // 2. Launch Puppeteer with Vercel/Lambda configuration
-        console.log(`Starting headless browser using @sparticuz/chromium.`);
-        
-        const executablePath = await chromium.executablePath();
-        
+        // 3️⃣ Launch Puppeteer with Lambda-friendly config
+        console.log('Launching headless browser...');
         browser = await puppeteer.launch({
-            args: [...chromium.args, '--disable-gpu', '--single-process'], // Recommended args for Vercel
-            executablePath: executablePath,
+            args: [...chromium.args, '--disable-gpu', '--single-process'],
+            executablePath: await chromium.executablePath(),
             headless: chromium.headless,
-            defaultViewport: chromium.defaultViewport,
-        });
-        
-        const page = await browser.newPage();
-        
-        // 3. Set Content & Capture Screenshot
-        await page.setViewport({ width: 800, height: 600 });
-        await page.setContent(htmlContent, { waitUntil: 'domcontentloaded' });
-        
-        // Take the screenshot buffer
-        const screenshotBuffer = await page.screenshot({ 
-            type: 'jpeg',
-            quality: 80
+            defaultViewport: chromium.defaultViewport
         });
 
-        // 4. Upload to Firebase Storage
+        const page = await browser.newPage();
+
+        // Set content
+        await page.setContent(htmlContent, { waitUntil: 'domcontentloaded' });
+
+        // Adjust viewport dynamically
+        const pageHeight = await page.evaluate(() => document.body.scrollHeight);
+        await page.setViewport({ width: 1200, height: Math.min(pageHeight, 2000) });
+
+        // 4️⃣ Capture screenshot
+        const screenshotBuffer = await page.screenshot({
+            type: 'jpeg',
+            quality: 80,
+            fullPage: false
+        });
+
+        // 5️⃣ Upload to Firebase Storage
         const storagePath = `screenshots/${userId}/${projectId}.jpeg`;
         const file = bucket.file(storagePath);
-        
+
         console.log(`Uploading screenshot to: gs://${bucket.name}/${storagePath}`);
-        
         await file.save(screenshotBuffer, {
             metadata: {
                 contentType: 'image/jpeg',
-                cacheControl: 'public, max-age=31536000'
-            },
-            public: true
+                cacheControl: 'public,max-age=31536000'
+            }
         });
 
-        // Get the public URL for the image
-        const [url] = await file.getSignedUrl({
-            action: 'read',
-            expires: '03-09-2491'
-        });
+        // Make public
+        await file.makePublic();
+        const url = `https://storage.googleapis.com/${bucket.name}/${storagePath}`;
 
-        // 5. Update Firestore Document
-        console.log(`Screenshot generated. Updating Firestore with URL.`);
-        
-        await docRef.set({ 
+        // 6️⃣ Update Firestore
+        await docRef.set({
             screenshotUrl: url,
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
 
-        // 6. Respond to HTTP request
+        console.log('Screenshot generated and Firestore updated.');
         res.status(200).json({ success: true, url });
 
     } catch (error) {
-        console.error(`ERROR processing screenshot for project ${projectId}:`, error);
-        res.status(500).json({ error: 'Internal Server Error during screenshot generation.', details: error.message });
+        console.error(`Error generating screenshot for ${projectId}:`, error);
+        res.status(500).json({ error: 'Internal server error.', details: error.message });
     } finally {
-        // 7. Cleanup
-        if (browser) {
-            await browser.close();
-        }
+        if (browser) await browser.close();
     }
 };
