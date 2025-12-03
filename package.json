@@ -1,11 +1,16 @@
 {
-  "name": "ammoue-ai",
+  "name": "vercel-screenshot-ai-api",
   "version": "1.0.0",
-  "private": true,
-  "type": "module",
+  "description": "Vercel Serverless function to generate screenshots using Puppeteer and analyze them with the Gemini API.",
+  "main": "api/screenshot.js",
+  "scripts": {
+    "start": "vercel dev"
+  },
   "dependencies": {
     "@google/generative-ai": "^0.9.0",
     "node-fetch": "^3.3.2",
-    "firebase-admin": "^12.4.0" 
+    "firebase-admin": "^12.4.0",
+    "puppeteer-core": "^19.7.0",
+    "@sparticuz/chromium": "^114.0.0"
   }
 }
