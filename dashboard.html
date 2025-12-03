@@ -196,9 +196,9 @@
     let isAuthReady = false;
     const appId = firebaseConfig.projectId;
     
-    // ⭐ Global map to store projects in memory
+    // ⭐ CRITICAL FIX: Global map to store projects in memory, avoiding complex strings in HTML.
     let projectsData = new Map();
-    let allProjectsArray = []; 
+    let allProjectsArray = []; // NEW: Array to hold all projects for searching/filtering
 
     // --- DOM Elements ---
     const loadingScreen = document.getElementById('loading-screen');
@@ -206,18 +206,20 @@
     const userEmailSpan = document.getElementById('user-email');
     const msgBox = document.getElementById('message-box');
     const projectsContainer = document.getElementById('projects-container');
+    const createCardElement = document.querySelector('div.cursor-pointer');
     
-    // --- PLAN GATING ELEMENTS ---
+    // --- NEW PLAN GATING ELEMENTS ---
     const currentPlanEl = document.getElementById('current-plan');
     const proContent = document.getElementById('pro-content');
     const upgradeCardWrapper = document.getElementById('upgrade-card-wrapper');
+    // ---------------------------------
     
     // --- Modal DOM Elements ---
     const editModal = document.getElementById('edit-modal');
     const editModalContent = document.getElementById('edit-modal-content');
     const editForm = document.getElementById('edit-project-form');
 
-    // --- Delete Modal DOM Elements ---
+    // --- NEW Delete Modal DOM Elements ---
     const deleteConfirmModal = document.getElementById('delete-confirm-modal');
     const deleteModalContent = document.getElementById('delete-modal-content');
     const confirmDeleteButton = document.getElementById('confirm-delete-button');
@@ -225,7 +227,8 @@
     // --- Utility Functions ---
 
     /**
-     * Converts raw code (like HTML or JS) into a displayable string.
+     * Converts raw code (like HTML or JS) into a displayable string
+     * by escaping HTML special characters.
      */
     function escapeHtml(unsafe) {
         if (!unsafe) return '';
@@ -236,7 +239,7 @@
                      .replace(/'/g, "&#039;");
     }
 
-    /** Shows a temporary message box. */
+    /** Shows a temporary message box (replaces alert()) */
     function showMessage(message, isError) {
         if (!msgBox) return;
         msgBox.textContent = message;
@@ -247,34 +250,53 @@
         setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
     }
 
-    // --- Screenshot Generation Function (FIXED for Auto-Trigger) ---
+    // --- Screenshot Generation Function (NEW) ---
 
     /**
-     * Calls a backend API to generate a screenshot of the project HTML.
+     * Calls a backend API to generate a screenshot of the project HTML
+     * and saves the resulting URL to Firestore.
      */
     async function generateScreenshot(projectId) {
         const project = projectsData.get(projectId);
         if (!project || !currentUserId) {
+            showMessage("Project data is missing or user not authenticated.", true);
             return;
         }
 
-        // CRITICAL CHECK: Requires a deployed live site URL.
-        const targetUrl = project.deploymentUrl; 
+        // Use the deployment URL if available
+        const targetUrl = project.deploymentUrl;
 
-        if (!targetUrl || !targetUrl.startsWith('http')) {
-            // Cannot screenshot non-deployed projects.
-            return;
+        let htmlContent = null;
+        if (!targetUrl) {
+            if (!project.encodedHtmlContent) {
+                 showMessage("No deployment URL and no HTML content for screenshot.", true);
+                 return;
+            }
+            // Decode the Base64 string back to a UTF-8 safe string
+            htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
         }
 
+        // CRITICAL FIX: Structure the payload to send either the URL or the raw HTML, ensuring one is present.
         const payload = {
             userId: currentUserId,
             projectId: projectId,
-            url: targetUrl // Using the strict key 'url' as demanded by the API
         };
 
-        // Suppress status message for auto-trigger
+        if (targetUrl) {
+            // Option 1: Send the deployment URL (Vercel API expects 'url' field)
+            payload.url = targetUrl;
+        } else if (htmlContent) {
+            // Option 2: Send the raw HTML content (Vercel API likely expects 'htmlContent' field)
+            payload.htmlContent = htmlContent;
+        } else {
+             showMessage("Project content is missing for screenshot generation.", true);
+             return;
+        }
+
+        showMessage("Generating screenshot... this may take a moment.", false);
 
         try {
+            // NOTE: The API endpoint is the one throwing the 400 error, so we adjust the payload above.
             const res = await fetch('/api/screenshot', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -282,12 +304,9 @@
             });
 
             if (!res.ok) {
-                let errorDetails = `API call failed with status: ${res.status}`;
-                try {
-                    const errorData = await res.json();
-                    errorDetails = errorData.error || errorDetails;
-                } catch (e) { }
-                throw new Error(errorDetails);
+                const errorData = await res.json();
+                // CRITICAL: Log the error message from the Vercel API for better debugging
+                throw new Error(errorData.error || `API call failed with status: ${res.status}`);
             }
 
             const data = await res.json();
@@ -298,28 +317,29 @@
 
                 // 2. Optimistic UI update: Update the in-memory data
                 project.screenshotUrl = data.screenshotUrl;
-                
-                // Force a re-render to display the new image immediately
+
+                showMessage('Screenshot generated and saved!', false);
+                // Force a re-render to update the image in the card and disable the button
                 filterProjects(document.getElementById('project-search')?.value || ''); 
             } else {
                  throw new Error("Screenshot URL missing from API response.");
             }
         } catch (err) {
-            console.error('Auto Screenshot generation failed for:', projectId, err);
+            console.error('Screenshot generation failed:', err);
+            showMessage(`Failed to generate screenshot: ${err.message}`, true);
         }
     }
 
     /**
-     * Public handler for the screenshot button (Only used for manual re-trigger if needed).
+     * Public handler for the screenshot button.
      */
     window.handleGenerateScreenshot = function(projectId) {
         const project = projectsData.get(projectId);
         if (project && project.screenshotUrl) {
+            // Already generated, show a helpful message instead of re-running
             showMessage("Screenshot already exists. Clear the URL in Firestore to regenerate.", false);
             return;
         }
-        // Only run if manually clicked and screenshot doesn't exist
-        showMessage("Generating screenshot... this may take a moment.", false);
         generateScreenshot(projectId);
     }
 
@@ -327,6 +347,7 @@
 
 
     /** Opens the generated HTML in a new window for a live preview. */
+    // ⭐ MODIFIED: Check for deploymentUrl first.
     window.handlePreview = function(projectId) {
         const project = projectsData.get(projectId);
         
@@ -335,17 +356,21 @@
             return;
         }
 
+        // --- NEW: Check for Live Deployment URL ---
         if (project.deploymentUrl) {
             window.open(project.deploymentUrl, "_blank");
             showMessage("Opening live deployed site!", false);
-            return; 
+            return; // Exit after opening the live site
         }
+        // --- END NEW ---
 
+        // --- Fallback to Local Preview (Original Logic) ---
         if (!project.encodedHtmlContent) {
             showMessage("No deployed URL and no preview data available.", true);
             return;
         }
         
+        // Decode the Base64 string back to a UTF-8 safe string
         const decodedHtml = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
         
         const previewWindow = window.open('', '_blank');
@@ -359,6 +384,7 @@
     }
 
     /** Downloads the generated HTML code as a file. */
+    // ⭐ REFACTORED: Takes ID, retrieves content from projectsData
     window.handleDownload = function(projectId) {
         const project = projectsData.get(projectId);
         if (!project || !project.encodedHtmlContent) {
@@ -366,8 +392,10 @@
             return;
         }
         
+        // Decode the Base64 string back to a UTF-8 safe string
         const htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
         
+        // Ensure title is safe for filename
         const cleanTitle = project.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'ammoue_project'; 
 
         const blob = new Blob([htmlContent], { type: 'text/html' });
@@ -378,12 +406,12 @@
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(a.href);
+        URL.revokeObjectURL(a.href); // Clean up the object URL
 
         showMessage("HTML file prepared for download!", false);
     }
     
-    /** Copies the project's code to the clipboard. */
+    // ⭐ REFACTORED: Takes ID, retrieves content from projectsData
     window.handleCopyCode = function(projectId) {
         const project = projectsData.get(projectId);
         if (!project || !project.encodedHtmlContent) {
@@ -391,8 +419,10 @@
             return;
         }
         
+        // Decode the Base64 string back to a UTF-8 safe string
         const htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
 
+        // Use modern clipboard API if available, fallback to textarea
         if (navigator.clipboard) {
              navigator.clipboard.writeText(htmlContent).then(() => {
                  showMessage("Code copied to clipboard!", false);
@@ -401,6 +431,7 @@
                  showMessage("Failed to copy code.", true);
              });
         } else {
+            // Fallback for older browsers or restricted environments
             const tempTextArea = document.createElement('textarea');
             tempTextArea.value = htmlContent;
             document.body.appendChild(tempTextArea);
@@ -416,12 +447,13 @@
         }
     }
 
-    /** Redirection function for the Upgrade button */
+    // ⭐ NEW: Redirection function for the Upgrade button
     window.handleUpgradeClick = function() {
         window.location.href = 'upgrade.html';
     };
+    // ----------------------------------------------------
 
-    /** Opens the delete confirmation modal. */
+    /** NEW: Opens the delete confirmation modal. */
     window.openDeleteModal = function(projectId) {
         const project = projectsData.get(projectId);
         if (!project) {
@@ -429,7 +461,9 @@
             return;
         }
         
+        // Set the project title in the modal for confirmation
         document.getElementById('delete-project-title').textContent = project.title;
+        // Set a data attribute on the button to store the ID
         confirmDeleteButton.setAttribute('data-project-id', projectId);
 
         deleteConfirmModal.classList.remove('hidden');
@@ -442,7 +476,7 @@
         lucide.createIcons();
     }
 
-    /** Closes the delete confirmation modal. */
+    /** NEW: Closes the delete confirmation modal. */
     window.closeDeleteModal = function() {
         deleteModalContent.classList.remove('scale-100', 'opacity-100');
         deleteModalContent.classList.add('scale-95', 'opacity-0');
@@ -450,12 +484,14 @@
         setTimeout(() => {
             deleteConfirmModal.classList.remove('flex');
             deleteConfirmModal.classList.add('hidden');
+            // Clear the project ID from the button after closing
             confirmDeleteButton.removeAttribute('data-project-id'); 
         }, 300);
     }
 
 
     /** Handles final deletion of a project from Firestore. */
+    // MODIFIED: Renamed to private function, triggered by confirmation button
     async function executeDeleteProject(projectId) {
         if (!isAuthReady || !currentUserId) {
             showMessage("System not ready or user ID missing.", true);
@@ -463,9 +499,10 @@
         }
 
         showMessage("Initiating project deletion...", false);
-        window.closeDeleteModal(); 
+        window.closeDeleteModal(); // Close the confirmation modal
 
         try {
+            // Document path: /artifacts/{appId}/users/{userId}/projects/{projectId}
             const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
             await deleteDoc(docRef);
             showMessage("Project deleted successfully!", false);
@@ -475,6 +512,7 @@
         }
     }
 
+    // Attach listener to the confirmation button
     if (confirmDeleteButton) {
         confirmDeleteButton.addEventListener('click', () => {
             const projectId = confirmDeleteButton.getAttribute('data-project-id');
@@ -490,6 +528,7 @@
     // --- Edit Modal Control Functions ---
     
     /** Shows the edit modal and pre-fills data. */
+    // ⭐ REFACTORED: Takes ID, retrieves content from projectsData
     window.openEditModal = function(projectId) {
         const project = projectsData.get(projectId);
         if (!project) {
@@ -544,12 +583,13 @@
         window.closeEditModal();
         
         try {
+            // Document path: /artifacts/{appId}/users/{userId}/projects/{projectId}
             const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
             
             await updateDoc(docRef, {
                 title: newTitle, 
                 prompt: newPrompt,
-                updatedAt: Timestamp.fromDate(new Date())
+                updatedAt: Timestamp.fromDate(new Date()) // Use Firestore Timestamp
             });
 
             showMessage(`Project "${newTitle}" updated successfully!`, false);
@@ -560,11 +600,12 @@
         }
     }
 
+    // Attach the submit listener to the form element
     if (editForm) {
         editForm.addEventListener('submit', handleEditFormSubmit);
     }
 
-    /** Filters projects based on search query. */
+    /** NEW: Filters projects based on search query. */
     window.filterProjects = function(query) {
         const searchTerm = query.toLowerCase().trim();
         let filteredProjects = allProjectsArray;
@@ -572,7 +613,7 @@
         if (searchTerm) {
             filteredProjects = allProjectsArray.filter(project => 
                 project.title.toLowerCase().includes(searchTerm) ||
-                project.prompt.toLowerCase().includes(searchTerm)
+                project.prompt.toLowerCase().includes(searchTerm) // Also search in the prompt
             );
         }
         
@@ -582,29 +623,44 @@
 
     /** Renders the list of projects from Firestore data. */
     function renderProjects(projectsToRender) {
-        if (!projectsContainer) return; 
+        if (!projectsContainer) return; // Guard against missing container
 
-        // Cache the 'Create New Site' card HTML
+        // Find the original 'Create New Site' card HTML
+        let createCardHtml = '';
+        // ⭐ CRITICAL FIX: The `createCardElement` is removed from the DOM during the `projectsContainer.innerHTML = ''` call below, 
+        // leading to it being null on subsequent renders. We must grab its outerHTML before clearing the container.
         const cachedCreateCardHtml = document.querySelector('div.cursor-pointer')?.outerHTML; 
-        let createCardHtml = cachedCreateCardHtml || `
-             <div onclick="window.location.href='ai_prompt.html'"
-                 class="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:border-ammoue transition duration-300 cursor-pointer hover:shadow-lg h-full min-h-[200px]">
-                  <i data-lucide="plus-circle" class="w-12 h-12 text-gray-400 mb-3"></i>
-                  <p class="text-lg font-semibold text-gray-700">Create New AI Site</p>
-                  <p class="text-sm text-gray-500 mt-1">Start generating a new website</p>
-             </div>
-         `;
+
+        if (cachedCreateCardHtml) {
+            createCardHtml = cachedCreateCardHtml;
+        } else {
+             // Fallback if the element is not found immediately on load
+             createCardHtml = `
+                 <div onclick="window.location.href='ai_prompt.html'"
+                     class="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:border-ammoue transition duration-300 cursor-pointer hover:shadow-lg h-full min-h-[200px]">
+                      <i data-lucide="plus-circle" class="w-12 h-12 text-gray-400 mb-3"></i>
+                      <p class="text-lg font-semibold text-gray-700">Create New AI Site</p>
+                      <p class="text-sm text-gray-500 mt-1">Start generating a new website</p>
+                 </div>
+             `;
+        }
         
+        // Ensure to remove existing content before prepending the 'Create Card'
         projectsContainer.innerHTML = '';
-        let projectsHtml = createCardHtml; 
+        let projectsHtml = createCardHtml; // Start with the Create Card
 
         if (projectsToRender.length === 0) {
+            // Show the 'Create New Site' card and the empty message
+            const emptyMessageHtml = `<p id="no-projects-message" class="col-span-full text-center text-gray-500 text-lg mt-10">You haven't saved any projects yet. Click above to start!</p>`;
+            // Check if the current list is a result of an empty search
             const currentSearch = document.getElementById('project-search')?.value || '';
             
             if (currentSearch) {
+                // Show a search-specific empty message
                 projectsContainer.innerHTML = createCardHtml + `<p class="col-span-full text-center text-gray-500 text-lg mt-10">No projects found matching "${currentSearch}".</p>`;
             } else {
-                projectsContainer.innerHTML = createCardHtml + `<p id="no-projects-message" class="col-span-full text-center text-gray-500 text-lg mt-10">You haven't saved any projects yet. Click above to start!</p>`;
+                // Show the initial empty state message
+                projectsContainer.innerHTML = createCardHtml + emptyMessageHtml;
             }
             
             lucide.createIcons();
@@ -617,28 +673,29 @@
             const title = project.title; 
             const cleanPrompt = project.prompt; 
             
+            // *** Get the date correctly from the Firestore Timestamp object ***
             let dateObj;
             if (project.createdAt && typeof project.createdAt.toDate === 'function') {
                 dateObj = project.createdAt.toDate();
             } else if (project.createdAt && project.createdAt.seconds) {
                 dateObj = new Date(project.createdAt.seconds * 1000);
             } else {
-                dateObj = new Date(0); 
+                dateObj = new Date(0); // Fallback to a safe, recognizable date
             }
             const timestamp = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-            // Deployment Status
+            // --- Determine button style and text based on deployment status ---
             const isDeployed = project.deploymentUrl && project.deploymentUrl.startsWith('http');
             const previewButtonText = isDeployed ? 'Live Site' : 'Preview HTML';
             const previewButtonColor = isDeployed ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-500 hover:bg-gray-600'; 
             const previewButtonIcon = isDeployed ? 'globe' : 'eye';
 
-            // Screenshot Status
+            // --- Determine screenshot button look (UPDATED) ---
             const hasScreenshot = project.screenshotUrl && project.screenshotUrl.startsWith('http');
-            const screenshotButtonDisabled = hasScreenshot ? 'disabled' : '';
-            const screenshotButtonColor = hasScreenshot ? 'bg-gray-400' : (isDeployed ? 'bg-pink-600 hover:bg-pink-700' : 'bg-pink-400');
+            const screenshotButtonColor = hasScreenshot ? 'bg-gray-400 hover:bg-gray-500' : 'bg-pink-600 hover:bg-pink-700';
             const screenshotButtonIcon = hasScreenshot ? 'image' : 'camera';
-            const screenshotButtonTitle = hasScreenshot ? 'Screenshot Exists' : (isDeployed ? 'Generate Screenshot' : 'Requires Deployment');
+            const screenshotButtonTitle = hasScreenshot ? 'Screenshot Exists' : 'Generate Screenshot';
+            // -----------------------------------------------------------------
 
             projectsHtml += `
                 <div onclick="window.location.href='editor.html?id=${project.id}'"
@@ -675,7 +732,7 @@
                             </button>
                             
                             <button onclick="event.stopPropagation(); handleGenerateScreenshot('${project.id}')" 
-                                class="px-3 py-2 text-sm font-semibold rounded-xl text-white ${screenshotButtonColor} transition duration-150 shadow-md" title="${screenshotButtonTitle}" ${screenshotButtonDisabled} ${!isDeployed && !hasScreenshot ? 'disabled' : ''}>
+                                class="px-3 py-2 text-sm font-semibold rounded-xl text-white ${screenshotButtonColor} transition duration-150 shadow-md" title="${screenshotButtonTitle}" ${hasScreenshot ? 'disabled' : ''}>
                                 <i data-lucide="${screenshotButtonIcon}" class="w-4 h-4 inline-block"></i>
                             </button>
                             
@@ -702,63 +759,66 @@
         });
 
         projectsContainer.innerHTML = projectsHtml;
+        // Re-render Lucide icons after injecting new HTML
         lucide.createIcons();
     }
 
 
-    /** Fetches projects for the current user in real-time. (UPDATED for Auto-Screenshot) */
+    /** Fetches projects for the current user in real-time. */
     function getProjects(userId) {
         if (!db || !userId) return;
 
+        // Collection path: /artifacts/{appId}/users/{userId}/projects
         const projectsRef = collection(db, 'artifacts', appId, 'users', userId, 'projects');
         const q = query(projectsRef);
 
+        // Set up the real-time listener (onSnapshot)
         onSnapshot(q, (snapshot) => {
             const projects = [];
+            // Clear the projectsData map and array before repopulating
             projectsData.clear();
             allProjectsArray = [];
             
             snapshot.forEach((doc) => {
                 const data = doc.data();
                 
+                // Clean the prompt by replacing the literal '\n' sequences with real line breaks
                 const cleanPrompt = data.prompt ? data.prompt.replace(/\\n/g, '\n') : "No prompt available";
-                const rawHtmlContent = data.htmlContent || ''; 
+                
+                // Use UTF-8 safe encoding before btoa() for the preview/download buttons
+                const rawHtmlContent = data.htmlContent || ''; // Ensure it's always a string
                 const utf8Encoded = unescape(encodeURIComponent(rawHtmlContent));
                 const encodedHtmlContent = btoa(utf8Encoded);
 
                 const project = {
                     id: doc.id,
                     ...data,
+                    // Use more sensible default fields for robust rendering
                     title: data.title || (cleanPrompt.split('\n')[0].substring(0, 30).trim() + (cleanPrompt.split('\n')[0].length > 30 ? '...' : '') || "Untitled Project"),
-                    prompt: cleanPrompt, 
-                    htmlContent: rawHtmlContent, 
-                    encodedHtmlContent: encodedHtmlContent, 
+                    prompt: cleanPrompt, // The cleaned prompt string
+                    htmlContent: rawHtmlContent, // The original raw HTML
+                    encodedHtmlContent: encodedHtmlContent, // The Base64 encoded HTML
                     deploymentUrl: data.deploymentUrl || null, 
                     createdAt: data.createdAt,
+                    // ⭐ CRITICAL: Retrieve the new screenshot URL
                     screenshotUrl: data.screenshotUrl || null
                 };
                 
-                // ⭐ CRITICAL NEW LOGIC: Check for missing screenshot and trigger generation automatically
-                if (project.deploymentUrl && !project.screenshotUrl) {
-                    // Only auto-trigger if a deployment URL exists and no screenshot exists
-                    console.log(`Auto-generating screenshot for new/updated project: ${project.id}`);
-                    // Trigger the function asynchronously
-                    generateScreenshot(project.id);
-                }
-
+                // ⭐ CRITICAL FIX: Store the full, processed project object in the map
                 projectsData.set(doc.id, project);
                 projects.push(project);
             });
 
-            // Sort by createdAt descending (newest first)
+            // Sort by createdAt descending (newest first) in memory.
             projects.sort((a, b) => {
                 const timeA = a.createdAt instanceof Timestamp ? a.createdAt.toMillis() : 0;
                 const timeB = b.createdAt instanceof Timestamp ? b.createdAt.toMillis() : 0;
-                return timeB - timeA;
+                return timeB - timeA; // Descending order (newest first)
             });
 
-            allProjectsArray = projects; 
+            allProjectsArray = projects; // Store the full, sorted list
             
+            // Re-render the filtered list if a search is active, otherwise render all
             const currentSearch = document.getElementById('project-search')?.value || '';
             filterProjects(currentSearch);
 
@@ -768,34 +828,42 @@
         });
     }
 
+    // --- NEW PLAN GATING FUNCTION ---
+
     /**
      * Fetches the user's plan from Firestore and gates dashboard content.
      */
     async function loadUserPlanAndGateContent(user) {
-        if (!user || !db) return; 
+        if (!user || !db) return; // Ensure user and db are ready
 
         try {
+            // Document path: /users/{userId}
             const userDocRef = doc(db, "users", user.uid);
-            const userDoc = await getDoc(userDocRef);
+            const userDoc = await getDoc(userDocRef); // Firestore read
 
             let plan = "free"; 
 
             if (userDoc.exists()) {
+                // Read the 'plan' field. Default to 'free' if the field is missing
                 plan = userDoc.data().plan || "free"; 
             }
             
             // 1. Update UI Status
             const planText = plan.toUpperCase();
             currentPlanEl.textContent = planText;
-            currentPlanEl.classList.remove('text-ammoue', 'text-yellow-600');
+            // Apply visual styling based on plan
+            currentPlanEl.classList.remove('text-ammoue', 'text-yellow-600'); // Remove both before adding one
             currentPlanEl.classList.add(plan === "pro" ? "text-yellow-600" : "text-ammoue"); 
 
             // 2. Gate Content
             if (plan === "pro") {
+                // Show PRO content and hide upgrade prompt
                 proContent.classList.remove('hidden');
-                upgradeCardWrapper.innerHTML = ''; 
+                upgradeCardWrapper.innerHTML = ''; // Hide upgrade button
             } else {
+                // Hide PRO content and show upgrade prompt
                 proContent.classList.add('hidden');
+                // Insert the upgrade button
                 upgradeCardWrapper.innerHTML = `
                     <button onclick="handleUpgradeClick()"
                         class="px-4 py-2 text-sm font-semibold rounded-xl text-white bg-yellow-500 hover:bg-yellow-600 transition duration-150 shadow-md">
@@ -808,6 +876,8 @@
             currentPlanEl.textContent = "Error";
         }
     }
+    // --- END NEW PLAN GATING FUNCTION ---
+
 
     /** Initializes Firebase services and sets up the critical auth listener. */
     function initializeAppAndAuth() {
@@ -816,6 +886,7 @@
             auth = getAuth(app);
             db = getFirestore(app);
 
+            // CRITICAL: Authentication Gate using the listener
             onAuthStateChanged(auth, (user) => {
                 if (user) {
                     currentUserId = user.uid;
@@ -823,14 +894,20 @@
 
                     userEmailSpan.textContent = user.email || user.uid;
 
+                    // Fetch projects for the logged-in user (CORE INTEGRATION)
                     getProjects(currentUserId);
+                    
+                    // ⭐ CRITICAL: Load and gate content based on user plan (NEW ADDITION)
                     loadUserPlanAndGateContent(user);
 
+                    // Show dashboard content
                     loadingScreen.classList.add('hidden');
                     dashboardContent.classList.remove('hidden');
                     dashboardContent.classList.add('opacity-100');
                 } else {
+                    // **FAILURE** - User is NOT authenticated: Redirect to login page
                     console.log("No valid session found. Redirecting to login.html...");
+                    // Add a small delay for message box visibility before redirect
                     setTimeout(() => { window.location.href = 'login.html'; }, 500);
                 }
             });
@@ -838,16 +915,18 @@
         } catch (error) {
             console.error("Firebase Initialization Error:", error);
             showMessage("Failed to initialize the dashboard.", true);
+            // Ensure content is hidden on failure
             loadingScreen.classList.add('hidden');
             dashboardContent.classList.add('hidden');
         }
     }
 
-    // Export handleLogout function to global scope
+    // Export handleLogout function to global scope for the button click
     window.handleLogout = async function() {
         try {
             await signOut(auth);
             showMessage("Logged out successfully. Redirecting...", false);
+            // Redirect will be handled by onAuthStateChanged listener above, but we can force it too
             setTimeout(() => { window.location.href = 'login.html'; }, 1000);
         } catch (error) {
             console.error("Logout Error:", error);
@@ -861,6 +940,8 @@
 
     // Rerender Lucide icons once everything is ready
     window.onload = function() {
+        // Ensure lucide.createIcons is called after the main dashboard is visible 
+        // and after the project list has been rendered once.
         if (typeof lucide !== 'undefined' && lucide.createIcons) {
              lucide.createIcons();
         }
