@@ -34,6 +34,18 @@
             overflow: hidden;
             -webkit-line-clamp: 2;
         }
+        
+        /* Ensures the project card image container is visually appealing */
+        .image-container {
+            border: 1px solid #e5e7eb; /* gray-200 */
+            border-radius: 0.5rem; /* rounded-lg */
+            overflow: hidden;
+            height: 128px; /* h-32 */
+            background-color: #f3f4f6; /* gray-100 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
     </style>
 </head>
 <body class="antialiased min-h-screen">
@@ -166,7 +178,6 @@
     // Using SDK v12.4.0 to match your previous setup
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-    // ADD getDoc for loading the user's plan
     import { getFirestore, collection, onSnapshot, query, deleteDoc, doc, Timestamp, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
     // IMPORTANT: Hardcoded configuration from login.html for this specific app instance
@@ -577,14 +588,10 @@
             }
             const timestamp = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-            // *** Escape the HTML content for display in the snippet box ***
-            // The original logic uses project.htmlContent which might be undefined/null on first load or for older projects
-            const escapedCodeSnippet = escapeHtml(project.htmlContent || 'No code snippet available');
-
             // --- Determine button style and text based on deployment status ---
             const isDeployed = project.deploymentUrl && project.deploymentUrl.startsWith('http');
             const previewButtonText = isDeployed ? 'Live Site' : 'Preview HTML';
-            const previewButtonColor = isDeployed ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700';
+            const previewButtonColor = isDeployed ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-500 hover:bg-gray-600'; // Adjusted colors
             const previewButtonIcon = isDeployed ? 'globe' : 'eye';
             // -----------------------------------------------------------------
 
@@ -599,11 +606,22 @@
                         <p class="text-xs text-gray-500 mb-2 h-10 line-clamp-2">${cleanPrompt}</p>
                     </div>
 
-                    <div class="bg-gray-100 border border-gray-300 rounded-lg p-2 mb-4 h-32 overflow-y-scroll text-sm pointer-events-none">
-                        <pre class="whitespace-pre-wrap">
-                             <code class="text-xs text-gray-700">${escapedCodeSnippet}</code>
-                        </pre>
+                    <!-- ✨ NEW: PROJECT SCREENSHOT DISPLAY BLOCK (Replaces Code Snippet) -->
+                    <div class="image-container mb-4">
+                        ${project.screenshotUrl ? `
+                            <img src="${project.screenshotUrl}" 
+                                 alt="Screenshot of ${title}" 
+                                 class="w-full h-full object-cover transition-transform duration-300 hover:scale-[1.05] transform" 
+                                 loading="lazy"
+                                 onerror="this.onerror=null; this.src='https://placehold.co/400x300/e5e7eb/737373?text=Image+Load+Error';">
+                        ` : `
+                            <div class="text-center text-gray-500 p-4">
+                                <i data-lucide="image-off" class="w-6 h-6 mx-auto mb-1"></i>
+                                <p class="text-xs">No screenshot yet</p>
+                            </div>
+                        `}
                     </div>
+                    <!-- END NEW BLOCK -->
 
                     <div class="mt-auto">
                         <p class="text-xs text-gray-400 mb-3">Saved: ${timestamp}</p>
@@ -618,12 +636,13 @@
                                 class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-gray-500 hover:bg-gray-600 transition duration-150 shadow-md" title="Copy Code">
                                 <i data-lucide="copy" class="w-4 h-4 inline-block"></i>
                             </button>
-
-                            <button onclick="event.stopPropagation(); handlePreview('${project.id}')" class="flex-1 px-3 py-2 text-sm font-semibold rounded-xl text-white ${previewButtonColor} transition duration-150 shadow-md" title="${isDeployed ? 'Open Live Deployed Site' : 'View Local HTML Preview'}">
+                            
+                            <button onclick="event.stopPropagation(); handlePreview('${project.id}')" 
+                                class="flex-1 px-3 py-2 text-sm font-semibold rounded-xl text-white ${previewButtonColor} transition duration-150 shadow-md" title="${isDeployed ? 'Open Live Deployed Site' : 'View Local HTML Preview'}">
                                 <i data-lucide="${previewButtonIcon}" class="w-4 h-4 inline-block mr-1"></i> ${previewButtonText}
                             </button>
                             
-                            <button onclick="event.stopPropagation(); handleDownload('${project.id}')" class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-green-600 hover:bg-green-700 transition duration-150 shadow-md">
+                            <button onclick="event.stopPropagation(); handleDownload('${project.id}')" class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-green-600 hover:bg-green-700 transition duration-150 shadow-md" title="Download HTML">
                                 <i data-lucide="download" class="w-4 h-4 inline-block"></i>
                             </button>
                             <button onclick="event.stopPropagation(); openDeleteModal('${project.id}')" class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150 shadow-md" title="Delete Project">
@@ -675,8 +694,10 @@
                     prompt: cleanPrompt, // The cleaned prompt string
                     htmlContent: rawHtmlContent, // The original raw HTML
                     encodedHtmlContent: encodedHtmlContent, // The Base64 encoded HTML
-                    deploymentUrl: data.deploymentUrl || null, // ⭐ CRITICAL: Get the deployment URL
-                    createdAt: data.createdAt 
+                    deploymentUrl: data.deploymentUrl || null, 
+                    createdAt: data.createdAt,
+                    // ⭐ CRITICAL: Retrieve the new screenshot URL
+                    screenshotUrl: data.screenshotUrl || null
                 };
                 
                 // ⭐ CRITICAL FIX: Store the full, processed project object in the map
@@ -739,7 +760,6 @@
                 // Hide PRO content and show upgrade prompt
                 proContent.classList.add('hidden');
                 // Insert the upgrade button
-                // ⭐ FIX: Change to use the correct global function (handleUpgradeClick) defined below
                 upgradeCardWrapper.innerHTML = `
                     <button onclick="handleUpgradeClick()"
                         class="px-4 py-2 text-sm font-semibold rounded-xl text-white bg-yellow-500 hover:bg-yellow-600 transition duration-150 shadow-md">
@@ -818,24 +838,10 @@
     window.onload = function() {
         // Ensure lucide.createIcons is called after the main dashboard is visible 
         // and after the project list has been rendered once.
-        // It's already in renderProjects/modal functions, but a final call ensures all initial non-dynamic icons load.
         if (typeof lucide !== 'undefined' && lucide.createIcons) {
              lucide.createIcons();
         }
     }
-    
-    // Explicitly define global functions for clarity, though 'window.' already makes them global in a browser script.
-    // The following functions are called directly from HTML onclick attributes:
-    // window.handlePreview
-    // window.handleDownload
-    // window.handleCopyCode
-    // window.handleUpgradeClick
-    // window.openDeleteModal
-    // window.closeDeleteModal
-    // window.openEditModal
-    // window.closeEditModal
-    // window.filterProjects
-    // window.handleLogout 
     
 </script>
 </body>
