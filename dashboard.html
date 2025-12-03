@@ -174,7 +174,7 @@
         </div>
     </div>
     
- <script type="module">
+<script type="module">
     // Using SDK v12.4.0 to match your previous setup
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
@@ -263,24 +263,50 @@
             return;
         }
 
+        // Use the deployment URL if available
+        const targetUrl = project.deploymentUrl;
+
+        let htmlContent = null;
+        if (!targetUrl) {
+            if (!project.encodedHtmlContent) {
+                 showMessage("No deployment URL and no HTML content for screenshot.", true);
+                 return;
+            }
+            // Decode the Base64 string back to a UTF-8 safe string
+            htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
+        }
+
+        // CRITICAL FIX: Structure the payload to send either the URL or the raw HTML, ensuring one is present.
+        const payload = {
+            userId: currentUserId,
+            projectId: projectId,
+        };
+
+        if (targetUrl) {
+            // Option 1: Send the deployment URL (Vercel API expects 'url' field)
+            payload.url = targetUrl;
+        } else if (htmlContent) {
+            // Option 2: Send the raw HTML content (Vercel API likely expects 'htmlContent' field)
+            payload.htmlContent = htmlContent;
+        } else {
+             showMessage("Project content is missing for screenshot generation.", true);
+             return;
+        }
+
         showMessage("Generating screenshot... this may take a moment.", false);
 
         try {
-            // NOTE: The API endpoint needs to be a running server (e.g., a Vercel function)
+            // NOTE: The API endpoint is the one throwing the 400 error, so we adjust the payload above.
             const res = await fetch('/api/screenshot', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: currentUserId,
-                    projectId: projectId,
-                    // Use encodedHtmlContent if the backend is designed to handle Base64 payload
-                    htmlContent: project.encodedHtmlContent 
-                })
+                body: JSON.stringify(payload)
             });
 
             if (!res.ok) {
                 const errorData = await res.json();
-                throw new Error(errorData.message || `API call failed with status: ${res.status}`);
+                // CRITICAL: Log the error message from the Vercel API for better debugging
+                throw new Error(errorData.error || `API call failed with status: ${res.status}`);
             }
 
             const data = await res.json();
@@ -293,6 +319,8 @@
                 project.screenshotUrl = data.screenshotUrl;
 
                 showMessage('Screenshot generated and saved!', false);
+                // Force a re-render to update the image in the card and disable the button
+                filterProjects(document.getElementById('project-search')?.value || ''); 
             } else {
                  throw new Error("Screenshot URL missing from API response.");
             }
@@ -659,10 +687,10 @@
             // --- Determine button style and text based on deployment status ---
             const isDeployed = project.deploymentUrl && project.deploymentUrl.startsWith('http');
             const previewButtonText = isDeployed ? 'Live Site' : 'Preview HTML';
-            const previewButtonColor = isDeployed ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-500 hover:bg-gray-600'; // Adjusted colors
+            const previewButtonColor = isDeployed ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-500 hover:bg-gray-600'; 
             const previewButtonIcon = isDeployed ? 'globe' : 'eye';
 
-            // --- Determine screenshot button look ---
+            // --- Determine screenshot button look (UPDATED) ---
             const hasScreenshot = project.screenshotUrl && project.screenshotUrl.startsWith('http');
             const screenshotButtonColor = hasScreenshot ? 'bg-gray-400 hover:bg-gray-500' : 'bg-pink-600 hover:bg-pink-700';
             const screenshotButtonIcon = hasScreenshot ? 'image' : 'camera';
@@ -704,7 +732,7 @@
                             </button>
                             
                             <button onclick="event.stopPropagation(); handleGenerateScreenshot('${project.id}')" 
-                                class="px-3 py-2 text-sm font-semibold rounded-xl text-white ${screenshotButtonColor} transition duration-150 shadow-md" title="${screenshotButtonTitle}">
+                                class="px-3 py-2 text-sm font-semibold rounded-xl text-white ${screenshotButtonColor} transition duration-150 shadow-md" title="${screenshotButtonTitle}" ${hasScreenshot ? 'disabled' : ''}>
                                 <i data-lucide="${screenshotButtonIcon}" class="w-4 h-4 inline-block"></i>
                             </button>
                             
