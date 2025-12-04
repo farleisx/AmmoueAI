@@ -151,7 +151,6 @@
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-    // 🚨 UPDATED: Added doc, getDoc, updateDoc for plan fetching and project ID management
     import { getFirestore, collection, addDoc, doc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
     
     const firebaseConfig = {
@@ -182,7 +181,6 @@
     const messageBox = document.getElementById('message-box');
     const refinePromptInput = document.getElementById('refine-prompt');
     const refineBtn = document.getElementById('refine-btn');
-    // 🚨 NEW DOM ELEMENT
     const deploymentErrorMessage = document.getElementById('deployment-error-message'); 
 
     let listenersAttached = false;
@@ -191,8 +189,10 @@
     let latestDeploymentUrl = ''; // ✅ per-user GitHub Pages URL
     let currentProjectId = null; // 🚨 NEW: Store the project ID after initial save
 
+    // Helper function for a delay (used in polling)
+    const delay = ms => new Promise(res => setTimeout(res, ms));
+
     function showMessage(message, isError) {
-        // ... (showMessage function body)
         messageBox.textContent = message;
         messageBox.classList.toggle('bg-red-500', isError);
         messageBox.classList.toggle('bg-ammoue', !isError);
@@ -206,7 +206,6 @@
 
     // Consolidated loading function for primary button
     function setLoading(isLoading, isRefining = false) {
-        // ... (setLoading function body)
         if (isLoading) {
             generateBtn.disabled = true;
             refineBtn.disabled = true;
@@ -226,15 +225,18 @@
     /**
      * Helper to set Preview Button state (deployed vs. not).
      */
-    function setPreviewButton(url, isDeploying = false) {
-        // ... (setPreviewButton function body)
+    function setPreviewButton(url, isDeploying = false, status = 'pending') {
         previewBtn.disabled = !url || isDeploying; 
         
         previewBtn.classList.remove('bg-green-600', 'bg-blue-600', 'bg-yellow-600', 'bg-red-500', 'bg-gray-400', 'cursor-not-allowed', 'cursor-pointer');
 
         if (isDeploying) {
-            // Note: The countdown logic updates the text in handleDeployment
-            previewBtn.textContent = 'Deployment in Progress (Wait 15s)'; 
+            // Display dynamic status during polling
+            let text = 'Deployment Initiated...';
+            if (status === 'queued') text = 'Deployment Queued...';
+            if (status === 'building') text = 'Deployment Building...';
+            
+            previewBtn.textContent = text;
             previewBtn.classList.add('bg-yellow-600', 'cursor-not-allowed');
         } else if (url) {
             previewBtn.textContent = 'Preview Site (Open Deployment)';
@@ -246,7 +248,6 @@
     }
 
     function copyToClipboard(text) {
-        // ... (copyToClipboard function body)
         try {
             const textarea = document.createElement('textarea');
             textarea.value = text;
@@ -261,7 +262,6 @@
     }
 
     function handleDownload() {
-        // ... (handleDownload function body)
         if (!outputCode.textContent) return showMessage("No HTML code to download.", true);
         const blob = new Blob([outputCode.textContent], { type: "text/html" });
         const link = document.createElement("a");
@@ -273,9 +273,8 @@
         showMessage("Download started!", false);
     }
 
-    // 🚨 UPDATED: Handle Deployment
+    // 🚨 UPDATED: Handle Deployment (Now uses Polling)
     async function handleDeployment(plan, projectId) {
-        // 1. Hide the error container at the start of any new deployment attempt
         deploymentErrorMessage.classList.add('hidden'); 
 
         if (!currentUserId) return showMessage("Authentication error: User ID is missing.", true); 
@@ -283,9 +282,10 @@
         if (!plan) return showMessage("System Error: User plan is missing.", true);
         if (!projectId) return showMessage("System Error: Project ID is missing.", true);
 
-        // Set the button to a 'deploying' state, immediately disabled
+        // 1. Initial Deployment Request
         setPreviewButton(latestDeploymentUrl, true);
-        
+        let deploymentId = null; // Vercel deployment ID
+
         try {
             const response = await fetch("/api/deploy", {
                 method: "POST",
@@ -293,45 +293,16 @@
                 body: JSON.stringify({ 
                     htmlContent: latestHtmlContent,
                     userId: currentUserId,
-                    plan: plan,      // <--- ADDED 
-                    projectId: projectId // <--- ADDED
+                    plan: plan, 
+                    projectId: projectId 
                 }),
             });
 
             const result = await response.json();
 
-            if (response.ok && result.deploymentUrl) {
-                latestDeploymentUrl = result.deploymentUrl;
-
-                showMessage("✅ Deployment initiated. Waiting 30 seconds for propagation...", false);
-
-                // --- START OF 30 SECOND DELAY LOGIC (Updated to 30s) ---
-                const delayInSeconds = 30;
-                let countdown = delayInSeconds;
-                const interval = setInterval(() => {
-                    countdown--;
-                    // Update the button text with the countdown
-                    previewBtn.textContent = `Preview Site (Wait ${countdown}s)`;
-                    if (countdown <= 0) {
-                        clearInterval(interval);
-                        // After 30 seconds, enable the button and set the final success state
-                        setPreviewButton(latestDeploymentUrl, false); 
-                        showMessage("Deployment is likely complete. You can now preview the site!", false);
-                    }
-                }, 1000);
-                // --- END OF 30 SECOND DELAY LOGIC ---
-                
-                // Update Firestore with the final URL immediately to prevent re-deployment from counting against limit
-                await updateProjectDeploymentUrl(projectId, latestDeploymentUrl);
-
-            } else {
-                console.error("Vercel Deployment Failed:", result);
-
-                // 🚨 CRITICAL FIX: Explicitly check for the 403 Forbidden status
+            if (!response.ok) {
                 if (response.status === 403) {
                     const maxDeployments = result.maxDeployments || 1; 
-                    
-                    // 💥 NEW: Populate and display the dedicated error container
                     deploymentErrorMessage.innerHTML = `
                         <div class="text-xl mb-1 flex items-center justify-center">
                             <i data-lucide="alert-triangle" class="w-6 h-6 mr-2"></i>
@@ -341,27 +312,64 @@
                         Please **upgrade your plan** to deploy more new sites, or use the **AI Refinement Agent** to modify your existing site.
                     `;
                     deploymentErrorMessage.classList.remove('hidden');
-                    lucide.createIcons(); // Re-render icons inside the new div
-                    
-                    // Throw an error to ensure the rest of the 'catch' block runs for button resetting
+                    lucide.createIcons();
                     throw new Error("FREE Plan Limit Reached."); 
                 }
-
                 throw new Error(result.error || result.details || "Deployment failed on Vercel.");
             }
+
+            // Successfully initiated deployment
+            deploymentId = result.deploymentId;
+            latestDeploymentUrl = result.deploymentUrl; // Use the URL provided at the start (usually temporary)
+            showMessage("✅ Deployment initiated. Checking status in real-time...", false);
+
+            // 2. Polling Loop for Status Check
+            const maxPollAttempts = 30; // Max attempts before giving up (e.g., 30 * 5s = 150 seconds)
+            for (let attempt = 0; attempt < maxPollAttempts; attempt++) {
+                await delay(5000); // Wait 5 seconds between checks
+
+                const statusResponse = await fetch("/api/checkDeploymentStatus", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ 
+                        deploymentId: deploymentId,
+                        userId: currentUserId // Pass user ID for authorization if needed
+                    }),
+                });
+
+                const statusResult = await statusResponse.json();
+                const status = statusResult.status; // Expected: 'QUEUED', 'BUILDING', 'READY', 'ERROR'
+                const finalUrl = statusResult.url; // The definitive, final URL
+
+                if (status === 'READY') {
+                    latestDeploymentUrl = finalUrl || latestDeploymentUrl;
+                    setPreviewButton(latestDeploymentUrl, false); 
+                    showMessage("🚀 Deployment Complete! You can now preview the site.", false);
+                    await updateProjectDeploymentUrl(projectId, latestDeploymentUrl);
+                    return; // Exit the function successfully
+                } else if (status === 'ERROR') {
+                    throw new Error(`Deployment failed with status: ${statusResult.errorDetail || 'Error'}`);
+                } else {
+                    // Update button state while waiting
+                    setPreviewButton(latestDeploymentUrl, true, status.toLowerCase());
+                    console.log(`Deployment status: ${status} (Attempt ${attempt + 1})`);
+                }
+            }
+            
+            // If the loop finishes without success
+            throw new Error("Deployment timed out. Check Vercel logs for details.");
+
         } catch (error) {
             console.error("Deployment Error:", error);
 
-            // Check if the error is the FREE plan limit error
             const isFreePlanError = error.message.includes('FREE Plan Limit Reached');
             
-            // If it's a generic error (not the free plan limit error), still use the floating box
             if (!isFreePlanError) {
-                 showMessage(`❌ Deployment failed: ${error.message}`, true);
-                 latestDeploymentUrl = ""; // Only clear the URL for non-limit fatal errors
+                showMessage(`❌ Deployment failed: ${error.message}`, true);
+                latestDeploymentUrl = "";
             }
-           
-            setPreviewButton(latestDeploymentUrl, false); // Reset button state
+            
+            setPreviewButton(latestDeploymentUrl, false);
             
             previewBtn.classList.remove("bg-yellow-600", "bg-green-600");
             previewBtn.classList.add("bg-red-500");
@@ -371,7 +379,6 @@
 
     // ✅ Updated: Handle Preview Button Click
     function handlePreview() {
-        // ... (handlePreview function body)
         if (!latestDeploymentUrl) {
             showMessage("Site not deployed yet or deployment failed.", true);
             return;
@@ -469,7 +476,6 @@
         let buffer = "";
         let html = "";
 
-        // ... (Live typing effect logic remains the same)
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
@@ -506,7 +512,7 @@
             if (currentProjectId) {
                 await handleDeployment(userPlan, currentProjectId); // <--- PASS REQUIRED PARAMS
             } else {
-                 showMessage("Deployment skipped: Failed to save project for ID.", true);
+                showMessage("Deployment skipped: Failed to save project for ID.", true);
             }
 
         } else {
@@ -518,7 +524,6 @@
 
     // Live typing effect function
     async function typeHtmlLive(newText) {
-        // ... (typeHtmlLive function body)
         for (let i = 0; i < newText.length; i++) {
             outputCode.textContent += newText[i];
             outputCode.scrollTop = outputCode.scrollHeight; 
@@ -530,9 +535,9 @@
         const refinePrompt = refinePromptInput.value.trim();
         if (!latestHtmlContent) return showMessage("Generate HTML first.", true);
         if (refinePrompt.length < 5) return showMessage("Enter refinement instruction.", true);
-        if (!currentProjectId) return showMessage("Cannot refine: Project ID missing. Generate a new site.", true); // Should not happen
+        if (!currentProjectId) return showMessage("Cannot refine: Project ID missing. Generate a new site.", true);
 
-        setLoading(true, true); // Use the combined loading function for refining
+        setLoading(true, true);
 
         const payload = { currentHtml: latestHtmlContent, refinePrompt };
         const maxRetries = 3;
@@ -552,15 +557,14 @@
                 if (generatedHtml) {
                     latestHtmlContent = generatedHtml.trim();
                     outputCode.textContent = latestHtmlContent;
-                    latestDeploymentUrl = ""; // Reset deployment URL on refinement
-                    setPreviewButton(null, false); // Reset preview button
+                    latestDeploymentUrl = "";
+                    setPreviewButton(null, false);
                     
-                    // 🚨 CRITICAL: Get plan for re-deployment
                     const userPlan = await getUserPlan(currentUserId);
-                    await handleDeployment(userPlan, currentProjectId); // <--- PASS REQUIRED PARAMS
+                    await handleDeployment(userPlan, currentProjectId);
 
                     latestPrompt += `\n\n[Refined]: ${refinePrompt}`;
-                    await autoSaveProject(latestHtmlContent, latestPrompt, currentProjectId); // Update existing project
+                    await autoSaveProject(latestHtmlContent, latestPrompt, currentProjectId);
                     
                     showMessage("Code refined, deployed, and auto-saved!", false);
                     refinePromptInput.value = '';
@@ -635,7 +639,7 @@
             loadingState.classList.add('hidden');
             loadingState.style.opacity = '0';
             mainContent.classList.remove('hidden');
-            setPreviewButton(latestDeploymentUrl, false); // Initial button state
+            setPreviewButton(latestDeploymentUrl, false);
             if (!listenersAttached) {
                 generateBtn.addEventListener('click', handleGeneration);
                 refineBtn.addEventListener('click', handleRefine);
