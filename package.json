@@ -11,7 +11,7 @@
     "@google/generative-ai": "^0.9.0",
     "node-fetch": "^3.3.2",
     "firebase-admin": "^12.4.0",
-    "puppeteer": "^22.0.0", 
+    "puppeteer-core": "^22.0.0",
     "@sparticuz/chromium": "^114.0.0"
   }
 }
