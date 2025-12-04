@@ -198,7 +198,7 @@
     
     // ⭐ CRITICAL FIX: Global map to store projects in memory, avoiding complex strings in HTML.
     let projectsData = new Map();
-    let allProjectsArray = []; // NEW: Array to hold all projects for searching/filtering
+    let allProjectsArray = []; // Array to hold all projects for searching/filtering
 
     // --- DOM Elements ---
     const loadingScreen = document.getElementById('loading-screen');
@@ -206,38 +206,23 @@
     const userEmailSpan = document.getElementById('user-email');
     const msgBox = document.getElementById('message-box');
     const projectsContainer = document.getElementById('projects-container');
-    const createCardElement = document.querySelector('div.cursor-pointer');
     
-    // --- NEW PLAN GATING ELEMENTS ---
+    // --- PLAN GATING ELEMENTS ---
     const currentPlanEl = document.getElementById('current-plan');
     const proContent = document.getElementById('pro-content');
     const upgradeCardWrapper = document.getElementById('upgrade-card-wrapper');
-    // ---------------------------------
     
     // --- Modal DOM Elements ---
     const editModal = document.getElementById('edit-modal');
     const editModalContent = document.getElementById('edit-modal-content');
     const editForm = document.getElementById('edit-project-form');
 
-    // --- NEW Delete Modal DOM Elements ---
+    // --- Delete Modal DOM Elements ---
     const deleteConfirmModal = document.getElementById('delete-confirm-modal');
     const deleteModalContent = document.getElementById('delete-modal-content');
     const confirmDeleteButton = document.getElementById('confirm-delete-button');
 
     // --- Utility Functions ---
-
-    /**
-     * Converts raw code (like HTML or JS) into a displayable string
-     * by escaping HTML special characters.
-     */
-    function escapeHtml(unsafe) {
-        if (!unsafe) return '';
-        return unsafe.replace(/&/g, "&amp;")
-                     .replace(/</g, "&lt;")
-                     .replace(/>/g, "&gt;")
-                     .replace(/"/g, "&quot;")
-                     .replace(/'/g, "&#039;");
-    }
 
     /** Shows a temporary message box (replaces alert()) */
     function showMessage(message, isError) {
@@ -250,53 +235,59 @@
         setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
     }
 
-    // --- Screenshot Generation Function (NEW) ---
+    // --- Screenshot Generation Function (AUTOMATED) ---
 
     /**
-     * Calls a backend API to generate a screenshot of the project HTML
+     * Calls a backend API to generate a screenshot of the project HTML/URL
      * and saves the resulting URL to Firestore.
+     * @param {string} projectId
      */
     async function generateScreenshot(projectId) {
         const project = projectsData.get(projectId);
         if (!project || !currentUserId) {
-            showMessage("Project data is missing or user not authenticated.", true);
+            console.warn(`Project data or user not authenticated for screenshot (ID: ${projectId}).`);
             return;
         }
 
-        // Use the deployment URL if available
-        const targetUrl = project.deploymentUrl;
-
-        let htmlContent = null;
-        if (!targetUrl) {
-            if (!project.encodedHtmlContent) {
-                 showMessage("No deployment URL and no HTML content for screenshot.", true);
-                 return;
-            }
-            // Decode the Base64 string back to a UTF-8 safe string
-            htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
+        if (project.screenshotUrl) {
+            // Already generated, skip
+            return;
         }
 
-        // CRITICAL FIX: Structure the payload to send either the URL or the raw HTML, ensuring one is present.
+        console.log(`Starting screenshot generation for project: ${project.title}`);
+
+        const targetUrl = project.deploymentUrl;
+        let htmlContent = null;
+        
+        if (!targetUrl) {
+            if (!project.encodedHtmlContent) {
+                console.error(`No deployment URL and no HTML content for screenshot for ${project.title}.`);
+                return;
+            }
+            // Decode the Base64 string back to a UTF-8 safe string
+            try {
+                 htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
+            } catch (e) {
+                console.error("Failed to decode HTML content for screenshot API:", e);
+                return;
+            }
+        }
+
         const payload = {
             userId: currentUserId,
             projectId: projectId,
         };
 
         if (targetUrl) {
-            // Option 1: Send the deployment URL (Vercel API expects 'url' field)
             payload.url = targetUrl;
         } else if (htmlContent) {
-            // Option 2: Send the raw HTML content (Vercel API likely expects 'htmlContent' field)
             payload.htmlContent = htmlContent;
         } else {
-             showMessage("Project content is missing for screenshot generation.", true);
+             console.error(`Project content is missing for screenshot generation for ${project.title}.`);
              return;
         }
 
-        showMessage("Generating screenshot... this may take a moment.", false);
-
         try {
-            // NOTE: The API endpoint is the one throwing the 400 error, so we adjust the payload above.
             const res = await fetch('/api/screenshot', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -305,7 +296,6 @@
 
             if (!res.ok) {
                 const errorData = await res.json();
-                // CRITICAL: Log the error message from the Vercel API for better debugging
                 throw new Error(errorData.error || `API call failed with status: ${res.status}`);
             }
 
@@ -318,78 +308,31 @@
                 // 2. Optimistic UI update: Update the in-memory data
                 project.screenshotUrl = data.screenshotUrl;
 
-                showMessage('Screenshot generated and saved!', false);
-                // Force a re-render to update the image in the card and disable the button
-                filterProjects(document.getElementById('project-search')?.value || ''); 
+                // 3. Re-render to show the new screenshot image (non-blocking)
+                filterProjects(document.getElementById('project-search')?.value || '');
+
+                console.log(`Screenshot generated and saved for project: ${project.title}`);
+                showMessage(`Screenshot generated for "${project.title}"!`, false);
             } else {
                  throw new Error("Screenshot URL missing from API response.");
             }
         } catch (err) {
-            console.error('Screenshot generation failed:', err);
-            showMessage(`Failed to generate screenshot: ${err.message}`, true);
+            console.error(`Screenshot generation failed for ${project.title}:`, err);
+            // Don't spam the user message box with background errors
         }
     }
 
-    /**
-     * Public handler for the screenshot button.
-     */
+    // NOTE: The manual button handler is removed, as requested, 
+    // but the core function is kept private and triggered in getProjects.
+    /*
     window.handleGenerateScreenshot = async function(projectId) {
-    const project = projectsData.get(projectId);
-    if (!project) return showMessage("Project not found.", true);
-
-    const screenshotBtn = document.getElementById(`screenshot-btn-${projectId}`);
-    
-    if (project.screenshotUrl) {
-        showMessage("Screenshot already exists. Clear the URL in Firestore to regenerate.", false);
-        return;
+        // ... (removed)
     }
-
-    if (screenshotBtn) screenshotBtn.disabled = true; // disable while generating
-    showMessage("Generating screenshot... this may take a moment.", false);
-
-    try {
-        const payload = { userId: currentUserId, projectId: projectId };
-        if (project.deploymentUrl) payload.url = project.deploymentUrl;
-        else if (project.encodedHtmlContent) 
-            payload.htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
-
-        const res = await fetch('/api/screenshot', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        if (!res.ok) {
-            const errorData = await res.json();
-            throw new Error(errorData.error || `API call failed with status: ${res.status}`);
-        }
-
-        const data = await res.json();
-        if (!data.screenshotUrl) throw new Error("Screenshot URL missing from API response.");
-
-        // Save screenshot URL to Firestore
-        const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
-        await updateDoc(docRef, { screenshotUrl: data.screenshotUrl });
-
-        // Update in-memory project and re-render
-        project.screenshotUrl = data.screenshotUrl;
-        filterProjects(document.getElementById('project-search')?.value || '');
-
-        showMessage("Screenshot generated and saved!", false);
-
-    } catch (err) {
-        console.error('Screenshot generation failed:', err);
-        showMessage(`Failed to generate screenshot: ${err.message}`, true);
-        if (screenshotBtn) screenshotBtn.disabled = false; // re-enable on error
-    }
-}
-
-
+    */
     // --- End Screenshot Generation Function ---
 
 
     /** Opens the generated HTML in a new window for a live preview. */
-    // ⭐ MODIFIED: Check for deploymentUrl first.
     window.handlePreview = function(projectId) {
         const project = projectsData.get(projectId);
         
@@ -398,14 +341,12 @@
             return;
         }
 
-        // --- NEW: Check for Live Deployment URL ---
+        // --- Check for Live Deployment URL ---
         if (project.deploymentUrl) {
             window.open(project.deploymentUrl, "_blank");
             showMessage("Opening live deployed site!", false);
-            return; // Exit after opening the live site
+            return;
         }
-        // --- END NEW ---
-
         // --- Fallback to Local Preview (Original Logic) ---
         if (!project.encodedHtmlContent) {
             showMessage("No deployed URL and no preview data available.", true);
@@ -417,8 +358,8 @@
         
         const previewWindow = window.open('', '_blank');
         if (!previewWindow) {
-             showMessage("Pop-ups must be enabled to view the preview.", true);
-             return;
+              showMessage("Pop-ups must be enabled to view the preview.", true);
+              return;
         }
         previewWindow.document.write(decodedHtml);
         previewWindow.document.close();
@@ -426,7 +367,6 @@
     }
 
     /** Downloads the generated HTML code as a file. */
-    // ⭐ REFACTORED: Takes ID, retrieves content from projectsData
     window.handleDownload = function(projectId) {
         const project = projectsData.get(projectId);
         if (!project || !project.encodedHtmlContent) {
@@ -453,7 +393,7 @@
         showMessage("HTML file prepared for download!", false);
     }
     
-    // ⭐ REFACTORED: Takes ID, retrieves content from projectsData
+    /** Copies the generated HTML code to the clipboard. */
     window.handleCopyCode = function(projectId) {
         const project = projectsData.get(projectId);
         if (!project || !project.encodedHtmlContent) {
@@ -466,12 +406,12 @@
 
         // Use modern clipboard API if available, fallback to textarea
         if (navigator.clipboard) {
-             navigator.clipboard.writeText(htmlContent).then(() => {
-                 showMessage("Code copied to clipboard!", false);
-             }).catch(err => {
-                 console.error('Failed to copy text using clipboard API:', err);
-                 showMessage("Failed to copy code.", true);
-             });
+              navigator.clipboard.writeText(htmlContent).then(() => {
+                  showMessage("Code copied to clipboard!", false);
+              }).catch(err => {
+                  console.error('Failed to copy text using clipboard API:', err);
+                  showMessage("Failed to copy code.", true);
+              });
         } else {
             // Fallback for older browsers or restricted environments
             const tempTextArea = document.createElement('textarea');
@@ -489,13 +429,12 @@
         }
     }
 
-    // ⭐ NEW: Redirection function for the Upgrade button
+    /** Redirection function for the Upgrade button */
     window.handleUpgradeClick = function() {
         window.location.href = 'upgrade.html';
     };
-    // ----------------------------------------------------
 
-    /** NEW: Opens the delete confirmation modal. */
+    /** Opens the delete confirmation modal. */
     window.openDeleteModal = function(projectId) {
         const project = projectsData.get(projectId);
         if (!project) {
@@ -518,7 +457,7 @@
         lucide.createIcons();
     }
 
-    /** NEW: Closes the delete confirmation modal. */
+    /** Closes the delete confirmation modal. */
     window.closeDeleteModal = function() {
         deleteModalContent.classList.remove('scale-100', 'opacity-100');
         deleteModalContent.classList.add('scale-95', 'opacity-0');
@@ -533,7 +472,6 @@
 
 
     /** Handles final deletion of a project from Firestore. */
-    // MODIFIED: Renamed to private function, triggered by confirmation button
     async function executeDeleteProject(projectId) {
         if (!isAuthReady || !currentUserId) {
             showMessage("System not ready or user ID missing.", true);
@@ -570,7 +508,6 @@
     // --- Edit Modal Control Functions ---
     
     /** Shows the edit modal and pre-fills data. */
-    // ⭐ REFACTORED: Takes ID, retrieves content from projectsData
     window.openEditModal = function(projectId) {
         const project = projectsData.get(projectId);
         if (!project) {
@@ -647,7 +584,7 @@
         editForm.addEventListener('submit', handleEditFormSubmit);
     }
 
-    /** NEW: Filters projects based on search query. */
+    /** Filters projects based on search query. */
     window.filterProjects = function(query) {
         const searchTerm = query.toLowerCase().trim();
         let filteredProjects = allProjectsArray;
@@ -669,20 +606,18 @@
 
         // Find the original 'Create New Site' card HTML
         let createCardHtml = '';
-        // ⭐ CRITICAL FIX: The `createCardElement` is removed from the DOM during the `projectsContainer.innerHTML = ''` call below, 
-        // leading to it being null on subsequent renders. We must grab its outerHTML before clearing the container.
-        const cachedCreateCardHtml = document.querySelector('div.cursor-pointer')?.outerHTML; 
-
-        if (cachedCreateCardHtml) {
-            createCardHtml = cachedCreateCardHtml;
+        const cachedCreateCardElement = document.querySelector('div.cursor-pointer'); 
+        
+        if (cachedCreateCardElement) {
+             createCardHtml = cachedCreateCardElement.outerHTML;
         } else {
              // Fallback if the element is not found immediately on load
              createCardHtml = `
                  <div onclick="window.location.href='ai_prompt.html'"
                      class="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:border-ammoue transition duration-300 cursor-pointer hover:shadow-lg h-full min-h-[200px]">
-                      <i data-lucide="plus-circle" class="w-12 h-12 text-gray-400 mb-3"></i>
-                      <p class="text-lg font-semibold text-gray-700">Create New AI Site</p>
-                      <p class="text-sm text-gray-500 mt-1">Start generating a new website</p>
+                     <i data-lucide="plus-circle" class="w-12 h-12 text-gray-400 mb-3"></i>
+                     <p class="text-lg font-semibold text-gray-700">Create New AI Site</p>
+                     <p class="text-sm text-gray-500 mt-1">Start generating a new website</p>
                  </div>
              `;
         }
@@ -692,7 +627,6 @@
         let projectsHtml = createCardHtml; // Start with the Create Card
 
         if (projectsToRender.length === 0) {
-            // Show the 'Create New Site' card and the empty message
             const emptyMessageHtml = `<p id="no-projects-message" class="col-span-full text-center text-gray-500 text-lg mt-10">You haven't saved any projects yet. Click above to start!</p>`;
             // Check if the current list is a result of an empty search
             const currentSearch = document.getElementById('project-search')?.value || '';
@@ -732,13 +666,9 @@
             const previewButtonColor = isDeployed ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-500 hover:bg-gray-600'; 
             const previewButtonIcon = isDeployed ? 'globe' : 'eye';
 
-            // --- Determine screenshot button look (UPDATED) ---
+            // Screenshot logic for display only:
             const hasScreenshot = project.screenshotUrl && project.screenshotUrl.startsWith('http');
-            const screenshotButtonColor = hasScreenshot ? 'bg-gray-400 hover:bg-gray-500' : 'bg-pink-600 hover:bg-pink-700';
-            const screenshotButtonIcon = hasScreenshot ? 'image' : 'camera';
-            const screenshotButtonTitle = hasScreenshot ? 'Screenshot Exists' : 'Generate Screenshot';
-            // -----------------------------------------------------------------
-
+            
             projectsHtml += `
                 <div onclick="window.location.href='editor.html?id=${project.id}'"
                     class="bg-white border border-gray-200 rounded-2xl p-6 flex flex-col justify-between shadow-lg hover:shadow-xl transition duration-300 cursor-pointer">
@@ -753,10 +683,10 @@
                     <div class="image-container mb-4">
                         ${project.screenshotUrl ? `
                             <img src="${project.screenshotUrl}" 
-                                 alt="Screenshot of ${title}" 
-                                 class="w-full h-full object-cover transition-transform duration-300 hover:scale-[1.05] transform" 
-                                 loading="lazy"
-                                 onerror="this.onerror=null; this.src='https://placehold.co/400x300/e5e7eb/737373?text=Image+Load+Error';">
+                                alt="Screenshot of ${title}" 
+                                class="w-full h-full object-cover transition-transform duration-300 hover:scale-[1.05] transform" 
+                                loading="lazy"
+                                onerror="this.onerror=null; this.src='https://placehold.co/400x300/e5e7eb/737373?text=Image+Load+Error';">
                         ` : `
                             <div class="text-center text-gray-500 p-4">
                                 <i data-lucide="image-off" class="w-6 h-6 mx-auto mb-1"></i>
@@ -771,11 +701,6 @@
                             <button onclick="event.stopPropagation(); openEditModal('${project.id}')" 
                                 class="px-3 py-2 text-sm font-semibold rounded-xl text-white bg-amber-500 hover:bg-amber-600 transition duration-150 shadow-md" title="Edit Details">
                                 <i data-lucide="pencil" class="w-4 h-4 inline-block"></i>
-                            </button>
-                            
-                            <button onclick="event.stopPropagation(); handleGenerateScreenshot('${project.id}')" 
-                                class="px-3 py-2 text-sm font-semibold rounded-xl text-white ${screenshotButtonColor} transition duration-150 shadow-md" title="${screenshotButtonTitle}" ${hasScreenshot ? 'disabled' : ''}>
-                                <i data-lucide="${screenshotButtonIcon}" class="w-4 h-4 inline-block"></i>
                             </button>
                             
                             <button onclick="event.stopPropagation(); handleCopyCode('${project.id}')" 
@@ -829,6 +754,7 @@
                 
                 // Use UTF-8 safe encoding before btoa() for the preview/download buttons
                 const rawHtmlContent = data.htmlContent || ''; // Ensure it's always a string
+                // CRITICAL FIX: Ensure proper Base64 encoding for UTF-8 compatibility
                 const utf8Encoded = unescape(encodeURIComponent(rawHtmlContent));
                 const encodedHtmlContent = btoa(utf8Encoded);
 
@@ -842,17 +768,22 @@
                     encodedHtmlContent: encodedHtmlContent, // The Base64 encoded HTML
                     deploymentUrl: data.deploymentUrl || null, 
                     createdAt: data.createdAt,
-                    // ⭐ CRITICAL: Retrieve the new screenshot URL
                     screenshotUrl: data.screenshotUrl || null
                 };
                 
-                // ⭐ CRITICAL FIX: Store the full, processed project object in the map
                 projectsData.set(doc.id, project);
                 projects.push(project);
+                
+                // ⭐ NEW AUTO-SCREENSHOT LOGIC ⭐
+                if (!project.screenshotUrl) {
+                    // Trigger screenshot generation asynchronously
+                    generateScreenshot(project.id);
+                }
             });
 
             // Sort by createdAt descending (newest first) in memory.
             projects.sort((a, b) => {
+                // FIX: Safely convert Firestore Timestamps to milliseconds for comparison
                 const timeA = a.createdAt instanceof Timestamp ? a.createdAt.toMillis() : 0;
                 const timeB = b.createdAt instanceof Timestamp ? b.createdAt.toMillis() : 0;
                 return timeB - timeA; // Descending order (newest first)
@@ -902,6 +833,8 @@
                 // Show PRO content and hide upgrade prompt
                 proContent.classList.remove('hidden');
                 upgradeCardWrapper.innerHTML = ''; // Hide upgrade button
+                // Re-render PRO features icons
+                lucide.createIcons();
             } else {
                 // Hide PRO content and show upgrade prompt
                 proContent.classList.add('hidden');
@@ -985,7 +918,7 @@
         // Ensure lucide.createIcons is called after the main dashboard is visible 
         // and after the project list has been rendered once.
         if (typeof lucide !== 'undefined' && lucide.createIcons) {
-             lucide.createIcons();
+              lucide.createIcons();
         }
     }
     
