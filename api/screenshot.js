@@ -1,54 +1,54 @@
-// api/screenshot.js - FIXED VERSION
+// api/screenshot.js
 
-import puppeteer from "puppeteer"; 
-import chromium from "@sparticuz/chromium"; 
+import chromium from "@sparticuz/chromium";
+import puppeteer from "puppeteer-core";
 
 export default async function handler(req, res) {
     if (req.method !== "POST") {
         return res.status(405).json({ error: "Method Not Allowed" });
     }
 
-    const { url, htmlContent, userId, projectId } = req.body;
-    // ... (rest of your validation logic)
+    const { url, htmlContent } = req.body;
 
     let browser = null;
 
     try {
-        // --- CRITICAL FIX: Launch Arguments ---
+        const executablePath = await chromium.executablePath();
+
         browser = await puppeteer.launch({
             args: [
                 ...chromium.args,
-                '--no-sandbox',             // CRITICAL: Bypasses shared library checks in Lambda
-                '--single-process',         // Prevents crashes by limiting resource use
-                '--disable-setuid-sandbox',
-                '--hide-scrollbars',
-                '--disable-web-security'
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--single-process",
+                "--no-zygote",
             ],
             defaultViewport: chromium.defaultViewport,
-            // CRITICAL FIX: Must call the executablePath() function
-            executablePath: await chromium.executablePath(), 
+            executablePath,
             headless: chromium.headless,
-            ignoreHTTPSErrors: true,
         });
 
         const page = await browser.newPage();
-        await page.setViewport(chromium.defaultViewport);
 
         if (url) {
-            await page.goto(url, { waitUntil: "networkidle2" });
+            await page.goto(url, { waitUntil: "networkidle0" });
         } else {
-            await page.setContent(htmlContent, { waitUntil: "networkidle2" });
+            await page.setContent(htmlContent, { waitUntil: "networkidle0" });
         }
-        
-        await new Promise(resolve => setTimeout(resolve, 500)); // Wait for rendering
 
-        const screenshotBuffer = await page.screenshot({ type: "png", fullPage: true });
-        const screenshotBase64 = `data:image/png;base64,${screenshotBuffer.toString("base64")}`;
+        const buffer = await page.screenshot({ type: "png", fullPage: true });
 
-        res.status(200).json({ screenshotUrl: screenshotBase64 });
-    } catch (err) {
-        console.error("Screenshot generation failed:", err);
-        res.status(500).json({ error: "Failed to generate screenshot", details: err.message });
+        res.status(200).json({
+            screenshotUrl: `data:image/png;base64,${buffer.toString("base64")}`,
+        });
+    } catch (error) {
+        console.error("Screenshot generation failed:", error);
+        res.status(500).json({
+            error: "Failed to generate screenshot",
+            details: error.message,
+        });
     } finally {
         if (browser) await browser.close();
     }
