@@ -8,46 +8,39 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: "Method Not Allowed" });
     }
 
-    const { url, htmlContent } = req.body;
-
     let browser = null;
 
     try {
         const executablePath = await chromium.executablePath();
 
         browser = await puppeteer.launch({
-            args: [
-                ...chromium.args,
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-gpu",
-                "--single-process",
-                "--no-zygote",
-            ],
+            args: chromium.args,
             defaultViewport: chromium.defaultViewport,
             executablePath,
             headless: chromium.headless,
+            ignoreHTTPSErrors: true,
         });
 
         const page = await browser.newPage();
+        
+        const { url, htmlContent } = req.body;
 
         if (url) {
-            await page.goto(url, { waitUntil: "networkidle0" });
+            await page.goto(url, { waitUntil: "networkidle2" });
         } else {
-            await page.setContent(htmlContent, { waitUntil: "networkidle0" });
+            await page.setContent(htmlContent, { waitUntil: "networkidle2" });
         }
 
         const buffer = await page.screenshot({ type: "png", fullPage: true });
 
         res.status(200).json({
-            screenshotUrl: `data:image/png;base64,${buffer.toString("base64")}`,
+            screenshotUrl: `data:image/png;base64,${buffer.toString("base64")}`
         });
     } catch (error) {
         console.error("Screenshot generation failed:", error);
         res.status(500).json({
             error: "Failed to generate screenshot",
-            details: error.message,
+            details: error.message
         });
     } finally {
         if (browser) await browser.close();
