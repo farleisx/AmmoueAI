@@ -2,7 +2,7 @@
   "name": "vercel-screenshot-ai-api",
   "version": "1.0.0",
   "type": "module",
-  "description": "Vercel Serverless function to generate screenshots using Puppeteer and analyze them with the Gemini API.",
+  "description": "...",
   "main": "api/screenshot.js",
   "scripts": {
     "start": "vercel dev"
@@ -11,7 +11,7 @@
     "@google/generative-ai": "^0.9.0",
     "node-fetch": "^3.3.2",
     "firebase-admin": "^12.4.0",
-    "puppeteer-core": "^19.7.0",
+    "puppeteer": "^22.0.0", <--- MUST BE 'puppeteer'
     "@sparticuz/chromium": "^114.0.0"
   }
 }
