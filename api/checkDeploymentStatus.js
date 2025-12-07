@@ -1,15 +1,15 @@
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
-  }
+// file: api/checkDeploymentStatus.js
 
+export default async function handler(req, res) {
   try {
-    const deploymentId = req.query.id; // get deployment id from query params
+    // Accept both GET and POST
+    const deploymentId = req.method === 'GET' ? req.query.id : req.body.id;
+
     if (!deploymentId) {
       return res.status(400).json({ error: 'Missing deployment ID' });
     }
 
-    // Call Vercel API directly via fetch
+    // Call Vercel API
     const response = await fetch(
       `https://api.vercel.com/v13/deployments/${deploymentId}`,
       {
@@ -26,8 +26,9 @@ export default async function handler(req, res) {
 
     const data = await response.json();
     res.status(200).json(data);
+
   } catch (err) {
-    console.error(err);
+    console.error("Deployment check failed:", err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 }
