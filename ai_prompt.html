@@ -452,7 +452,6 @@
         if (prompt.length < 10) return showMessage("Please provide a detailed prompt (min 10 chars).", true);
 
         setLoading(true);
-        outputDiv.classList.remove("hidden");
         outputCode.textContent = "";
         latestHtmlContent = "";
         latestDeploymentUrl = ""; // Reset deployment URL
@@ -468,6 +467,7 @@
 
         if (!response.ok || !response.body) {
             setLoading(false);
+            outputDiv.classList.add("hidden"); // Ensure it remains hidden on API failure
             return showMessage("Failed to connect to AI server.", true);
         }
 
@@ -475,6 +475,8 @@
         const decoder = new TextDecoder("utf-8");
         let buffer = "";
         let html = "";
+        
+        let isFirstChunk = true; // 🚨 NEW FLAG: Track the first received chunk
 
         while (true) {
             const { done, value } = await reader.read();
@@ -492,6 +494,13 @@
                 try {
                     const parsed = JSON.parse(data);
                     if (parsed.text) {
+                        // 🚨 START STREAMING LOGIC
+                        if (isFirstChunk) {
+                            outputDiv.classList.remove("hidden"); // Show the output area
+                            outputDiv.scrollIntoView({ behavior: 'smooth', block: 'start' }); // Scroll to it
+                            isFirstChunk = false;
+                        }
+
                         html += parsed.text;
                         await typeHtmlLive(parsed.text);
                     }
@@ -517,6 +526,7 @@
 
         } else {
             showMessage("No HTML generated.", true);
+            outputDiv.classList.add("hidden"); // Hide if no content was generated
         }
 
         setLoading(false);
