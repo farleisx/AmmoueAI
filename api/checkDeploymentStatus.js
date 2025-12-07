@@ -1,10 +1,3 @@
-// file: api/checkDeploymentStatus.js
-import pkg from '@vercel/node';
-const { Vercel } = pkg; // destructure from default import
-
-// If you just want to use fetch, you can also skip Vercel entirely
-// since Vercel’s API can be called with fetch
-
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method Not Allowed' });
@@ -16,11 +9,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing deployment ID' });
     }
 
-    // Example using Vercel SDK if needed
-    // const client = new Vercel({ token: process.env.VERCEL_TOKEN });
-    // const deployment = await client.getDeployment(deploymentId);
-
-    // Or simpler: call Vercel API via fetch
+    // Call Vercel API directly via fetch
     const response = await fetch(
       `https://api.vercel.com/v13/deployments/${deploymentId}`,
       {
