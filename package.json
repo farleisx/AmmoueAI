@@ -16,6 +16,6 @@
     "firebase-admin": "^12.4.0",
     "puppeteer-core": "^22.0.0",
     "@sparticuz/chromium": "^114.0.0",
-    "@vercel/node": "^2.0.0"
+    "@vercel/node": "3.13.0"
   }
 }
