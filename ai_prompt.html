@@ -273,7 +273,7 @@
         showMessage("Download started!", false);
     }
 
-    // 🚨 UPDATED: Handle Deployment (Now uses Polling)
+    // 🚨 UPDATED: Handle Deployment (Now uses Polling) - FIX APPLIED HERE
     async function handleDeployment(plan, projectId) {
         deploymentErrorMessage.classList.add('hidden'); 
 
@@ -338,7 +338,8 @@
                 });
 
                 const statusResult = await statusResponse.json();
-                const status = statusResult.status; // Expected: 'QUEUED', 'BUILDING', 'READY', 'ERROR'
+                // FIX APPLIED HERE: Default to 'pending' if status is missing/undefined
+                const status = statusResult.status || 'pending'; // Expected: 'QUEUED', 'BUILDING', 'READY', 'ERROR'
                 const finalUrl = statusResult.url; // The definitive, final URL
 
                 if (status === 'READY') {
@@ -350,7 +351,7 @@
                 } else if (status === 'ERROR') {
                     throw new Error(`Deployment failed with status: ${statusResult.errorDetail || 'Error'}`);
                 } else {
-                    // Update button state while waiting
+                    // This is now safe: status is guaranteed to be a string
                     setPreviewButton(latestDeploymentUrl, true, status.toLowerCase());
                     console.log(`Deployment status: ${status} (Attempt ${attempt + 1})`);
                 }
