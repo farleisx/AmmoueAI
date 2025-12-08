@@ -1,7 +1,6 @@
 // file: pages/api/deploy.js
 
 import fetch from 'node-fetch';
-import { Buffer } from 'buffer';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import admin from 'firebase-admin';
@@ -19,7 +18,7 @@ const PLAN_LIMITS = {
   pro: 5
 };
 
-// ---- Firebase Init ----
+// -------- Firebase Init --------
 if (!getApps().length) {
   const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
   if (serviceAccountJson) {
@@ -31,7 +30,7 @@ if (!getApps().length) {
 
 const db = getFirestore();
 
-// ---- Helpers ----
+// -------- Helpers --------
 async function getDeploymentCount(userId) {
   const doc = await db.collection('deployments').doc(userId).get();
   return doc.exists ? doc.data().count : 0;
@@ -43,7 +42,7 @@ async function incrementDeploymentCount(userId) {
   }, { merge: true });
 }
 
-// ---- Main Handler ----
+// -------- Main Handler --------
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
@@ -68,7 +67,7 @@ export default async function handler(req, res) {
       .doc(projectId);
 
     const projectSnap = await projectRef.get();
-    const isUpdate = projectSnap.exists && projectSnap.data()?.deploymentUrl;
+    const isUpdate = !!projectSnap.data()?.deploymentUrl;
 
     if (!isUpdate && currentDeployments >= maxDeployments) {
       return res.status(403).json({
@@ -77,13 +76,14 @@ export default async function handler(req, res) {
       });
     }
 
-    // ---- GitHub Deployment ----
+    // -------- GitHub flow --------
     let baseSHA = null;
     let branchExists = true;
 
-    const branchRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/branches/${GITHUB_BRANCH}`, {
-      headers: { Authorization: `token ${GITHUB_TOKEN}` }
-    });
+    const branchRes = await fetch(
+      `https://api.github.com/repos/${GITHUB_REPO}/branches/${GITHUB_BRANCH}`,
+      { headers: { Authorization: `token ${GITHUB_TOKEN}` } }
+    );
 
     if (branchRes.ok) {
       const branch = await branchRes.json();
@@ -93,17 +93,20 @@ export default async function handler(req, res) {
     }
 
     // Create Blob
-    const blobRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/blobs`, {
-      method: 'POST',
-      headers: {
-        Authorization: `token ${GITHUB_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        content: htmlContent,
-        encoding: 'utf-8'
-      })
-    });
+    const blobRes = await fetch(
+      `https://api.github.com/repos/${GITHUB_REPO}/git/blobs`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `token ${GITHUB_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          content: htmlContent,
+          encoding: 'utf-8'
+        })
+      }
+    );
 
     const blob = await blobRes.json();
     if (!blob.sha) {
@@ -111,22 +114,25 @@ export default async function handler(req, res) {
     }
 
     // Create Tree
-    const treeRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/trees`, {
-      method: 'POST',
-      headers: {
-        Authorization: `token ${GITHUB_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        base_tree: baseSHA,
-        tree: [{
-          path: `users/${userId}/${projectId}/index.html`,
-          mode: '100644',
-          type: 'blob',
-          sha: blob.sha
-        }]
-      })
-    });
+    const treeRes = await fetch(
+      `https://api.github.com/repos/${GITHUB_REPO}/git/trees`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `token ${GITHUB_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          base_tree: baseSHA,
+          tree: [{
+            path: `users/${userId}/${projectId}/index.html`,
+            mode: '100644',
+            type: 'blob',
+            sha: blob.sha
+          }]
+        })
+      }
+    );
 
     const tree = await treeRes.json();
     if (!tree.sha) {
@@ -134,25 +140,28 @@ export default async function handler(req, res) {
     }
 
     // Create Commit
-    const commitRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/commits`, {
-      method: 'POST',
-      headers: {
-        Authorization: `token ${GITHUB_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        message: `Deploy ${projectId}`,
-        tree: tree.sha,
-        parents: baseSHA ? [baseSHA] : []
-      })
-    });
+    const commitRes = await fetch(
+      `https://api.github.com/repos/${GITHUB_REPO}/git/commits`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `token ${GITHUB_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: `Deploy ${projectId}`,
+          tree: tree.sha,
+          parents: baseSHA ? [baseSHA] : []
+        })
+      }
+    );
 
     const commit = await commitRes.json();
     if (!commit.sha) {
       return res.status(500).json({ error: 'Failed to create commit' });
     }
 
-    // Update Branch
+    // Update branch
     const refUrl = `https://api.github.com/repos/${GITHUB_REPO}/git/refs/heads/${GITHUB_BRANCH}`;
     const refRes = await fetch(refUrl, {
       method: branchExists ? 'PATCH' : 'POST',
@@ -171,14 +180,24 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to update branch' });
     }
 
-    const deploymentUrl = `https://${GITHUB_REPO.split('/')[0]}.github.io/${GITHUB_REPO.split('/')[1]}/users/${userId}/${projectId}/index.html`;
+    // ✅ Always generate working URL
+    const deploymentUrl =
+      `https://${GITHUB_REPO.split('/')[0]}.github.io/` +
+      `${GITHUB_REPO.split('/')[1]}/users/${userId}/${projectId}/index.html`;
 
+    // Save URL to Firestore
+    await projectRef.set(
+      { deploymentUrl, updatedAt: admin.firestore.FieldValue.serverTimestamp() },
+      { merge: true }
+    );
+
+    // Update counters
     if (!isUpdate) {
       await incrementDeploymentCount(userId);
       currentDeployments++;
     }
 
-    // ✅ Fake polling-compatible response
+    // ✅ Polling-compatible response
     return res.status(200).json({
       deploymentId: `github-${Date.now()}`,
       deploymentUrl,
