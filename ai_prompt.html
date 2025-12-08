@@ -149,525 +149,526 @@
         </div>
     </div>
 <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-    import { getFirestore, collection, addDoc, doc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
-    
-    const firebaseConfig = {
-        apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
-        authDomain: "ammoueai.firebaseapp.com",
-        projectId: "ammoueai",
-        storageBucket: "ammoueai.firebasestorage.app",
-        messagingSenderId: "135818868149",
-        appId: "1:135818868149:web:db9280baf9540a3339d5fc",
-    };
-    
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const appId = firebaseConfig.projectId;
-    let currentUserId = null;
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+    import { getFirestore, collection, addDoc, doc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+    
+    const firebaseConfig = {
+        apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
+        authDomain: "ammoueai.firebaseapp.com",
+        projectId: "ammoueai",
+        storageBucket: "ammoueai.firebasestorage.app",
+        messagingSenderId: "135818868149",
+        appId: "1:135818868149:web:db9280baf9540a3339d5fc",
+    };
+    
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const appId = firebaseConfig.projectId;
+    let currentUserId = null;
 
-    const loadingState = document.getElementById('loading-state');
-    const mainContent = document.getElementById('main-content');
-    const logoutBtn = document.getElementById('logout-btn');
-    const generateBtn = document.getElementById('generate-btn');
-    const downloadBtn = document.getElementById('download-btn');
-    const promptInput = document.getElementById('ai-prompt');
-    const outputDiv = document.getElementById('generation-output');
-    const outputCode = document.getElementById('output-code');
-    const copyBtn = document.getElementById('copy-btn');
-    const previewBtn = document.getElementById('preview-btn');
-    const messageBox = document.getElementById('message-box');
-    const refinePromptInput = document.getElementById('refine-prompt');
-    const refineBtn = document.getElementById('refine-btn');
-    const deploymentErrorMessage = document.getElementById('deployment-error-message'); 
+    const loadingState = document.getElementById('loading-state');
+    const mainContent = document.getElementById('main-content');
+    const logoutBtn = document.getElementById('logout-btn');
+    const generateBtn = document.getElementById('generate-btn');
+    const downloadBtn = document.getElementById('download-btn');
+    const promptInput = document.getElementById('ai-prompt');
+    const outputDiv = document.getElementById('generation-output');
+    const outputCode = document.getElementById('output-code');
+    const copyBtn = document.getElementById('copy-btn');
+    const previewBtn = document.getElementById('preview-btn');
+    const messageBox = document.getElementById('message-box');
+    const refinePromptInput = document.getElementById('refine-prompt');
+    const refineBtn = document.getElementById('refine-btn');
+    const deploymentErrorMessage = document.getElementById('deployment-error-message'); 
 
-    let listenersAttached = false;
-    let latestHtmlContent = ''; 
-    let latestPrompt = ''; 
-    let latestDeploymentUrl = ''; // ✅ per-user GitHub Pages URL
-    let currentProjectId = null; // 🚨 NEW: Store the project ID after initial save
+    let listenersAttached = false;
+    let latestHtmlContent = ''; 
+    let latestPrompt = ''; 
+    let latestDeploymentUrl = ''; // ✅ per-user GitHub Pages URL
+    let currentProjectId = null; // 🚨 NEW: Store the project ID after initial save
 
-    // Helper function for a delay (used in polling)
-    const delay = ms => new Promise(res => setTimeout(res, ms));
+    // Helper function for a delay (used in polling)
+    const delay = ms => new Promise(res => setTimeout(res, ms));
 
-    function showMessage(message, isError) {
-        messageBox.textContent = message;
-        messageBox.classList.toggle('bg-red-500', isError);
-        messageBox.classList.toggle('bg-ammoue', !isError);
-        messageBox.classList.remove('opacity-0');
-        messageBox.classList.add('opacity-100');
-        setTimeout(() => {
-            messageBox.classList.remove('opacity-100');
-            messageBox.classList.add('opacity-0');
-        }, 4000);
-    }
+    function showMessage(message, isError) {
+        messageBox.textContent = message;
+        messageBox.classList.toggle('bg-red-500', isError);
+        messageBox.classList.toggle('bg-ammoue', !isError);
+        messageBox.classList.remove('opacity-0');
+        messageBox.classList.add('opacity-100');
+        setTimeout(() => {
+            messageBox.classList.remove('opacity-100');
+            messageBox.classList.add('opacity-0');
+        }, 4000);
+    }
 
-    // Consolidated loading function for primary button
-    function setLoading(isLoading, isRefining = false) {
-        if (isLoading) {
-            generateBtn.disabled = true;
-            refineBtn.disabled = true;
-            downloadBtn.disabled = true;
-            const loadingText = isRefining ? 'Refining...' : 'Building...';
-            const buttonToUpdate = isRefining ? refineBtn : generateBtn;
-            buttonToUpdate.innerHTML = `<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> ${loadingText}`;
-        } else {
-            generateBtn.disabled = false;
-            refineBtn.disabled = !latestHtmlContent;
-            downloadBtn.disabled = !latestHtmlContent;
-            generateBtn.innerHTML = 'Generate HTML Code';
-            refineBtn.innerHTML = 'Refine Code';
-        }
-    }
+    // Consolidated loading function for primary button
+    function setLoading(isLoading, isRefining = false) {
+        if (isLoading) {
+            generateBtn.disabled = true;
+            refineBtn.disabled = true;
+            downloadBtn.disabled = true;
+            const loadingText = isRefining ? 'Refining...' : 'Building...';
+            const buttonToUpdate = isRefining ? refineBtn : generateBtn;
+            buttonToUpdate.innerHTML = `<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> ${loadingText}`;
+        } else {
+            generateBtn.disabled = false;
+            refineBtn.disabled = !latestHtmlContent;
+            downloadBtn.disabled = !latestHtmlContent;
+            generateBtn.innerHTML = 'Generate HTML Code';
+            refineBtn.innerHTML = 'Refine Code';
+        }
+    }
 
-    /**
-     * Helper to set Preview Button state (deployed vs. not).
-     */
-    function setPreviewButton(url, isDeploying = false, status = 'pending') {
-        previewBtn.disabled = !url || isDeploying; 
-        
-        previewBtn.classList.remove('bg-green-600', 'bg-blue-600', 'bg-yellow-600', 'bg-red-500', 'bg-gray-400', 'cursor-not-allowed', 'cursor-pointer');
+    /**
+     * Helper to set Preview Button state (deployed vs. not).
+     */
+    function setPreviewButton(url, isDeploying = false, status = 'pending') {
+        previewBtn.disabled = !url || isDeploying; 
+        
+        previewBtn.classList.remove('bg-green-600', 'bg-blue-600', 'bg-yellow-600', 'bg-red-500', 'bg-gray-400', 'cursor-not-allowed', 'cursor-pointer');
 
-        if (isDeploying) {
-            // Display dynamic status during polling
-            let text = 'Deployment Initiated...';
-            if (status === 'queued') text = 'Deployment Queued...';
-            if (status === 'building') text = 'Deployment Building...';
-            
-            previewBtn.textContent = text;
-            previewBtn.classList.add('bg-yellow-600', 'cursor-not-allowed');
-        } else if (url) {
-            previewBtn.textContent = 'Preview Site (Open Deployment)';
-            previewBtn.classList.add('bg-green-600', 'cursor-pointer');
-        } else {
-            previewBtn.textContent = 'Preview Site (Deployment Pending)';
-            previewBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
-        }
-    }
+        if (isDeploying) {
+            // Display dynamic status during polling
+            let text = 'Deployment Initiated...';
+            if (status === 'queued') text = 'Deployment Queued...';
+            if (status === 'building') text = 'Deployment Building...';
+            
+            previewBtn.textContent = text;
+            previewBtn.classList.add('bg-yellow-600', 'cursor-not-allowed');
+        } else if (url) {
+            previewBtn.textContent = 'Preview Site (Open Deployment)';
+            previewBtn.classList.add('bg-green-600', 'cursor-pointer');
+        } else {
+            previewBtn.textContent = 'Preview Site (Deployment Pending)';
+            previewBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+        }
+    }
 
-    function copyToClipboard(text) {
-        try {
-            const textarea = document.createElement('textarea');
-            textarea.value = text;
-            document.body.appendChild(textarea);
-            textarea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textarea);
-            showMessage("Code copied to clipboard!", false);
-        } catch {
-            showMessage("Failed to copy code.", true);
-        }
-    }
+    function copyToClipboard(text) {
+        try {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            showMessage("Code copied to clipboard!", false);
+        } catch {
+            showMessage("Failed to copy code.", true);
+        }
+    }
 
-    function handleDownload() {
-        if (!outputCode.textContent) return showMessage("No HTML code to download.", true);
-        const blob = new Blob([outputCode.textContent], { type: "text/html" });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = "ammoue_website.html"; 
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        showMessage("Download started!", false);
-    }
+    function handleDownload() {
+        if (!outputCode.textContent) return showMessage("No HTML code to download.", true);
+        const blob = new Blob([outputCode.textContent], { type: "text/html" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "ammoue_website.html"; 
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showMessage("Download started!", false);
+    }
 
-    // 🚨 UPDATED: Handle Deployment (Now uses Polling) - FIX APPLIED HERE
-    async function handleDeployment(plan, projectId) {
-        deploymentErrorMessage.classList.add('hidden'); 
+    // 🚨 UPDATED: Handle Deployment (Now uses Polling) - FIX APPLIED HERE
+    async function handleDeployment(plan, projectId) {
+        deploymentErrorMessage.classList.add('hidden'); 
 
-        if (!currentUserId) return showMessage("Authentication error: User ID is missing.", true); 
-        if (!latestHtmlContent) return showMessage("No HTML content to deploy.", true);
-        if (!plan) return showMessage("System Error: User plan is missing.", true);
-        if (!projectId) return showMessage("System Error: Project ID is missing.", true);
+        if (!currentUserId) return showMessage("Authentication error: User ID is missing.", true); 
+        if (!latestHtmlContent) return showMessage("No HTML content to deploy.", true);
+        if (!plan) return showMessage("System Error: User plan is missing.", true);
+        if (!projectId) return showMessage("System Error: Project ID is missing.", true);
 
-        // 1. Initial Deployment Request
-        setPreviewButton(latestDeploymentUrl, true);
-        let deploymentId = null; // Vercel deployment ID
+        // 1. Initial Deployment Request
+        setPreviewButton(latestDeploymentUrl, true);
+        // let deploymentId = null; // Removed, as it's not strictly necessary for this GitHub flow status check
 
-        try {
-            const response = await fetch("/api/deploy", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ 
-                    htmlContent: latestHtmlContent,
-                    userId: currentUserId,
-                    plan: plan, 
-                    projectId: projectId 
-                }),
-            });
+        try {
+            const response = await fetch("/api/deploy", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ 
+                    htmlContent: latestHtmlContent,
+                    userId: currentUserId,
+                    plan: plan, 
+                    projectId: projectId 
+                }),
+            });
 
-            const result = await response.json();
+            const result = await response.json();
 
-            if (!response.ok) {
-                if (response.status === 403) {
-                    const maxDeployments = result.maxDeployments || 1; 
-                    deploymentErrorMessage.innerHTML = `
-                        <div class="text-xl mb-1 flex items-center justify-center">
-                            <i data-lucide="alert-triangle" class="w-6 h-6 mr-2"></i>
-                            <strong>FREE Plan Limit Reached</strong>
-                        </div>
-                        You have reached your maximum of **${maxDeployments} live deployment**. 
-                        Please **upgrade your plan** to deploy more new sites, or use the **AI Refinement Agent** to modify your existing site.
-                    `;
-                    deploymentErrorMessage.classList.remove('hidden');
-                    lucide.createIcons();
-                    throw new Error("FREE Plan Limit Reached."); 
-                }
-                throw new Error(result.error || result.details || "Deployment failed on Vercel.");
-            }
+            if (!response.ok) {
+                if (response.status === 403) {
+                    const maxDeployments = result.maxDeployments || 1; 
+                    deploymentErrorMessage.innerHTML = `
+                        <div class="text-xl mb-1 flex items-center justify-center">
+                            <i data-lucide="alert-triangle" class="w-6 h-6 mr-2"></i>
+                            <strong>FREE Plan Limit Reached</strong>
+                        </div>
+                        You have reached your maximum of **${maxDeployments} live deployment**. 
+                        Please **upgrade your plan** to deploy more new sites, or use the **AI Refinement Agent** to modify your existing site.
+                    `;
+                    deploymentErrorMessage.classList.remove('hidden');
+                    lucide.createIcons();
+                    throw new Error("FREE Plan Limit Reached."); 
+                }
+                throw new Error(result.error || result.details || "Deployment failed on Vercel.");
+            }
 
-            // Successfully initiated deployment
-            deploymentId = result.deploymentId;
-            latestDeploymentUrl = result.deploymentUrl; // Use the URL provided at the start (usually temporary)
-            showMessage("✅ Deployment initiated. Checking status in real-time...", false);
+            // Successfully initiated deployment
+            // deploymentId = result.deploymentId; // Not used for status check
+            latestDeploymentUrl = result.deploymentUrl; // The URL to poll
+            showMessage("✅ Deployment initiated. Checking status in real-time...", false);
 
-            // 2. Polling Loop for Status Check
-            const maxPollAttempts = 30; // Max attempts before giving up (e.g., 30 * 5s = 150 seconds)
-            for (let attempt = 0; attempt < maxPollAttempts; attempt++) {
-                await delay(5000); // Wait 5 seconds between checks
+            // 2. Polling Loop for Status Check
+            const maxPollAttempts = 30; // Max attempts before giving up (e.g., 30 * 5s = 150 seconds)
+            for (let attempt = 0; attempt < maxPollAttempts; attempt++) {
+                await delay(5000); // Wait 5 seconds between checks
 
-                const statusResponse = await fetch("/api/checkDeploymentStatus", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ 
-                        deploymentId: deploymentId,
-                        userId: currentUserId // Pass user ID for authorization if needed
-                    }),
-                });
+                const statusResponse = await fetch("/api/checkDeploymentStatus", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ 
+                            // ⭐ FIX APPLIED HERE: Sending the required deploymentUrl
+                        deploymentUrl: latestDeploymentUrl, 
+                        userId: currentUserId // Pass user ID for authorization if needed
+                    }),
+                });
 
-                const statusResult = await statusResponse.json();
-                // FIX APPLIED HERE: Default to 'pending' if status is missing/undefined
-                const status = statusResult.status || 'pending'; // Expected: 'QUEUED', 'BUILDING', 'READY', 'ERROR'
-                const finalUrl = statusResult.url; // The definitive, final URL
+                const statusResult = await statusResponse.json();
+                
+                const status = statusResult.status || 'pending'; // Expected: 'QUEUED', 'BUILDING', 'READY', 'ERROR'
+                const finalUrl = statusResult.url; // The definitive, final URL
 
-                if (status === 'READY') {
-                    latestDeploymentUrl = finalUrl || latestDeploymentUrl;
-                    setPreviewButton(latestDeploymentUrl, false); 
-                    showMessage("🚀 Deployment Complete! You can now preview the site.", false);
-                    await updateProjectDeploymentUrl(projectId, latestDeploymentUrl);
-                    return; // Exit the function successfully
-                } else if (status === 'ERROR') {
-                    throw new Error(`Deployment failed with status: ${statusResult.errorDetail || 'Error'}`);
-                } else {
-                    // This is now safe: status is guaranteed to be a string
-                    setPreviewButton(latestDeploymentUrl, true, status.toLowerCase());
-                    console.log(`Deployment status: ${status} (Attempt ${attempt + 1})`);
-                }
-            }
-            
-            // If the loop finishes without success
-            throw new Error("Deployment timed out. Check Vercel logs for details.");
+                if (status === 'READY') {
+                    latestDeploymentUrl = finalUrl || latestDeploymentUrl;
+                    setPreviewButton(latestDeploymentUrl, false); 
+                    showMessage("🚀 Deployment Complete! You can now preview the site.", false);
+                    await updateProjectDeploymentUrl(projectId, latestDeploymentUrl);
+                    return; // Exit the function successfully
+                } else if (status === 'ERROR') {
+                    throw new Error(`Deployment failed with status: ${statusResult.errorDetail || 'Error'}`);
+                } else {
+                    // This is now safe: status is guaranteed to be a string
+                    setPreviewButton(latestDeploymentUrl, true, status.toLowerCase());
+                    console.log(`Deployment status: ${status} (Attempt ${attempt + 1})`);
+                }
+            }
+            
+            // If the loop finishes without success
+            throw new Error("Deployment timed out. Check Vercel logs for details.");
 
-        } catch (error) {
-            console.error("Deployment Error:", error);
+        } catch (error) {
+            console.error("Deployment Error:", error);
 
-            const isFreePlanError = error.message.includes('FREE Plan Limit Reached');
-            
-            if (!isFreePlanError) {
-                showMessage(`❌ Deployment failed: ${error.message}`, true);
-                latestDeploymentUrl = "";
-            }
-            
-            setPreviewButton(latestDeploymentUrl, false);
-            
-            previewBtn.classList.remove("bg-yellow-600", "bg-green-600");
-            previewBtn.classList.add("bg-red-500");
-            previewBtn.textContent = isFreePlanError ? "Deployment Failed" : "Deployment Failed (Retry?)";
-        }
-    }
+            const isFreePlanError = error.message.includes('FREE Plan Limit Reached');
+            
+            if (!isFreePlanError) {
+                showMessage(`❌ Deployment failed: ${error.message}`, true);
+                latestDeploymentUrl = "";
+            }
+            
+            setPreviewButton(latestDeploymentUrl, false);
+            
+            previewBtn.classList.remove("bg-yellow-600", "bg-green-600");
+            previewBtn.classList.add("bg-red-500");
+            previewBtn.textContent = isFreePlanError ? "Deployment Failed" : "Deployment Failed (Retry?)";
+        }
+    }
 
-    // ✅ Updated: Handle Preview Button Click
-    function handlePreview() {
-        if (!latestDeploymentUrl) {
-            showMessage("Site not deployed yet or deployment failed.", true);
-            return;
-        }
-        window.open(latestDeploymentUrl, "_blank");
-    }
+    // ✅ Updated: Handle Preview Button Click
+    function handlePreview() {
+        if (!latestDeploymentUrl) {
+            showMessage("Site not deployed yet or deployment failed.", true);
+            return;
+        }
+        window.open(latestDeploymentUrl, "_blank");
+    }
 
-    // 🚨 NEW: Function to get the user's plan
-    async function getUserPlan(userId) {
-        try {
-            const userDocRef = doc(db, "users", userId);
-            const userDoc = await getDoc(userDocRef);
-            return userDoc.exists() ? userDoc.data().plan || 'free' : 'free';
-        } catch (error) {
-            console.error("Failed to fetch user plan:", error);
-            return 'free'; // Default to free plan on error
-        }
-    }
+    // 🚨 NEW: Function to get the user's plan
+    async function getUserPlan(userId) {
+        try {
+            const userDocRef = doc(db, "users", userId);
+            const userDoc = await getDoc(userDocRef);
+            return userDoc.exists() ? userDoc.data().plan || 'free' : 'free';
+        } catch (error) {
+            console.error("Failed to fetch user plan:", error);
+            return 'free'; // Default to free plan on error
+        }
+    }
 
-    // 🚨 UPDATED: Auto-Save Project and return the Document ID
-    async function autoSaveProject(htmlContent, userPrompt, existingProjectId = null) {
-        if (!currentUserId || !htmlContent) return null;
+    // 🚨 UPDATED: Auto-Save Project and return the Document ID
+    async function autoSaveProject(htmlContent, userPrompt, existingProjectId = null) {
+        if (!currentUserId || !htmlContent) return null;
 
-        try {
-            const projectsRef = collection(db, "artifacts", appId, "users", currentUserId, "projects");
-            
-            if (existingProjectId) {
-                // Case 1: Updating an existing project (Refine scenario)
-                const docRef = doc(projectsRef, existingProjectId);
-                await updateDoc(docRef, {
-                    prompt: userPrompt.replace(/\\n/g, "\n"),
-                    htmlContent,
-                    updatedAt: serverTimestamp(), 
-                });
-                console.log("Project updated successfully (Refine).");
-                return existingProjectId;
+        try {
+            const projectsRef = collection(db, "artifacts", appId, "users", currentUserId, "projects");
+            
+            if (existingProjectId) {
+                // Case 1: Updating an existing project (Refine scenario)
+                const docRef = doc(projectsRef, existingProjectId);
+                await updateDoc(docRef, {
+                    prompt: userPrompt.replace(/\\n/g, "\n"),
+                    htmlContent,
+                    updatedAt: serverTimestamp(), 
+                });
+                console.log("Project updated successfully (Refine).");
+                return existingProjectId;
 
-            } else {
-                // Case 2: Creating a brand new project (Generate scenario)
-                const newDocRef = await addDoc(projectsRef, {
-                    prompt: userPrompt.replace(/\\n/g, "\n"),
-                    htmlContent,
-                    deploymentUrl: null, // Initial save without deployment URL
-                    createdAt: serverTimestamp(),
-                });
-                console.log("New project saved successfully (Generate).");
-                return newDocRef.id; // CRITICAL: Return the new ID
-            }
-        } catch (error) {
-            console.error("Error during auto-save:", error);
-            showMessage("⚠️ Warning: Failed to auto-save project.", true);
-            return null; 
-        }
-    }
-    
-    // 🚨 NEW: Function to update the deployment URL after deployment succeeds
-    async function updateProjectDeploymentUrl(projectId, deploymentUrl) {
-        if (!currentUserId || !projectId) return;
-        try {
-            const projectDocRef = doc(db, "artifacts", appId, "users", currentUserId, "projects", projectId);
-            await updateDoc(projectDocRef, {
-                deploymentUrl: deploymentUrl,
-            });
-        } catch (error) {
-            console.error("Failed to update deployment URL in Firestore:", error);
-        }
-    }
+            } else {
+                // Case 2: Creating a brand new project (Generate scenario)
+                const newDocRef = await addDoc(projectsRef, {
+                    prompt: userPrompt.replace(/\\n/g, "\n"),
+                    htmlContent,
+                    deploymentUrl: null, // Initial save without deployment URL
+                    createdAt: serverTimestamp(),
+                });
+                console.log("New project saved successfully (Generate).");
+                return newDocRef.id; // CRITICAL: Return the new ID
+            }
+        } catch (error) {
+            console.error("Error during auto-save:", error);
+            showMessage("⚠️ Warning: Failed to auto-save project.", true);
+            return null; 
+        }
+    }
+    
+    // 🚨 NEW: Function to update the deployment URL after deployment succeeds
+    async function updateProjectDeploymentUrl(projectId, deploymentUrl) {
+        if (!currentUserId || !projectId) return;
+        try {
+            const projectDocRef = doc(db, "artifacts", appId, "users", currentUserId, "projects", projectId);
+            await updateDoc(projectDocRef, {
+                deploymentUrl: deploymentUrl,
+            });
+        } catch (error) {
+            console.error("Failed to update deployment URL in Firestore:", error);
+        }
+    }
 
-    async function handleGeneration() {
-        const prompt = promptInput.value.trim();
-        if (prompt.length < 10) return showMessage("Please provide a detailed prompt (min 10 chars).", true);
+    async function handleGeneration() {
+        const prompt = promptInput.value.trim();
+        if (prompt.length < 10) return showMessage("Please provide a detailed prompt (min 10 chars).", true);
 
-        setLoading(true);
-        outputCode.textContent = "";
-        latestHtmlContent = "";
-        latestDeploymentUrl = ""; // Reset deployment URL
-        setPreviewButton(null, false); // Disable and reset preview button
-        latestPrompt = prompt;
-        currentProjectId = null; // Reset project ID for a new generation
+        setLoading(true);
+        outputCode.textContent = "";
+        latestHtmlContent = "";
+        latestDeploymentUrl = ""; // Reset deployment URL
+        setPreviewButton(null, false); // Disable and reset preview button
+        latestPrompt = prompt;
+        currentProjectId = null; // Reset project ID for a new generation
 
-        const response = await fetch("/api/generate.js", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ prompt }),
-        });
+        const response = await fetch("/api/generate.js", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ prompt }),
+        });
 
-        if (!response.ok || !response.body) {
-            setLoading(false);
-            outputDiv.classList.add("hidden"); // Ensure it remains hidden on API failure
-            return showMessage("Failed to connect to AI server.", true);
-        }
+        if (!response.ok || !response.body) {
+            setLoading(false);
+            outputDiv.classList.add("hidden"); // Ensure it remains hidden on API failure
+            return showMessage("Failed to connect to AI server.", true);
+        }
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder("utf-8");
-        let buffer = "";
-        let html = "";
-        
-        let isFirstChunk = true; // 🚨 NEW FLAG: Track the first received chunk
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let buffer = "";
+        let html = "";
+        
+        let isFirstChunk = true; // 🚨 NEW FLAG: Track the first received chunk
 
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-            buffer += decoder.decode(value, { stream: true });
-            const parts = buffer.split("\n\n");
-            buffer = parts.pop();
+            buffer += decoder.decode(value, { stream: true });
+            const parts = buffer.split("\n\n");
+            buffer = parts.pop();
 
-            for (const part of parts) {
-                if (!part.startsWith("data:")) continue;
-                const data = part.slice(5).trim();
-                if (data === "[DONE]") continue;
+            for (const part of parts) {
+                if (!part.startsWith("data:")) continue;
+                const data = part.slice(5).trim();
+                if (data === "[DONE]") continue;
 
-                try {
-                    const parsed = JSON.parse(data);
-                    if (parsed.text) {
-                        // 🚨 START STREAMING LOGIC
-                        if (isFirstChunk) {
-                            outputDiv.classList.remove("hidden"); // Show the output area
-                            outputDiv.scrollIntoView({ behavior: 'smooth', block: 'start' }); // Scroll to it
-                            isFirstChunk = false;
-                        }
+                try {
+                    const parsed = JSON.parse(data);
+                    if (parsed.text) {
+                        // 🚨 START STREAMING LOGIC
+                        if (isFirstChunk) {
+                            outputDiv.classList.remove("hidden"); // Show the output area
+                            outputDiv.scrollIntoView({ behavior: 'smooth', block: 'start' }); // Scroll to it
+                            isFirstChunk = false;
+                        }
 
-                        html += parsed.text;
-                        await typeHtmlLive(parsed.text);
-                    }
-                } catch {}
-            }
-        }
+                        html += parsed.text;
+                        await typeHtmlLive(parsed.text);
+                    }
+                } catch {}
+            }
+        }
 
-        latestHtmlContent = html.trim();
-        if (latestHtmlContent) {
-            showMessage("Website built live! Starting deployment.", false);
-            downloadBtn.disabled = false;
-            refineBtn.disabled = false;
-            
-            // 🚨 CRITICAL: Get plan and project ID BEFORE deployment
-            currentProjectId = await autoSaveProject(latestHtmlContent, prompt, null);
-            const userPlan = await getUserPlan(currentUserId);
+        latestHtmlContent = html.trim();
+        if (latestHtmlContent) {
+            showMessage("Website built live! Starting deployment.", false);
+            downloadBtn.disabled = false;
+            refineBtn.disabled = false;
+            
+            // 🚨 CRITICAL: Get plan and project ID BEFORE deployment
+            currentProjectId = await autoSaveProject(latestHtmlContent, prompt, null);
+            const userPlan = await getUserPlan(currentUserId);
 
-            if (currentProjectId) {
-                await handleDeployment(userPlan, currentProjectId); // <--- PASS REQUIRED PARAMS
-            } else {
-                showMessage("Deployment skipped: Failed to save project for ID.", true);
-            }
+            if (currentProjectId) {
+                await handleDeployment(userPlan, currentProjectId); // <--- PASS REQUIRED PARAMS
+            } else {
+                showMessage("Deployment skipped: Failed to save project for ID.", true);
+            }
 
-        } else {
-            showMessage("No HTML generated.", true);
-            outputDiv.classList.add("hidden"); // Hide if no content was generated
-        }
+        } else {
+            showMessage("No HTML generated.", true);
+            outputDiv.classList.add("hidden"); // Hide if no content was generated
+        }
 
-        setLoading(false);
-    }
+        setLoading(false);
+    }
 
-    // Live typing effect function
-    async function typeHtmlLive(newText) {
-        for (let i = 0; i < newText.length; i++) {
-            outputCode.textContent += newText[i];
-            outputCode.scrollTop = outputCode.scrollHeight; 
-            await new Promise(r => setTimeout(r, 2));
-        }
-    }
+    // Live typing effect function
+    async function typeHtmlLive(newText) {
+        for (let i = 0; i < newText.length; i++) {
+            outputCode.textContent += newText[i];
+            outputCode.scrollTop = outputCode.scrollHeight; 
+            await new Promise(r => setTimeout(r, 2));
+        }
+    }
 
-    async function handleRefine() {
-        const refinePrompt = refinePromptInput.value.trim();
-        if (!latestHtmlContent) return showMessage("Generate HTML first.", true);
-        if (refinePrompt.length < 5) return showMessage("Enter refinement instruction.", true);
-        if (!currentProjectId) return showMessage("Cannot refine: Project ID missing. Generate a new site.", true);
+    async function handleRefine() {
+        const refinePrompt = refinePromptInput.value.trim();
+        if (!latestHtmlContent) return showMessage("Generate HTML first.", true);
+        if (refinePrompt.length < 5) return showMessage("Enter refinement instruction.", true);
+        if (!currentProjectId) return showMessage("Cannot refine: Project ID missing. Generate a new site.", true);
 
-        setLoading(true, true);
+        setLoading(true, true);
 
-        const payload = { currentHtml: latestHtmlContent, refinePrompt };
-        const maxRetries = 3;
+        const payload = { currentHtml: latestHtmlContent, refinePrompt };
+        const maxRetries = 3;
 
-        for (let attempt = 0; attempt < maxRetries; attempt++) {
-            try {
-                const response = await fetch('/api/refine.js', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                if (!response.ok) throw new Error("Refine failed.");
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                const response = await fetch('/api/refine.js', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) throw new Error("Refine failed.");
 
-                const result = await response.json();
-                const generatedHtml = result.htmlCode;
+                const result = await response.json();
+                const generatedHtml = result.htmlCode;
 
-                if (generatedHtml) {
-                    latestHtmlContent = generatedHtml.trim();
-                    outputCode.textContent = latestHtmlContent;
-                    latestDeploymentUrl = "";
-                    setPreviewButton(null, false);
-                    
-                    const userPlan = await getUserPlan(currentUserId);
-                    await handleDeployment(userPlan, currentProjectId);
+                if (generatedHtml) {
+                    latestHtmlContent = generatedHtml.trim();
+                    outputCode.textContent = latestHtmlContent;
+                    latestDeploymentUrl = "";
+                    setPreviewButton(null, false);
+                    
+                    const userPlan = await getUserPlan(currentUserId);
+                    await handleDeployment(userPlan, currentProjectId);
 
-                    latestPrompt += `\n\n[Refined]: ${refinePrompt}`;
-                    await autoSaveProject(latestHtmlContent, latestPrompt, currentProjectId);
-                    
-                    showMessage("Code refined, deployed, and auto-saved!", false);
-                    refinePromptInput.value = '';
-                    break;
-                } else {
-                    throw new Error("API missing htmlCode.");
-                }
-            } catch (error) {
-                if (attempt === maxRetries - 1) showMessage("Refinement failed.", true);
-                else await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 1000));
-            }
-        }
+                    latestPrompt += `\n\n[Refined]: ${refinePrompt}`;
+                    await autoSaveProject(latestHtmlContent, latestPrompt, currentProjectId);
+                    
+                    showMessage("Code refined, deployed, and auto-saved!", false);
+                    refinePromptInput.value = '';
+                    break;
+                } else {
+                    throw new Error("API missing htmlCode.");
+                }
+            } catch (error) {
+                if (attempt === maxRetries - 1) showMessage("Refinement failed.", true);
+                else await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 1000));
+            }
+        }
 
-        setLoading(false);
-    }
+        setLoading(false);
+    }
 
-    // ... (Placeholder typing effect logic) ...
-    const placeholderPrompts = [
-        "A minimalist portfolio for a futuristic fashion designer.",
-        "A quirky online café with interactive menu animations.",
-        "A landing page for a mysterious escape room experience.",
-        "A retro-style blog for sharing bizarre urban legends.",
-        "A pet adoption site that gamifies choosing a pet.",
-        "A one-page music festival schedule with neon visuals.",
-        "An AI art generator website with live previews"
-    ];
+    // ... (Placeholder typing effect logic) ...
+    const placeholderPrompts = [
+        "A minimalist portfolio for a futuristic fashion designer.",
+        "A quirky online café with interactive menu animations.",
+        "A landing page for a mysterious escape room experience.",
+        "A retro-style blog for sharing bizarre urban legends.",
+        "A pet adoption site that gamifies choosing a pet.",
+        "A one-page music festival schedule with neon visuals.",
+        "An AI art generator website with live previews"
+    ];
 
-    let promptTypingIndex = 0, charIndex = 0, isDeleting = false;
-    const typingSpeed = 75, deletingSpeed = 40, delayBetweenPrompts = 2000;
-    const defaultPlaceholder = "e.g., 'A vibrant landing page for a dog grooming salon...'";
+    let promptTypingIndex = 0, charIndex = 0, isDeleting = false;
+    const typingSpeed = 75, deletingSpeed = 40, delayBetweenPrompts = 2000;
+    const defaultPlaceholder = "e.g., 'A vibrant landing page for a dog grooming salon...'";
 
-    function typePlaceholderEffect() {
-        if (promptInput.value.length > 0) return;
-        const currentPrompt = placeholderPrompts[promptTypingIndex];
-        let placeholderText = promptInput.getAttribute('placeholder') || '';
-        if (isDeleting) {
-            placeholderText = currentPrompt.substring(0, charIndex - 1);
-            charIndex--;
-            if (charIndex === 0) {
-                isDeleting = false;
-                promptTypingIndex = (promptTypingIndex + 1) % placeholderPrompts.length;
-                setTimeout(typePlaceholderEffect, 500);
-                return;
-            }
-        } else {
-            placeholderText = currentPrompt.substring(0, charIndex + 1);
-            charIndex++;
-            if (charIndex === currentPrompt.length) {
-                isDeleting = true;
-                setTimeout(typePlaceholderEffect, delayBetweenPrompts);
-                return;
-            }
-        }
-        promptInput.setAttribute('placeholder', placeholderText);
-        setTimeout(typePlaceholderEffect, isDeleting ? deletingSpeed : typingSpeed);
-    }
+    function typePlaceholderEffect() {
+        if (promptInput.value.length > 0) return;
+        const currentPrompt = placeholderPrompts[promptTypingIndex];
+        let placeholderText = promptInput.getAttribute('placeholder') || '';
+        if (isDeleting) {
+            placeholderText = currentPrompt.substring(0, charIndex - 1);
+            charIndex--;
+            if (charIndex === 0) {
+                isDeleting = false;
+                promptTypingIndex = (promptTypingIndex + 1) % placeholderPrompts.length;
+                setTimeout(typePlaceholderEffect, 500);
+                return;
+            }
+        } else {
+            placeholderText = currentPrompt.substring(0, charIndex + 1);
+            charIndex++;
+            if (charIndex === currentPrompt.length) {
+                isDeleting = true;
+                setTimeout(typePlaceholderEffect, delayBetweenPrompts);
+                return;
+            }
+        }
+        promptInput.setAttribute('placeholder', placeholderText);
+        setTimeout(typePlaceholderEffect, isDeleting ? deletingSpeed : typingSpeed);
+    }
 
-    promptInput.addEventListener('input', () => {
-        if (promptInput.value.length > 0) promptInput.setAttribute('placeholder', defaultPlaceholder);
-        else {
-            promptTypingIndex = 0;
-            charIndex = 0;
-            isDeleting = false;
-            typePlaceholderEffect();
-        }
-    });
+    promptInput.addEventListener('input', () => {
+        if (promptInput.value.length > 0) promptInput.setAttribute('placeholder', defaultPlaceholder);
+        else {
+            promptTypingIndex = 0;
+            charIndex = 0;
+            isDeleting = false;
+            typePlaceholderEffect();
+        }
+    });
 
-    onAuthStateChanged(auth, (user) => {
-        if (user) {
-            currentUserId = user.uid;
-            loadingState.style.pointerEvents = 'none';
-            loadingState.classList.add('hidden');
-            loadingState.style.opacity = '0';
-            mainContent.classList.remove('hidden');
-            setPreviewButton(latestDeploymentUrl, false);
-            if (!listenersAttached) {
-                generateBtn.addEventListener('click', handleGeneration);
-                refineBtn.addEventListener('click', handleRefine);
-                copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
-                downloadBtn.addEventListener('click', handleDownload);
-                previewBtn.addEventListener('click', handlePreview);
-                logoutBtn.addEventListener('click', async () => { try { await signOut(auth); } catch {} });
-                typePlaceholderEffect();
-                listenersAttached = true;
-            }
-        } else {
-            const redirectUrl = 'login.html?redirect=' + encodeURIComponent(window.location.pathname);
-            window.location.replace(redirectUrl); 
-        }
-    });
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            currentUserId = user.uid;
+            loadingState.style.pointerEvents = 'none';
+            loadingState.classList.add('hidden');
+            loadingState.style.opacity = '0';
+            mainContent.classList.remove('hidden');
+            setPreviewButton(latestDeploymentUrl, false);
+            if (!listenersAttached) {
+                generateBtn.addEventListener('click', handleGeneration);
+                refineBtn.addEventListener('click', handleRefine);
+                copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
+                downloadBtn.addEventListener('click', handleDownload);
+                previewBtn.addEventListener('click', handlePreview);
+                logoutBtn.addEventListener('click', async () => { try { await signOut(auth); } catch {} });
+                typePlaceholderEffect();
+                listenersAttached = true;
+            }
+        } else {
+            const redirectUrl = 'login.html?redirect=' + encodeURIComponent(window.location.pathname);
+            window.location.replace(redirectUrl); 
+        }
+    });
 
-    lucide.createIcons();
+    lucide.createIcons();
 </script>
 </body>
 </html>
