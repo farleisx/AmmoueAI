@@ -26,7 +26,7 @@
             border-color: #10b981;
         }
 
-        /* --- New CSS for Animation --- */
+        /* --- Animation CSS (Original) --- */
         @keyframes scroll-left {
             from {
                 transform: translateX(0);
@@ -47,7 +47,22 @@
             min-width: 300px;
             margin-right: 2.5rem;
         }
-        /* --- End New CSS for Animation --- */
+        
+        /* --- NEW CSS FOR NEON HOVER EFFECT --- */
+        .step-box {
+            /* Initial shadow and transition for smooth effect */
+            transition: box-shadow 0.3s ease-in-out, transform 0.3s ease-in-out;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+        }
+        .step-box:hover {
+            /* Neon Teal Effect: Inset shadow for edge glow, lighter teal for outer glow */
+            box-shadow: 
+                0 0 10px 0 #0d9488, /* Soft primary glow */
+                0 0 20px 0 rgba(13, 148, 136, 0.6), /* Wider secondary glow */
+                inset 0 0 0 2px #0d9488; /* Inner teal border */
+            transform: translateY(-2px); /* Slight lift */
+        }
+        /* --- END NEW CSS --- */
     </style>
 </head>
 <body class="antialiased min-h-screen">
@@ -238,7 +253,7 @@
                         <div class="h-full border-l-4 border-dashed border-teal-200" style="margin-left: 24px;"></div>
                     </div>
                     
-                    <div class="flex items-start relative z-10">
+                    <div class="flex items-start relative z-10 bg-white p-6 rounded-xl step-box">
                         <div class="flex-shrink-0 w-12 h-12 bg-ammoue text-white rounded-full flex items-center justify-center text-xl font-bold shadow-lg">1</div>
                         <div class="ml-6 flex-grow pt-1">
                             <h3 class="text-2xl font-bold text-gray-900 mb-2">Describe Your Vision</h3>
@@ -246,7 +261,7 @@
                         </div>
                     </div>
 
-                    <div class="flex items-start relative z-10">
+                    <div class="flex items-start relative z-10 bg-white p-6 rounded-xl step-box">
                         <div class="flex-shrink-0 w-12 h-12 bg-ammoue text-white rounded-full flex items-center justify-center text-xl font-bold shadow-lg">2</div>
                         <div class="ml-6 flex-grow pt-1">
                             <h3 class="text-2xl font-bold text-gray-900 mb-2">AI Creates the Draft</h3>
@@ -254,7 +269,7 @@
                         </div>
                     </div>
                     
-                    <div class="flex items-start relative z-10">
+                    <div class="flex items-start relative z-10 bg-white p-6 rounded-xl step-box">
                         <div class="flex-shrink-0 w-12 h-12 bg-ammoue text-white rounded-full flex items-center justify-center text-xl font-bold shadow-lg">3</div>
                         <div class="ml-6 flex-grow pt-1">
                             <h3 class="text-2xl font-bold text-gray-900 mb-2">Edit, Tweak, and Publish</h3>
