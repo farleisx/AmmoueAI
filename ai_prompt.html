@@ -536,12 +536,17 @@
 
     // Live typing effect function
     async function typeHtmlLive(newText) {
-        for (let i = 0; i < newText.length; i++) {
-            outputCode.textContent += newText[i];
-            outputCode.scrollTop = outputCode.scrollHeight; 
-            await new Promise(r => setTimeout(r, 2));
-        }
-    }
+    const chunkSize = 50;
+    for (let i = 0; i < newText.length; i += chunkSize) {
+        const chunk = newText.slice(i, i + chunkSize);
+        outputCode.textContent += chunk;
+        outputCode.scrollTop = outputCode.scrollHeight;
+
+        // Small delay so it feels streamed but not spammy
+        await new Promise(r => setTimeout(r, 20));
+    }
+}
+
 
     async function handleRefine() {
         const refinePrompt = refinePromptInput.value.trim();
