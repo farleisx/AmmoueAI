@@ -166,7 +166,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
     import { getFirestore, collection, addDoc, doc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
-    // NEW FIREBASE STORAGE IMPORTS
+    // 🌟 Storage Imports Included
     import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-storage.js";
     
     const firebaseConfig = {
@@ -181,7 +181,7 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
-    // NEW: Initialize Storage
+    // 🌟 Storage Initialized
     const storage = getStorage(app); 
     const appId = firebaseConfig.projectId;
     let currentUserId = null;
@@ -205,7 +205,7 @@
     const refinePromptInput = document.getElementById('refine-prompt');
     const refineBtn = document.getElementById('refine-btn');
     const deploymentErrorMessage = document.getElementById('deployment-error-message'); 
-    // NEW: Image Upload DOM elements
+    // 🌟 Image Upload DOM elements
     const imageUploadInput = document.getElementById('image-upload');
     const imageStatusDiv = document.getElementById('image-status');
 
@@ -215,9 +215,9 @@
     let latestPrompt = ''; 
     let latestDeploymentUrl = ''; // ✅ per-user GitHub Pages URL
     let currentProjectId = null; // Store the project ID after initial save
-    // NEW: Variable to store the uploaded image's public URL
+    // 🌟 Variable to store the uploaded image's public URL
     let uploadedImageUrl = null; 
-    // NEW: Variable to store the file object
+    // 🌟 Variable to store the file object
     let imageFile = null; 
 
     // Helper function for a delay (used in polling)
@@ -504,7 +504,7 @@
     }
 
     /**
-     * NEW: Handles image upload to Firebase Storage
+     * 🌟 NEW: Handles image upload to Firebase Storage
      */
     async function handleImageUpload() {
         if (!imageFile) return;
@@ -527,10 +527,12 @@
             // Upload the file
             const snapshot = await uploadBytes(storageRef, imageFile);
             
-            // Get the public URL
+            // Get the public URL. This URL is crucial and must be tokenized by Firebase.
             const url = await getDownloadURL(snapshot.ref);
             uploadedImageUrl = url;
 
+            console.log("Uploaded Image URL:", uploadedImageUrl); // Debug line
+            
             imageStatusDiv.textContent = `✅ Uploaded: ${imageFile.name}`;
             imageStatusDiv.classList.remove('text-red-500', 'text-gray-500');
             imageStatusDiv.classList.add('text-green-600');
@@ -542,7 +544,7 @@
             imageStatusDiv.textContent = `❌ Failed: ${error.message.substring(0, 30)}...`;
             imageStatusDiv.classList.remove('text-green-600', 'text-gray-500');
             imageStatusDiv.classList.add('text-red-500');
-            showMessage("Image upload failed. See console for details.", true);
+            showMessage("Image upload failed. Ensure Firebase Storage rules are set.", true);
         } finally {
             generateBtn.disabled = false; // Re-enable generation
         }
@@ -582,14 +584,12 @@
         latestPrompt = prompt;
         currentProjectId = null; // Reset project ID for a new generation
 
-        // NEW: Include the uploaded image URL in the payload
+        // 🌟 NEW: Include the uploaded image URL in the payload
         const response = await fetch("/api/generate.js", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ prompt, uploadedImageUrl }),
         });
-        // NOTE: uploadedImageUrl is reset to null/"" only when a new image is selected
-        // or if handleGeneration is successful/fails. This ensures refinement has access.
 
         if (!response.ok || !response.body) {
             setLoading(false);
