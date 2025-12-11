@@ -485,79 +485,33 @@
         const prompt = promptInput.value.trim();
         if (prompt.length < 10) return showMessage("Please provide a detailed prompt (min 10 chars).", true);
 
-        setLoading(true);
-        outputCode.textContent = "";
-        latestHtmlContent = "";
-        latestDeploymentUrl = ""; // Reset deployment URL
-        setPublishButton(null, false); // Disable and reset publish button
-        latestPrompt = prompt;
-        currentProjectId = null; // Reset project ID for a new generation
+        setLoading(true); outputCode.textContent = ""; latestHtmlContent = ""; latestDeploymentUrl = ""; setPublishButton(null, false); latestPrompt = prompt; currentProjectId = null;
 
-        const response = await fetch("/api/generate.js", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ prompt }),
-        });
+        const formData = new FormData();
+        formData.append('prompt', prompt);
+        if (imageUploadInput.files[0]) formData.append('image', imageUploadInput.files[0]);
 
-        if (!response.ok || !response.body) {
-            setLoading(false);
-            outputDiv.classList.add("hidden"); // Ensure it remains hidden on API failure
-            return showMessage("Failed to connect to AI server.", true);
-        }
+        const response = await fetch("/api/generate.js", { method: "POST", body: formData });
+        if (!response.ok || !response.body) { setLoading(false); outputDiv.classList.add("hidden"); return showMessage("Failed to connect to AI server.", true); }
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder("utf-8");
-        let buffer = "";
-        let html = "";
-        
-        let isFirstChunk = true; // Track the first received chunk
+        let buffer = ""; let html = ""; let isFirstChunk = true;
 
         while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
+            const { done, value } = await reader.read(); if (done) break;
             buffer += decoder.decode(value, { stream: true });
-            const parts = buffer.split("\n\n");
-            buffer = parts.pop();
-
+            const parts = buffer.split("\n\n"); buffer = parts.pop();
             for (const part of parts) {
                 if (!part.startsWith("data:")) continue;
-                const data = part.slice(5).trim();
-                if (data === "[DONE]") continue;
-
-                try {
-                    const parsed = JSON.parse(data);
-                    if (parsed.text) {
-                        // START STREAMING LOGIC
-                        if (isFirstChunk) {
-                            outputDiv.classList.remove("hidden"); // Show the output area
-                            outputDiv.scrollIntoView({ behavior: 'smooth', block: 'start' }); // Scroll to it
-                            isFirstChunk = false;
-                        }
-
-                        html += parsed.text;
-                        await typeHtmlLive(parsed.text);
-                    }
-                } catch {}
+                const data = part.slice(5).trim(); if (data === "[DONE]") continue;
+                try { const parsed = JSON.parse(data); if (parsed.text) { if (isFirstChunk) { outputDiv.classList.remove("hidden"); outputDiv.scrollIntoView({ behavior: 'smooth', block: 'start' }); isFirstChunk = false; } html += parsed.text; await typeHtmlLive(parsed.text); } } catch {}
             }
         }
 
         latestHtmlContent = html.trim();
-        if (latestHtmlContent) {
-            showMessage("Website built live! Now save and publish manually.", false);
-            downloadBtn.disabled = false;
-            refineBtn.disabled = false;
-            previewHtmlBtn.disabled = false; // Enable preview
-            publishBtn.disabled = false; // Enable publish
-            
-            // CRITICAL: Auto-save the project with the generated HTML
-            currentProjectId = await autoSaveProject(latestHtmlContent, prompt, null);
-
-        } else {
-            showMessage("No HTML generated.", true);
-            outputDiv.classList.add("hidden"); // Hide if no content was generated
-        }
-
+        if (latestHtmlContent) { showMessage("Website built live! Now save and publish manually.", false); downloadBtn.disabled = false; refineBtn.disabled = false; previewHtmlBtn.disabled = false; publishBtn.disabled = false; currentProjectId = await autoSaveProject(latestHtmlContent, prompt, null); }
+        else { showMessage("No HTML generated.", true); outputDiv.classList.add("hidden"); }
         setLoading(false);
     }
 
