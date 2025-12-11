@@ -353,7 +353,7 @@
                 uid: user.uid,
                 email: user.email,
                 displayName: user.displayName || null,
-                plan: "pro", // 🚨 INJECTED LOGIC: Default to Free Plan
+                plan: "pro", // 🚨 INJECTED LOGIC: Limited Time Pro
                 signupDate: Timestamp.now(),
             }, { merge: true }); // Use merge: true for safety
 
