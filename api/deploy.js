@@ -3,15 +3,13 @@ import fetch from "node-fetch";
 import admin from "firebase-admin";
 import { initializeApp, getApps } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
+import crypto from "crypto";
 
 // ---------------- CONFIG ----------------
 const PLAN_LIMITS = { free: 1, pro: 5 };
-
 const VERCEL_TOKEN = process.env.VERCEL_TOKEN;
-const VERCEL_PROJECT = process.env.VERCEL_PROJECT_NAME; // MUST be project SLUG
+const VERCEL_PROJECT = "ammoueai-sites"; // Use your dedicated project
 const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID || null;
-
-const APP_PROJECT_ID = "ammoueai";
 
 // ---------------- FIREBASE INIT ----------------
 if (!getApps().length) {
@@ -56,7 +54,7 @@ export default async function handler(req, res) {
 
     const projectRef = db
       .collection("artifacts")
-      .doc(APP_PROJECT_ID)
+      .doc("ammoueai")
       .collection("users")
       .doc(userId)
       .collection("projects")
@@ -72,6 +70,9 @@ export default async function handler(req, res) {
       });
     }
 
+    // -------- UNIQUE SLUG FOR THIS DEPLOYMENT --------
+    const uniqueSlug = `${userId}-${crypto.randomBytes(3).toString("hex")}`;
+
     // -------- VERCEL DEPLOY --------
     const deployRes = await fetch(
       `https://api.vercel.com/v13/deployments${
@@ -84,7 +85,7 @@ export default async function handler(req, res) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: VERCEL_PROJECT,
+          name: uniqueSlug,
           project: VERCEL_PROJECT,
           target: "production",
           files: [
@@ -93,6 +94,7 @@ export default async function handler(req, res) {
               data: htmlContent,
             },
           ],
+          alias: [`${uniqueSlug}.ammoueai-sites.vercel.app`], // ensures unique URL
         }),
       }
     );
