@@ -328,7 +328,7 @@
     }
 
 
-    // UPDATED: Handle Deployment (Now uses Polling) - Triggered MANUALLY
+    // UPDATED: Handle Deployment (Now uses Polling by DeploymentId)
     async function handleDeployment() {
         deploymentErrorMessage.classList.add('hidden'); 
 
@@ -380,14 +380,15 @@
             }
 
             // Successfully initiated deployment
-            latestDeploymentUrl = result.deploymentUrl; // The URL to poll
-            const initialStatus = result.status; // Get the initial status (QUEUED/BUILDING)
+            latestDeploymentUrl = result.deploymentUrl; 
+            const initialStatus = result.status; 
+            // ⭐ CRITICAL FIX: Capture the Vercel Deployment ID for reliable polling
+            const deploymentIdToPoll = result.deploymentId; 
 
-            // Update button using the initial status returned by the server
             setPublishButton(latestDeploymentUrl, true, initialStatus.toLowerCase()); 
             
             showMessage("✅ Deployment initiated. Checking status in real-time...", false);
-            await updateProjectDeploymentUrl(currentProjectId, latestDeploymentUrl); // Update immediately to show in dashboard/use in polling
+            await updateProjectDeploymentUrl(currentProjectId, latestDeploymentUrl); 
 
             // 2. Polling Loop for Status Check
             const maxPollAttempts = 30; // Max attempts before giving up (e.g., 30 * 5s = 150 seconds)
@@ -398,8 +399,9 @@
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ 
-                        deploymentUrl: latestDeploymentUrl, // Sending the required deploymentUrl
-                        userId: currentUserId // Pass user ID for authorization if needed
+                        // ⭐ CRITICAL FIX: Pass the deploymentId to the polling endpoint
+                        deploymentId: deploymentIdToPoll, 
+                        userId: currentUserId 
                     }),
                 });
 
