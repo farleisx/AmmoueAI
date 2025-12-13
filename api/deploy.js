@@ -8,7 +8,7 @@ import crypto from "crypto";
 // ---------------- CONFIG ----------------
 const PLAN_LIMITS = { free: 1, pro: 5 };
 const VERCEL_TOKEN = process.env.VERCEL_TOKEN;
-const VERCEL_PROJECT = "ammoueai-sites"; // Use your dedicated project
+const VERCEL_PROJECT = "ammoueai-sites"; // Dedicated project
 const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID || null;
 
 // ---------------- FIREBASE INIT ----------------
@@ -33,6 +33,20 @@ async function incrementDeploymentCount(userId) {
     { count: admin.firestore.FieldValue.increment(1) },
     { merge: true }
   );
+}
+
+// Clean AI-generated HTML before deployment
+function cleanHtml(html) {
+  if (!html) return "";
+  let cleaned = html.trim();
+
+  // Remove Markdown code fences
+  if (cleaned.startsWith("```")) {
+    cleaned = cleaned.replace(/^```[a-z]*\n?/, ""); // opening ```
+    cleaned = cleaned.replace(/```$/, "");          // closing ```
+  }
+
+  return cleaned;
 }
 
 // ---------------- HANDLER ----------------
@@ -70,6 +84,9 @@ export default async function handler(req, res) {
       });
     }
 
+    // -------- CLEAN HTML --------
+    const htmlToDeploy = cleanHtml(htmlContent);
+
     // -------- UNIQUE SLUG FOR THIS DEPLOYMENT --------
     const uniqueSlug = `${userId}-${crypto.randomBytes(3).toString("hex")}`;
 
@@ -91,7 +108,7 @@ export default async function handler(req, res) {
           files: [
             {
               file: "index.html",
-              data: htmlContent,
+              data: htmlToDeploy, // ✅ deploy cleaned HTML
             },
           ],
           alias: [`${uniqueSlug}.ammoueai-sites.vercel.app`], // ensures unique URL
