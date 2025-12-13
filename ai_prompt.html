@@ -327,6 +327,13 @@
         window.open(dataUrl, '_blank');
     }
 
+    /**
+     * ⭐ NEW: Smooth scroll function
+     */
+    function handleScrollToOutput() {
+        outputDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
 
     // UPDATED: Handle Deployment (Now uses Polling by DeploymentId)
     async function handleDeployment() {
@@ -580,6 +587,9 @@
         setLoading(false);
         // Ensure Lucide icons are rendered for the output section
         lucide.createIcons();
+        
+        // ⭐ NEW: Smooth scroll to the output div
+        handleScrollToOutput();
     }
     
     // ⭐ TODO: IMPLEMENTATION NEEDED for AI refinement
@@ -647,6 +657,8 @@
             setPublishButton(null, false);
 
             showMessage("✨ Code Refined and Saved! Deploy again to see changes.", false);
+            // ⭐ NEW: Smooth scroll to the output div
+            handleScrollToOutput();
 
         } catch (error) {
             console.error("Refinement Error:", error);
