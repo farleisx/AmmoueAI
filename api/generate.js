@@ -7,70 +7,85 @@ const API_MODEL = "gemini-2.5-flash";
 
 // Helper: extract keywords fallback
 function extractKeywords(text = "") {
-  return text
-    .toLowerCase()
-    .replace(/[^\w\s]/g, " ")
-    .split(/\s+/)
-    .filter(Boolean);
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+// Helper: Extracts Base64 data and MIME type from a Data URI
+function dataUriToInlineData(dataUri) {
+  const parts = dataUri.split(",");
+  if (parts.length < 2) return null;
+
+  const mimePart = parts[0].split(";")[0];
+  const mimeType = mimePart.replace("data:", "");
+  const base64Data = parts[1];
+
+  return {
+    data: base64Data, // This is the raw Base64 string
+    mimeType: mimeType || "image/png",
+  };
 }
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Use POST." });
+  if (req.method !== "POST") return res.status(405).json({ error: "Use POST." });
 
-  try {
-    const { prompt, images = [], pexelsQuery: userQuery, imageCount = 8, videoCount = 2 } = req.body;
-    if (!prompt) return res.status(400).json({ error: "Missing prompt." });
+  try {
+    const { prompt, uploadedImages = [], pexelsQuery: userQuery, imageCount = 8, videoCount = 2 } = req.body;
+    if (!prompt) return res.status(400).json({ error: "Missing prompt." });
 
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: API_MODEL });
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: API_MODEL });
 
-    // ---------- STEP 1: Pexels query ----------
-    let pexelsQuery = userQuery;
-    if (!pexelsQuery) {
-      try {
-        const queryPrompt = `
+    // ---------- STEP 1: Pexels query ----------
+    let pexelsQuery = userQuery;
+    if (!pexelsQuery) {
+      try {
+        const queryPrompt = `
 Given this website description:
 "${prompt}"
 
 Generate a short (1–5 words) Pexels search query focused ONLY on real-world objects.
 Return ONLY the query text.
-        `.trim();
-        const queryResult = await model.generateContent(queryPrompt);
-        pexelsQuery = queryResult.response.text()?.trim();
-      } catch {
-        pexelsQuery = extractKeywords(prompt).slice(0, 4).join(" ");
-      }
-    }
+        `.trim();
+        const queryResult = await model.generateContent(queryPrompt);
+        pexelsQuery = queryResult.response.text()?.trim();
+      } catch {
+        pexelsQuery = extractKeywords(prompt).slice(0, 4).join(" ");
+      }
+    }
 
-    // ---------- STEP 2: Fetch Pexels images ----------
-    let imageURLs = [];
-    try {
-      const resImg = await fetch(
-        `https://api.pexels.com/v1/search?query=${encodeURIComponent(pexelsQuery)}&per_page=${imageCount}`,
-        { headers: { Authorization: PEXELS_API_KEY } }
-      );
-      const data = await resImg.json();
-      imageURLs = (data.photos || []).filter(p => p.src?.large).map(p => p.src.large).slice(0, 6);
-    } catch {}
+    // ---------- STEP 2: Fetch Pexels images ----------
+    let imageURLs = [];
+    try {
+      const resImg = await fetch(
+        `https://api.pexels.com/v1/search?query=${encodeURIComponent(pexelsQuery)}&per_page=${imageCount}`,
+        { headers: { Authorization: PEXELS_API_KEY } }
+      );
+      const data = await resImg.json();
+      imageURLs = (data.photos || []).filter(p => p.src?.large).map(p => p.src.large).slice(0, 6);
+    } catch {}
 
-    // ---------- STEP 3: Fetch Pexels videos ----------
-    let heroVideo = "";
-    let videoURLs = [];
-    try {
-      const resVid = await fetch(
-        `https://api.pexels.com/videos/search?query=${encodeURIComponent(pexelsQuery)}&per_page=${videoCount}`,
-        { headers: { Authorization: PEXELS_API_KEY } }
-      );
-      const data = await resVid.json();
-      videoURLs = (data.videos || [])
-        .map(v => v.video_files?.[0]?.link)
-        .filter(Boolean)
-        .slice(0, 2);
-      heroVideo = videoURLs[0] || "";
-    } catch {}
+    // ---------- STEP 3: Fetch Pexels videos ----------
+    let heroVideo = "";
+    let videoURLs = [];
+    try {
+      const resVid = await fetch(
+        `https://api.pexels.com/videos/search?query=${encodeURIComponent(pexelsQuery)}&per_page=${videoCount}`,
+        { headers: { Authorization: PEXELS_API_KEY } }
+      );
+      const data = await resVid.json();
+      videoURLs = (data.videos || [])
+        .map(v => v.video_files?.[0]?.link)
+        .filter(Boolean)
+        .slice(0, 2);
+      heroVideo = videoURLs[0] || "";
+    } catch {}
 
-    // ---------- STEP 4: System instruction ----------
-    const systemInstruction = `
+    // ---------- STEP 4: System instruction ----------
+    const systemInstruction = `
 You are an elite web development AI.
 
 TASK:
@@ -101,44 +116,50 @@ ${imageURLs.join("\n") || "None"}
 
 USER PROMPT:
 ${prompt}
-    `.trim();
+    `.trim();
 
-    // ---------- STEP 5: Build Gemini Vision input ----------
+    // ---------- STEP 5: Build Gemini Vision input ----------
     const parts = [
       { text: systemInstruction },
-      ...images
-        .filter(img => img.startsWith("data:")) // ✅ only Base64 images
-        .map(img => ({
-          inlineData: { data: img, mimeType: "image/png" }
-        }))
+      ...uploadedImages
+        .filter(img => typeof img === 'string' && img.startsWith("data:"))
+        .map(img => dataUriToInlineData(img))
+        .filter(Boolean)
+        .map(inlineData => ({
+          type: "INLINE_IMAGE", // ✅ Added required type
+          inline_data: {
+            data: inlineData.data,
+            mime_type: inlineData.mimeType,
+          },
+        })),
     ];
 
-    // ---------- STEP 6: Stream response ----------
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    if (res.flushHeaders) res.flushHeaders();
+    // ---------- STEP 6: Stream response ----------
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    if (res.flushHeaders) res.flushHeaders();
 
-    const stream = await model.generateContentStream({ contents: [{ role: "user", parts }] });
+    const stream = await model.generateContentStream({ contents: [{ role: "user", parts }] });
 
-    try {
-      for await (const chunk of stream.stream ?? []) {
-        const text = chunk.text?.() || "";
-        if (text) res.write(`data: ${JSON.stringify({ text })}\n\n`);
-      }
-      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-      res.write(`data: [DONE]\n\n`);
-      res.end();
-    } catch (err) {
-      res.write(
-        `data: ${JSON.stringify({ error: err.message || "Stream error", done: true })}\n\n`
-      );
-      res.write(`data: [DONE]\n\n`);
-      res.end();
-    }
+    try {
+      for await (const chunk of stream.stream ?? []) {
+        const text = chunk.text?.() || "";
+        if (text) res.write(`data: ${JSON.stringify({ text })}\n\n`);
+      }
+      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+      res.write(`data: [DONE]\n\n`);
+      res.end();
+    } catch (err) {
+      res.write(
+        `data: ${JSON.stringify({ error: err.message || "Stream error", done: true })}\n\n`
+      );
+      res.write(`data: [DONE]\n\n`);
+      res.end();
+    }
 
-  } catch (err) {
-    console.error("Generate error:", err);
-    if (!res.headersSent) res.status(500).json({ error: "Internal server error" });
-  }
+  } catch (err) {
+    console.error("Generate error:", err);
+    if (!res.headersSent) res.status(500).json({ error: "Internal server error" });
+  }
 }
