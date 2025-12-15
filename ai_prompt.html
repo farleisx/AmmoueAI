@@ -196,6 +196,115 @@
     const appId = firebaseConfig.projectId;
     let currentUserId = null;
 
+
+// ================= IMAGE ATTACHMENT LOGIC =================
+const imageInput = document.getElementById("imageUploadInput");
+const imageDropArea = document.getElementById("image-drop-area");
+const imagePreviewContainer = document.getElementById("image-preview-container");
+let attachedImages = []; // stores { file, base64 }
+
+// Convert file to base64
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+// Render thumbnails
+function renderImagePreviews() {
+    imagePreviewContainer.innerHTML = "";
+
+    attachedImages.forEach((img, index) => {
+        const wrapper = document.createElement("div");
+        wrapper.className =
+            "relative w-16 h-16 rounded-xl overflow-hidden border shadow";
+
+        const image = document.createElement("img");
+        image.src = img.base64;
+        image.className = "w-full h-full object-cover";
+
+        const removeBtn = document.createElement("button");
+        removeBtn.innerHTML = "×";
+        removeBtn.className =
+            "absolute -top-2 -right-2 bg-red-500 text-white w-5 h-5 rounded-full text-xs flex items-center justify-center";
+        removeBtn.onclick = () => {
+            attachedImages.splice(index, 1);
+            renderImagePreviews();
+        };
+
+        wrapper.appendChild(image);
+        wrapper.appendChild(removeBtn);
+        imagePreviewContainer.appendChild(wrapper);
+    });
+}
+
+// Handle files - UPDATED with FIXES 2 and 3
+async function handleFiles(files) {
+    const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+
+    for (const file of files) {
+        if (!file.type.startsWith("image/")) continue;
+        // Limit to 4 images
+        if (attachedImages.length >= 4) {
+            showMessage("You can only attach a maximum of 4 images.", true);
+            break;
+        }
+
+        // ✅ FIX 2: Prevent duplicate image uploads
+        if (attachedImages.some(img => img.file.name === file.name && img.file.size === file.size)) {
+            showMessage(`Image "${file.name}" already attached.`, true);
+            continue;
+        }
+
+        // ✅ FIX 3: Base64 size check fix (check file.size instead)
+        if (file.size > MAX_SIZE_BYTES) {
+            showMessage(`Image ${file.name} is too large (max 5MB).`, true);
+            continue;
+        }
+
+        try {
+            const base64 = await fileToBase64(file);
+            attachedImages.push({ file, base64 });
+        } catch (e) {
+            console.error("Error converting file to base64:", e);
+            showMessage("Failed to process image file.", true);
+        }
+    }
+
+    renderImagePreviews();
+}
+
+// Input select
+if (imageInput) {
+    imageInput.addEventListener("change", (e) => {
+        handleFiles(e.target.files);
+        imageInput.value = "";
+    });
+}
+
+// Drag & drop support
+if (imageDropArea) {
+    imageDropArea.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        imageDropArea.classList.add("border-ammoue", "bg-ammoue/5");
+    });
+
+    imageDropArea.addEventListener("dragleave", () => {
+        imageDropArea.classList.remove("border-ammoue", "bg-ammoue/5");
+    });
+
+    imageDropArea.addEventListener("drop", (e) => {
+        e.preventDefault();
+        imageDropArea.classList.remove("border-ammoue", "bg-ammoue/5");
+        handleFiles(e.dataTransfer.files);
+    });
+}
+// ================= END IMAGE ATTACHMENT LOGIC =================
+
+
     const loadingState = document.getElementById('loading-state');
     const mainContent = document.getElementById('main-content');
     const logoutBtn = document.getElementById('logout-btn');
@@ -235,7 +344,7 @@
         }, 4000);
     }
 
-    // Consolidated loading function for primary button
+    // Consolidated loading function for primary button - UPDATED with FIX 5
     function setLoading(isLoading, isRefining = false) {
         if (isLoading) {
             generateBtn.disabled = true;
@@ -243,6 +352,7 @@
             downloadBtn.disabled = true;
             publishBtn.disabled = true; // Disable publish during generation/refinement
             previewHtmlBtn.disabled = true; // Disable preview during generation/refinement
+            imageInput.disabled = true; // ✅ FIX 5: ADD inside setLoading(true)
             
             const loadingText = isRefining ? 'Refining...' : 'Building...';
             const buttonToUpdate = isRefining ? refineBtn : generateBtn;
@@ -253,6 +363,7 @@
             downloadBtn.disabled = !latestHtmlContent;
             publishBtn.disabled = !latestHtmlContent; // Enable publish if HTML exists
             previewHtmlBtn.disabled = !latestHtmlContent; // Enable preview if HTML exists
+            imageInput.disabled = false; // ✅ FIX 5: ADD inside setLoading(false)
             
             generateBtn.innerHTML = 'Generate HTML Code';
             refineBtn.innerHTML = 'Refine Code';
@@ -514,9 +625,13 @@
         }
     }
 
+    // UPDATED handleGeneration - Includes FIX 1
     async function handleGeneration() {
         const prompt = promptInput.value.trim();
-        if (prompt.length < 10) return showMessage("Please provide a detailed prompt (min 10 chars).", true);
+        if (prompt.length < 10 && attachedImages.length === 0) return showMessage("Please provide a detailed prompt (min 10 chars) or an image.", true);
+        // Check for image limit on the body size
+        if (attachedImages.length > 4) return showMessage("You can only attach a maximum of 4 images.", true);
+
 
         setLoading(true);
         outputCode.textContent = "";
@@ -529,7 +644,10 @@
         const response = await fetch("/api/generate.js", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ prompt }),
+            body: JSON.stringify({
+                prompt,
+                images: attachedImages.map(img => img.base64) // 👈 images sent to backend
+            }),
         });
 
         if (!response.ok || !response.body) {
@@ -542,7 +660,7 @@
         const decoder = new TextDecoder("utf-8");
         
         // ⭐ FIX: Use a buffer to collect raw stream data and an html variable for the parsed content
-        let buffer = ""; 
+        let buffer = ""; 
         let html = "";
         const streamSeparator = "data:";
         let isFirstChunk = true;
@@ -584,9 +702,9 @@
                         .replace(/\\n/g, '\n') // Replace escaped newlines with real newlines
                         .replace(/\\"/g, '"') // Replace escaped quotes with real quotes
                         .trim();
-                        
+                        
                     // 5. Update the UI
-                    outputCode.textContent = displayHtml; 
+                    outputCode.textContent = displayHtml; 
 
                     if (isFirstChunk) {
                         outputDiv.classList.remove("hidden");
@@ -610,7 +728,7 @@
 
         // Update the final code display one last time
         outputCode.textContent = latestHtmlContent;
-        
+        
         // Auto-save and state updates
         currentProjectId = await autoSaveProject(latestHtmlContent, latestPrompt, null); // Save the new project
         
@@ -620,6 +738,11 @@
             showMessage("✅ HTML Code Generated. (Warning: Failed to save project).", true);
         }
         
+        // FIX 1: Clear images after generation (UX + memory)
+        attachedImages = [];
+        renderImagePreviews(); // Clear UI
+        //
+
         // Re-enable buttons and update state
         setLoading(false);
         // Ensure Lucide icons are rendered for the output section
