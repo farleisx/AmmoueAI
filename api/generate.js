@@ -5,7 +5,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
 const API_MODEL = "gemini-2.5-flash";
 
-// ---------- helpers ----------
+// Helper: extract keywords fallback
 function extractKeywords(text = "") {
   return text
     .toLowerCase()
@@ -14,27 +14,17 @@ function extractKeywords(text = "") {
     .filter(Boolean);
 }
 
-// ---------- handler ----------
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Use POST." });
-  }
+  if (req.method !== "POST") return res.status(405).json({ error: "Use POST." });
 
   try {
-    const {
-      prompt,
-      images = [],       // ✅ use frontend-provided images
-      pexelsQuery: userQuery,
-      imageCount = 8,
-      videoCount = 2
-    } = req.body;
-
+    const { prompt, images = [], pexelsQuery: userQuery, imageCount = 8, videoCount = 2 } = req.body;
     if (!prompt) return res.status(400).json({ error: "Missing prompt." });
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: API_MODEL });
 
-    // ---------- STEP 1: Generate Pexels query ----------
+    // ---------- STEP 1: Pexels query ----------
     let pexelsQuery = userQuery;
     if (!pexelsQuery) {
       try {
@@ -45,7 +35,6 @@ Given this website description:
 Generate a short (1–5 words) Pexels search query focused ONLY on real-world objects.
 Return ONLY the query text.
         `.trim();
-
         const queryResult = await model.generateContent(queryPrompt);
         pexelsQuery = queryResult.response.text()?.trim();
       } catch {
@@ -61,10 +50,7 @@ Return ONLY the query text.
         { headers: { Authorization: PEXELS_API_KEY } }
       );
       const data = await resImg.json();
-      imageURLs = (data.photos || [])
-        .filter(p => p.src?.large)
-        .map(p => p.src.large)
-        .slice(0, 6);
+      imageURLs = (data.photos || []).filter(p => p.src?.large).map(p => p.src.large).slice(0, 6);
     } catch {}
 
     // ---------- STEP 3: Fetch Pexels videos ----------
@@ -120,12 +106,11 @@ ${prompt}
     // ---------- STEP 5: Build Gemini Vision input ----------
     const parts = [
       { text: systemInstruction },
-      ...images.map(img => ({
-        inlineData: {
-          data: img.split(",")[1], // remove "data:image/png;base64,"
-          mimeType: "image/png"
-        }
-      }))
+      ...images
+        .filter(img => img.startsWith("data:")) // ✅ only Base64 images
+        .map(img => ({
+          inlineData: { data: img, mimeType: "image/png" }
+        }))
     ];
 
     // ---------- STEP 6: Stream response ----------
@@ -134,9 +119,7 @@ ${prompt}
     res.setHeader("Connection", "keep-alive");
     if (res.flushHeaders) res.flushHeaders();
 
-    const stream = await model.generateContentStream({
-      contents: [{ role: "user", parts }]
-    });
+    const stream = await model.generateContentStream({ contents: [{ role: "user", parts }] });
 
     try {
       for await (const chunk of stream.stream ?? []) {
