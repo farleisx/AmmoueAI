@@ -171,25 +171,71 @@
         </div>
     </div>
 
-    <div id="publish-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-[2000] p-4">
-        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl transform transition-all">
-            <h3 class="text-2xl font-bold text-gray-900 mb-2">Publish Your Site?</h3>
-            
-            <div class="mt-4 mb-4 text-left">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Choose a Site Name (Optional)</label>
-                <div class="flex items-center border border-gray-300 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
-                    <input type="text" id="site-slug-input" placeholder="my-awesome-site" class="w-full px-3 py-2 outline-none text-sm">
-                    <span class="bg-gray-100 px-3 py-2 text-gray-500 text-sm border-l border-gray-300">.vercel.app</span>
-                </div>
+<div id="publish-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-[2000] p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl transform transition-all">
+        <h3 class="text-2xl font-bold text-gray-900 mb-2">
+            Publish Your Site?
+        </h3>
+
+        <div class="mt-4 mb-3 text-left">
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+                Choose a Site Name (Optional)
+            </label>
+
+            <div class="flex items-center border border-gray-300 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
+                <input
+                    type="text"
+                    id="site-slug-input"
+                    placeholder="my-awesome-site"
+                    class="w-full px-3 py-2 outline-none text-sm"
+                />
+                <span class="bg-gray-100 px-3 py-2 text-gray-500 text-sm border-l border-gray-300">
+                    .vercel.app
+                </span>
             </div>
 
-            <p class="text-gray-600 mb-6 text-sm">This will deploy your current HTML code to a live URL. This may take a minute to complete.</p>
-            <div class="flex space-x-3 justify-end">
-                <button id="cancel-publish" class="px-5 py-2 text-gray-600 font-semibold hover:bg-gray-100 rounded-xl transition">Cancel</button>
-                <button id="confirm-publish" class="px-5 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-500/30">Confirm & Publish</button>
+            <!-- Coming soon hint -->
+            <div class="mt-2 text-xs text-gray-400 flex items-start gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg"
+                     class="h-4 w-4 text-yellow-400 mt-[1px]"
+                     fill="none"
+                     viewBox="0 0 24 24"
+                     stroke="currentColor">
+                    <path stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M13 16h-1v-4h-1m1-4h.01M12 18a9 9 0 100-18 9 9 0 000 18z" />
+                </svg>
+
+                <span>
+                    <strong>Custom domains coming soon.</strong><br />
+                    This name will be used for your public site URL.
+                </span>
             </div>
         </div>
+
+        <p class="text-gray-600 mb-6 text-sm">
+            This will deploy your current HTML code to a live URL.
+            Deployment usually takes under a minute.
+        </p>
+
+        <div class="flex space-x-3 justify-end">
+            <button
+                id="cancel-publish"
+                class="px-5 py-2 text-gray-600 font-semibold hover:bg-gray-100 rounded-xl transition"
+            >
+                Cancel
+            </button>
+
+            <button
+                id="confirm-publish"
+                class="px-5 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-500/30"
+            >
+                Confirm & Publish
+            </button>
+        </div>
     </div>
+</div>
     
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
