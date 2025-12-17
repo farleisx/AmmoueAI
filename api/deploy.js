@@ -2,16 +2,15 @@
 import fetch from "node-fetch";
 import admin from "firebase-admin";
 import { initializeApp, getApps } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import crypto from "crypto";
 
-// ---------------- CONFIG ----------------
+/* ---------------- CONFIG ---------------- */
 const PLAN_LIMITS = { free: 1, pro: 5 };
 const VERCEL_TOKEN = process.env.VERCEL_TOKEN;
-const VERCEL_PROJECT = "ammoueai-sites"; // Dedicated project
 const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID || null;
 
-// ---------------- FIREBASE INIT ----------------
+/* ---------------- FIREBASE INIT ---------------- */
 if (!getApps().length) {
   initializeApp({
     credential: admin.credential.cert(
@@ -22,75 +21,78 @@ if (!getApps().length) {
 
 const db = getFirestore();
 
-// ---------------- HELPERS ----------------
-async function getDeploymentCount(userId) {
-  const snap = await db.collection("deployments").doc(userId).get();
-  return snap.exists ? snap.data().count || 0 : 0;
+/* ---------------- HELPERS ---------------- */
+
+function normalizeSlug(slug) {
+  return slug
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 32);
 }
 
-async function incrementDeploymentCount(userId) {
-  await db.collection("deployments").doc(userId).set(
-    { count: admin.firestore.FieldValue.increment(1) },
-    { merge: true }
-  );
+function randomInternalName(userId) {
+  return `${userId}-${crypto.randomBytes(4).toString("hex")}`;
 }
 
-// Clean AI-generated HTML before deployment
-function cleanHtml(html) {
-  if (!html) return "";
-  let cleaned = html.trim();
+async function reserveSlug(slug, userId, projectId) {
+  const ref = db.collection("slugReservations").doc(slug);
 
-  // Remove Markdown code fences
-  if (cleaned.startsWith("```")) {
-    cleaned = cleaned.replace(/^```[a-z]*\n?/, ""); // opening ```
-    cleaned = cleaned.replace(/```$/, "");          // closing ```
-  }
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (snap.exists) throw new Error("SLUG_TAKEN");
 
-  return cleaned;
+    tx.set(ref, {
+      userId,
+      projectId,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+  });
 }
 
-// ---------------- HANDLER ----------------
+async function releaseSlug(slug) {
+  await db.collection("slugReservations").doc(slug).delete();
+}
+
+/* ---------------- HANDLER ---------------- */
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { htmlContent, userId, plan, projectId } = req.body;
+  const { htmlContent, userId, plan, projectId, slug } = req.body;
 
   if (!htmlContent || !userId || !plan || !projectId) {
     return res.status(400).json({ error: "Missing parameters" });
   }
 
   try {
-    // -------- PLAN LIMIT CHECK --------
-    const maxDeployments = PLAN_LIMITS[plan] || 1;
-    const currentDeployments = await getDeploymentCount(userId);
+    /* -------- SLUG LOGIC -------- */
 
-    const projectRef = db
-      .collection("artifacts")
-      .doc("ammoueai")
-      .collection("users")
-      .doc(userId)
-      .collection("projects")
-      .doc(projectId);
+    let finalSlug = null;
+    let publicAlias = null;
 
-    const projectSnap = await projectRef.get();
-    const isUpdate = !!projectSnap.data()?.deploymentUrl;
+    if (slug) {
+      if (plan !== "pro") {
+        return res.status(403).json({
+          error: "Custom domain names are Pro-only",
+        });
+      }
 
-    if (!isUpdate && currentDeployments >= maxDeployments) {
-      return res.status(403).json({
-        error: "Plan limit reached",
-        maxDeployments,
-      });
+      finalSlug = normalizeSlug(slug);
+
+      if (finalSlug.length < 3) {
+        return res.status(400).json({ error: "Invalid site name" });
+      }
+
+      await reserveSlug(finalSlug, userId, projectId);
+      publicAlias = `${finalSlug}.vercel.app`;
     }
 
-    // -------- CLEAN HTML --------
-    const htmlToDeploy = cleanHtml(htmlContent);
+    /* -------- INTERNAL PROJECT NAME -------- */
+    const internalName = randomInternalName(userId);
 
-    // -------- UNIQUE SLUG FOR THIS DEPLOYMENT --------
-    const uniqueSlug = `${userId}-${crypto.randomBytes(3).toString("hex")}`;
-
-    // -------- VERCEL DEPLOY --------
+    /* -------- DEPLOY -------- */
     const deployRes = await fetch(
       `https://api.vercel.com/v13/deployments${
         VERCEL_TEAM_ID ? `?teamId=${VERCEL_TEAM_ID}` : ""
@@ -102,72 +104,55 @@ export default async function handler(req, res) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: uniqueSlug,
-          project: VERCEL_PROJECT,
+          name: internalName,
           target: "production",
-          files: [
-            {
-              file: "index.html",
-              data: htmlToDeploy, // ✅ deploy cleaned HTML
-            },
-          ],
-          alias: [`${uniqueSlug}.ammoueai-sites.vercel.app`], // ensures unique URL
+          files: [{ file: "index.html", data: htmlContent }],
+          ...(publicAlias && { alias: [publicAlias] }),
         }),
       }
     );
 
-    const raw = await deployRes.text();
-    console.log("VERCEL RAW RESPONSE:", raw);
+    const deployment = await deployRes.json();
 
-    let deployment;
-    try {
-      deployment = JSON.parse(raw);
-    } catch {
-      return res.status(500).json({
-        error: "Invalid Vercel response",
-        raw,
-      });
+    if (!deployRes.ok) {
+      if (finalSlug) await releaseSlug(finalSlug);
+      throw new Error(deployment.error?.message || "Vercel deploy failed");
     }
 
-    if (!deployRes.ok || !deployment.id || !deployment.url) {
-      return res.status(500).json({
-        error: "Vercel deployment failed to start",
-        details: deployment,
-      });
-    }
+    const deploymentUrl = publicAlias
+      ? `https://${publicAlias}`
+      : `https://${deployment.url}`;
 
-    const deploymentUrl = `https://${deployment.url}`;
+    /* -------- SAVE PROJECT -------- */
+    await db
+      .collection("artifacts")
+      .doc("ammoueai")
+      .collection("users")
+      .doc(userId)
+      .collection("projects")
+      .doc(projectId)
+      .set(
+        {
+          slug: finalSlug || null,
+          deploymentId: deployment.id,
+          deploymentUrl,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
 
-    // -------- SAVE TO FIRESTORE --------
-    await projectRef.set(
-      {
-        deploymentUrl,
-        deploymentId: deployment.id,
-        deploymentStatus: deployment.readyState || "QUEUED",
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      },
-      { merge: true }
-    );
-
-    if (!isUpdate) {
-      await incrementDeploymentCount(userId);
-    }
-
-    // -------- RESPONSE --------
     return res.status(200).json({
       deploymentId: deployment.id,
       deploymentUrl,
-      status: deployment.readyState || "QUEUED",
-      currentDeployments: isUpdate
-        ? currentDeployments
-        : currentDeployments + 1,
-      maxDeployments,
+      slug: finalSlug,
+      status: deployment.readyState,
     });
   } catch (err) {
-    console.error("DEPLOY API ERROR:", err);
-    return res.status(500).json({
-      error: "Internal server error",
-      details: err.message,
-    });
+    if (err.message === "SLUG_TAKEN") {
+      return res.status(409).json({ error: "Site name already taken" });
+    }
+
+    console.error("DEPLOY ERROR:", err);
+    return res.status(500).json({ error: err.message });
   }
 }
