@@ -9,6 +9,7 @@ import crypto from "crypto";
 const PLAN_LIMITS = { free: 1, pro: 5 };
 const VERCEL_TOKEN = process.env.VERCEL_TOKEN;
 const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID || null;
+const VERCEL_PROJECT = "ammoueai-sites"; // ✅ Dedicated project for user deployments
 
 /* ---------------- FIREBASE INIT ---------------- */
 if (!getApps().length) {
@@ -68,14 +69,13 @@ export default async function handler(req, res) {
 
   try {
     /* -------- SLUG LOGIC -------- */
-
     let finalSlug = null;
     let publicAlias = null;
 
     if (slug) {
       if (plan !== "pro") {
         return res.status(403).json({
-          error: "Custom domain names are Pro-only",
+          error: "Custom site names are Pro-only",
         });
       }
 
@@ -94,9 +94,7 @@ export default async function handler(req, res) {
 
     /* -------- DEPLOY -------- */
     const deployRes = await fetch(
-      `https://api.vercel.com/v13/deployments${
-        VERCEL_TEAM_ID ? `?teamId=${VERCEL_TEAM_ID}` : ""
-      }`,
+      `https://api.vercel.com/v13/deployments${VERCEL_TEAM_ID ? `?teamId=${VERCEL_TEAM_ID}` : ""}`,
       {
         method: "POST",
         headers: {
@@ -105,6 +103,7 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           name: internalName,
+          project: VERCEL_PROJECT, // ✅ ensures deployment goes to dedicated project
           target: "production",
           files: [{ file: "index.html", data: htmlContent }],
           ...(publicAlias && { alias: [publicAlias] }),
@@ -126,7 +125,7 @@ export default async function handler(req, res) {
     /* -------- SAVE PROJECT -------- */
     await db
       .collection("artifacts")
-      .doc("ammoueai")
+      .doc(VERCEL_PROJECT)
       .collection("users")
       .doc(userId)
       .collection("projects")
