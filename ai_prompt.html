@@ -65,39 +65,11 @@
             transform: none;
             box-shadow: none;
         }
-
-        /* Modal Overlay */
-        #publish-modal {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 2000;
-            align-items: center;
-            justify-content: center;
-            backdrop-filter: blur(4px);
-        }
     </style>
 </head>
 <body class="antialiased min-h-screen">
 
     <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold"></div>
-
-    <div id="publish-modal">
-        <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
-            <div class="flex items-center text-blue-600 mb-4">
-                <i data-lucide="cloud-upload" class="w-8 h-8 mr-3"></i>
-                <h3 class="text-2xl font-bold">Publish Website?</h3>
-            </div>
-            <p class="text-gray-600 mb-6">
-                This will deploy your site to a live URL. Note that users on the <strong>Free Plan</strong> are limited to 1 active deployment.
-            </p>
-            <div class="flex space-x-3">
-                <button id="cancel-publish" class="flex-1 px-4 py-3 rounded-xl border border-gray-300 font-semibold text-gray-600 hover:bg-gray-50 transition">Cancel</button>
-                <button id="confirm-publish" class="flex-1 px-4 py-3 rounded-xl bg-blue-600 font-bold text-white hover:bg-blue-700 transition shadow-lg shadow-blue-200">Yes, Publish</button>
-            </div>
-        </div>
-    </div>
 
     <div id="loading-state">
         <div class="flex flex-col items-center">
@@ -120,17 +92,17 @@
             placeholder="e.g., 'A vibrant landing page for a dog grooming salon called Paws & Claws, focusing on luxury services and online booking.'"></textarea>
 
         <div class="mt-4 mb-6">
-            <label class="block text-gray-700 font-medium mb-2">
-                Optional: Upload images for AI reference
-            </label>
-            <div id="image-drop-area" 
-                 class="relative w-full p-6 border-2 border-ammoue/30 rounded-2xl shadow-md hover:border-ammoue hover:shadow-lg transition duration-200 bg-white text-gray-500 text-center cursor-pointer flex flex-col items-center justify-center">
-                <i data-lucide="image" class="w-6 h-6 mb-2 text-ammoue"></i>
-                <span id="image-drop-text">Click or drag images here to upload (multiple allowed)</span>
-                <div id="image-preview-container" class="mt-3 flex flex-wrap gap-3 justify-center"></div>
-                <input type="file" id="imageUploadInput" accept="image/*" multiple class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-            </div>
-        </div>
+    <label class="block text-gray-700 font-medium mb-2">
+        Optional: Upload images for AI reference
+    </label>
+    <div id="image-drop-area" 
+         class="relative w-full p-6 border-2 border-ammoue/30 rounded-2xl shadow-md hover:border-ammoue hover:shadow-lg transition duration-200 bg-white text-gray-500 text-center cursor-pointer flex flex-col items-center justify-center">
+        <i data-lucide="image" class="w-6 h-6 mb-2 text-ammoue"></i>
+        <span id="image-drop-text">Click or drag images here to upload (multiple allowed)</span>
+        <div id="image-preview-container" class="mt-3 flex flex-wrap gap-3 justify-center"></div>
+        <input type="file" id="imageUploadInput" accept="image/*" multiple class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+    </div>
+</div>
 
         <div class="mt-6 flex justify-end space-x-4">
             <a href="dashboard.html" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300 flex items-center">
@@ -195,6 +167,22 @@
             </div>
 
             <div id="deployment-error-message" class="mt-4 p-4 rounded-xl text-center border-2 border-red-400 bg-red-100 text-red-700 font-semibold text-sm hidden">
+            </div>
+        </div>
+    </div>
+
+    <div id="publish-modal" class="fixed inset-0 z-[2000] hidden flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div class="flex items-center mb-4 text-ammoue">
+                <i data-lucide="rocket" class="w-8 h-8 mr-3"></i>
+                <h3 class="text-2xl font-bold text-gray-900">Publish Site?</h3>
+            </div>
+            <p class="text-gray-600 mb-6">
+                This will deploy your website to a live URL. Free users are limited to 1 active deployment.
+            </p>
+            <div class="flex space-x-3 justify-end">
+                <button id="modal-cancel" class="px-5 py-2.5 rounded-xl text-gray-500 hover:bg-gray-100 font-semibold transition">Cancel</button>
+                <button id="modal-confirm" class="px-6 py-2.5 rounded-xl bg-ammoue text-white font-bold hover:bg-teal-700 transition">Confirm & Publish</button>
             </div>
         </div>
     </div>
@@ -274,10 +262,12 @@ async function handleFiles(files) {
             showMessage("You can only attach a maximum of 4 images.", true);
             break;
         }
+
         if (attachedImages.some(img => img.file.name === file.name && img.file.size === file.size)) {
             showMessage(`Image "${file.name}" already attached.`, true);
             continue;
         }
+
         if (file.size > MAX_SIZE_BYTES) {
             showMessage(`Image ${file.name} is too large (max 5MB).`, true);
             continue;
@@ -291,6 +281,7 @@ async function handleFiles(files) {
             showMessage("Failed to process image file.", true);
         }
     }
+
     renderImagePreviews();
 }
 
@@ -306,15 +297,19 @@ if (imageDropArea) {
         e.preventDefault();
         imageDropArea.classList.add("border-ammoue", "bg-ammoue/5");
     });
+
     imageDropArea.addEventListener("dragleave", () => {
         imageDropArea.classList.remove("border-ammoue", "bg-ammoue/5");
     });
+
     imageDropArea.addEventListener("drop", (e) => {
         e.preventDefault();
         imageDropArea.classList.remove("border-ammoue", "bg-ammoue/5");
         handleFiles(e.dataTransfer.files);
     });
 }
+// ================= END IMAGE ATTACHMENT LOGIC =================
+
 
     const loadingState = document.getElementById('loading-state');
     const mainContent = document.getElementById('main-content');
@@ -325,23 +320,25 @@ if (imageDropArea) {
     const outputDiv = document.getElementById('generation-output');
     const outputCode = document.getElementById('output-code');
     const copyBtn = document.getElementById('copy-btn');
+    
     const publishBtn = document.getElementById('publish-btn');
     const previewHtmlBtn = document.getElementById('preview-html-btn'); 
+
     const messageBox = document.getElementById('message-box');
     const refinePromptInput = document.getElementById('refine-prompt');
     const refineBtn = document.getElementById('refine-btn');
     const deploymentErrorMessage = document.getElementById('deployment-error-message'); 
 
-    // Modal elements
+    // Confirmation Modal Elements
     const publishModal = document.getElementById('publish-modal');
-    const confirmPublishBtn = document.getElementById('confirm-publish');
-    const cancelPublishBtn = document.getElementById('cancel-publish');
+    const modalCancel = document.getElementById('modal-cancel');
+    const modalConfirm = document.getElementById('modal-confirm');
 
     let listenersAttached = false;
     let latestHtmlContent = ''; 
     let latestPrompt = ''; 
-    let latestDeploymentUrl = ''; 
-    let currentProjectId = null; 
+    let latestDeploymentUrl = '';
+    let currentProjectId = null;
 
     const delay = ms => new Promise(res => setTimeout(res, ms));
 
@@ -364,7 +361,7 @@ if (imageDropArea) {
             downloadBtn.disabled = true;
             publishBtn.disabled = true;
             previewHtmlBtn.disabled = true;
-            imageInput.disabled = true; 
+            imageInput.disabled = true;
             
             const loadingText = isRefining ? 'Refining...' : 'Building...';
             const buttonToUpdate = isRefining ? refineBtn : generateBtn;
@@ -373,9 +370,9 @@ if (imageDropArea) {
             generateBtn.disabled = false;
             refineBtn.disabled = !latestHtmlContent;
             downloadBtn.disabled = !latestHtmlContent;
-            publishBtn.disabled = !latestHtmlContent; 
-            previewHtmlBtn.disabled = !latestHtmlContent; 
-            imageInput.disabled = false; 
+            publishBtn.disabled = !latestHtmlContent;
+            previewHtmlBtn.disabled = !latestHtmlContent;
+            imageInput.disabled = false;
             
             generateBtn.innerHTML = 'Generate HTML Code';
             refineBtn.innerHTML = 'Refine Code';
@@ -431,37 +428,42 @@ if (imageDropArea) {
         showMessage("Download started!", false);
     }
     
-    // FIX: Optimized Preview logic using Blob instead of Data URL
+    // FIX: Optimized Preview logic using document write to avoid about:blank issues
     function handlePreviewHtml() {
         if (!latestHtmlContent) {
             showMessage("Generate HTML first to preview.", true);
             return;
         }
-        const blob = new Blob([latestHtmlContent], { type: 'text/html' });
-        const blobUrl = URL.createObjectURL(blob);
-        window.open(blobUrl, '_blank');
+        const previewWindow = window.open('', '_blank');
+        if (previewWindow) {
+            previewWindow.document.open();
+            previewWindow.document.write(latestHtmlContent);
+            previewWindow.document.close();
+        } else {
+            showMessage("Popup blocked. Please allow popups to preview.", true);
+        }
     }
 
     function handleScrollToOutput() {
         outputDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    // Modal Trigger Logic
-    function triggerPublish() {
+    // Modal control functions
+    function requestPublish() {
         if (latestDeploymentUrl) {
             window.open(latestDeploymentUrl, "_blank");
             return;
         }
-        publishModal.style.display = 'flex';
+        publishModal.classList.remove('hidden');
     }
 
     async function handleDeployment() {
-        publishModal.style.display = 'none'; // Close modal
+        publishModal.classList.add('hidden');
         deploymentErrorMessage.classList.add('hidden'); 
 
         if (!currentUserId) return showMessage("Authentication error: User ID is missing.", true); 
-        if (!latestHtmlContent) return showMessage("No HTML content to deploy. Generate a site first.", true);
-        if (!currentProjectId) return showMessage("System Error: Project ID is missing. Please generate again.", true);
+        if (!latestHtmlContent) return showMessage("No HTML content to deploy.", true);
+        if (!currentProjectId) return showMessage("System Error: Project ID is missing.", true);
 
         setPublishButton(latestDeploymentUrl, true);
 
@@ -488,14 +490,13 @@ if (imageDropArea) {
                             <i data-lucide="alert-triangle" class="w-6 h-6 mr-2"></i>
                             <strong>FREE Plan Limit Reached</strong>
                         </div>
-                        You have reached your maximum of **${maxDeployments} live deployment**. 
-                        Please **upgrade your plan** to deploy more new sites.
+                        You have reached your maximum of **${maxDeployments} live deployment**.
                     `;
                     deploymentErrorMessage.classList.remove('hidden');
                     lucide.createIcons();
                     throw new Error("FREE Plan Limit Reached."); 
                 }
-                throw new Error(result.error || result.details || "Deployment failed.");
+                throw new Error(result.error || "Deployment failed.");
             }
 
             latestDeploymentUrl = result.deploymentUrl; 
@@ -503,12 +504,13 @@ if (imageDropArea) {
             const deploymentIdToPoll = result.deploymentId; 
 
             setPublishButton(latestDeploymentUrl, true, initialStatus.toLowerCase()); 
-            showMessage("✅ Deployment initiated. Checking status...", false);
+            showMessage("✅ Deployment initiated...", false);
             await updateProjectDeploymentUrl(currentProjectId, latestDeploymentUrl); 
 
             const maxPollAttempts = 30;
             for (let attempt = 0; attempt < maxPollAttempts; attempt++) {
-                await delay(5000);
+                await delay(5000); 
+
                 const statusResponse = await fetch("/api/checkDeploymentStatus", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -529,27 +531,33 @@ if (imageDropArea) {
                     await updateProjectDeploymentUrl(currentProjectId, latestDeploymentUrl);
                     return;
                 } else if (status === 'ERROR') {
-                    throw new Error(`Deployment failed: ${statusResult.errorDetail || 'Error'}`);
+                    throw new Error(`Deployment error`);
                 } else {
                     setPublishButton(latestDeploymentUrl, true, status.toLowerCase());
                 }
             }
             throw new Error("Deployment timed out.");
+
         } catch (error) {
-            const isFreePlanError = error.message.includes('FREE Plan Limit Reached');
-            if (!isFreePlanError) showMessage(`❌ Deployment failed: ${error.message}`, true);
+            console.error(error);
+            const isFreePlanError = error.message.includes('FREE Plan Limit');
+            if (!isFreePlanError) {
+                showMessage(`❌ Deployment failed`, true);
+                latestDeploymentUrl = "";
+            }
             setPublishButton(latestDeploymentUrl, false);
+            publishBtn.classList.add("bg-red-500");
+            publishBtn.textContent = "Deployment Failed";
         }
     }
+
 
     async function getUserPlan(userId) {
         try {
             const userDocRef = doc(db, "users", userId);
             const userDoc = await getDoc(userDocRef);
             return userDoc.exists() ? userDoc.data().plan || 'free' : 'free';
-        } catch (error) {
-            return 'free';
-        }
+        } catch (error) { return 'free'; }
     }
 
     async function autoSaveProject(htmlContent, userPrompt, existingProjectId = null) {
@@ -573,10 +581,7 @@ if (imageDropArea) {
                 });
                 return newDocRef.id;
             }
-        } catch (error) {
-            showMessage("⚠️ Warning: Failed to auto-save project.", true);
-            return null; 
-        }
+        } catch (error) { return null; }
     }
     
     async function updateProjectDeploymentUrl(projectId, deploymentUrl) {
@@ -584,20 +589,21 @@ if (imageDropArea) {
         try {
             const projectDocRef = doc(db, "artifacts", appId, "users", currentUserId, "projects", projectId);
             await updateDoc(projectDocRef, { deploymentUrl: deploymentUrl });
-        } catch (e) { console.error(e); }
+        } catch (e) {}
     }
 
     async function handleGeneration() {
         const prompt = promptInput.value.trim();
-        if (prompt.length < 10 && attachedImages.length === 0) return showMessage("Please provide a prompt or image.", true);
+        if (prompt.length < 10 && attachedImages.length === 0) return showMessage("Please provide a detailed prompt or image.", true);
+        if (attachedImages.length > 4) return showMessage("Max 4 images.", true);
 
         setLoading(true);
         outputCode.textContent = "";
         latestHtmlContent = "";
-        latestDeploymentUrl = ""; 
-        setPublishButton(null, false); 
+        latestDeploymentUrl = "";
+        setPublishButton(null, false);
         latestPrompt = prompt;
-        currentProjectId = null; 
+        currentProjectId = null;
 
         const response = await fetch("/api/generate.js", {
             method: "POST",
@@ -610,8 +616,7 @@ if (imageDropArea) {
 
         if (!response.ok || !response.body) {
             setLoading(false);
-            outputDiv.classList.add("hidden");
-            return showMessage("Failed to connect to AI server.", true);
+            return showMessage("Failed to connect to AI.", true);
         }
 
         const reader = response.body.getReader();
@@ -629,39 +634,27 @@ if (imageDropArea) {
             buffer = messages.pop();
 
             for (const msg of messages) {
-                if (!msg.trim()) continue;
-                const trimmedMsg = msg.trim();
-                if (trimmedMsg === '[DONE]') continue;
-
+                if (!msg.trim() || msg.trim() === '[DONE]') continue;
                 try {
-                    const jsonChunk = JSON.parse(trimmedMsg);
+                    const jsonChunk = JSON.parse(msg.trim());
                     const textChunk = jsonChunk.text || "";
                     html += textChunk;
                     let displayHtml = html.replace(/\\n/g, '\n').replace(/\\"/g, '"').trim();
                     outputCode.textContent = displayHtml; 
-
                     if (isFirstChunk) {
                         outputDiv.classList.remove("hidden");
                         isFirstChunk = false;
-                        showMessage("Code generation started...", false);
                     }
                 } catch (e) {}
             }
         }
 
-        latestHtmlContent = html
-            .replace(/\\n/g, '\n')
-            .replace(/\\"/g, '"')
-            .replace(/^```(html)?\s*/i, '')
-            .replace(/\s*```$/, '')
-            .trim();
-
+        latestHtmlContent = html.replace(/\\n/g, '\n').replace(/\\"/g, '"')
+            .replace(/^```(html)?\s*/i, '').replace(/\s*```$/, '').trim();
         outputCode.textContent = latestHtmlContent;
         currentProjectId = await autoSaveProject(latestHtmlContent, latestPrompt, null);
-        
-        if (currentProjectId) showMessage("✅ HTML Code Generated and Saved!", false);
         attachedImages = [];
-        renderImagePreviews(); 
+        renderImagePreviews();
         setLoading(false);
         lucide.createIcons();
         handleScrollToOutput();
@@ -669,12 +662,9 @@ if (imageDropArea) {
     
     async function handleRefine() {
         const refinePrompt = refinePromptInput.value.trim();
-        if (refinePrompt.length < 5) return showMessage("Please provide instruction.", true);
-        if (!latestHtmlContent) return showMessage("Generate HTML first.", true);
-
+        if (refinePrompt.length < 5) return showMessage("Please provide refinement text.", true);
         setLoading(true, true);
         const originalHtml = latestHtmlContent;
-        
         try {
             const response = await fetch("/api/refine.js", {
                 method: "POST",
@@ -686,102 +676,68 @@ if (imageDropArea) {
                     projectId: currentProjectId
                 }),
             });
-            
-            if (!response.ok || !response.body) throw new Error("Connection failed.");
-
             const reader = response.body.getReader();
             const decoder = new TextDecoder("utf-8");
             let buffer = "";
             let refinedHtml = "";
-            const streamSeparator = "data:";
             outputCode.textContent = "";
 
             while (true) {
                 const { value, done } = await reader.read();
                 if (done) break;
                 buffer += decoder.decode(value, { stream: true });
-                let messages = buffer.split(streamSeparator);
+                let messages = buffer.split("data:");
                 buffer = messages.pop();
-
                 for (const msg of messages) {
-                    if (!msg.trim()) continue;
-                    const trimmedMsg = msg.trim();
-                    if (trimmedMsg === '[DONE]') continue;
+                    if (!msg.trim() || msg.trim() === '[DONE]') continue;
                     try {
-                        const jsonChunk = JSON.parse(trimmedMsg);
+                        const jsonChunk = JSON.parse(msg.trim());
                         refinedHtml += jsonChunk.text || "";
                         outputCode.textContent = refinedHtml.replace(/\\n/g, '\n').replace(/\\"/g, '"').trim();
                     } catch (e) {}
                 }
             }
-            
-            latestHtmlContent = refinedHtml
-                .replace(/\\n/g, '\n')
-                .replace(/\\"/g, '"')
-                .replace(/^```(html)?\s*/i, '')
-                .replace(/\s*```$/, '')
-                .trim();
-
+            latestHtmlContent = refinedHtml.replace(/\\n/g, '\n').replace(/\\"/g, '"')
+                .replace(/^```(html)?\s*/i, '').replace(/\s*```$/, '').trim();
             outputCode.textContent = latestHtmlContent;
             latestPrompt += `\n[Refinement]: ${refinePrompt}`;
             await autoSaveProject(latestHtmlContent, latestPrompt, currentProjectId); 
             latestDeploymentUrl = "";
             setPublishButton(null, false);
-            showMessage("✨ Code Refined!", false);
+            showMessage("✨ Refined!", false);
             handleScrollToOutput();
-        } catch (error) {
-            showMessage(`❌ Refinement failed: ${error.message}`, true);
-        } finally {
-            setLoading(false);
-        }
+        } catch (error) { setLoading(false); } finally { setLoading(false); }
     }
 
 
-    const placeholderPrompts = ["A minimalist SaaS landing page", "A dark-themed portfolio", "A vibrant e-commerce site"];
+    const placeholderPrompts = ["A minimalist SaaS page", "A dark portfolio", "A vibrant e-shop"];
     let promptTypingIndex = 0, charIndex = 0, isDeleting = false;
-    const typingSpeed = 75, deletingSpeed = 40, delayBetweenPrompts = 2000;
-    const defaultPlaceholder = "e.g., 'A vibrant landing page for a dog grooming salon...'";
 
     function typePlaceholderEffect() {
         if (promptInput.value.length > 0) return;
         const currentPrompt = placeholderPrompts[promptTypingIndex];
         let placeholderText = isDeleting ? currentPrompt.substring(0, charIndex - 1) : currentPrompt.substring(0, charIndex + 1);
         charIndex = isDeleting ? charIndex - 1 : charIndex + 1;
-
-        if (!isDeleting && charIndex === currentPrompt.length) {
-            isDeleting = true;
-            setTimeout(typePlaceholderEffect, delayBetweenPrompts);
-            return;
-        } else if (isDeleting && charIndex === 0) {
-            isDeleting = false;
-            promptTypingIndex = (promptTypingIndex + 1) % placeholderPrompts.length;
-            setTimeout(typePlaceholderEffect, 500);
-            return;
-        }
+        if (!isDeleting && charIndex === currentPrompt.length) { isDeleting = true; setTimeout(typePlaceholderEffect, 2000); return; }
+        if (isDeleting && charIndex === 0) { isDeleting = false; promptTypingIndex = (promptTypingIndex + 1) % placeholderPrompts.length; }
         promptInput.setAttribute('placeholder', placeholderText);
-        setTimeout(typePlaceholderEffect, isDeleting ? deletingSpeed : typingSpeed);
+        setTimeout(typePlaceholderEffect, isDeleting ? 40 : 75);
     }
-
-    promptInput.addEventListener('input', () => {
-        if (promptInput.value.length > 0) promptInput.setAttribute('placeholder', defaultPlaceholder);
-        else { promptTypingIndex = 0; charIndex = 0; isDeleting = false; typePlaceholderEffect(); }
-    });
 
     onAuthStateChanged(auth, (user) => {
         if (user) {
             currentUserId = user.uid;
             loadingState.classList.add('hidden');
             mainContent.classList.remove('hidden');
-            setPublishButton(latestDeploymentUrl, false);
             if (!listenersAttached) {
                 generateBtn.addEventListener('click', handleGeneration);
                 refineBtn.addEventListener('click', handleRefine);
                 copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
                 downloadBtn.addEventListener('click', handleDownload);
                 previewHtmlBtn.addEventListener('click', handlePreviewHtml);
-                publishBtn.addEventListener('click', triggerPublish); // Updated to trigger modal
-                confirmPublishBtn.addEventListener('click', handleDeployment);
-                cancelPublishBtn.addEventListener('click', () => publishModal.style.display = 'none');
+                publishBtn.addEventListener('click', requestPublish);
+                modalCancel.addEventListener('click', () => publishModal.classList.add('hidden'));
+                modalConfirm.addEventListener('click', handleDeployment);
                 logoutBtn.addEventListener('click', async () => { try { await signOut(auth); } catch {} });
                 typePlaceholderEffect();
                 listenersAttached = true;
