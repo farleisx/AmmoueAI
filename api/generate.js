@@ -124,7 +124,7 @@ ABSOLUTE RULES:
 - NO markdown
 - NO explanations
 - NO placeholders
-- NO invented URLs
+- NEVER invent URLs
 
 IMAGE RULES (CRITICAL):
 - User-uploaded images are provided as Base64 Data URIs
@@ -139,6 +139,14 @@ IMAGE RULES (CRITICAL):
 VIDEO RULES:
 - Use hero video ONLY if provided
 
+SOCIAL MEDIA RULES:
+- Include real social media homepage links only
+- For Facebook, use: https://www.facebook.com
+- For Instagram, use: https://www.instagram.com
+- For Twitter, use: https://www.twitter.com
+- NEVER leave them blank or put placeholders
+- DO NOT invent profile-specific URLs
+
 HERO VIDEO:
 ${heroVideo || "None"}
 
@@ -150,7 +158,8 @@ ${images.join("\n\n") || "None"}
 
 USER PROMPT:
 ${prompt}
-    `.trim();
+`.trim();
+
 
     // ---------------- STEP 5: GEMINI VISION INPUT ----------------
 
