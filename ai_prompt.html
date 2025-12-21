@@ -772,25 +772,44 @@ if (imageDropArea) {
     }
     
     async function handleRefine() {
-        const refinePrompt = refinePromptInput.value.trim();
-        if (refinePrompt.length < 5) return showMessage("Please provide a refinement instruction.", true);
-        if (!latestHtmlContent) return showMessage("Generate HTML first before refining.", true);
-        if (!currentProjectId) return showMessage("Error: Cannot refine an unsaved project.", true);
+    const refinePrompt = refinePromptInput.value.trim();
+    if (refinePrompt.length < 5) {
+        return showMessage("Please provide a refinement instruction.", true);
+    }
+    if (!latestHtmlContent) {
+        return showMessage("Generate HTML first before refining.", true);
+    }
+    if (!currentProjectId) {
+        return showMessage("Error: Cannot refine an unsaved project.", true);
+    }
 
-        setLoading(true, true); 
-        const originalHtml = latestHtmlContent;
-        
-        try {
-            const response = await fetch("/api/refine.js", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ 
-                    prompt: refinePrompt, 
-                    html: originalHtml,
-                    userId: currentUserId,
-                    projectId: currentProjectId
-                }),
-            });
+    setLoading(true, true);
+    const originalHtml = latestHtmlContent;
+
+    try {
+        // ---------------- AUTH ----------------
+        const user = auth.currentUser;
+        if (!user) {
+            showMessage("You must be logged in to refine.", true);
+            setLoading(false);
+            return;
+        }
+
+        const idToken = await user.getIdToken(true);
+
+        // ---------------- FETCH REFINEMENT ----------------
+        const response = await fetch("/api/refine.js", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${idToken}`,
+            },
+            body: JSON.stringify({
+                prompt: refinePrompt,
+                html: originalHtml,
+                projectId: currentProjectId
+            }),
+        });
             
             if (!response.ok || !response.body) {
                 throw new Error("Failed to connect to AI refinement server.");
