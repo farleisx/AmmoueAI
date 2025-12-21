@@ -151,9 +151,7 @@
                 </div>
             </div>
 
-            <pre class="bg-gray-100 p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm">
-<code id="output-code" class="whitespace-pre"></code>
-            </pre>
+            <pre class="bg-gray-100 p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm"><code id="output-code" class="whitespace-pre"></code></pre>
 
             <div class="mt-4 flex space-x-4">
                 <button id="preview-html-btn" disabled
@@ -194,7 +192,6 @@
                 </span>
             </div>
 
-            <!-- Coming soon hint -->
             <div class="mt-2 text-xs text-gray-400 flex items-start gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg"
                      class="h-4 w-4 text-yellow-400 mt-[1px]"
@@ -264,7 +261,6 @@ const imageDropArea = document.getElementById("image-drop-area");
 const imagePreviewContainer = document.getElementById("image-preview-container");
 let attachedImages = []; // stores { file, base64 }
 
-// Convert file to base64
 function fileToBase64(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -274,7 +270,6 @@ function fileToBase64(file) {
     });
 }
 
-// Render thumbnails
 function renderImagePreviews() {
     imagePreviewContainer.innerHTML = "";
 
@@ -302,25 +297,21 @@ function renderImagePreviews() {
     });
 }
 
-// Handle files - UPDATED with FIXES 2 and 3
 async function handleFiles(files) {
     const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 
     for (const file of files) {
         if (!file.type.startsWith("image/")) continue;
-        // Limit to 4 images
         if (attachedImages.length >= 4) {
             showMessage("You can only attach a maximum of 4 images.", true);
             break;
         }
 
-        // ✅ FIX 2: Prevent duplicate image uploads
         if (attachedImages.some(img => img.file.name === file.name && img.file.size === file.size)) {
             showMessage(`Image "${file.name}" already attached.`, true);
             continue;
         }
 
-        // ✅ FIX 3: Base64 size check fix (check file.size instead)
         if (file.size > MAX_SIZE_BYTES) {
             showMessage(`Image ${file.name} is too large (max 5MB).`, true);
             continue;
@@ -338,7 +329,6 @@ async function handleFiles(files) {
     renderImagePreviews();
 }
 
-// Input select
 if (imageInput) {
     imageInput.addEventListener("change", (e) => {
         handleFiles(e.target.files);
@@ -346,7 +336,6 @@ if (imageInput) {
     });
 }
 
-// Drag & drop support
 if (imageDropArea) {
     imageDropArea.addEventListener("dragover", (e) => {
         e.preventDefault();
@@ -387,10 +376,9 @@ if (imageDropArea) {
     let listenersAttached = false;
     let latestHtmlContent = ''; 
     let latestPrompt = ''; 
-    let latestDeploymentUrl = ''; // ✅ per-user GitHub Pages URL
-    let currentProjectId = null; // Store the project ID after initial save
+    let latestDeploymentUrl = ''; 
+    let currentProjectId = null; 
 
-    // Helper function for a delay (used in polling)
     const delay = ms => new Promise(res => setTimeout(res, ms));
 
     function showMessage(message, isError) {
@@ -405,15 +393,14 @@ if (imageDropArea) {
         }, 4000);
     }
 
-    // Consolidated loading function for primary button - UPDATED with FIX 5
     function setLoading(isLoading, isRefining = false) {
         if (isLoading) {
             generateBtn.disabled = true;
             refineBtn.disabled = true;
             downloadBtn.disabled = true;
-            publishBtn.disabled = true; // Disable publish during generation/refinement
-            previewHtmlBtn.disabled = true; // Disable preview during generation/refinement
-            imageInput.disabled = true; // ✅ FIX 5: ADD inside setLoading(true)
+            publishBtn.disabled = true;
+            previewHtmlBtn.disabled = true;
+            imageInput.disabled = true;
             
             const loadingText = isRefining ? 'Refining...' : 'Building...';
             const buttonToUpdate = isRefining ? refineBtn : generateBtn;
@@ -422,18 +409,15 @@ if (imageDropArea) {
             generateBtn.disabled = false;
             refineBtn.disabled = !latestHtmlContent;
             downloadBtn.disabled = !latestHtmlContent;
-            publishBtn.disabled = !latestHtmlContent; // Enable publish if HTML exists
-            previewHtmlBtn.disabled = !latestHtmlContent; // Enable preview if HTML exists
-            imageInput.disabled = false; // ✅ FIX 5: ADD inside setLoading(false)
+            publishBtn.disabled = !latestHtmlContent;
+            previewHtmlBtn.disabled = !latestHtmlContent;
+            imageInput.disabled = false;
             
             generateBtn.innerHTML = 'Generate HTML Code';
             refineBtn.innerHTML = 'Refine Code';
         }
     }
 
-    /**
-     * Helper to set Publish Button state (deployed vs. not).
-     */
     function setPublishButton(url, isDeploying = false, status = 'pending') {
         publishBtn.disabled = !latestHtmlContent || isDeploying;
         
@@ -448,15 +432,12 @@ if (imageDropArea) {
             publishBtn.textContent = text;
             publishBtn.classList.add('bg-yellow-600', 'cursor-not-allowed');
         } else if (url) {
-            // Site is deployed, so button acts as link to deployed site
             publishBtn.textContent = 'Open Live Site';
             publishBtn.classList.add('bg-green-600', 'cursor-pointer');
         } else if (latestHtmlContent) {
-            // HTML exists, ready to publish
             publishBtn.textContent = 'Publish Site';
             publishBtn.classList.add('bg-blue-600', 'cursor-pointer');
         } else {
-             // No HTML generated yet
             publishBtn.textContent = 'Publish Site';
             publishBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
         }
@@ -488,13 +469,11 @@ if (imageDropArea) {
         showMessage("Download started!", false);
     }
     
-    // Handle instant HTML preview
     function handlePreviewHtml() {
         if (!latestHtmlContent) {
             showMessage("Generate HTML first to preview.", true);
             return;
         }
-        // Fixed: Using document.write instead of Data URL for better browser compatibility
         const previewWindow = window.open('', '_blank');
         if (previewWindow) {
             previewWindow.document.open();
@@ -505,15 +484,26 @@ if (imageDropArea) {
         }
     }
 
-    /**
-     * Smooth scroll function
-     */
     function handleScrollToOutput() {
         outputDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
+    /**
+     * Requirement 3: HTML Validation
+     */
+    function isValidHtml(html) {
+        const lower = html.toLowerCase();
+        // Check for basic structural tags
+        const hasTags = lower.includes('<html') && lower.includes('<head') && lower.includes('<body');
+        // Check for common module leaks that break static hosting
+        const hasModuleLeak = lower.includes('type="module"');
+        
+        if (!hasTags) return { valid: false, error: "Missing standard HTML structure (html, head, or body tags)." };
+        if (hasModuleLeak) return { valid: false, error: "Security/Compatibility Alert: HTML contains 'type=\"module\"' which is not supported in this deployment environment." };
+        
+        return { valid: true };
+    }
 
-    // UPDATED: Handle Deployment (Now supports Slug)
     async function handleDeployment() {
         deploymentErrorMessage.classList.add('hidden'); 
         const slug = document.getElementById('site-slug-input').value.trim();
@@ -527,7 +517,10 @@ if (imageDropArea) {
         if (!latestHtmlContent) return showMessage("No HTML content to deploy. Generate a site first.", true);
         if (!currentProjectId) return showMessage("System Error: Project ID is missing. Please generate again.", true);
 
-        // 1. Initial Deployment Request
+        // Run validation
+        const validation = isValidHtml(latestHtmlContent);
+        if (!validation.valid) return showMessage(`❌ ${validation.error}`, true);
+
         setPublishButton(latestDeploymentUrl, true);
 
         try {
@@ -541,7 +534,7 @@ if (imageDropArea) {
                     userId: currentUserId,
                     plan: userPlan, 
                     projectId: currentProjectId,
-                    slug: slug || null // ✅ Passing the slug from the input
+                    slug: slug || null
                 }),
             });
 
@@ -550,7 +543,6 @@ if (imageDropArea) {
             if (!response.ok) {
                 if (response.status === 409) return showMessage("❌ Site name is already taken.", true);
                 if (response.status === 403) {
-                    const maxDeployments = result.maxDeployments || 1; 
                     deploymentErrorMessage.innerHTML = `
                         <div class="text-xl mb-1 flex items-center justify-center">
                             <i data-lucide="alert-triangle" class="w-6 h-6 mr-2"></i>
@@ -565,7 +557,6 @@ if (imageDropArea) {
                 throw new Error(result.error || result.details || "Deployment failed.");
             }
 
-            // Successfully initiated deployment
             latestDeploymentUrl = result.deploymentUrl; 
             const initialStatus = result.status; 
             const deploymentIdToPoll = result.deploymentId; 
@@ -575,7 +566,6 @@ if (imageDropArea) {
             showMessage("✅ Deployment initiated. Checking status...", false);
             await updateProjectDeploymentUrl(currentProjectId, latestDeploymentUrl); 
 
-            // 2. Polling Loop for Status Check
             const maxPollAttempts = 30; 
             for (let attempt = 0; attempt < maxPollAttempts; attempt++) {
                 await delay(5000); 
@@ -590,7 +580,6 @@ if (imageDropArea) {
                 });
 
                 const statusResult = await statusResponse.json();
-                
                 const status = statusResult.status || 'pending'; 
                 const finalUrl = statusResult.url; 
 
@@ -617,7 +606,6 @@ if (imageDropArea) {
     }
 
 
-    // Function to get the user's plan
     async function getUserPlan(userId) {
         try {
             const userDocRef = doc(db, "users", userId);
@@ -629,7 +617,6 @@ if (imageDropArea) {
         }
     }
 
-    // UPDATED: Auto-Save Project and return the Document ID
     async function autoSaveProject(htmlContent, userPrompt, existingProjectId = null) {
         if (!currentUserId || !htmlContent) return null;
 
@@ -660,7 +647,6 @@ if (imageDropArea) {
         }
     }
     
-    // Function to update the deployment URL after deployment succeeds
     async function updateProjectDeploymentUrl(projectId, deploymentUrl) {
         if (!currentUserId || !projectId) return;
         try {
@@ -673,11 +659,13 @@ if (imageDropArea) {
         }
     }
 
+    /**
+     * Requirement 4: Rate-limiting
+     */
     async function handleGeneration() {
         const prompt = promptInput.value.trim();
         if (prompt.length < 10 && attachedImages.length === 0) return showMessage("Please provide a detailed prompt (min 10 chars) or an image.", true);
         if (attachedImages.length > 4) return showMessage("You can only attach a maximum of 4 images.", true);
-
 
         setLoading(true);
         outputCode.textContent = "";
@@ -687,87 +675,100 @@ if (imageDropArea) {
         latestPrompt = prompt;
         currentProjectId = null; 
 
-        const response = await fetch("/api/generate.js", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                prompt,
-                images: attachedImages.map(img => img.base64) 
-            }),
-        });
+        try {
+            const response = await fetch("/api/generate.js", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    prompt,
+                    images: attachedImages.map(img => img.base64) 
+                }),
+            });
 
-        if (!response.ok || !response.body) {
-            setLoading(false);
-            outputDiv.classList.add("hidden"); 
-            return showMessage("Failed to connect to AI server.", true);
-        }
+            if (!response.ok || !response.body) {
+                setLoading(false);
+                outputDiv.classList.add("hidden"); 
+                return showMessage("Failed to connect to AI server.", true);
+            }
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder("utf-8");
-        
-        let buffer = ""; 
-        let html = "";
-        const streamSeparator = "data:";
-        let isFirstChunk = true;
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder("utf-8");
+            
+            let buffer = ""; 
+            let html = "";
+            const streamSeparator = "data:";
+            let isFirstChunk = true;
 
-        while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
 
-            buffer += decoder.decode(value, { stream: true });
-            let messages = buffer.split(streamSeparator);
-            buffer = messages.pop(); 
+                buffer += decoder.decode(value, { stream: true });
+                let messages = buffer.split(streamSeparator);
+                buffer = messages.pop(); 
 
-            for (const msg of messages) {
-                if (!msg.trim()) continue;
-                const trimmedMsg = msg.trim();
-                if (trimmedMsg === '[DONE]') continue;
+                for (const msg of messages) {
+                    if (!msg.trim()) continue;
+                    const trimmedMsg = msg.trim();
+                    if (trimmedMsg === '[DONE]') continue;
 
-                try {
-                    const jsonChunk = JSON.parse(trimmedMsg);
-                    const textChunk = jsonChunk.text || "";
-                    html += textChunk;
+                    try {
+                        const jsonChunk = JSON.parse(trimmedMsg);
+                        const textChunk = jsonChunk.text || "";
+                        html += textChunk;
 
-                    let displayHtml = html
-                        .replace(/\\n/g, '\n') 
-                        .replace(/\\"/g, '"') 
-                        .trim();
-                        
-                    outputCode.textContent = displayHtml; 
+                        let displayHtml = html
+                            .replace(/\\n/g, '\n') 
+                            .replace(/\\"/g, '"') 
+                            .trim();
+                            
+                        outputCode.textContent = displayHtml; 
 
-                    if (isFirstChunk) {
-                        outputDiv.classList.remove("hidden");
-                        isFirstChunk = false;
-                        showMessage("Code generation started...", false);
+                        if (isFirstChunk) {
+                            outputDiv.classList.remove("hidden");
+                            isFirstChunk = false;
+                            showMessage("Code generation started...", false);
+                        }
+                    } catch (e) {
+                        console.error("Error parsing JSON chunk:", trimmedMsg, e);
                     }
-                } catch (e) {
-                    console.error("Error parsing JSON chunk:", trimmedMsg, e);
                 }
             }
+
+            latestHtmlContent = html
+                .replace(/\\n/g, '\n')
+                .replace(/\\"/g, '"')
+                .replace(/^```(html)?\s*/i, '') 
+                .replace(/\s*```$/, '') 
+                .trim();
+
+            outputCode.textContent = latestHtmlContent;
+            currentProjectId = await autoSaveProject(latestHtmlContent, latestPrompt, null); 
+            
+            if (currentProjectId) {
+                showMessage("✅ HTML Code Generated and Saved!", false);
+            } else {
+                showMessage("✅ HTML Code Generated. (Warning: Failed to save project).", true);
+            }
+            
+            attachedImages = [];
+            renderImagePreviews(); 
+
+            // Final state
+            lucide.createIcons();
+            handleScrollToOutput();
+
+            // Apply rate limit cool-down
+            setLoading(true); // Temporary visual lock
+            generateBtn.innerHTML = 'Cooling down (10s)...';
+            await delay(10000);
+
+        } catch (err) {
+            console.error(err);
+            showMessage("Unexpected error during generation.", true);
+        } finally {
+            setLoading(false);
         }
-
-        latestHtmlContent = html
-            .replace(/\\n/g, '\n')
-            .replace(/\\"/g, '"')
-            .replace(/^```(html)?\s*/i, '') 
-            .replace(/\s*```$/, '') 
-            .trim();
-
-        outputCode.textContent = latestHtmlContent;
-        currentProjectId = await autoSaveProject(latestHtmlContent, latestPrompt, null); 
-        
-        if (currentProjectId) {
-            showMessage("✅ HTML Code Generated and Saved!", false);
-        } else {
-            showMessage("✅ HTML Code Generated. (Warning: Failed to save project).", true);
-        }
-        
-        attachedImages = [];
-        renderImagePreviews(); 
-
-        setLoading(false);
-        lucide.createIcons();
-        handleScrollToOutput();
     }
     
     async function handleRefine() {
@@ -792,7 +793,6 @@ if (imageDropArea) {
             });
             
             if (!response.ok || !response.body) {
-                setLoading(false);
                 throw new Error("Failed to connect to AI refinement server.");
             }
 
@@ -846,6 +846,11 @@ if (imageDropArea) {
             setPublishButton(null, false);
             showMessage("✨ Code Refined and Saved!", false);
             handleScrollToOutput();
+
+            // Cool down
+            refineBtn.disabled = true;
+            refineBtn.innerHTML = 'Cooling down (10s)...';
+            await delay(10000);
 
         } catch (error) {
             console.error("Refinement Error:", error);
@@ -903,6 +908,13 @@ if (imageDropArea) {
         }
     });
 
+    /**
+     * Requirement 2: Autosave refinement input
+     */
+    refinePromptInput.addEventListener('input', (e) => {
+        localStorage.setItem('ammoue_saved_refine_prompt', e.target.value);
+    });
+
     onAuthStateChanged(auth, (user) => {
         if (user) {
             currentUserId = user.uid;
@@ -911,20 +923,23 @@ if (imageDropArea) {
             loadingState.style.opacity = '0';
             mainContent.classList.remove('hidden');
             setPublishButton(latestDeploymentUrl, false);
+
+            // Restore saved refinement prompt
+            const savedRefine = localStorage.getItem('ammoue_saved_refine_prompt');
+            if(savedRefine) refinePromptInput.value = savedRefine;
+
             if (!listenersAttached) {
                 generateBtn.addEventListener('click', handleGeneration);
                 refineBtn.addEventListener('click', handleRefine);
                 copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
                 downloadBtn.addEventListener('click', handleDownload);
                 
-                // Modal Setup
                 const modal = document.getElementById('publish-modal');
                 const confirmBtn = document.getElementById('confirm-publish');
                 const cancelBtn = document.getElementById('cancel-publish');
 
                 previewHtmlBtn.addEventListener('click', handlePreviewHtml);
                 
-                // Publish button opens modal first
                 publishBtn.addEventListener('click', () => {
                     if (latestDeploymentUrl) {
                         window.open(latestDeploymentUrl, "_blank");
