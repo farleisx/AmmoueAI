@@ -760,8 +760,8 @@ if (imageDropArea) {
 
             // Apply rate limit cool-down
             setLoading(true); // Temporary visual lock
-            generateBtn.innerHTML = 'Cooling down (10s)...';
-            await delay(10000);
+            generateBtn.innerHTML = 'Cooling down (60s)...';
+            await delay(60000);
 
         } catch (err) {
             console.error(err);
