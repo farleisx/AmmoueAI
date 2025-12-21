@@ -1,57 +1,70 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import admin from 'firebase-admin';
 
+// Initialize Firebase Admin (if not already initialized)
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
+  });
+}
+
+const db = admin.firestore();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method Not Allowed. Use POST." });
+  if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
+
+  const { prompt: refinePrompt, html: currentHtml, userId, projectId } = req.body;
+
+  if (!userId || !currentHtml || !refinePrompt) {
+    return res.status(400).json({ error: "Missing required data." });
   }
 
   try {
-    const { currentHtml, refinePrompt } = req.body;
-    if (!currentHtml || !refinePrompt) {
-      return res
-        .status(400)
-        .json({ error: "Missing required fields: currentHtml or refinePrompt." });
+    // 1. Get User Plan
+    const userDoc = await db.collection('users').doc(userId).get();
+    const userData = userDoc.data();
+    const plan = userData?.plan || "free"; // Default to free
+
+    // 2. Count today's refinements
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const refinementsToday = await db.collection('refinements')
+      .where('userId', '==', userId)
+      .where('timestamp', '>=', admin.firestore.Timestamp.fromDate(startOfDay))
+      .count()
+      .get();
+
+    const usageCount = refinementsToday.data().count;
+
+    // 3. Check Limits
+    const limit = (plan === "pro") ? 5 : 2;
+    if (usageCount >= limit) {
+      return res.status(403).json({ 
+        error: `Limit reached. ${plan.toUpperCase()} users are limited to ${limit} refinements per day.`,
+        limitReached: true
+      });
     }
 
-    // Combine system guidance and user request inside the "user" role message
-    const prompt = `
-You are an expert web developer specializing in Tailwind CSS and modern HTML.
-Modify the provided HTML **only** based on the user's refinement prompt.
-Return the **complete modified HTML**, no explanations or markdown fences.
+    // 4. Call Gemini AI
+    const prompt = `Modify this HTML based on the request: ${refinePrompt}\n\nHTML: ${currentHtml}`;
+    const result = await model.generateContent(prompt);
+    const cleanedHtml = result.response.text().replace(/^```html|```$/gi, "").trim();
 
-Current HTML:
----
-${currentHtml}
----
-
-Refinement Request:
----
-${refinePrompt}
----`;
-
-    // ✅ CORRECT request structure (no "system" role!)
-    const result = await model.generateContent({
-      contents: [
-        { role: "user", parts: [{ text: prompt }] },
-      ],
+    // 5. Log the usage so it counts against their limit
+    await db.collection('refinements').add({
+      userId,
+      projectId,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      plan
     });
 
-    const generatedText = result.response.text().trim();
+    res.status(200).json({ text: cleanedHtml });
 
-    // Clean possible ```html fences
-    const cleanedHtml = generatedText
-      .replace(/^```(html)?/i, "")
-      .replace(/```$/i, "")
-      .trim();
-
-    res.status(200).json({ htmlCode: cleanedHtml });
   } catch (error) {
-    console.error("Gemini API Error:", error);
-    res.status(500).json({
-      error: `Failed to refine code. ${error.message || "Unknown error"}`,
-    });
+    console.error("Refine Error:", error);
+    res.status(500).json({ error: "Server error during refinement." });
   }
 }
