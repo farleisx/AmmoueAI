@@ -75,13 +75,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // ---------------- SSE HEADERS ----------------
-    res.writeHead(200, {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    });
-
     // ---------------- STRONG PROMPT ----------------
     const prompt = `
 You are an expert web developer.
@@ -100,27 +93,10 @@ ${refinePrompt}
 ---
 `;
 
-    // ---------------- STREAM FROM GEMINI ----------------
-    const stream = await model.generateContentStream({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.2,
-        topP: 0.8,
-      },
-    });
-
-    let fullOutput = "";
-
-    for await (const chunk of stream.stream) {
-      const text = chunk.text();
-      if (text) {
-        fullOutput += text;
-        res.write(`data: ${JSON.stringify({ chunk: text })}\n\n`);
-      }
-    }
-
-    // ---------------- CLEAN OUTPUT ----------------
-    const cleanedHtml = fullOutput
+    // ---------------- CALL GEMINI ----------------
+    const result = await model.generateContent(prompt);
+    const cleanedHtml = result.response
+      .text()
       .replace(/^```[\s\S]*?\n/i, "")
       .replace(/```$/i, "")
       .trim();
@@ -137,19 +113,10 @@ ${refinePrompt}
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    // ---------------- END STREAM ----------------
-    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-    res.end();
+    // ---------------- SEND RESPONSE ----------------
+    res.status(200).json({ html: cleanedHtml });
   } catch (error) {
     console.error("Refine Error:", error);
-
-    if (!res.headersSent) {
-      res.status(500).json({ error: "Refinement failed" });
-    } else {
-      res.write(
-        `data: ${JSON.stringify({ error: "Refinement failed" })}\n\n`
-      );
-      res.end();
-    }
+    res.status(500).json({ error: "Refinement failed" });
   }
 }
