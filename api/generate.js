@@ -1,5 +1,20 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import fetch from "node-fetch";
+import admin from "firebase-admin";
+
+// ---------------- FIREBASE ADMIN ----------------
+
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert(
+      JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
+    ),
+  });
+}
+
+const auth = admin.auth();
+
+// ---------------- CONFIG ----------------
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
@@ -39,10 +54,32 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ⬇️ EXACTLY what frontend sends
+    // ---------------- AUTH ----------------
+
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : null;
+
+    if (!token) {
+      return res.status(401).json({ error: "Missing auth token." });
+    }
+
+    let decoded;
+    try {
+      decoded = await auth.verifyIdToken(token);
+    } catch {
+      return res.status(401).json({ error: "Invalid auth token." });
+    }
+
+    const uid = decoded.uid;
+    const email = decoded.email || null;
+
+    // ---------------- REQUEST BODY ----------------
+
     const {
       prompt,
-      images = [],           // Base64 Data URLs
+      images = [],
       pexelsQuery: userQuery,
       imageCount = 8,
       videoCount = 2,
@@ -51,6 +88,8 @@ export default async function handler(req, res) {
     if (!prompt) {
       return res.status(400).json({ error: "Missing prompt." });
     }
+
+    // ---------------- GEMINI INIT ----------------
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: API_MODEL });
@@ -127,25 +166,18 @@ ABSOLUTE RULES:
 - NEVER invent URLs
 
 IMAGE RULES (CRITICAL):
-- User-uploaded images are provided as Base64 Data URIs
+- User-uploaded images are Base64 Data URIs
 - You MUST embed them directly using <img src="data:...">
-- NEVER use placeholders like _USER_UPLOADED_IMAGE_
 - NEVER invent image URLs
-- If user uploaded images exist:
-  - Use the FIRST as hero
-  - Reuse others in sections
-- If no uploaded images, you MAY use provided stock images
 
 VIDEO RULES:
 - Use hero video ONLY if provided
 
 SOCIAL MEDIA RULES:
-- Include real social media homepage links only
-- For Facebook, use: https://www.facebook.com
-- For Instagram, use: https://www.instagram.com
-- For Twitter, use: https://www.twitter.com
-- NEVER leave them blank or put placeholders
-- DO NOT invent profile-specific URLs
+- Use homepage links only
+- Facebook: https://www.facebook.com
+- Instagram: https://www.instagram.com
+- Twitter: https://www.twitter.com
 
 HERO VIDEO:
 ${heroVideo || "None"}
@@ -153,43 +185,30 @@ ${heroVideo || "None"}
 STOCK IMAGES:
 ${imageURLs.join("\n") || "None"}
 
-USER UPLOADED IMAGES (SAFE FOR <img src>):
+USER UPLOADED IMAGES:
 ${images.join("\n\n") || "None"}
 
 USER PROMPT:
 ${prompt}
 `.trim();
 
-
-    // ---------------- STEP 5: GEMINI VISION INPUT ----------------
+    // ---------------- STEP 5: GEMINI INPUT ----------------
 
     const parts = [
       { text: systemInstruction },
-
-      // Vision images (for understanding)
       ...images
-        .filter(img => typeof img === "string" && img.startsWith("data:"))
+        .filter(i => typeof i === "string" && i.startsWith("data:"))
         .slice(0, 4)
         .map(img => {
           const inline = dataUriToInlineData(img);
-          if (!inline) return null;
-          return {
-            inlineData: {
-              data: inline.data,
-              mimeType: inline.mimeType,
-            },
-          };
+          return inline
+            ? { inlineData: inline }
+            : null;
         })
         .filter(Boolean),
     ];
 
-    // ---------------- STEP 6: GUARD ----------------
-
-    if (!images.length && !imageURLs.length && !heroVideo) {
-      console.warn("⚠️ No visual assets provided");
-    }
-
-    // ---------------- STEP 7: STREAM RESPONSE ----------------
+    // ---------------- STEP 6: STREAM ----------------
 
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
@@ -200,27 +219,16 @@ ${prompt}
       contents: [{ role: "user", parts }],
     });
 
-    try {
-      for await (const chunk of stream.stream ?? []) {
-        const text = chunk.text?.();
-        if (text) {
-          res.write(`data: ${JSON.stringify({ text })}\n\n`);
-        }
+    for await (const chunk of stream.stream ?? []) {
+      const text = chunk.text?.();
+      if (text) {
+        res.write(`data: ${JSON.stringify({ text })}\n\n`);
       }
-
-      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-      res.write(`data: [DONE]\n\n`);
-      res.end();
-    } catch (err) {
-      res.write(
-        `data: ${JSON.stringify({
-          error: err.message || "Stream error",
-          done: true,
-        })}\n\n`
-      );
-      res.write(`data: [DONE]\n\n`);
-      res.end();
     }
+
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    res.write(`data: [DONE]\n\n`);
+    res.end();
 
   } catch (err) {
     console.error("Generate error:", err);
