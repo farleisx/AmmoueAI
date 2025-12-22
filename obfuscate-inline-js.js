@@ -12,31 +12,25 @@ if (!fs.existsSync(INPUT_HTML)) {
 let html = fs.readFileSync(INPUT_HTML, "utf8");
 let count = 0;
 
-// Obfuscate ONLY inline <script> blocks
 html = html.replace(
   /<script>([\s\S]*?)<\/script>/g,
-  (fullMatch, jsCode) => {
-    if (!jsCode.trim()) return fullMatch;
+  (full, jsCode) => {
+    if (!jsCode.trim()) return full;
 
     const obfuscated = JavaScriptObfuscator.obfuscate(jsCode, {
       compact: true,
-
-      // SAFE + EFFECTIVE
       stringArray: true,
       stringArrayEncoding: ["base64"],
       stringArrayThreshold: 0.75,
 
-      // Prevent DOM / library breakage
+      // ❌ Critical: keep global JS identifiers intact to preserve event bindings
       renameGlobals: false,
+      rotateStringArray: true,
 
-      // ❌ DO NOT USE (breaks buttons/events)
+      // ❌ Avoid these: break buttons and DOM events
       controlFlowFlattening: false,
       deadCodeInjection: false,
       selfDefending: false,
-
-      // Optional extra confusion (safe)
-      simplify: true,
-      numbersToExpressions: true,
     }).getObfuscatedCode();
 
     count++;
@@ -45,6 +39,5 @@ html = html.replace(
 );
 
 fs.writeFileSync(OUTPUT_HTML, html, "utf8");
-
 console.log(`✅ Obfuscated ${count} inline <script> block(s)`);
 console.log(`📦 Output: ${OUTPUT_HTML}`);
