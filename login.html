@@ -317,7 +317,7 @@
     function getRedirectPath() {
         // ... (Your getRedirectPath function remains unchanged)
         const params = new URLSearchParams(window.location.search);
-        const redirectPath = params.get('redirect') ? decodeURIComponent(params.get('redirect')) : 'dashboard.html';
+        const redirectPath = params.get('redirect') ? decodeURIComponent(params.get('redirect')) : '/dashboard';
         return redirectPath.startsWith('/') ? redirectPath.substring(1) : redirectPath;
     }
 
