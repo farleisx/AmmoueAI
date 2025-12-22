@@ -443,8 +443,13 @@ if (imageDropArea) {
         }
     }
 
-    function copyToClipboard(text) {
+    async function copyToClipboard(text) {
+        if (!text) return;
         try {
+            await navigator.clipboard.writeText(text);
+            showMessage("Code copied to clipboard!", false);
+        } catch (err) {
+            // Fallback for older browsers
             const textarea = document.createElement('textarea');
             textarea.value = text;
             document.body.appendChild(textarea);
@@ -452,8 +457,6 @@ if (imageDropArea) {
             document.execCommand('copy');
             document.body.removeChild(textarea);
             showMessage("Code copied to clipboard!", false);
-        } catch {
-            showMessage("Failed to copy code.", true);
         }
     }
 
@@ -474,7 +477,8 @@ if (imageDropArea) {
             showMessage("Generate HTML first to preview.", true);
             return;
         }
-        const previewWindow = window.open('', '_blank');
+        // Open window immediately to satisfy popup blockers
+        const previewWindow = window.open('about:blank', '_blank');
         if (previewWindow) {
             previewWindow.document.open();
             previewWindow.document.write(latestHtmlContent);
@@ -488,18 +492,16 @@ if (imageDropArea) {
         outputDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    /**
-     * Requirement 3: HTML Validation
-     */
     function isValidHtml(html) {
         const lower = html.toLowerCase();
-        // Check for basic structural tags
         const hasTags = lower.includes('<html') && lower.includes('<head') && lower.includes('<body');
-        // Check for common module leaks that break static hosting
-        const hasModuleLeak = lower.includes('type="module"');
         
         if (!hasTags) return { valid: false, error: "Missing standard HTML structure (html, head, or body tags)." };
-        if (hasModuleLeak) return { valid: false, error: "Security/Compatibility Alert: HTML contains 'type=\"module\"' which is not supported in this deployment environment." };
+        
+        // Relaxed rule: Warn instead of blocking module types
+        if (lower.includes('type="module"')) {
+            console.warn("Notice: HTML contains 'type=module'. Support may vary across hosting environments.");
+        }
         
         return { valid: true };
     }
@@ -659,13 +661,13 @@ if (imageDropArea) {
         }
     }
 
-    /**
-     * Requirement 4: Rate-limiting
-     */
     async function handleGeneration() {
         const prompt = promptInput.value.trim();
         if (prompt.length < 10 && attachedImages.length === 0) return showMessage("Please provide a detailed prompt (min 10 chars) or an image.", true);
         if (attachedImages.length > 4) return showMessage("You can only attach a maximum of 4 images.", true);
+
+        const user = auth.currentUser;
+        if (!user) return showMessage("Auth error: Please log in again.", true);
 
         setLoading(true);
         outputCode.textContent = "";
@@ -676,9 +678,14 @@ if (imageDropArea) {
         currentProjectId = null; 
 
         try {
+            const idToken = await user.getIdToken(true);
+
             const response = await fetch("/api/generate.js", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${idToken}`
+                },
                 body: JSON.stringify({
                     prompt,
                     images: attachedImages.map(img => img.base64) 
@@ -754,12 +761,10 @@ if (imageDropArea) {
             attachedImages = [];
             renderImagePreviews(); 
 
-            // Final state
             lucide.createIcons();
             handleScrollToOutput();
 
-            // Apply rate limit cool-down
-            setLoading(true); // Temporary visual lock
+            setLoading(true);
             generateBtn.innerHTML = 'Cooling down (60s)...';
             await delay(60000);
 
@@ -772,45 +777,33 @@ if (imageDropArea) {
     }
     
     async function handleRefine() {
-    const refinePrompt = refinePromptInput.value.trim();
-    if (refinePrompt.length < 5) {
-        return showMessage("Please provide a refinement instruction.", true);
-    }
-    if (!latestHtmlContent) {
-        return showMessage("Generate HTML first before refining.", true);
-    }
-    if (!currentProjectId) {
-        return showMessage("Error: Cannot refine an unsaved project.", true);
-    }
+        const refinePrompt = refinePromptInput.value.trim();
+        if (refinePrompt.length < 5) return showMessage("Please provide a refinement instruction.", true);
+        if (!latestHtmlContent) return showMessage("Generate HTML first before refining.", true);
+        if (!currentProjectId) return showMessage("Error: Cannot refine an unsaved project.", true);
 
-    setLoading(true, true);
-    const originalHtml = latestHtmlContent;
-
-    try {
-        // ---------------- AUTH ----------------
         const user = auth.currentUser;
-        if (!user) {
-            showMessage("You must be logged in to refine.", true);
-            setLoading(false);
-            return;
-        }
+        if (!user) return showMessage("You must be logged in to refine.", true);
 
-        const idToken = await user.getIdToken(true);
+        setLoading(true, true);
+        const originalHtml = latestHtmlContent;
 
-        // ---------------- FETCH REFINEMENT ----------------
-        const response = await fetch("/api/refine.js", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${idToken}`,
-            },
-            body: JSON.stringify({
-                prompt: refinePrompt,
-                html: originalHtml,
-                projectId: currentProjectId
-            }),
-        });
-            
+        try {
+            const idToken = await user.getIdToken(true);
+
+            const response = await fetch("/api/refine.js", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${idToken}`,
+                },
+                body: JSON.stringify({
+                    prompt: refinePrompt,
+                    html: originalHtml,
+                    projectId: currentProjectId
+                }),
+            });
+                
             if (!response.ok || !response.body) {
                 throw new Error("Failed to connect to AI refinement server.");
             }
@@ -866,7 +859,6 @@ if (imageDropArea) {
             showMessage("✨ Code Refined and Saved!", false);
             handleScrollToOutput();
 
-            // Cool down
             refineBtn.disabled = true;
             refineBtn.innerHTML = 'Cooling down (60s)...';
             await delay(60000);
@@ -927,9 +919,6 @@ if (imageDropArea) {
         }
     });
 
-    /**
-     * Requirement 2: Autosave refinement input
-     */
     refinePromptInput.addEventListener('input', (e) => {
         localStorage.setItem('ammoue_saved_refine_prompt', e.target.value);
     });
@@ -943,7 +932,6 @@ if (imageDropArea) {
             mainContent.classList.remove('hidden');
             setPublishButton(latestDeploymentUrl, false);
 
-            // Restore saved refinement prompt
             const savedRefine = localStorage.getItem('ammoue_saved_refine_prompt');
             if(savedRefine) refinePromptInput.value = savedRefine;
 
