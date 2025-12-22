@@ -1,49 +1,40 @@
 import fs from "fs";
-import path from "path";
 import JavaScriptObfuscator from "javascript-obfuscator";
 
 const files = fs
   .readdirSync(".")
   .filter(f => f.endsWith(".html") && !f.endsWith(".prod.html"));
 
-if (files.length === 0) {
-  console.log("⚠️ No HTML files found to obfuscate");
-  process.exit(0);
-}
-
 files.forEach(file => {
-  const input = file;
-  const output = file.replace(".html", ".prod.html");
-
-  let html = fs.readFileSync(input, "utf8");
+  const out = file.replace(".html", ".prod.html");
+  let html = fs.readFileSync(file, "utf8");
   let count = 0;
 
   html = html.replace(
-    /<script>([\s\S]*?)<\/script>/g,
-    (full, jsCode) => {
-      if (!jsCode.trim()) return full;
+    /<script\s+type=["']module["']>([\s\S]*?)<\/script>/gi,
+    (full, js) => {
+      if (!js.trim()) return full;
 
-      const obfuscated = JavaScriptObfuscator.obfuscate(jsCode, {
+      const obf = JavaScriptObfuscator.obfuscate(js, {
         compact: true,
+
+        // ✅ MODULE-SAFE OPTIONS ONLY
+        renameGlobals: false,
         stringArray: true,
         stringArrayEncoding: ["base64"],
-        stringArrayThreshold: 0.75,
-
-        // ✅ SAFETY FLAGS
-        renameGlobals: false,
         rotateStringArray: true,
 
-        // ❌ MUST STAY OFF
+        // ❌ THESE BREAK MODULES
         controlFlowFlattening: false,
         deadCodeInjection: false,
         selfDefending: false,
       }).getObfuscatedCode();
 
       count++;
-      return `<script>${obfuscated}</script>`;
+      return `<script type="module">${obf}</script>`;
     }
   );
 
-  fs.writeFileSync(output, html, "utf8");
-  console.log(`✅ ${input} → ${output} (${count} script block(s))`);
+  fs.writeFileSync(out, html);
+  console.log(`✅ ${file} → ${out} (${count} module scripts)`);
 });
