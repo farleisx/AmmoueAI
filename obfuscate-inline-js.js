@@ -1,43 +1,52 @@
 import fs from "fs";
+import path from "path";
 import JavaScriptObfuscator from "javascript-obfuscator";
 
-const INPUT_HTML = "index.html";
-const OUTPUT_HTML = "index.prod.html";
+const files = fs
+  .readdirSync(".")
+  .filter(f => f.endsWith(".src.html"));
 
-if (!fs.existsSync(INPUT_HTML)) {
-  console.error("❌ index.html not found");
-  process.exit(1);
+if (files.length === 0) {
+  console.log("⚠️ No .src.html files found");
+  process.exit(0);
 }
 
-let html = fs.readFileSync(INPUT_HTML, "utf8");
-let count = 0;
+let totalScripts = 0;
 
-html = html.replace(
-  /<script>([\s\S]*?)<\/script>/g,
-  (full, jsCode) => {
-    if (!jsCode.trim()) return full;
+for (const file of files) {
+  const inputPath = path.resolve(file);
+  const outputPath = path.resolve(file.replace(".src.html", ".html"));
 
-    const obfuscated = JavaScriptObfuscator.obfuscate(jsCode, {
-      compact: true,
-      stringArray: true,
-      stringArrayEncoding: ["base64"],
-      stringArrayThreshold: 0.75,
+  let html = fs.readFileSync(inputPath, "utf8");
+  let count = 0;
 
-      // ❌ Critical: keep global JS identifiers intact to preserve event bindings
-      renameGlobals: false,
-      rotateStringArray: true,
+  html = html.replace(
+    /<script>([\s\S]*?)<\/script>/g,
+    (full, jsCode) => {
+      if (!jsCode.trim()) return full;
 
-      // ❌ Avoid these: break buttons and DOM events
-      controlFlowFlattening: false,
-      deadCodeInjection: false,
-      selfDefending: false,
-    }).getObfuscatedCode();
+      const obfuscated = JavaScriptObfuscator.obfuscate(jsCode, {
+        compact: true,
+        stringArray: true,
+        stringArrayEncoding: ["base64"],
+        stringArrayThreshold: 0.7,
 
-    count++;
-    return `<script>${obfuscated}</script>`;
-  }
-);
+        // 🔒 SAFE SETTINGS (buttons + DOM survive)
+        renameGlobals: false,
+        controlFlowFlattening: false,
+        deadCodeInjection: false,
+        selfDefending: false,
+      }).getObfuscatedCode();
 
-fs.writeFileSync(OUTPUT_HTML, html, "utf8");
-console.log(`✅ Obfuscated ${count} inline <script> block(s)`);
-console.log(`📦 Output: ${OUTPUT_HTML}`);
+      count++;
+      return `<script>${obfuscated}</script>`;
+    }
+  );
+
+  fs.writeFileSync(outputPath, html, "utf8");
+  totalScripts += count;
+
+  console.log(`✅ ${file} → ${path.basename(outputPath)} (${count} script(s))`);
+}
+
+console.log(`🔥 Done. Obfuscated ${totalScripts} script blocks total.`);
