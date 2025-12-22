@@ -1,19 +1,20 @@
 import fs from "fs";
 import JavaScriptObfuscator from "javascript-obfuscator";
 
-const HTML_FILE = "index.html";
+const INPUT = "index.html";
+const OUTPUT = "index.prod.html";
 
-if (!fs.existsSync(HTML_FILE)) {
+if (!fs.existsSync(INPUT)) {
   console.error("❌ index.html not found");
   process.exit(1);
 }
 
-let html = fs.readFileSync(HTML_FILE, "utf8");
+let html = fs.readFileSync(INPUT, "utf8");
 
 let count = 0;
 
 html = html.replace(
-  /<script>([\s\S]*?)<\/script>/g,
+  /<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/gi,
   (full, js) => {
     if (!js.trim()) return full;
 
@@ -31,5 +32,5 @@ html = html.replace(
   }
 );
 
-fs.writeFileSync(HTML_FILE, html);
+fs.writeFileSync(OUTPUT, html);
 console.log(`✅ Obfuscated ${count} inline <script> blocks`);
