@@ -1,40 +1,62 @@
 import fs from "fs";
 import JavaScriptObfuscator from "javascript-obfuscator";
 
-const files = fs
+const htmlFiles = fs
   .readdirSync(".")
   .filter(f => f.endsWith(".html") && !f.endsWith(".prod.html"));
 
-files.forEach(file => {
-  const out = file.replace(".html", ".prod.html");
+if (!htmlFiles.length) {
+  console.log("⚠️ No HTML files found");
+  process.exit(0);
+}
+
+htmlFiles.forEach(file => {
+  const output = file.replace(".html", ".prod.html");
   let html = fs.readFileSync(file, "utf8");
   let count = 0;
 
   html = html.replace(
-    /<script\s+type=["']module["']>([\s\S]*?)<\/script>/gi,
-    (full, js) => {
+    /<script([^>]*)>([\s\S]*?)<\/script>/gi,
+    (full, attrs, js) => {
       if (!js.trim()) return full;
 
-      const obf = JavaScriptObfuscator.obfuscate(js, {
-        compact: true,
+      const isModule = /type\s*=\s*["']module["']/i.test(attrs);
 
-        // ✅ MODULE-SAFE OPTIONS ONLY
-        renameGlobals: false,
-        stringArray: true,
-        stringArrayEncoding: ["base64"],
-        rotateStringArray: true,
+      const options = isModule
+        ? {
+            // 🧠 MODULE‑SAFE
+            compact: true,
+            renameGlobals: false,
+            stringArray: true,
+            stringArrayEncoding: ["base64"],
+            rotateStringArray: true,
 
-        // ❌ THESE BREAK MODULES
-        controlFlowFlattening: false,
-        deadCodeInjection: false,
-        selfDefending: false,
-      }).getObfuscatedCode();
+            controlFlowFlattening: false,
+            deadCodeInjection: false,
+            selfDefending: false,
+          }
+        : {
+            // 🔥 CLASSIC SCRIPT (STRONGER)
+            compact: true,
+            controlFlowFlattening: true,
+            deadCodeInjection: true,
+            stringArray: true,
+            stringArrayEncoding: ["base64"],
+            rotateStringArray: true,
+
+            renameGlobals: false,
+            selfDefending: false,
+          };
+
+      const obfuscated = JavaScriptObfuscator
+        .obfuscate(js, options)
+        .getObfuscatedCode();
 
       count++;
-      return `<script type="module">${obf}</script>`;
+      return `<script${attrs}>${obfuscated}</script>`;
     }
   );
 
-  fs.writeFileSync(out, html);
-  console.log(`✅ ${file} → ${out} (${count} module scripts)`);
+  fs.writeFileSync(output, html, "utf8");
+  console.log(`✅ ${file} → ${output} (${count} scripts)`);
 });
