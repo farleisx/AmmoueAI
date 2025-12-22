@@ -4,7 +4,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "start": "node api/index.js"
+    "start": "node api/index.js",
+    "build": "node obfuscate-inline-js.js"
   },
   "engines": {
     "node": "20.x"
@@ -15,5 +16,9 @@
     "firebase-admin": "^12.4.0",
     "puppeteer-core": "^22.0.0",
     "@sparticuz/chromium": "^114.0.0"
+  },
+  "devDependencies": {
+    "javascript-obfuscator": "^4.1.0",
+    "html-minifier-terser": "^7.2.0"
   }
 }
