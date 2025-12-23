@@ -791,7 +791,7 @@ if (imageDropArea) {
         try {
             const idToken = await user.getIdToken(true);
 
-            const response = await fetch("/api/refine.js", {
+            const response = await fetch("/api/refine", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
