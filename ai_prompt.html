@@ -253,7 +253,7 @@
     const db = getFirestore(app);
     const appId = firebaseConfig.projectId;
     let currentUserId = null;
-    let generationDone = false; // TRACKER FOR PREVIEW SAFETY
+    let generationDone = false;
 
 
 // ================= IMAGE ATTACHMENT LOGIC =================
@@ -674,13 +674,12 @@ if (imageDropArea) {
     async function handleGeneration() {
         const prompt = promptInput.value.trim();
         if (prompt.length < 10 && attachedImages.length === 0) return showMessage("Please provide a detailed prompt (min 10 chars) or an image.", true);
-        if (attachedImages.length > 4) return showMessage("You can only attach a maximum of 4 images.", true);
-
+        
         const user = auth.currentUser;
         if (!user) return showMessage("Auth error: Please log in again.", true);
 
         setLoading(true);
-        generationDone = false; // RESET TRACKER
+        generationDone = false;
         outputCode.textContent = "";
         latestHtmlContent = "";
         latestDeploymentUrl = ""; 
@@ -690,7 +689,6 @@ if (imageDropArea) {
 
         try {
             const idToken = await user.getIdToken(true);
-
             const response = await fetch("/api/generate", {
                 method: "POST",
                 headers: { 
@@ -721,34 +719,38 @@ if (imageDropArea) {
                 const { value, done } = await reader.read();
                 if (done) break;
 
+                // 1. Add new chunk to the buffer
                 buffer += decoder.decode(value, { stream: true });
+                
+                // 2. Split buffer by 'data:' separator
                 let messages = buffer.split(streamSeparator);
+                
+                // 3. Keep the last element in buffer (it's potentially incomplete)
                 buffer = messages.pop(); 
 
                 for (const msg of messages) {
-                    if (!msg.trim()) continue;
                     const trimmedMsg = msg.trim();
-                    if (trimmedMsg === '[DONE]') continue;
+                    if (!trimmedMsg || trimmedMsg === '[DONE]') continue;
 
                     try {
+                        // 4. Try parsing. If it fails, catch block triggers
                         const jsonChunk = JSON.parse(trimmedMsg);
                         const textChunk = jsonChunk.text || "";
                         html += textChunk;
 
-                        let displayHtml = html
+                        outputCode.textContent = html
                             .replace(/\\n/g, '\n') 
                             .replace(/\\"/g, '"') 
                             .trim();
-                            
-                        outputCode.textContent = displayHtml; 
 
                         if (isFirstChunk) {
                             outputDiv.classList.remove("hidden");
                             isFirstChunk = false;
-                            showMessage("Code generation started...", false);
                         }
                     } catch (e) {
-                        console.error("Error parsing JSON chunk:", trimmedMsg, e);
+                        // 5. If parse failed, this 'msg' was incomplete. 
+                        // Put it back in buffer prefix for the next cycle
+                        buffer = streamSeparator + trimmedMsg + buffer;
                     }
                 }
             }
@@ -761,18 +763,13 @@ if (imageDropArea) {
                 .trim();
 
             outputCode.textContent = latestHtmlContent;
-            generationDone = true; // MARK FINISHED
+            generationDone = true;
             currentProjectId = await autoSaveProject(latestHtmlContent, latestPrompt, null); 
             
-            if (currentProjectId) {
-                showMessage("✅ HTML Code Generated and Saved!", false);
-            } else {
-                showMessage("✅ HTML Code Generated. (Warning: Failed to save project).", true);
-            }
+            showMessage(currentProjectId ? "✅ Saved!" : "✅ Generated (Save failed)", !currentProjectId);
             
             attachedImages = [];
             renderImagePreviews(); 
-
             lucide.createIcons();
             handleScrollToOutput();
 
@@ -782,7 +779,7 @@ if (imageDropArea) {
 
         } catch (err) {
             console.error(err);
-            showMessage("Unexpected error during generation.", true);
+            showMessage("Unexpected error.", true);
         } finally {
             setLoading(false);
         }
@@ -790,20 +787,18 @@ if (imageDropArea) {
     
     async function handleRefine() {
         const refinePrompt = refinePromptInput.value.trim();
-        if (refinePrompt.length < 5) return showMessage("Please provide a refinement instruction.", true);
-        if (!latestHtmlContent) return showMessage("Generate HTML first before refining.", true);
-        if (!currentProjectId) return showMessage("Error: Cannot refine an unsaved project.", true);
+        if (refinePrompt.length < 5) return showMessage("Instruction too short.", true);
+        if (!latestHtmlContent || !currentProjectId) return showMessage("No project to refine.", true);
 
         const user = auth.currentUser;
-        if (!user) return showMessage("You must be logged in to refine.", true);
+        if (!user) return showMessage("Auth error.", true);
 
         setLoading(true, true);
-        generationDone = false; // RESET TRACKER
+        generationDone = false;
         const originalHtml = latestHtmlContent;
 
         try {
             const idToken = await user.getIdToken(true);
-
             const response = await fetch("/api/refine", {
                 method: "POST",
                 headers: {
@@ -817,16 +812,13 @@ if (imageDropArea) {
                 }),
             });
                 
-            if (!response.ok || !response.body) {
-                throw new Error("Failed to connect to AI refinement server.");
-            }
+            if (!response.ok || !response.body) throw new Error("Connection failed.");
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder("utf-8");
             let buffer = "";
             let refinedHtml = "";
             const streamSeparator = "data:";
-            outputCode.textContent = "";
 
             while (true) {
                 const { value, done } = await reader.read();
@@ -837,21 +829,15 @@ if (imageDropArea) {
                 buffer = messages.pop(); 
 
                 for (const msg of messages) {
-                    if (!msg.trim() || msg.trim() === '[DONE]') continue;
+                    const trimmedMsg = msg.trim();
+                    if (!trimmedMsg || trimmedMsg === '[DONE]') continue;
 
                     try {
-                        const jsonChunk = JSON.parse(msg.trim());
-                        const textChunk = jsonChunk.text || "";
-                        refinedHtml += textChunk;
-                        
-                        let displayHtml = refinedHtml
-                            .replace(/\\n/g, '\n')
-                            .replace(/\\"/g, '"')
-                            .trim();
-
-                        outputCode.textContent = displayHtml;
+                        const jsonChunk = JSON.parse(trimmedMsg);
+                        refinedHtml += (jsonChunk.text || "");
+                        outputCode.textContent = refinedHtml.replace(/\\n/g, '\n').replace(/\\"/g, '"').trim();
                     } catch (e) {
-                        console.error("Error parsing JSON chunk:", msg, e);
+                        buffer = streamSeparator + trimmedMsg + buffer;
                     }
                 }
             }
@@ -864,13 +850,13 @@ if (imageDropArea) {
                 .trim();
 
             outputCode.textContent = latestHtmlContent;
-            generationDone = true; // MARK FINISHED
+            generationDone = true;
             latestPrompt += `\n[Refinement]: ${refinePrompt}`; 
             await autoSaveProject(latestHtmlContent, latestPrompt, currentProjectId); 
             
             latestDeploymentUrl = "";
             setPublishButton(null, false);
-            showMessage("✨ Code Refined and Saved!", false);
+            showMessage("✨ Refined!", false);
             handleScrollToOutput();
 
             refineBtn.disabled = true;
@@ -878,8 +864,8 @@ if (imageDropArea) {
             await delay(60000);
 
         } catch (error) {
-            console.error("Refinement Error:", error);
-            showMessage(`❌ Refinement failed: ${error.message}`, true);
+            console.error(error);
+            showMessage("Refinement failed.", true);
         } finally {
             setLoading(false);
         }
