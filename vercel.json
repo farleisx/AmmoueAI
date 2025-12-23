@@ -5,6 +5,7 @@
     { "src": "^/$", "dest": "/index.prod.html" },
     { "src": "^/login$", "dest": "/login.prod.html" },
     { "src": "^/dashboard$", "dest": "/dashboard.prod.html" },
-    { "src": "^/ai_prompt$", "dest": "/ai_prompt.prod.html" }
+    { "src": "^/ai_prompt$", "dest": "/ai_prompt.prod.html" },
+    { "src": "^/upgrade$", "dest": "/upgrade.prod.html" }
   ]
 }
