@@ -253,6 +253,7 @@
     const db = getFirestore(app);
     const appId = firebaseConfig.projectId;
     let currentUserId = null;
+    let generationDone = false; // TRACKER FOR PREVIEW SAFETY
 
 
 // ================= IMAGE ATTACHMENT LOGIC =================
@@ -449,7 +450,6 @@ if (imageDropArea) {
             await navigator.clipboard.writeText(text);
             showMessage("Code copied to clipboard!", false);
         } catch (err) {
-            // Fallback for older browsers
             const textarea = document.createElement('textarea');
             textarea.value = text;
             document.body.appendChild(textarea);
@@ -477,12 +477,24 @@ if (imageDropArea) {
             showMessage("Generate HTML first to preview.", true);
             return;
         }
-        // Open window immediately to satisfy popup blockers
-        const previewWindow = window.open('about:blank', '_blank');
+        if (!generationDone) {
+            showMessage("Please wait for generation to finish before previewing.", true);
+            return;
+        }
+
+        const previewWindow = window.open('', '_blank');
         if (previewWindow) {
-            previewWindow.document.open();
-            previewWindow.document.write(latestHtmlContent);
-            previewWindow.document.close();
+            previewWindow.document.title = "Preview | Ammoue AI";
+            previewWindow.document.body.style.margin = "0";
+            
+            const iframe = previewWindow.document.createElement('iframe');
+            iframe.style.width = "100vw";
+            iframe.style.height = "100vh";
+            iframe.style.border = "none";
+            iframe.setAttribute("sandbox", "allow-scripts allow-forms allow-modals allow-same-origin");
+            
+            previewWindow.document.body.appendChild(iframe);
+            iframe.srcdoc = latestHtmlContent;
         } else {
             showMessage("Pop-up blocked! Please allow pop-ups for this site.", true);
         }
@@ -498,7 +510,6 @@ if (imageDropArea) {
         
         if (!hasTags) return { valid: false, error: "Missing standard HTML structure (html, head, or body tags)." };
         
-        // Relaxed rule: Warn instead of blocking module types
         if (lower.includes('type="module"')) {
             console.warn("Notice: HTML contains 'type=module'. Support may vary across hosting environments.");
         }
@@ -519,7 +530,6 @@ if (imageDropArea) {
         if (!latestHtmlContent) return showMessage("No HTML content to deploy. Generate a site first.", true);
         if (!currentProjectId) return showMessage("System Error: Project ID is missing. Please generate again.", true);
 
-        // Run validation
         const validation = isValidHtml(latestHtmlContent);
         if (!validation.valid) return showMessage(`❌ ${validation.error}`, true);
 
@@ -670,6 +680,7 @@ if (imageDropArea) {
         if (!user) return showMessage("Auth error: Please log in again.", true);
 
         setLoading(true);
+        generationDone = false; // RESET TRACKER
         outputCode.textContent = "";
         latestHtmlContent = "";
         latestDeploymentUrl = ""; 
@@ -750,6 +761,7 @@ if (imageDropArea) {
                 .trim();
 
             outputCode.textContent = latestHtmlContent;
+            generationDone = true; // MARK FINISHED
             currentProjectId = await autoSaveProject(latestHtmlContent, latestPrompt, null); 
             
             if (currentProjectId) {
@@ -786,6 +798,7 @@ if (imageDropArea) {
         if (!user) return showMessage("You must be logged in to refine.", true);
 
         setLoading(true, true);
+        generationDone = false; // RESET TRACKER
         const originalHtml = latestHtmlContent;
 
         try {
@@ -851,6 +864,7 @@ if (imageDropArea) {
                 .trim();
 
             outputCode.textContent = latestHtmlContent;
+            generationDone = true; // MARK FINISHED
             latestPrompt += `\n[Refinement]: ${refinePrompt}`; 
             await autoSaveProject(latestHtmlContent, latestPrompt, currentProjectId); 
             
