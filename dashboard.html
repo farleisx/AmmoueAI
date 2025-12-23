@@ -431,7 +431,7 @@
 
     /** Redirection function for the Upgrade button */
     window.handleUpgradeClick = function() {
-        window.location.href = 'upgrade.html';
+        window.location.href = '/upgrade';
     };
 
     /** Opens the delete confirmation modal. */
@@ -670,7 +670,7 @@
             const hasScreenshot = project.screenshotUrl && project.screenshotUrl.startsWith('http');
             
             projectsHtml += `
-                <div onclick="window.location.href='/editor?id=${project.id}'"
+                <div onclick="window.location.href='/editor.html?id=${project.id}'"
                     class="bg-white border border-gray-200 rounded-2xl p-6 flex flex-col justify-between shadow-lg hover:shadow-xl transition duration-300 cursor-pointer">
                     <div>
                         <div class="flex items-center justify-between mb-3">
