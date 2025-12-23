@@ -57,7 +57,7 @@
                     <i data-lucide="code-square" class="w-8 h-8 text-ammoue mr-3"></i>
                     Editing: <span id="project-title-header" class="ml-2 text-ammoue truncate max-w-xs md:max-w-md">Loading...</span>
                 </h1>
-                <button onclick="window.location.href='dashboard.html'" class="px-4 py-2 text-sm font-semibold rounded-full text-gray-700 bg-gray-100 hover:bg-gray-200 transition duration-150 shadow-md flex items-center border border-gray-300">
+                <button onclick="window.location.href='/dashboard'" class="px-4 py-2 text-sm font-semibold rounded-full text-gray-700 bg-gray-100 hover:bg-gray-200 transition duration-150 shadow-md flex items-center border border-gray-300">
                     <i data-lucide="layout-dashboard" class="w-4 h-4 mr-2"></i> Back to Dashboard
                 </button>
             </header>
@@ -534,7 +534,7 @@
         const projectId = getProjectIdFromUrl();
         if (!projectId) {
             showMessage("Error: No project ID provided in URL.", true);
-            setTimeout(() => { window.location.href = 'dashboard.html'; }, 2000);
+            setTimeout(() => { window.location.href = '/dashboard'; }, 2000);
             return;
         }
         
@@ -565,7 +565,7 @@
                         editorContent.classList.remove('hidden');
                     } else {
                            // Project fetch failed or not found, redirect
-                           setTimeout(() => { window.location.href = 'dashboard.html'; }, 2000);
+                           setTimeout(() => { window.location.href = '/dashboard'; }, 2000);
                     }
                 } else {
                     // No valid session found. Redirect to login.html
