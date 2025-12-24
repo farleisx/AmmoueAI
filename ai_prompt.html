@@ -16,7 +16,7 @@
         .text-ammoue { color: #0d9488; }
         .bg-ammoue { background-color: #0d9488; }
 
-        /* Loading screen */
+        /* Loading screen - FIXED with pointer-events */
         #loading-state {
             position: fixed;
             top: 0;
@@ -29,6 +29,12 @@
             background-color: #fff;
             z-index: 100;
             transition: opacity 0.3s ease-in-out; 
+            pointer-events: auto; /* Active while loading */
+        }
+        
+        #loading-state.fade-out {
+            opacity: 0;
+            pointer-events: none; /* Allows clicks to pass through during/after fade */
         }
 
         /* Message box */
@@ -42,7 +48,7 @@
             transition: opacity 0.3s ease-in-out;
         }
 
-        /* Hover effects - FIXED CSS SELECTORS */
+        /* Hover effects - FIXED */
         a[href="/dashboard"],
         #logout-btn {
             transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
@@ -640,12 +646,11 @@ if (imageDropArea) {
             latestHtmlContent = html.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/^```(html)?\s*/i, '').replace(/\s*```$/, '').trim();
             outputCode.textContent = latestHtmlContent;
             generationDone = true;
-            showScrollDownButton(); // FIXED: Removed handleScrollToOutput for better UX
+            showScrollDownButton();
             currentProjectId = await autoSaveProject(latestHtmlContent, latestPrompt, null); 
             showMessage(currentProjectId ? "✅ Saved!" : "✅ Generated (Save failed)", !currentProjectId);
             attachedImages = []; renderImagePreviews(); lucide.createIcons();
 
-            // FIXED COOLDOWN: Targeted manual disable/enable
             generateBtn.disabled = true;
             generateBtn.innerHTML = 'Cooling down (60s)...';
             await delay(60000);
@@ -692,13 +697,12 @@ if (imageDropArea) {
             latestHtmlContent = refinedHtml.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/^```(html)?\s*/i, '').replace(/\s*```$/, '').trim();
             outputCode.textContent = latestHtmlContent;
             generationDone = true;
-            showScrollDownButton(); // FIXED: Removed handleScrollToOutput for better UX
+            showScrollDownButton();
             latestPrompt += `\n[Refinement]: ${refinePrompt}`; 
             await autoSaveProject(latestHtmlContent, latestPrompt, currentProjectId); 
             latestDeploymentUrl = ""; setPublishButton(null, false);
             showMessage("✨ Refined!", false);
 
-            // FIXED COOLDOWN: Targeted manual disable/enable
             refineBtn.disabled = true;
             refineBtn.innerHTML = 'Cooling down (60s)...';
             await delay(60000);
@@ -748,8 +752,14 @@ if (imageDropArea) {
     onAuthStateChanged(auth, (user) => {
         if (user) {
             currentUserId = user.uid;
-            loadingState.style.opacity = '0'; 
-            setTimeout(() => { loadingState.classList.add('hidden'); mainContent.classList.remove('hidden'); }, 300);
+            
+            // FIXED LOADING FADE LOGIC
+            loadingState.classList.add('fade-out');
+            setTimeout(() => {
+                loadingState.classList.add('hidden');
+                mainContent.classList.remove('hidden');
+            }, 300); // Wait for transition to finish before removal
+
             if (!listenersAttached) {
                 generateBtn.addEventListener('click', handleGeneration);
                 refineBtn.addEventListener('click', handleRefine);
