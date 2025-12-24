@@ -77,6 +77,23 @@
             transition: opacity 0.3s ease-in-out;
         }
 
+        /* Active Process Popup */
+        #process-popup {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            z-index: 2500;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease;
+            opacity: 0;
+            pointer-events: none;
+        }
+        #process-popup.visible {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
         /* Hover effects */
         a[href="/dashboard"],
         #logout-btn {
@@ -103,6 +120,21 @@
     </style>
 </head>
 <body class="antialiased min-h-screen">
+
+    <div id="process-popup" class="bg-white/90 backdrop-blur-md border border-teal-100 shadow-2xl p-5 rounded-2xl flex flex-col sm:flex-row items-center gap-4 min-w-[320px]">
+        <div class="flex items-center gap-3">
+            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-teal-50">
+                <svg class="animate-spin h-6 w-6 text-ammoue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </div>
+            <p id="process-popup-message" aria-live="polite" class="text-lg font-semibold text-gray-800">Please wait until the HTML check finishes...</p>
+        </div>
+        <button id="scroll-to-bottom-btn" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2">
+            Jump to Actions <i data-lucide="arrow-down" class="w-4 h-4"></i>
+        </button>
+    </div>
 
     <div class="fixed top-4 right-4 z-[3000] flex items-center gap-2">
         <button id="layout-toggle" class="bg-white border border-gray-200 shadow-sm p-2 rounded-lg hover:bg-gray-50 transition flex items-center gap-2 text-sm font-medium text-gray-700">
@@ -218,7 +250,7 @@
 
                 <pre class="bg-gray-100 p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm"><code id="output-code" class="whitespace-pre"></code></pre>
 
-                <div class="mt-4 flex space-x-4">
+                <div id="action-buttons-container" class="mt-4 flex space-x-4">
                     <button id="preview-html-btn" disabled
                         class="px-6 py-2 text-base font-semibold rounded-xl text-white bg-teal-500 hover:bg-teal-600 transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed">
                         <i data-lucide="eye" class="w-4 h-4 mr-1 inline-block"></i> Preview HTML
@@ -331,7 +363,6 @@ function updateLayoutUI(isDesktop) {
         document.body.classList.add('desktop-mode');
         toggleText.textContent = 'Mobile View';
         toggleIcon.setAttribute('data-lucide', 'smartphone');
-        // Hide mobile-only nav buttons when in desktop sidebar mode
         document.querySelectorAll('.sm-only-nav').forEach(el => el.classList.add('hidden'));
     } else {
         document.body.classList.remove('desktop-mode');
@@ -348,7 +379,6 @@ layoutToggle.addEventListener('click', () => {
     updateLayoutUI(isNowDesktop);
 });
 
-// Initialize Layout from Preference
 const savedLayout = localStorage.getItem('ammoue_layout_preference');
 if (savedLayout === 'desktop') updateLayoutUI(true);
 // ================= END LAYOUT TOGGLE LOGIC =================
@@ -358,7 +388,7 @@ if (savedLayout === 'desktop') updateLayoutUI(true);
 const imageInput = document.getElementById("imageUploadInput");
 const imageDropArea = document.getElementById("image-drop-area");
 const imagePreviewContainer = document.getElementById("image-preview-container");
-let attachedImages = []; // stores { file, base64 }
+let attachedImages = []; 
 
 function fileToBase64(file) {
     return new Promise((resolve, reject) => {
@@ -397,7 +427,7 @@ function renderImagePreviews() {
 }
 
 async function handleFiles(files) {
-    const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+    const MAX_SIZE_BYTES = 5 * 1024 * 1024; 
 
     for (const file of files) {
         if (!file.type.startsWith("image/")) continue;
@@ -473,6 +503,11 @@ if (imageDropArea) {
     const refineBtn = document.getElementById('refine-btn');
     const deploymentErrorMessage = document.getElementById('deployment-error-message'); 
 
+    // New Popup Elements
+    const processPopup = document.getElementById('process-popup');
+    const scrollDownBtn = document.getElementById('scroll-to-bottom-btn');
+    const actionContainer = document.getElementById('action-buttons-container');
+
     let listenersAttached = false;
     let latestHtmlContent = ''; 
     let latestPrompt = ''; 
@@ -494,6 +529,7 @@ if (imageDropArea) {
     }
 
     function setLoading(isLoading, isRefining = false) {
+        const popupMessage = document.getElementById('process-popup-message');
         if (isLoading) {
             generateBtn.disabled = true;
             refineBtn.disabled = true;
@@ -502,6 +538,12 @@ if (imageDropArea) {
             previewHtmlBtn.disabled = true;
             imageInput.disabled = true;
             
+            // Show process popup with custom message
+            popupMessage.textContent = isRefining 
+                ? 'Refining your code...' 
+                : 'Please wait until the HTML check finishes...';
+            processPopup.classList.add('visible');
+
             const loadingText = isRefining ? 'Refining...' : 'Building...';
             const buttonToUpdate = isRefining ? refineBtn : generateBtn;
             buttonToUpdate.innerHTML = `<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> ${loadingText}`;
@@ -513,6 +555,9 @@ if (imageDropArea) {
             previewHtmlBtn.disabled = !latestHtmlContent;
             imageInput.disabled = false;
             
+            // Hide process popup
+            processPopup.classList.remove('visible');
+
             generateBtn.innerHTML = 'Generate HTML Code';
             refineBtn.innerHTML = 'Refine Code';
         }
@@ -525,6 +570,7 @@ if (imageDropArea) {
         publishBtn.textContent = 'Publish Site';
 
         if (isDeploying) {
+            processPopup.classList.add('visible'); // Show popup during deployment
             let text = 'Deployment Initiated...';
             if (status === 'queued') text = 'Deployment Queued...';
             if (status === 'building') text = 'Deployment Building...';
@@ -532,6 +578,7 @@ if (imageDropArea) {
             publishBtn.textContent = text;
             publishBtn.classList.add('bg-yellow-600', 'cursor-not-allowed');
         } else if (url) {
+            processPopup.classList.remove('visible'); // Hide after deploy
             publishBtn.textContent = 'Open Live Site';
             publishBtn.classList.add('bg-green-600', 'cursor-pointer');
         } else if (latestHtmlContent) {
@@ -606,13 +653,7 @@ if (imageDropArea) {
     function isValidHtml(html) {
         const lower = html.toLowerCase();
         const hasTags = lower.includes('<html') && lower.includes('<head') && lower.includes('<body');
-        
         if (!hasTags) return { valid: false, error: "Missing standard HTML structure (html, head, or body tags)." };
-        
-        if (lower.includes('type="module"')) {
-            console.warn("Notice: HTML contains 'type=module'. Support may vary across hosting environments.");
-        }
-        
         return { valid: true };
     }
 
@@ -651,6 +692,7 @@ if (imageDropArea) {
                 const result = await response.json();
 
                 if (!response.ok) {
+                    processPopup.classList.remove('visible');
                     if (response.status === 409) return showMessage("❌ Site name is already taken.", true);
                     if (response.status === 403) {
                         deploymentErrorMessage.innerHTML = `
@@ -698,17 +740,21 @@ if (imageDropArea) {
                         setPublishButton(latestDeploymentUrl, false); 
                         showMessage("🚀 Deployment Complete!", false);
                         await updateProjectDeploymentUrl(currentProjectId, latestDeploymentUrl);
+                        processPopup.classList.remove('visible');
                         return; 
                     } else if (status === 'ERROR') {
+                        processPopup.classList.remove('visible');
                         throw new Error(`Deployment failed.`);
                     } else {
                         setPublishButton(latestDeploymentUrl, true, status.toLowerCase());
                     }
                 }
                 
+                processPopup.classList.remove('visible');
                 throw new Error("Deployment timed out.");
 
             } catch (error) {
+                processPopup.classList.remove('visible');
                 console.error("Deployment Error:", error);
                 showMessage(`❌ Deployment failed: ${error.message}`, true);
                 setPublishButton(latestDeploymentUrl, false);
@@ -769,6 +815,22 @@ if (imageDropArea) {
         }
     }
 
+    function startCooldown(button, seconds = 60) {
+        let countdown = seconds;
+        const originalText = button.innerHTML;
+        button.disabled = true;
+        
+        const interval = setInterval(() => {
+            button.innerText = `Cooling down (${countdown}s)...`;
+            countdown--;
+            if (countdown < 0) {
+                clearInterval(interval);
+                button.innerHTML = originalText;
+                button.disabled = false;
+            }
+        }, 1000);
+    }
+
     async function handleGeneration() {
         const prompt = promptInput.value.trim();
         if (prompt.length < 10 && attachedImages.length === 0) return showMessage("Please provide a detailed prompt (min 10 chars) or an image.", true);
@@ -817,13 +879,8 @@ if (imageDropArea) {
                 const { value, done } = await reader.read();
                 if (done) break;
 
-                // 1. Add new chunk to the buffer
                 buffer += decoder.decode(value, { stream: true });
-                
-                // 2. Split buffer by 'data:' separator
                 let messages = buffer.split(streamSeparator);
-                
-                // 3. Keep the last element in buffer (it's potentially incomplete)
                 buffer = messages.pop(); 
 
                 for (const msg of messages) {
@@ -831,7 +888,6 @@ if (imageDropArea) {
                     if (!trimmedMsg || trimmedMsg === '[DONE]') continue;
 
                     try {
-                        // 4. Try parsing. If it fails, catch block triggers
                         const jsonChunk = JSON.parse(trimmedMsg);
                         const textChunk = jsonChunk.text || "";
                         html += textChunk;
@@ -846,8 +902,6 @@ if (imageDropArea) {
                             isFirstChunk = false;
                         }
                     } catch (e) {
-                        // 5. If parse failed, this 'msg' was incomplete. 
-                        // Put it back in buffer prefix for the next cycle
                         buffer = streamSeparator + trimmedMsg + buffer;
                     }
                 }
@@ -871,14 +925,12 @@ if (imageDropArea) {
             lucide.createIcons();
             handleScrollToOutput();
 
-            setLoading(true);
-            generateBtn.innerHTML = 'Cooling down (60s)...';
-            await delay(60000);
+            setLoading(false);
+            startCooldown(generateBtn, 60);
 
         } catch (err) {
             console.error(err);
             showMessage("Unexpected error.", true);
-        } finally {
             setLoading(false);
         }
     }
@@ -957,14 +1009,12 @@ if (imageDropArea) {
             showMessage("✨ Refined!", false);
             handleScrollToOutput();
 
-            refineBtn.disabled = true;
-            refineBtn.innerHTML = 'Cooling down (60s)...';
-            await delay(60000);
+            setLoading(false);
+            startCooldown(refineBtn, 60);
 
         } catch (error) {
             console.error(error);
             showMessage("Refinement failed.", true);
-        } finally {
             setLoading(false);
         }
     }
@@ -1019,6 +1069,11 @@ if (imageDropArea) {
 
     refinePromptInput.addEventListener('input', (e) => {
         localStorage.setItem('ammoue_saved_refine_prompt', e.target.value);
+    });
+
+    // Scroll button event
+    scrollDownBtn.addEventListener('click', () => {
+        actionContainer.scrollIntoView({ behavior: 'smooth', block: 'end' });
     });
 
     onAuthStateChanged(auth, (user) => {
