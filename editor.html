@@ -4,97 +4,103 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">
-    <title>Ammoue | Code Editor</title>
+    <title>Ammoue | Pro Code Editor</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/theme/dracula.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/mode/htmlmixed/htmlmixed.min.js"></script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f1f5f9; /* Slate 100 */
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        /* Custom Ammoue Teal Colors */
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; min-height: 100vh; display: flex; flex-direction: column; }
         .text-ammoue { color: #0d9488; }
         .bg-ammoue { background-color: #0d9488; }
         .hover\:bg-ammoue-dark:hover { background-color: #0c7b72; }
-        .focus\:ring-ammoue-light:focus { --tw-ring-color: #36e3d5; }
-
-        #code-editor {
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-            min-height: 50vh; 
-            resize: vertical;
-        }
-
-        .loading-screen {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #f8fafc;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 50;
-        }
+        .CodeMirror { height: 100% !important; border-radius: 0.75rem; font-size: 14px; }
+        .loading-screen { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: #f8fafc; display: flex; align-items: center; justify-content: center; z-index: 100; }
+        #status-indicator.is-dirty::before { content: "● "; color: #f59e0b; }
+        
+        @keyframes pulse-teal { 0% { box-shadow: 0 0 0 0 rgba(13, 148, 136, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(13, 148, 136, 0); } 100% { box-shadow: 0 0 0 0 rgba(13, 148, 136, 0); } }
+        .review-mode { animation: pulse-teal 2s infinite; border: 2px solid #0d9488 !important; }
     </style>
 </head>
 <body class="antialiased">
 
     <div id="loading-screen" class="loading-screen">
-        <svg class="animate-spin h-10 w-10 text-ammoue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
+        <svg class="animate-spin h-10 w-10 text-ammoue" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
     </div>
     
-    <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 opacity-0 transition-opacity duration-300 z-50"></div>
+    <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 opacity-0 transition-opacity duration-300 z-[110]"></div>
 
-    <div id="editor-content" class="flex-grow flex flex-col p-4 md:p-8 w-full hidden">
-        <div class="bg-white rounded-3xl shadow-2xl p-6 md:p-8 flex-grow flex flex-col max-w-7xl w-full mx-auto">
-            <header class="mb-6 border-b pb-4 flex flex-col md:flex-row justify-between items-start md:items-center">
-                <h1 class="text-3xl font-extrabold text-gray-900 flex items-center mb-4 md:mb-0">
-                    <i data-lucide="code-square" class="w-8 h-8 text-ammoue mr-3"></i>
-                    Editing: <span id="project-title-header" class="ml-2 text-ammoue truncate max-w-xs md:max-w-md">Loading...</span>
+    <div id="editor-content" class="flex-grow flex flex-col p-4 md:p-6 w-full hidden">
+        <div class="bg-white rounded-3xl shadow-2xl p-6 flex-grow flex flex-col w-full mx-auto">
+            <header class="mb-4 border-b pb-4 flex flex-col md:flex-row justify-between items-start md:items-center">
+                <h1 class="text-2xl font-extrabold text-gray-900 flex items-center mb-4 md:mb-0">
+                    <i data-lucide="code-square" class="w-7 h-7 text-ammoue mr-3"></i>
+                    <span id="status-indicator">Editing:</span>
+                    <span id="project-title-header" class="ml-2 text-ammoue truncate max-w-xs">Loading...</span>
                 </h1>
-                <button onclick="window.location.href='/dashboard'" class="px-4 py-2 text-sm font-semibold rounded-full text-gray-700 bg-gray-100 hover:bg-gray-200 transition duration-150 shadow-md flex items-center border border-gray-300">
-                    <i data-lucide="layout-dashboard" class="w-4 h-4 mr-2"></i> Back to Dashboard
-                </button>
+                <div class="flex space-x-2">
+                    <button onclick="window.location.href='/dashboard'" class="px-4 py-2 text-sm font-semibold rounded-full text-gray-700 bg-gray-100 hover:bg-gray-200 transition border border-gray-300">
+                        <i data-lucide="layout-dashboard" class="w-4 h-4 mr-2"></i> Dashboard
+                    </button>
+                </div>
             </header>
 
-            <form id="editor-form" class="flex-grow flex flex-col space-y-6">
+            <form id="editor-form" class="flex-grow flex flex-col space-y-4">
                 <input type="hidden" id="project-id-input">
                 
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     <div class="lg:col-span-1">
-                        <label for="editor-title" class="block text-sm font-bold text-gray-700 mb-1">Project Title</label>
-                        <input type="text" id="editor-title" required 
-                                class="w-full border border-gray-300 rounded-xl shadow-inner bg-white focus:border-ammoue focus:ring-4 focus:ring-teal-100 transition duration-150 p-3 text-base text-gray-800">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Project Title</label>
+                        <input type="text" id="editor-title" required class="w-full border border-gray-300 rounded-xl bg-white focus:border-ammoue focus:ring-2 focus:ring-teal-100 transition p-2.5 text-sm text-gray-800">
                     </div>
                     <div class="lg:col-span-2">
-                        <label for="editor-prompt" class="block text-sm font-bold text-gray-700 mb-1">AI Prompt/Refinement Description</label>
-                        <input id="editor-prompt" required 
-                                class="w-full border border-gray-300 rounded-xl shadow-inner bg-white focus:border-ammoue focus:ring-4 focus:ring-teal-100 transition duration-150 p-3 text-base text-gray-800"
-                                placeholder="Enter refinement request here (e.g., Change the button color to red, Add a logo, etc.)">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">AI Prompt (Ctrl + Enter)</label>
+                        <input id="editor-prompt" required class="w-full border border-gray-300 rounded-xl bg-white focus:border-ammoue focus:ring-2 focus:ring-teal-100 transition p-2.5 text-sm text-gray-800" placeholder="Describe changes...">
                     </div>
                 </div>
 
-                <div class="flex-grow flex flex-col min-h-[50vh]">
-                    <label for="code-editor" class="block text-sm font-bold text-gray-700 mb-2">HTML Code Content</label>
-                    <textarea id="code-editor" required 
-                             class="flex-grow w-full border border-gray-300 rounded-xl shadow-lg focus:border-ammoue focus:ring-4 focus:ring-teal-100 transition duration-150 p-4 bg-gray-900 text-teal-300 font-mono text-sm"></textarea>
+                <div class="flex-grow grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-[50vh]">
+                    <div class="flex flex-col relative">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-2">HTML Code</label>
+                        <div id="editor-container" class="flex-grow rounded-xl overflow-hidden border border-gray-300 shadow-inner">
+                            <textarea id="code-editor"></textarea>
+                        </div>
+                        
+                        <div id="ai-review-bar" class="hidden absolute bottom-4 left-4 right-4 bg-teal-900 text-white p-3 rounded-lg flex justify-between items-center z-10 shadow-2xl border border-teal-400">
+                            <span class="text-sm font-medium flex items-center"><i data-lucide="sparkles" class="w-4 h-4 mr-2"></i> Review AI Changes?</span>
+                            <div class="flex space-x-2">
+                                <button type="button" id="reject-ai" class="bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-xs font-bold transition">Discard</button>
+                                <button type="button" id="accept-ai" class="bg-ammoue hover:bg-ammoue-dark px-3 py-1 rounded text-xs font-bold transition">Accept & Apply</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Live Preview (Secure Sandbox)</label>
+                        <iframe id="live-preview" sandbox="allow-scripts allow-forms allow-modals" class="flex-grow w-full rounded-xl border border-gray-300 bg-white shadow-sm"></iframe>
+                    </div>
                 </div>
 
-                <div class="flex flex-col sm:flex-row justify-end pt-4 border-t space-y-3 sm:space-y-0 sm:space-x-4">
-                    <button type="button" id="preview-btn" class="px-6 py-3 text-lg font-bold rounded-xl text-white bg-gray-500 hover:bg-gray-600 transition duration-150 shadow-xl flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
-                        <i data-lucide="monitor" class="w-5 h-5 mr-2"></i> Preview Site
-                    </button>
-                    <button type="button" id="ai-code-refine-button" class="px-6 py-3 text-lg font-bold rounded-xl text-white bg-red-600 hover:bg-red-700 transition duration-150 shadow-xl flex items-center justify-center">
-                        <i data-lucide="zap" class="w-5 h-5 mr-2"></i> AI Refine Code
-                    </button>
-                    <button type="submit" id="save-btn" class="px-6 py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-ammoue-dark transition duration-150 shadow-xl flex items-center justify-center">
-                        <i data-lucide="save" class="w-5 h-5 mr-2"></i> Save & Deploy
-                    </button>
+                <div class="flex flex-col sm:flex-row justify-between pt-4 border-t items-center">
+                    <p id="deploy-status" class="text-xs text-gray-400 mb-4 sm:mb-0 italic">Auto-preview enabled.</p>
+                    <div class="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
+                        <button type="button" id="ai-code-refine-button" class="px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-red-600 hover:bg-red-700 transition shadow-md flex items-center justify-center">
+                            <i data-lucide="zap" class="w-4 h-4 mr-2"></i> AI Refine
+                        </button>
+                        <button type="button" id="preview-btn" class="px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-gray-500 hover:bg-gray-600 transition shadow-md flex items-center justify-center">
+                            <i data-lucide="external-link" class="w-4 h-4 mr-2"></i> Preview Deployed
+                        </button>
+                        <button type="submit" id="save-btn" class="px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-ammoue hover:bg-ammoue-dark transition shadow-md flex items-center justify-center">
+                            <i data-lucide="save" class="w-4 h-4 mr-2"></i> Save & Deploy
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -105,7 +111,6 @@
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
     import { getFirestore, doc, getDoc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
-    // IMPORTANT: Hardcoded configuration from login.html for this specific app instance
     const firebaseConfig = {
         apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
         authDomain: "ammoueai.firebaseapp.com",
@@ -115,17 +120,16 @@
         appId: "1:135818868149:web:db9280baf9540a3339d5fc",
     };
 
-    let auth = null;
-    let db = null;
-    let currentUserId = null;
+    let auth, db, currentUserId, cmEditor, previewUrl;
+    let isDirty = false;
+    let pendingAiCode = null;
+    let originalCodeBeforeAi = null;
     const appId = firebaseConfig.projectId;
 
-    // --- DOM Elements ---
     const loadingScreen = document.getElementById('loading-screen');
     const editorContent = document.getElementById('editor-content');
     const msgBox = document.getElementById('message-box');
     const editorForm = document.getElementById('editor-form');
-    const codeEditor = document.getElementById('code-editor');
     const titleInput = document.getElementById('editor-title');
     const promptInput = document.getElementById('editor-prompt');
     const titleHeader = document.getElementById('project-title-header');
@@ -133,469 +137,202 @@
     const codeRefineButton = document.getElementById('ai-code-refine-button');
     const previewBtn = document.getElementById('preview-btn');
     const saveBtn = document.getElementById('save-btn');
+    const deployStatusText = document.getElementById('deploy-status');
+    const livePreviewFrame = document.getElementById('live-preview');
+    const aiReviewBar = document.getElementById('ai-review-bar');
+    const editorContainer = document.getElementById('editor-container');
 
-    let latestDeploymentUrl = ''; // Stores the current deployment URL
+    let latestDeploymentUrl = '';
 
-    // --- Utility Functions ---
+    // --- Helpers ---
+    const userDocRef = () => doc(db, 'users', currentUserId);
+    const projectDocRef = (id) => doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', id);
 
-    /** Shows a temporary message box (replaces alert()) */
     function showMessage(message, isError) {
-        if (!msgBox) return;
         msgBox.textContent = message;
-
-        msgBox.className = 'p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 z-50';
-        msgBox.classList.add(isError ? 'bg-red-500' : 'bg-green-500');
-        msgBox.classList.add('opacity-100');
+        msgBox.className = `p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 z-[110] ${isError ? 'bg-red-500' : 'bg-green-500'} opacity-100`;
         setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
     }
 
-    /**
-     * Triggers the Vercel Serverless Function to generate and save a project screenshot.
-     * The function uses exponential backoff to handle transient network errors.
-     * @param {string} projectId The ID of the project document in Firestore.
-     * @param {string} userId The UID of the authenticated user.
-     * @param {string} [apiUrl="/api/screenshot"] The path to the Vercel Serverless Function.
-     * @param {number} [maxRetries=5] The maximum number of retry attempts.
-     */
-    async function triggerScreenshotGeneration(projectId, userId, apiUrl = "/api/screenshot", maxRetries = 5) {
-        if (!projectId || !userId) {
-            console.error("Screenshot trigger failed: Missing projectId or userId.");
-            return;
-        }
-
-        const payload = { projectId, userId, appId: 'ammoueai' }; 
-
-        for (let attempt = 0; attempt < maxRetries; attempt++) {
-            try {
-                console.log(`Attempt ${attempt + 1}: Triggering screenshot generation for ${projectId}...`);
-                
-                // Add an initial 5-second wait to give the deployment time to propagate.
-                if (attempt === 0) {
-                    console.log("Waiting 5 seconds for deployment propagation before taking screenshot...");
-                    await new Promise(resolve => setTimeout(resolve, 5000));
-                }
-
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
-                });
-
-                if (response.ok) {
-                    const result = await response.json();
-                    console.log("Screenshot generation successfully triggered/completed:", result.url);
-                    return result; 
-                } 
-                
-                const errorBody = await response.json().catch(() => ({ message: response.statusText }));
-                throw new Error(`API failed with status ${response.status}: ${errorBody.message || JSON.stringify(errorBody)}`);
-
-            } catch (error) {
-                console.warn(`Attempt ${attempt + 1} failed for ${projectId}.`, error);
-
-                if (attempt === maxRetries - 1) {
-                    console.error(`Final screenshot attempt failed for ${projectId}. Check Vercel logs.`);
-                    return null; 
-                }
-
-                // Exponential backoff delay
-                const delay = Math.pow(2, attempt) * 1000;
-                console.log(`Retrying in ${delay / 1000} seconds...`);
-                await new Promise(resolve => setTimeout(resolve, delay));
-            }
-        }
-    }
-    
-    /**
-     * Helper to set Preview Button state (deployed vs. not).
-     * @param {string} url - The deployment URL.
-     * @param {boolean} isDeploying - Whether a deployment is currently in progress.
-     */
-    function setPreviewButton(url, isDeploying = false) {
-        if (!previewBtn) return;
-        
-        // Disable if no URL or if currently deploying
-        previewBtn.disabled = !url && !isDeploying; 
-        
-        previewBtn.classList.remove('bg-green-600', 'bg-blue-600', 'bg-yellow-600', 'bg-red-500', 'bg-gray-500', 'hover:bg-ammoue-dark', 'disabled:opacity-50'); 
-
-        if (isDeploying) {
-            previewBtn.textContent = 'Deployment in Progress...';
-            previewBtn.classList.add('bg-yellow-600');
-            saveBtn.disabled = true;
-            codeRefineButton.disabled = true;
-        } else if (url) {
-            previewBtn.textContent = 'Preview Site (Deployed)';
-            previewBtn.classList.add('bg-green-600', 'hover:bg-green-700');
-            saveBtn.disabled = false;
-            codeRefineButton.disabled = false;
-        } else {
-            previewBtn.textContent = 'Preview Site (Not Deployed)';
-            previewBtn.classList.add('bg-gray-500', 'hover:bg-gray-600');
-            saveBtn.disabled = false;
-            codeRefineButton.disabled = false;
-        }
+    function updateLivePreview(code) {
+        const html = code || cmEditor.getValue();
+        const blob = new Blob([html], { type: 'text/html' });
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        previewUrl = URL.createObjectURL(blob);
+        livePreviewFrame.src = previewUrl;
     }
 
-    /**
-     * Fetches the user's current plan (free, pro, etc.).
-     * @param {string} userId - The current user's ID.
-     * @returns {Promise<string>} The user's plan name (e.g., 'free').
-     */
-    async function getUserPlan(userId) {
-        if (!db || !userId) return 'free'; 
-        try {
-            // Path: /users/{userId}
-            const docRef = doc(db, 'users', userId);
-            const docSnap = await getDoc(docRef);
-            return docSnap.exists() && docSnap.data().plan ? docSnap.data().plan : 'free';
-        } catch (error) {
-            console.error("Error fetching user plan:", error);
-            return 'free'; 
-        }
+    function markDirty(dirty) {
+        isDirty = dirty;
+        document.getElementById('status-indicator').classList.toggle('is-dirty', dirty);
     }
 
-    /** * Handles the actual deployment process by calling the server API.
-     * @param {string} htmlContent - The HTML content to deploy.
-     * @param {string} plan - The user's current plan (required by server).
-     * @param {string} projectId - The ID of the project being deployed (required by server).
-     * @returns {Promise<string|null>} The new deployment URL on success, or null on failure.
-     */
+    function setPreviewButton(url, isDeploying) {
+        previewBtn.disabled = isDeploying;
+        previewBtn.className = `px-5 py-2.5 text-sm font-bold rounded-xl text-white transition shadow-md flex items-center justify-center ${isDeploying ? 'bg-yellow-600 cursor-not-allowed opacity-75' : url ? 'bg-green-600' : 'bg-gray-500'}`;
+        previewBtn.innerHTML = isDeploying ? '<i data-lucide="loader" class="w-4 h-4 mr-2 animate-spin"></i> Deploying' : '<i data-lucide="external-link" class="w-4 h-4 mr-2"></i> Preview Deployed';
+        lucide.createIcons();
+    }
+
+    // --- Actions ---
     async function handleDeployment(htmlContent, plan, projectId) {
-        if (!currentUserId) {
-            showMessage("Authentication error: User ID is missing.", true);
-            return null;
-        }
-        if (!plan || !projectId) {
-            showMessage("System error: Missing Plan or Project ID for deployment.", true);
-            return null;
-        }
-
-        const initialUrl = latestDeploymentUrl;
-        setPreviewButton(initialUrl, true); // Set the button to a 'deploying' state
-
+        setPreviewButton('', true);
+        deployStatusText.textContent = "Deploying to cloud...";
+        
         try {
             const response = await fetch("/api/deploy", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ 
-                    htmlContent: htmlContent,
-                    userId: currentUserId,
-                    plan: plan,      // ✅ FIX: Added plan
-                    projectId: projectId // ✅ FIX: Added projectId
-                }),
+                body: JSON.stringify({ htmlContent, userId: currentUserId, plan, projectId }),
             });
-
             const result = await response.json();
-
+            
             if (response.ok && result.deploymentUrl) {
-                const newUrl = result.deploymentUrl;
-
-                showMessage("✅ Deployment initiated. Waiting 30 seconds for propagation...", false);
-
-                // --- START OF DELAY LOGIC ---
-                const delayInSeconds = 30; // Use 30 seconds delay
-                let countdown = delayInSeconds;
-                const interval = setInterval(() => {
+                latestDeploymentUrl = result.deploymentUrl;
+                let countdown = 15;
+                const timer = setInterval(() => {
                     countdown--;
-                    // Update button text with countdown
-                    previewBtn.textContent = `Preview Site (Wait ${countdown}s)`;
+                    deployStatusText.textContent = `Propagating... Ready in ${countdown}s`;
                     if (countdown <= 0) {
-                        clearInterval(interval);
-                        setPreviewButton(newUrl, false); 
-                        showMessage("Deployment is complete. You can preview the site!", false);
+                        clearInterval(timer);
+                        deployStatusText.textContent = "Deployment live!";
+                        setPreviewButton(latestDeploymentUrl, false);
                     }
                 }, 1000);
-                // --- END OF DELAY LOGIC ---
-
-                return newUrl; // Return the new URL
-            } else {
-                console.error("Vercel Deployment Failed:", result);
-                // The server now returns a useful error like "FREE plan limit reached..."
-                throw new Error(result.details || result.error || "Deployment failed on Vercel.");
+                return latestDeploymentUrl;
             }
+            throw new Error(result.error || "Deploy failed");
         } catch (error) {
-            console.error("Deployment Error:", error);
-            setPreviewButton(initialUrl, false); // Revert or reset button state
-            showMessage(`❌ Deployment failed: ${error.message}`, true);
+            setPreviewButton(latestDeploymentUrl, false);
+            deployStatusText.textContent = "Deployment failed.";
+            showMessage(error.message, true);
             return null;
         }
     }
 
-    // New: Handles Preview Button Click
-    function handlePreview() {
-        if (!latestDeploymentUrl) {
-            showMessage("Site not deployed yet.", true);
-            return;
-        }
-        window.open(latestDeploymentUrl, "_blank");
-    }
-
-    /** Extracts project ID from the URL query parameters. */
-    function getProjectIdFromUrl() {
-        const urlParams = new URLSearchParams(window.location.search);
-        return urlParams.get('id');
-    }
-
-    /** Fetches the project document from Firestore. */
-    async function fetchProjectData(projectId, userId) {
-        if (!db || !userId) {
-            showMessage("Database not initialized.", true);
-            return null;
-        }
-        
-        try {
-            // Document path: /artifacts/{appId}/users/{userId}/projects/{projectId}
-            const docRef = doc(db, 'artifacts', appId, 'users', userId, 'projects', projectId);
-            const docSnap = await getDoc(docRef);
-
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                // Clean the prompt by replacing the literal '\n' sequences with real line breaks
-                const cleanPrompt = data.prompt ? data.prompt.replace(/\\n/g, '\n') : "No prompt available";
-                
-                // FIX: Clean incoming HTML content from the database (removes ```html fences)
-                let cleanHtmlContent = data.htmlContent || '';
-                cleanHtmlContent = cleanHtmlContent
-                    .replace(/^```(html)?\s*\n?/i, "") // Remove starting fences and optional newline
-                    .replace(/\n?```$/i, "")         // Remove trailing fences and optional newline
-                    .trim();
-
-                return {
-                    id: docSnap.id,
-                    ...data,
-                    prompt: cleanPrompt,
-                    htmlContent: cleanHtmlContent, // Use the cleaned HTML
-                    deploymentUrl: data.deploymentUrl || '', // Ensure URL is captured
-                };
-            } else {
-                showMessage("Error: Project not found.", true);
-                console.error("No such document!");
-                return null;
-            }
-        } catch (error) {
-            console.error("Error fetching document:", error);
-            showMessage("Failed to load project details.", true);
-            return null;
-        }
-    }
-
-    /** Handles form submission to update Firestore with new code and trigger re-deployment. */
     async function handleSave(e) {
-        e.preventDefault();
+        if (e) e.preventDefault();
+        const projectId = projectIdInput.value;
+        const newHtml = cmEditor.getValue();
         
-        if (!currentUserId) {
-            showMessage("User not authenticated.", true);
-            return;
-        }
+        showMessage("Saving changes...", false);
+        const snap = await getDoc(userDocRef());
+        const plan = snap.exists() ? snap.data().plan : 'free';
 
-        const projectId = projectIdInput.value;
-        const newTitle = titleInput.value.trim();
-        const newPrompt = promptInput.value.trim();
-        const newHtmlContent = codeEditor.value;
-
-        if (!newTitle || !newPrompt || !newHtmlContent || !projectId) {
-            showMessage("Title, Prompt, Code, and Project ID cannot be empty.", true);
-            return;
-        }
-
-        showMessage("Saving changes and re-deploying site...", false);
-
-        // 🚨 CRITICAL FIX: Fetch plan before deployment
-        const userPlan = await getUserPlan(currentUserId);
-
-        // 1. Trigger deployment first to get the URL
-        const updatedDeploymentUrl = await handleDeployment(newHtmlContent, userPlan, projectId);
-        latestDeploymentUrl = updatedDeploymentUrl || latestDeploymentUrl; // Update global URL, keep old one if failed
-
-        // 2. Update Firestore
-        try {
-            // Document path: /artifacts/{appId}/users/{userId}/projects/{projectId}
-            const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
-            
-            await updateDoc(docRef, {
-                title: newTitle, 
-                prompt: newPrompt.replace(/\n/g, '\\n'), // Escape newlines for consistency
-                htmlContent: newHtmlContent,
-                deploymentUrl: latestDeploymentUrl, // Save the new/old URL
-                updatedAt: Timestamp.fromDate(new Date()) // Update the timestamp
-            });
-
-            // Update the header instantly
-            titleHeader.textContent = newTitle;
-            
-            showMessage(`Project "${newTitle}" saved, and deployment initiated!`, false);
-            
-            // 3. CRITICAL: Trigger Vercel Screenshot in the background
-            // This runs asynchronously and does not block the UI or the save confirmation
-            triggerScreenshotGeneration(projectId, currentUserId)
-                .then(() => console.log("Background screenshot job finished."))
-                .catch(err => console.error("Screenshot job failed:", err));
-            
-        } catch (error) {
-            console.error("Error updating document:", error);
-            showMessage("Failed to save changes. Check console for details.", true);
-        }
+        const url = await handleDeployment(newHtml, plan, projectId);
+        await updateDoc(projectDocRef(projectId), {
+            title: titleInput.value.trim(),
+            prompt: promptInput.value.trim().replace(/\n/g, '\\n'),
+            htmlContent: newHtml,
+            deploymentUrl: url || latestDeploymentUrl,
+            updatedAt: Timestamp.fromDate(new Date())
+        });
+        
+        titleHeader.textContent = titleInput.value;
+        markDirty(false);
+        showMessage("Saved & Deployed!", false);
     }
-    
-    // --- Handles the AI Code Refinement request ---
+
     async function handleCodeRefine() {
-        const currentHtml = codeEditor.value;
-        const refinePrompt = promptInput.value.trim(); // Use the existing prompt field for the request
-        const projectId = projectIdInput.value;
+        if (pendingAiCode) { showMessage("Finish reviewing current changes first.", true); return; }
+        const currentHtml = cmEditor.getValue();
+        const refinePrompt = promptInput.value.trim();
+        if (!refinePrompt) { showMessage("Please describe the changes.", true); return; }
 
-        if (!currentHtml || !refinePrompt || !projectId) {
-            showMessage("Code, Refinement Description, and Project ID are required for AI refinement and deployment.", true);
-            return;
-        }
-
-        // Disable button while processing
         codeRefineButton.disabled = true;
-        codeRefineButton.classList.add('opacity-50', 'cursor-not-allowed');
-        showMessage("Sending code to AI for refinement. Please wait...", false);
+        showMessage("AI is working...", false);
 
         try {
-            // 1. Send code to AI refine endpoint
             const response = await fetch('/api/refine', { 
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    // Pass the user's auth token for securing the API call
-                    'Authorization': `Bearer ${await auth.currentUser.getIdToken()}`
-                },
-                body: JSON.stringify({ 
-                    currentHtml: currentHtml, 
-                    refinePrompt: refinePrompt 
-                })
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await auth.currentUser.getIdToken()}` },
+                body: JSON.stringify({ currentHtml, refinePrompt })
             });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                let errorData = { error: `HTTP error! status: ${response.status}` };
-                try {
-                    errorData = JSON.parse(errorText);
-                } catch (e) {
-                    console.error("Non-JSON error response:", errorText);
-                    errorData.error = `Server returned invalid response. Status: ${response.status}`;
-                }
-                throw new Error(errorData.error || errorData.message || `HTTP error! status: ${response.status}`);
-            }
 
             const data = await response.json();
-            const refinedCode = data.htmlCode;
+            if (data.htmlCode) {
+                originalCodeBeforeAi = currentHtml;
+                pendingAiCode = data.htmlCode;
+                cmEditor.setValue(pendingAiCode);
+                updateLivePreview(pendingAiCode);
+                aiReviewBar.classList.remove('hidden');
+                editorContainer.classList.add('review-mode');
+                showMessage("Review AI changes in the editor/preview.", false);
+            }
+        } catch (e) { showMessage("AI Error", true); }
+        finally { codeRefineButton.disabled = false; }
+    }
 
-            if (refinedCode) {
-                // 1. Update the code editor field with the refined HTML
-                codeEditor.value = refinedCode;
-                showMessage("Code refined successfully by AI! Starting re-deployment...", false);
+    document.getElementById('accept-ai').onclick = () => {
+        pendingAiCode = null;
+        aiReviewBar.classList.add('hidden');
+        editorContainer.classList.remove('review-mode');
+        markDirty(true);
+        showMessage("Changes accepted.", false);
+    };
 
-                // 🚨 CRITICAL FIX: Fetch plan before deployment
-                const userPlan = await getUserPlan(currentUserId);
-                
-                // 2. Re-deploy the new code
-                // ✅ FIX: Pass the required plan and projectId to handleDeployment
-                const updatedDeploymentUrl = await handleDeployment(refinedCode, userPlan, projectId);
-                latestDeploymentUrl = updatedDeploymentUrl || latestDeploymentUrl;
+    document.getElementById('reject-ai').onclick = () => {
+        cmEditor.setValue(originalCodeBeforeAi);
+        updateLivePreview(originalCodeBeforeAi);
+        pendingAiCode = null;
+        aiReviewBar.classList.add('hidden');
+        editorContainer.classList.remove('review-mode');
+        markDirty(true); // Restore dirty state as it likely had unsaved edits
+        showMessage("AI changes discarded.", true);
+    };
 
-                // 3. Auto-save the changes to Firestore (including new URL)
-                const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
-                await updateDoc(docRef, {
-                    prompt: promptInput.value.replace(/\n/g, '\\n'),
-                    htmlContent: refinedCode,
-                    deploymentUrl: latestDeploymentUrl,
-                    updatedAt: Timestamp.fromDate(new Date())
+    function initialize() {
+        const projectId = new URLSearchParams(window.location.search).get('id');
+        if (!projectId) { window.location.href = '/dashboard'; return; }
+
+        const app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) { window.location.href = 'login.html'; return; }
+            currentUserId = user.uid;
+            
+            const snap = await getDoc(projectDocRef(projectId));
+            if (snap.exists()) {
+                const data = snap.data();
+                projectIdInput.value = snap.id;
+                titleInput.value = data.title;
+                promptInput.value = (data.prompt || "").replace(/\\n/g, '\n');
+                titleHeader.textContent = data.title;
+                latestDeploymentUrl = data.deploymentUrl || '';
+
+                cmEditor = CodeMirror.fromTextArea(document.getElementById('code-editor'), {
+                    mode: "htmlmixed", theme: "dracula", lineNumbers: true, lineWrapping: true
                 });
 
-                // 4. CRITICAL: Trigger Vercel Screenshot in the background for the newly refined code
-                triggerScreenshotGeneration(projectId, currentUserId)
-                    .then(() => console.log("Background screenshot job finished after AI refinement."))
-                    .catch(err => console.error("Screenshot job failed after AI refinement:", err));
-                
-                showMessage("Code refined, re-deployed, and saved successfully!", false);
+                cmEditor.setValue(data.htmlContent || "");
+                cmEditor.on('change', () => { if(!pendingAiCode) { markDirty(true); updateLivePreview(); } });
 
-            } else {
-                showMessage("AI returned empty code. Check the refinement description.", true);
-            }
-
-        } catch (error) {
-            console.error("Error refining code:", error);
-            showMessage(`Code refinement failed: ${error.message}`, true);
-        } finally {
-            // Re-enable buttons
-            codeRefineButton.disabled = false;
-            codeRefineButton.classList.remove('opacity-50', 'cursor-not-allowed');
-        }
-    }
-    // --- End AI Code Refine Function ---
-
-
-    /** Initializes Firebase and loads the project data. */
-    function initializeAppAndLoadData() {
-        const projectId = getProjectIdFromUrl();
-        if (!projectId) {
-            showMessage("Error: No project ID provided in URL.", true);
-            setTimeout(() => { window.location.href = '/dashboard'; }, 2000);
-            return;
-        }
-        
-        try {
-            const app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-
-            onAuthStateChanged(auth, async (user) => {
-                if (user) {
-                    currentUserId = user.uid;
-                    
-                    const project = await fetchProjectData(projectId, currentUserId);
-
-                    if (project) {
-                        projectIdInput.value = project.id;
-                        titleInput.value = project.title;
-                        promptInput.value = project.prompt;
-                        codeEditor.value = project.htmlContent;
-                        titleHeader.textContent = project.title;
-                        latestDeploymentUrl = project.deploymentUrl || ''; // Initialize URL
-                        
-                        // Set initial preview button state
-                        setPreviewButton(latestDeploymentUrl, false);
-
-                        // Show content
-                        loadingScreen.classList.add('hidden');
-                        editorContent.classList.remove('hidden');
-                    } else {
-                           // Project fetch failed or not found, redirect
-                           setTimeout(() => { window.location.href = '/dashboard'; }, 2000);
-                    }
-                } else {
-                    // No valid session found. Redirect to login.html
-                    console.log("No valid session found. Redirecting to login.html...");
-                    window.location.href = 'login.html';
-                }
-            });
-
-        } catch (error) {
-            console.error("Firebase initialization failed:", error);
-            showMessage("Initialization error. Redirecting to login...", true);
-            setTimeout(() => { window.location.href = 'login.html'; }, 500);
-        }
+                updateLivePreview();
+                setPreviewButton(latestDeploymentUrl, false);
+                loadingScreen.classList.add('hidden');
+                editorContent.classList.remove('hidden');
+                lucide.createIcons();
+            } else { window.location.href = '/dashboard'; }
+        });
     }
 
-    // Attach the submit listener and initialize
-    if (editorForm) {
-        editorForm.addEventListener('submit', handleSave);
-    }
-    // Attach listener to the AI Code Refine button
-    if (codeRefineButton) {
-        codeRefineButton.addEventListener('click', handleCodeRefine);
-    }
-    // Attach listener to the Preview button
-    if (previewBtn) {
-        previewBtn.addEventListener('click', handlePreview);
-    }
+    window.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); handleSave(); }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleCodeRefine(); }
+    });
 
-    initializeAppAndLoadData();
-    lucide.createIcons();
+    window.onbeforeunload = () => { if (isDirty) return "Unsaved changes!"; };
+    editorForm.onsubmit = handleSave;
+    codeRefineButton.onclick = handleCodeRefine;
+    
+    previewBtn.onclick = () => { 
+        if (!latestDeploymentUrl || previewBtn.disabled) return;
+        window.open(latestDeploymentUrl, "_blank"); 
+    };
+
+    initialize();
     </script>
 </body>
 </html>
