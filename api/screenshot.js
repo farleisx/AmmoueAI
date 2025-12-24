@@ -7,20 +7,21 @@ export default async function handler(req, res) {
   }
 
   let browser;
-
   try {
-    // Launch Chromium in Vercel's serverless environment
+    // Vercel-compatible Puppeteer launch
     browser = await puppeteer.launch({
       args: chromium.args,
-      executablePath: await chromium.executablePath(),
+      executablePath: await chromium.executablePath(), // critical!
       headless: chromium.headless,
+      defaultViewport: chromium.defaultViewport,
+      ignoreHTTPSErrors: true,
     });
 
     const page = await browser.newPage();
     const { url, htmlContent } = req.body;
 
     if (!url && !htmlContent) {
-      return res.status(400).json({ error: "Either 'url' or 'htmlContent' is required" });
+      return res.status(400).json({ error: "Provide 'url' or 'htmlContent'" });
     }
 
     if (url) {
@@ -30,15 +31,11 @@ export default async function handler(req, res) {
     }
 
     const buffer = await page.screenshot({ fullPage: true });
-
     await browser.close();
 
-    // ⚡ PRO TIP: Don't return base64 in production!
-    // For now, you can keep it for testing:
     return res.status(200).json({
       screenshotUrl: `data:image/png;base64,${buffer.toString("base64")}`,
     });
-
   } catch (err) {
     console.error("Screenshot error:", err);
     if (browser) await browser.close();
