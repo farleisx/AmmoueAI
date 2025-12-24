@@ -1,7 +1,7 @@
 // api/screenshot.js
 import fetch from "node-fetch";
 
-const APIFLASH_KEY = process.env.APIFLASH_KEY; // Get a free key at https://apiflash.com
+const APIFLASH_KEY = process.env.APIFLASH_KEY; // Get a free key at https://apiflash.co
 
 export default async function handler(req, res) {
     if (req.method !== "POST") {
