@@ -22,14 +22,18 @@
         .text-ammoue { color: #0d9488; }
         .bg-ammoue { background-color: #0d9488; }
         .hover\:bg-ammoue-dark:hover { background-color: #0c7b72; }
-        .CodeMirror { height: 100% !important; border-radius: 0.75rem; font-size: 14px; }
+        
+        /* Fixed Heights & Transitions */
+        .CodeMirror { height: 400px !important; border-radius: 0.75rem; font-size: 14px; transition: height 0.3s ease; }
+        .editor-expanded .CodeMirror { height: 75vh !important; }
+        #live-preview { max-height: 500px; transition: max-height 0.3s ease; }
+        
         .loading-screen { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: #f8fafc; display: flex; align-items: center; justify-content: center; z-index: 100; }
         #status-indicator.is-dirty::before { content: "● "; color: #f59e0b; }
         
         @keyframes pulse-teal { 0% { box-shadow: 0 0 0 0 rgba(13, 148, 136, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(13, 148, 136, 0); } 100% { box-shadow: 0 0 0 0 rgba(13, 148, 136, 0); } }
         .review-mode { animation: pulse-teal 2s infinite; border: 2px solid #0d9488 !important; }
 
-        /* Floating Bottom Bar */
         .action-bar {
             position: fixed;
             bottom: 20px;
@@ -67,7 +71,10 @@
                     <span id="project-title-header" class="ml-2 text-ammoue truncate max-w-xs">Loading...</span>
                 </h1>
                 <div class="flex space-x-2">
-                    <button onclick="window.location.href='/dashboard'" class="px-4 py-2 text-sm font-semibold rounded-full text-gray-700 bg-gray-100 hover:bg-gray-200 transition border border-gray-300">
+                    <button type="button" id="toggle-expand" class="px-4 py-2 text-sm font-semibold rounded-full text-ammoue bg-teal-50 hover:bg-teal-100 transition border border-teal-200 flex items-center">
+                        <i data-lucide="maximize-2" class="w-4 h-4 mr-2" id="toggle-icon"></i> <span id="toggle-text">Expand Editor</span>
+                    </button>
+                    <button onclick="window.location.href='/dashboard'" class="px-4 py-2 text-sm font-semibold rounded-full text-gray-700 bg-gray-100 hover:bg-gray-200 transition border border-gray-300 flex items-center">
                         <i data-lucide="layout-dashboard" class="w-4 h-4 mr-2"></i> Dashboard
                     </button>
                 </div>
@@ -92,8 +99,8 @@
                     </div>
                 </div>
 
-                <div class="flex-grow grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-[50vh]">
-                    <div class="flex flex-col relative">
+                <div class="flex-grow grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="flex flex-col relative" id="editor-wrapper">
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-2">HTML Code</label>
                         <div id="editor-container" class="flex-grow rounded-xl overflow-hidden border border-gray-300 shadow-inner">
                             <textarea id="code-editor"></textarea>
@@ -109,7 +116,7 @@
                     </div>
                     <div class="flex flex-col">
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Live Preview (Secure Sandbox)</label>
-                        <iframe id="live-preview" sandbox="allow-scripts allow-forms allow-modals allow-same-origin" class="flex-grow w-full rounded-xl border border-gray-300 bg-white shadow-sm"></iframe>
+                        <iframe id="live-preview" sandbox="allow-scripts allow-forms allow-modals allow-same-origin" class="flex-grow w-full h-[400px] rounded-xl border border-gray-300 bg-white shadow-sm"></iframe>
                     </div>
                 </div>
             </form>
@@ -165,11 +172,29 @@
     const livePreviewFrame = document.getElementById('live-preview');
     const aiReviewBar = document.getElementById('ai-review-bar');
     const editorContainer = document.getElementById('editor-container');
+    const toggleBtn = document.getElementById('toggle-expand');
 
     let latestDeploymentUrl = '';
 
     const userDocRef = () => doc(db, 'users', currentUserId);
     const projectDocRef = (id) => doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', id);
+
+    // Toggle Editor Height Logic
+    toggleBtn.onclick = () => {
+        const wrapper = document.getElementById('editor-wrapper');
+        const icon = document.getElementById('toggle-icon');
+        const text = document.getElementById('toggle-text');
+        
+        wrapper.classList.toggle('editor-expanded');
+        const isExpanded = wrapper.classList.contains('editor-expanded');
+        
+        text.textContent = isExpanded ? "Collapse Editor" : "Expand Editor";
+        icon.setAttribute('data-lucide', isExpanded ? "minimize-2" : "maximize-2");
+        lucide.createIcons();
+        
+        // Scroll to the top of the editor when expanding
+        if(isExpanded) wrapper.scrollIntoView({ behavior: 'smooth' });
+    };
 
     function showMessage(message, isError) {
         msgBox.textContent = message;
@@ -179,7 +204,6 @@
 
     function updateLivePreview(code) {
         const html = code || cmEditor.getValue();
-        // Using srcdoc is more reliable for sandboxed iframes than Blobs
         livePreviewFrame.srcdoc = html;
     }
 
@@ -251,6 +275,9 @@
         titleHeader.textContent = titleInput.value;
         markDirty(false);
         showMessage("Saved & Deployed!", false);
+        
+        // Auto scroll to bottom of the preview on save
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
     }
 
     async function handleCodeRefine() {
