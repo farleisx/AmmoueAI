@@ -1,41 +1,70 @@
 // api/screenshot.js
-import fetch from "node-fetch";
+import chromium from "@sparticuz/chromium";
+import puppeteer from "puppeteer-core";
+import admin from "firebase-admin";
 
-const APIFLASH_KEY = process.env.APIFLASH_KEY; // Get a free key at https://apiflash.co
+// Initialize Firebase Admin if not already initialized
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.applicationDefault(), // or use service account JSON
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET // e.g., "your-project.appspot.com"
+  });
+}
+
+const bucket = admin.storage().bucket();
 
 export default async function handler(req, res) {
-    if (req.method !== "POST") {
-        return res.status(405).json({ error: "Method Not Allowed" });
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method Not Allowed" });
+  }
+
+  let browser = null;
+
+  try {
+    const executablePath = await chromium.executablePath();
+
+    browser = await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath,
+      headless: chromium.headless,
+      ignoreHTTPSErrors: true,
+    });
+
+    const page = await browser.newPage();
+    const { url, htmlContent } = req.body;
+
+    if (url) {
+      await page.goto(url, { waitUntil: "networkidle2" });
+    } else {
+      await page.setContent(htmlContent, { waitUntil: "networkidle2" });
     }
 
-    try {
-        const { url, htmlContent } = req.body;
+    // Take screenshot as a buffer
+    const buffer = await page.screenshot({ type: "png", fullPage: true });
 
-        let screenshotUrl;
+    // Upload to Firebase Storage
+    const fileName = `screenshots/${Date.now()}.png`;
+    const file = bucket.file(fileName);
+    await file.save(buffer, {
+      metadata: { contentType: "image/png" },
+      resumable: false
+    });
 
-        if (url) {
-            // Use ApiFlash to take a screenshot of a live URL
-            const apiUrl = `https://api.apiflash.com/v1/urltoimage?access_key=${APIFLASH_KEY}&url=${encodeURIComponent(
-                url
-            )}&format=png&full_page=true`;
-            
-            const response = await fetch(apiUrl);
-            const buffer = await response.arrayBuffer();
+    // Make the file publicly accessible (optional)
+    await file.makePublic();
 
-            screenshotUrl = `data:image/png;base64,${Buffer.from(buffer).toString("base64")}`;
-        } else if (htmlContent) {
-            // For local HTML content, we need a simple temp page hosting solution.
-            // Quick workaround: reject for now
-            return res.status(400).json({
-                error: "Local HTML screenshots are not supported with ApiFlash. Deploy your site first."
-            });
-        } else {
-            return res.status(400).json({ error: "No URL or HTML content provided" });
-        }
+    const screenshotUrl = file.publicUrl();
 
-        return res.status(200).json({ screenshotUrl });
-    } catch (err) {
-        console.error("Screenshot API error:", err);
-        return res.status(500).json({ error: "Failed to generate screenshot", details: err.message });
-    }
+    res.status(200).json({ screenshotUrl });
+
+  } catch (error) {
+    console.error("Screenshot generation failed:", error);
+    res.status(500).json({
+      error: "Failed to generate screenshot",
+      details: error.message
+    });
+  } finally {
+    if (browser) await browser.close();
+  }
 }
