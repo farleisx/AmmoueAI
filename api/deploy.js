@@ -23,7 +23,6 @@ if (!getApps().length) {
 const db = getFirestore();
 
 /* ---------------- HELPERS ---------------- */
-
 function normalizeSlug(slug) {
   return slug
     .toLowerCase()
@@ -61,7 +60,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { htmlContent, userId, plan, projectId, slug } = req.body;
+  const { htmlContent, userId, plan, projectId, slug, customDomain } = req.body;
 
   if (!htmlContent || !userId || !plan || !projectId) {
     return res.status(400).json({ error: "Missing parameters" });
@@ -93,6 +92,19 @@ export default async function handler(req, res) {
     const internalName = randomInternalName(userId);
 
     /* -------- DEPLOY -------- */
+    const aliasList = [];
+    if (publicAlias) aliasList.push(publicAlias);
+
+    // Add custom domain if provided and Pro user
+    let customDomainUrl = null;
+    if (customDomain) {
+      if (plan !== "pro") {
+        return res.status(403).json({ error: "Custom domains are Pro-only" });
+      }
+      aliasList.push(customDomain);
+      customDomainUrl = `https://${customDomain}`;
+    }
+
     const deployRes = await fetch(
       `https://api.vercel.com/v13/deployments${VERCEL_TEAM_ID ? `?teamId=${VERCEL_TEAM_ID}` : ""}`,
       {
@@ -103,10 +115,10 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           name: internalName,
-          project: VERCEL_PROJECT, // ✅ ensures deployment goes to dedicated project
+          project: VERCEL_PROJECT,
           target: "production",
           files: [{ file: "index.html", data: htmlContent }],
-          ...(publicAlias && { alias: [publicAlias] }),
+          ...(aliasList.length > 0 && { alias: aliasList }),
         }),
       }
     );
@@ -135,6 +147,7 @@ export default async function handler(req, res) {
           slug: finalSlug || null,
           deploymentId: deployment.id,
           deploymentUrl,
+          customDomainUrl: customDomainUrl || null,
           updatedAt: FieldValue.serverTimestamp(),
         },
         { merge: true }
@@ -144,6 +157,7 @@ export default async function handler(req, res) {
       deploymentId: deployment.id,
       deploymentUrl,
       slug: finalSlug,
+      customDomainUrl,
       status: deployment.readyState,
     });
   } catch (err) {
