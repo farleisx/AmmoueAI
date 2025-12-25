@@ -54,6 +54,12 @@ async function releaseSlug(slug) {
   await db.collection("slugReservations").doc(slug).delete();
 }
 
+/* ---------------- VALIDATION ---------------- */
+function validateCustomDomain(domain) {
+  // Simple regex to ensure it looks like a domain
+  return /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain);
+}
+
 /* ---------------- HANDLER ---------------- */
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -66,11 +72,29 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Missing parameters" });
   }
 
+  // Enforce plan deployment limits
+  try {
+    const userProjectsSnap = await db
+      .collection("artifacts")
+      .doc(VERCEL_PROJECT)
+      .collection("users")
+      .doc(userId)
+      .collection("projects")
+      .get();
+
+    if (userProjectsSnap.size >= PLAN_LIMITS[plan]) {
+      return res.status(403).json({ error: "Plan deployment limit reached" });
+    }
+  } catch (err) {
+    console.error("PLAN CHECK ERROR:", err);
+    return res.status(500).json({ error: "Failed to check plan limits" });
+  }
+
+  let finalSlug = null;
+  let publicAlias = null;
+
   try {
     /* -------- SLUG LOGIC -------- */
-    let finalSlug = null;
-    let publicAlias = null;
-
     if (slug) {
       if (plan !== "pro") {
         return res.status(403).json({
@@ -80,7 +104,7 @@ export default async function handler(req, res) {
 
       finalSlug = normalizeSlug(slug);
 
-      if (finalSlug.length < 3) {
+      if (!finalSlug || finalSlug.length < 3) {
         return res.status(400).json({ error: "Invalid site name" });
       }
 
@@ -101,6 +125,11 @@ export default async function handler(req, res) {
       if (plan !== "pro") {
         return res.status(403).json({ error: "Custom domains are Pro-only" });
       }
+
+      if (!validateCustomDomain(customDomain)) {
+        return res.status(400).json({ error: "Invalid custom domain" });
+      }
+
       aliasList.push(customDomain);
       customDomainUrl = `https://${customDomain}`;
     }
@@ -126,7 +155,6 @@ export default async function handler(req, res) {
     const deployment = await deployRes.json();
 
     if (!deployRes.ok) {
-      if (finalSlug) await releaseSlug(finalSlug);
       throw new Error(deployment.error?.message || "Vercel deploy failed");
     }
 
@@ -161,6 +189,9 @@ export default async function handler(req, res) {
       status: deployment.readyState,
     });
   } catch (err) {
+    // Release slug on any failure
+    if (finalSlug) await releaseSlug(finalSlug);
+
     if (err.message === "SLUG_TAKEN") {
       return res.status(409).json({ error: "Site name already taken" });
     }
