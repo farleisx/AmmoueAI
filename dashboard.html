@@ -65,6 +65,9 @@
             <div class="text-2xl font-extrabold text-ammoue">Ammoue Dashboard</div>
             <div class="flex items-center space-x-4">
                 <span class="text-gray-600 text-sm">Welcome, <span id="user-email" class="font-semibold">Loading...</span></span>
+                <a href="/profile" class="px-3 py-2 text-sm font-medium rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-150 shadow-md flex items-center">
+                    <i data-lucide="user" class="w-4 h-4 mr-1"></i> Profile
+                </a>
                 <button onclick="handleLogout()" class="px-3 py-2 text-sm font-medium rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150 shadow-md">
                     Log Out
                 </button>
@@ -559,7 +562,7 @@
         }
 
         showMessage("Saving changes...", false);
-        window.closeEditModal();
+        window.closeEditModal(); 
         
         try {
             // Document path: /artifacts/{appId}/users/{userId}/projects/{projectId}
@@ -818,7 +821,18 @@
 
             if (userDoc.exists()) {
                 // Read the 'plan' field. Default to 'free' if the field is missing
-                plan = userDoc.data().plan || "free"; 
+                const userData = userDoc.data();
+                plan = userData.plan || "free"; 
+
+                // --- INTEGRATION: Set Username or Email ---
+                if (userData.username && userData.username.trim() !== "") {
+                    userEmailSpan.textContent = userData.username;
+                } else {
+                    userEmailSpan.textContent = user.email || user.uid;
+                }
+            } else {
+                // Fallback if doc doesn't exist
+                userEmailSpan.textContent = user.email || user.uid;
             }
             
             // 1. Update UI Status
@@ -867,6 +881,7 @@
                     currentUserId = user.uid;
                     isAuthReady = true;
 
+                    // Initial display (will be updated by loadUserPlanAndGateContent if username exists)
                     userEmailSpan.textContent = user.email || user.uid;
 
                     // Fetch projects for the logged-in user (CORE INTEGRATION)
