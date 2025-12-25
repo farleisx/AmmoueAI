@@ -57,20 +57,23 @@
     </div>
 
     <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 opacity-0 transition-opacity duration-300 z-50"></div>
-
     <div id="dashboard-content" class="min-h-screen hidden transition-opacity duration-500">
         <nav class="bg-white shadow-md p-4 flex justify-between items-center sticky top-0 z-10">
-            <div class="text-2xl font-extrabold text-ammoue">Ammoue Dashboard</div>
-            <div class="flex items-center space-x-4">
-                <span class="text-gray-600 text-sm">Welcome, <span id="user-email" class="font-bold text-gray-900">Loading...</span></span>
-                <a href="/profile" class="px-3 py-2 text-sm font-medium rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-150 shadow-md flex items-center">
-                    <i data-lucide="user" class="w-4 h-4 mr-1"></i> Profile
-                </a>
-                <button onclick="handleLogout()" class="px-3 py-2 text-sm font-medium rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150 shadow-md">
-                    Log Out
-                </button>
-            </div>
-        </nav>
+    <div class="flex items-center gap-2">
+        <img src="Gemini_Generated_Image_qry9pfqry9pfqry9.png" alt="Ammoue Logo" class="h-8 w-8" />
+        <div class="text-2xl font-extrabold text-ammoue">Ammoue Dashboard</div>
+    </div>
+    <div class="flex items-center space-x-4">
+        <span class="text-gray-600 text-sm">Welcome, <span id="user-email" class="font-bold text-gray-900">Loading...</span></span>
+        <a href="/profile" class="px-3 py-2 text-sm font-medium rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-150 shadow-md flex items-center">
+            <i data-lucide="user" class="w-4 h-4 mr-1"></i> Profile
+        </a>
+        <button onclick="handleLogout()" class="px-3 py-2 text-sm font-medium rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150 shadow-md">
+            Log Out
+        </button>
+    </div>
+</nav>
+
 
         <header class="p-4 md:p-8 max-w-6xl mx-auto flex flex-wrap gap-4 justify-between items-center border-b border-gray-200 mb-6">
             <div class="flex items-center space-x-3">
