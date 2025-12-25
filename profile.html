@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Ammoue | Profile</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+    body { font-family: Inter, sans-serif; background:#f8fafc; }
+    .text-ammoue { color:#0d9488; }
+    .bg-ammoue { background:#0d9488; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+<nav class="bg-white shadow p-4 flex justify-between">
+  <span class="text-xl font-bold text-ammoue">Ammoue</span>
+  <a href="/dashboard" class="text-sm font-semibold text-gray-600 hover:text-ammoue">← Dashboard</a>
+</nav>
+
+<main class="max-w-3xl mx-auto p-6">
+  <h1 class="text-3xl font-bold mb-6">Your Profile</h1>
+
+  <!-- User Info -->
+  <div class="bg-white rounded-2xl shadow p-6 mb-6">
+    <p class="text-sm text-gray-500">Email</p>
+    <p id="email" class="font-semibold mb-4">Loading...</p>
+
+    <label class="block text-sm font-medium text-gray-600 mb-1">Username</label>
+    <input id="usernameInput" class="w-full border rounded-xl p-3 mb-3" placeholder="Set your username" />
+    <button onclick="saveUsername()" class="bg-ammoue text-white px-4 py-2 rounded-xl font-semibold">
+      Save Username
+    </button>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div class="bg-white p-4 rounded-2xl shadow text-center">
+      <p class="text-sm text-gray-500">Generations</p>
+      <p id="genCount" class="text-2xl font-bold">0</p>
+    </div>
+    <div class="bg-white p-4 rounded-2xl shadow text-center">
+      <p class="text-sm text-gray-500">Deployments</p>
+      <p id="deployCount" class="text-2xl font-bold">0</p>
+    </div>
+    <div class="bg-white p-4 rounded-2xl shadow text-center">
+      <p class="text-sm text-gray-500">Saved Projects</p>
+      <p id="projectCount" class="text-2xl font-bold">0</p>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
+  authDomain: "ammoueai.firebaseapp.com",
+  projectId: "ammoueai"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = firebaseConfig.projectId;
+
+let currentUser;
+
+onAuthStateChanged(auth, async user => {
+  if (!user) {
+    window.location.href = "login.html";
+    return;
+  }
+
+  currentUser = user;
+  document.getElementById("email").textContent = user.email;
+
+  const userRef = doc(db, "users", user.uid);
+  const snap = await getDoc(userRef);
+
+  if (snap.exists()) {
+    const data = snap.data();
+    document.getElementById("usernameInput").value = data.username || "";
+    document.getElementById("genCount").textContent = data.generations || 0;
+    document.getElementById("deployCount").textContent = data.deployments || 0;
+  }
+
+  const projectsSnap = await getDocs(
+    collection(db, "artifacts", appId, "users", user.uid, "projects")
+  );
+  document.getElementById("projectCount").textContent = projectsSnap.size;
+});
+
+window.saveUsername = async function () {
+  const username = document.getElementById("usernameInput").value.trim();
+  if (!username) return;
+
+  await setDoc(doc(db, "users", currentUser.uid), {
+    email: currentUser.email,
+    username
+  }, { merge: true });
+
+  alert("Username saved!");
+};
+</script>
+</body>
+</html>
