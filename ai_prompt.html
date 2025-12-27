@@ -117,10 +117,6 @@
             transform: none;
             box-shadow: none;
         }
-
-        .btn-accept { @apply bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all; }
-        .btn-apply { @apply bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all; }
-        .btn-cancel { @apply bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all; }
     </style>
 </head>
 <body class="antialiased min-h-screen">
@@ -252,13 +248,7 @@
                     </div>
                 </div>
 
-                <pre class="bg-gray-100 p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm max-h-[600px] overflow-y-auto" id="output-scroll-container"><code id="output-code" class="whitespace-pre"></code></pre>
-
-                <div id="history-actions" class="flex gap-2 mt-4 hidden">
-                    <button id="accept-btn" class="btn-accept">Accept</button>
-                    <button id="apply-btn" class="btn-apply">Apply Changes</button>
-                    <button id="cancel-btn" class="btn-cancel">Cancel</button>
-                </div>
+                <pre class="bg-gray-100 p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm"><code id="output-code" class="whitespace-pre"></code></pre>
 
                 <div id="action-buttons-container" class="mt-4 flex space-x-4">
                     <button id="preview-html-btn" disabled
@@ -513,39 +503,16 @@ if (imageDropArea) {
     const refineBtn = document.getElementById('refine-btn');
     const deploymentErrorMessage = document.getElementById('deployment-error-message'); 
 
+    // New Popup Elements
     const processPopup = document.getElementById('process-popup');
     const scrollDownBtn = document.getElementById('scroll-to-bottom-btn');
     const actionContainer = document.getElementById('action-buttons-container');
-
-    const historyActions = document.getElementById('history-actions');
-    const acceptBtn = document.getElementById('accept-btn');
-    const applyBtn = document.getElementById('apply-btn');
-    const cancelBtn = document.getElementById('cancel-btn');
-
-    const outputScrollContainer = document.getElementById('output-scroll-container');
 
     let listenersAttached = false;
     let latestHtmlContent = ''; 
     let latestPrompt = ''; 
     let latestDeploymentUrl = ''; 
     let currentProjectId = null; 
-
-    let generationHistory = [];
-
-    function addToHistory(prompt, htmlContent) {
-        generationHistory.push({ prompt, html: htmlContent, timestamp: new Date() });
-    }
-
-    function showHistoryActions() { historyActions.classList.remove('hidden'); }
-
-    acceptBtn.onclick = () => { latestHtmlContent = outputCode.textContent; showMessage("Changes accepted!", false); }
-    applyBtn.onclick = () => { outputCode.textContent = latestHtmlContent; showMessage("Applied changes!", false); }
-    cancelBtn.onclick = () => { 
-        if (generationHistory.length > 0) {
-            outputCode.textContent = generationHistory.slice(-1)[0].html; 
-            showMessage("Reverted to last version!", false); 
-        }
-    }
 
     const delay = ms => new Promise(res => setTimeout(res, ms));
 
@@ -571,6 +538,7 @@ if (imageDropArea) {
             previewHtmlBtn.disabled = true;
             imageInput.disabled = true;
             
+            // Show process popup with custom message
             popupMessage.textContent = isRefining 
                 ? 'Refining your code...' 
                 : 'Please wait until the HTML check finishes...';
@@ -587,6 +555,7 @@ if (imageDropArea) {
             previewHtmlBtn.disabled = !latestHtmlContent;
             imageInput.disabled = false;
             
+            // Hide process popup
             processPopup.classList.remove('visible');
 
             generateBtn.innerHTML = 'Generate HTML Code';
@@ -601,7 +570,7 @@ if (imageDropArea) {
         publishBtn.textContent = 'Publish Site';
 
         if (isDeploying) {
-            processPopup.classList.add('visible'); 
+            processPopup.classList.add('visible'); // Show popup during deployment
             let text = 'Deployment Initiated...';
             if (status === 'queued') text = 'Deployment Queued...';
             if (status === 'building') text = 'Deployment Building...';
@@ -609,7 +578,7 @@ if (imageDropArea) {
             publishBtn.textContent = text;
             publishBtn.classList.add('bg-yellow-600', 'cursor-not-allowed');
         } else if (url) {
-            processPopup.classList.remove('visible'); 
+            processPopup.classList.remove('visible'); // Hide after deploy
             publishBtn.textContent = 'Open Live Site';
             publishBtn.classList.add('bg-green-600', 'cursor-pointer');
         } else if (latestHtmlContent) {
@@ -618,7 +587,7 @@ if (imageDropArea) {
         } else {
             publishBtn.textContent = 'Publish Site';
             publishBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
-        } 
+        }
     }
 
     async function copyToClipboard(text) {
@@ -848,18 +817,16 @@ if (imageDropArea) {
 
     function startCooldown(button, seconds = 60) {
         let countdown = seconds;
-        [generateBtn, refineBtn].forEach(btn => btn.disabled = true); 
+        const originalText = button.innerHTML;
+        button.disabled = true;
         
         const interval = setInterval(() => {
-            generateBtn.innerText = `Cooling down (${countdown}s)...`;
-            refineBtn.innerText = `Cooling down (${countdown}s)...`;
+            button.innerText = `Cooling down (${countdown}s)...`;
             countdown--;
             if (countdown < 0) {
                 clearInterval(interval);
-                generateBtn.innerHTML = 'Generate HTML Code';
-                refineBtn.innerHTML = 'Refine Code';
-                generateBtn.disabled = false;
-                refineBtn.disabled = false;
+                button.innerHTML = originalText;
+                button.disabled = false;
             }
         }, 1000);
     }
@@ -930,10 +897,6 @@ if (imageDropArea) {
                             .replace(/\\"/g, '"') 
                             .trim();
 
-                        if (outputScrollContainer) {
-                            outputScrollContainer.scrollTop = outputScrollContainer.scrollHeight;
-                        }
-
                         if (isFirstChunk) {
                             outputDiv.classList.remove("hidden");
                             isFirstChunk = false;
@@ -955,23 +918,15 @@ if (imageDropArea) {
             generationDone = true;
             currentProjectId = await autoSaveProject(latestHtmlContent, latestPrompt, null); 
             
-            addToHistory(latestPrompt, latestHtmlContent);
-            showHistoryActions();
-
-            showMessage(currentProjectId ? "✅ Saved!" : "✅ Generated", !currentProjectId);
+            showMessage(currentProjectId ? "✅ Saved!" : "✅ Generated (Save failed)", !currentProjectId);
             
             attachedImages = [];
             renderImagePreviews(); 
             lucide.createIcons();
+            handleScrollToOutput();
 
             setLoading(false);
-            
-            scrollDownBtn.classList.add('visible'); 
-            historyActions.scrollIntoView({ behavior: 'smooth', block: 'end' });
-
-            if (latestHtmlContent) {
-                startCooldown(generateBtn, 60);
-            }
+            startCooldown(generateBtn, 60);
 
         } catch (err) {
             console.error(err);
@@ -990,7 +945,6 @@ if (imageDropArea) {
 
         setLoading(true, true);
         generationDone = false;
-        outputCode.textContent = ""; 
         const originalHtml = latestHtmlContent;
 
         try {
@@ -1031,15 +985,7 @@ if (imageDropArea) {
                     try {
                         const jsonChunk = JSON.parse(trimmedMsg);
                         refinedHtml += (jsonChunk.text || "");
-                        
-                        outputCode.textContent = refinedHtml
-                            .replace(/\\n/g, '\n')
-                            .replace(/\\"/g, '"')
-                            .trim();
-                        
-                        if (outputScrollContainer) {
-                            outputScrollContainer.scrollTop = outputScrollContainer.scrollHeight;
-                        }
+                        outputCode.textContent = refinedHtml.replace(/\\n/g, '\n').replace(/\\"/g, '"').trim();
                     } catch (e) {
                         buffer = streamSeparator + trimmedMsg + buffer;
                     }
@@ -1058,15 +1004,10 @@ if (imageDropArea) {
             latestPrompt += `\n[Refinement]: ${refinePrompt}`; 
             await autoSaveProject(latestHtmlContent, latestPrompt, currentProjectId); 
             
-            addToHistory(latestPrompt, latestHtmlContent);
-            showHistoryActions();
-
             latestDeploymentUrl = "";
             setPublishButton(null, false);
             showMessage("✨ Refined!", false);
-
-            scrollDownBtn.classList.add('visible');
-            historyActions.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            handleScrollToOutput();
 
             setLoading(false);
             startCooldown(refineBtn, 60);
@@ -1130,7 +1071,10 @@ if (imageDropArea) {
         localStorage.setItem('ammoue_saved_refine_prompt', e.target.value);
     });
 
-    scrollDownBtn.onclick = () => historyActions.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    // Scroll button event
+    scrollDownBtn.addEventListener('click', () => {
+        actionContainer.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    });
 
     onAuthStateChanged(auth, (user) => {
         if (user) {
