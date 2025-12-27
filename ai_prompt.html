@@ -117,6 +117,11 @@
             transform: none;
             box-shadow: none;
         }
+
+        /* New Button Styles for Requirements */
+        .btn-accept { @apply bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all; }
+        .btn-apply { @apply bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all; }
+        .btn-cancel { @apply bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all; }
     </style>
 </head>
 <body class="antialiased min-h-screen">
@@ -249,6 +254,12 @@
                 </div>
 
                 <pre class="bg-gray-100 p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm"><code id="output-code" class="whitespace-pre"></code></pre>
+
+                <div id="history-actions" class="flex gap-2 mt-4 hidden">
+                    <button id="accept-btn" class="btn-accept">Accept</button>
+                    <button id="apply-btn" class="btn-apply">Apply Changes</button>
+                    <button id="cancel-btn" class="btn-cancel">Cancel</button>
+                </div>
 
                 <div id="action-buttons-container" class="mt-4 flex space-x-4">
                     <button id="preview-html-btn" disabled
@@ -508,11 +519,36 @@ if (imageDropArea) {
     const scrollDownBtn = document.getElementById('scroll-to-bottom-btn');
     const actionContainer = document.getElementById('action-buttons-container');
 
+    // Requirement 2 Elements
+    const historyActions = document.getElementById('history-actions');
+    const acceptBtn = document.getElementById('accept-btn');
+    const applyBtn = document.getElementById('apply-btn');
+    const cancelBtn = document.getElementById('cancel-btn');
+
     let listenersAttached = false;
     let latestHtmlContent = ''; 
     let latestPrompt = ''; 
     let latestDeploymentUrl = ''; 
     let currentProjectId = null; 
+
+    // Requirement 1: History Tracking
+    let generationHistory = [];
+
+    function addToHistory(prompt, htmlContent) {
+        generationHistory.push({ prompt, html: htmlContent, timestamp: new Date() });
+    }
+
+    // Requirement 2: History Logic
+    function showHistoryActions() { historyActions.classList.remove('hidden'); }
+
+    acceptBtn.onclick = () => { latestHtmlContent = outputCode.textContent; showMessage("Changes accepted!", false); }
+    applyBtn.onclick = () => { outputCode.textContent = latestHtmlContent; showMessage("Applied changes!", false); }
+    cancelBtn.onclick = () => { 
+        if (generationHistory.length > 0) {
+            outputCode.textContent = generationHistory.slice(-1)[0].html; 
+            showMessage("Reverted to last version!", false); 
+        }
+    }
 
     const delay = ms => new Promise(res => setTimeout(res, ms));
 
@@ -587,7 +623,7 @@ if (imageDropArea) {
         } else {
             publishBtn.textContent = 'Publish Site';
             publishBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
-        }
+        } 
     }
 
     async function copyToClipboard(text) {
@@ -815,18 +851,22 @@ if (imageDropArea) {
         }
     }
 
+    // Requirement 6: Shared Cooldown
     function startCooldown(button, seconds = 60) {
         let countdown = seconds;
         const originalText = button.innerHTML;
-        button.disabled = true;
+        [generateBtn, refineBtn].forEach(btn => btn.disabled = true); // disable both buttons
         
         const interval = setInterval(() => {
-            button.innerText = `Cooling down (${countdown}s)...`;
+            generateBtn.innerText = `Cooling down (${countdown}s)...`;
+            refineBtn.innerText = `Cooling down (${countdown}s)...`;
             countdown--;
             if (countdown < 0) {
                 clearInterval(interval);
-                button.innerHTML = originalText;
-                button.disabled = false;
+                generateBtn.innerHTML = 'Generate HTML Code';
+                refineBtn.innerHTML = 'Refine Code';
+                generateBtn.disabled = false;
+                refineBtn.disabled = false;
             }
         }, 1000);
     }
@@ -897,6 +937,9 @@ if (imageDropArea) {
                             .replace(/\\"/g, '"') 
                             .trim();
 
+                        // Requirement 3: Auto-scroll
+                        outputDiv.scrollTop = outputDiv.scrollHeight;
+
                         if (isFirstChunk) {
                             outputDiv.classList.remove("hidden");
                             isFirstChunk = false;
@@ -918,6 +961,11 @@ if (imageDropArea) {
             generationDone = true;
             currentProjectId = await autoSaveProject(latestHtmlContent, latestPrompt, null); 
             
+            // Requirement 1 & 7
+            addToHistory(latestPrompt, latestHtmlContent);
+            // Requirement 2 & 7
+            showHistoryActions();
+
             showMessage(currentProjectId ? "✅ Saved!" : "✅ Generated (Save failed)", !currentProjectId);
             
             attachedImages = [];
@@ -926,7 +974,17 @@ if (imageDropArea) {
             handleScrollToOutput();
 
             setLoading(false);
-            startCooldown(generateBtn, 60);
+            
+            // Requirement 4 & 7
+            scrollDownBtn.classList.add('visible'); 
+
+            // Requirement 5 & 7: Auto-refine
+            if (latestHtmlContent) {
+                refineBtn.click();
+                startCooldown(refineBtn, 60);
+            } else {
+                startCooldown(generateBtn, 60);
+            }
 
         } catch (err) {
             console.error(err);
@@ -986,6 +1044,9 @@ if (imageDropArea) {
                         const jsonChunk = JSON.parse(trimmedMsg);
                         refinedHtml += (jsonChunk.text || "");
                         outputCode.textContent = refinedHtml.replace(/\\n/g, '\n').replace(/\\"/g, '"').trim();
+                        
+                        // Requirement 3: Auto-scroll
+                        outputDiv.scrollTop = outputDiv.scrollHeight;
                     } catch (e) {
                         buffer = streamSeparator + trimmedMsg + buffer;
                     }
@@ -1004,6 +1065,11 @@ if (imageDropArea) {
             latestPrompt += `\n[Refinement]: ${refinePrompt}`; 
             await autoSaveProject(latestHtmlContent, latestPrompt, currentProjectId); 
             
+            // Requirement 1 & 7
+            addToHistory(latestPrompt, latestHtmlContent);
+            // Requirement 2 & 7
+            showHistoryActions();
+
             latestDeploymentUrl = "";
             setPublishButton(null, false);
             showMessage("✨ Refined!", false);
@@ -1071,10 +1137,8 @@ if (imageDropArea) {
         localStorage.setItem('ammoue_saved_refine_prompt', e.target.value);
     });
 
-    // Scroll button event
-    scrollDownBtn.addEventListener('click', () => {
-        actionContainer.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    });
+    // Requirement 4: End-of-page logic
+    scrollDownBtn.onclick = () => outputDiv.scrollIntoView({ behavior: 'smooth', block: 'end' });
 
     onAuthStateChanged(auth, (user) => {
         if (user) {
