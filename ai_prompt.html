@@ -345,7 +345,7 @@
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-    import { getFirestore, collection, addDoc, doc, getDoc, updateDoc, serverTimestamp, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, doc, getDoc, updateDoc, setDoc, serverTimestamp, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
     
     const firebaseConfig = {
         apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
@@ -798,41 +798,27 @@ if (imageDropArea) {
         if (!currentUserId || !htmlContent) return null;
 
         try {
-            const projectsRef = collection(db, "artifacts", appId, "users", currentUserId, "projects");
+            const projectId = existingProjectId || doc(collection(db, "artifacts", appId, "users", currentUserId, "projects")).id;
+            const projectRef = doc(db, "artifacts", appId, "users", currentUserId, "projects", projectId);
             
-            if (existingProjectId) {
-                const docRef = doc(projectsRef, existingProjectId);
-                await updateDoc(docRef, {
-                    prompt: userPrompt.replace(/\\n/g, "\n"),
-                    htmlContent,
-                    updatedAt: serverTimestamp(), 
-                });
-                
-                const versionsRef = collection(docRef, "versions");
-                await addDoc(versionsRef, {
-                    htmlContent,
-                    prompt: userPrompt.replace(/\\n/g, "\n"),
-                    createdAt: serverTimestamp()
-                });
-
-                return existingProjectId;
-            } else {
-                const newDocRef = await addDoc(projectsRef, {
-                    prompt: userPrompt.replace(/\\n/g, "\n"),
-                    htmlContent,
-                    deploymentUrl: null,
+            await setDoc(projectRef, {
+                htmlContent,
+                prompt: userPrompt.replace(/\\n/g, "\n"),
+                updatedAt: serverTimestamp(),
+                ...(existingProjectId ? {} : { 
                     createdAt: serverTimestamp(),
-                });
+                    deploymentUrl: null 
+                })
+            }, { merge: true });
 
-                const versionsRef = collection(newDocRef, "versions");
-                await addDoc(versionsRef, {
-                    htmlContent,
-                    prompt: userPrompt.replace(/\\n/g, "\n"),
-                    createdAt: serverTimestamp()
-                });
+            const versionsRef = collection(projectRef, "versions");
+            await addDoc(versionsRef, {
+                htmlContent,
+                prompt: userPrompt.replace(/\\n/g, "\n"),
+                createdAt: serverTimestamp()
+            });
 
-                return newDocRef.id;
-            }
+            return projectId;
         } catch (error) {
             console.error("Error during auto-save:", error);
             showMessage("⚠️ Warning: Failed to auto-save project.", true);
