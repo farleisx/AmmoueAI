@@ -261,11 +261,6 @@
                     </button>
                 </div>
 
-                <div id="version-history" class="mt-4 p-4 bg-gray-100 rounded-xl hidden">
-                    <h3 class="font-bold text-gray-700 mb-2">Refinement History</h3>
-                    <ul id="version-list" class="space-y-2"></ul>
-                </div>
-
                 <div id="deployment-error-message" class="mt-4 p-4 rounded-xl text-center border-2 border-red-400 bg-red-100 text-red-700 font-semibold text-sm hidden">
                 </div>
             </div>
@@ -336,16 +331,11 @@
         </div>
     </div>
 </div>
-
-<button id="scroll-bottom-btn" 
-        class="fixed bottom-6 right-6 bg-ammoue text-white px-4 py-2 rounded-xl shadow-lg hover:shadow-2xl transition"
-        style="display:none;">
-    Scroll to Bottom</button>
-
+    
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-    import { getFirestore, collection, addDoc, doc, getDoc, updateDoc, setDoc, serverTimestamp, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, doc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
     
     const firebaseConfig = {
         apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
@@ -656,19 +646,8 @@ if (imageDropArea) {
         }
     }
 
-    let autoScrollEnabled = true;
     function handleScrollToOutput() {
-        if (autoScrollEnabled) {
-            const scrollArea = document.body.classList.contains('desktop-mode') 
-                ? document.getElementById('main-scroll-area') 
-                : window;
-            
-            if (scrollArea === window) {
-                window.scrollTo({ top: document.body.scrollHeight, behavior: 'auto' });
-            } else {
-                scrollArea.scrollTop = scrollArea.scrollHeight;
-            }
-        }
+        outputDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function isValidHtml(html) {
@@ -798,27 +777,25 @@ if (imageDropArea) {
         if (!currentUserId || !htmlContent) return null;
 
         try {
-            const projectId = existingProjectId || doc(collection(db, "artifacts", appId, "users", currentUserId, "projects")).id;
-            const projectRef = doc(db, "artifacts", appId, "users", currentUserId, "projects", projectId);
+            const projectsRef = collection(db, "artifacts", appId, "users", currentUserId, "projects");
             
-            await setDoc(projectRef, {
-                htmlContent,
-                prompt: userPrompt.replace(/\\n/g, "\n"),
-                updatedAt: serverTimestamp(),
-                ...(existingProjectId ? {} : { 
+            if (existingProjectId) {
+                const docRef = doc(projectsRef, existingProjectId);
+                await updateDoc(docRef, {
+                    prompt: userPrompt.replace(/\\n/g, "\n"),
+                    htmlContent,
+                    updatedAt: serverTimestamp(), 
+                });
+                return existingProjectId;
+            } else {
+                const newDocRef = await addDoc(projectsRef, {
+                    prompt: userPrompt.replace(/\\n/g, "\n"),
+                    htmlContent,
+                    deploymentUrl: null,
                     createdAt: serverTimestamp(),
-                    deploymentUrl: null 
-                })
-            }, { merge: true });
-
-            const versionsRef = collection(projectRef, "versions");
-            await addDoc(versionsRef, {
-                htmlContent,
-                prompt: userPrompt.replace(/\\n/g, "\n"),
-                createdAt: serverTimestamp()
-            });
-
-            return projectId;
+                });
+                return newDocRef.id;
+            }
         } catch (error) {
             console.error("Error during auto-save:", error);
             showMessage("⚠️ Warning: Failed to auto-save project.", true);
@@ -924,7 +901,6 @@ if (imageDropArea) {
                             outputDiv.classList.remove("hidden");
                             isFirstChunk = false;
                         }
-                        handleScrollToOutput();
                     } catch (e) {
                         buffer = streamSeparator + trimmedMsg + buffer;
                     }
@@ -947,11 +923,7 @@ if (imageDropArea) {
             attachedImages = [];
             renderImagePreviews(); 
             lucide.createIcons();
-            
-            const scrollBtn = document.getElementById('scroll-bottom-btn');
-            scrollBtn.style.display = 'block';
-            
-            if (currentProjectId) setupHistoryListener(currentProjectId);
+            handleScrollToOutput();
 
             setLoading(false);
             startCooldown(generateBtn, 60);
@@ -1014,7 +986,6 @@ if (imageDropArea) {
                         const jsonChunk = JSON.parse(trimmedMsg);
                         refinedHtml += (jsonChunk.text || "");
                         outputCode.textContent = refinedHtml.replace(/\\n/g, '\n').replace(/\\"/g, '"').trim();
-                        handleScrollToOutput();
                     } catch (e) {
                         buffer = streamSeparator + trimmedMsg + buffer;
                     }
@@ -1030,23 +1001,13 @@ if (imageDropArea) {
 
             outputCode.textContent = latestHtmlContent;
             generationDone = true;
-            
-            const applyBtn = document.createElement("button");
-            applyBtn.id = "temp-apply-btn";
-            applyBtn.textContent = "Apply Changes";
-            applyBtn.className = "px-6 py-2 bg-green-600 text-white rounded-xl shadow-lg hover:bg-green-700 transition font-bold";
-            actionContainer.appendChild(applyBtn);
-
-            applyBtn.addEventListener('click', async () => {
-                latestPrompt += `\n[Refinement]: ${refinePrompt}`;
-                await autoSaveProject(latestHtmlContent, latestPrompt, currentProjectId);
-                showMessage("✅ Changes Applied!", false);
-                applyBtn.remove();
-            });
+            latestPrompt += `\n[Refinement]: ${refinePrompt}`; 
+            await autoSaveProject(latestHtmlContent, latestPrompt, currentProjectId); 
             
             latestDeploymentUrl = "";
             setPublishButton(null, false);
-            showMessage("✨ Refined! Review and Apply Changes.", false);
+            showMessage("✨ Refined!", false);
+            handleScrollToOutput();
 
             setLoading(false);
             startCooldown(refineBtn, 60);
@@ -1056,54 +1017,6 @@ if (imageDropArea) {
             showMessage("Refinement failed.", true);
             setLoading(false);
         }
-    }
-
-    function setupHistoryListener(projectId) {
-        const historyPanel = document.getElementById('version-history');
-        const historyList = document.getElementById('version-list');
-        const versionsRef = collection(db, "artifacts", appId, "users", currentUserId, "projects", projectId, "versions");
-        const q = query(versionsRef, orderBy("createdAt", "desc"));
-
-        onSnapshot(q, (snapshot) => {
-            historyList.innerHTML = "";
-            if (snapshot.empty) {
-                historyPanel.classList.add('hidden');
-                return;
-            }
-            historyPanel.classList.remove('hidden');
-
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                const li = document.createElement('li');
-                li.className = "flex justify-between items-center bg-white p-3 rounded-lg border text-sm";
-                
-                const timeStr = data.createdAt ? new Date(data.createdAt.seconds * 1000).toLocaleString() : "Saving...";
-                
-                li.innerHTML = `
-                    <span class="text-gray-600 truncate mr-4">Version: ${timeStr}</span>
-                    <div class="flex gap-2 shrink-0">
-                        <button class="view-ver px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs font-semibold">View</button>
-                        <button class="revert-ver px-3 py-1 bg-ammoue text-white hover:opacity-80 rounded text-xs font-semibold">Revert</button>
-                    </div>
-                `;
-
-                li.querySelector('.view-ver').onclick = () => {
-                    const previewWindow = window.open('', '_blank');
-                    previewWindow.document.write(data.htmlContent);
-                    previewWindow.document.close();
-                };
-
-                li.querySelector('.revert-ver').onclick = async () => {
-                    latestHtmlContent = data.htmlContent;
-                    outputCode.textContent = data.htmlContent;
-                    await autoSaveProject(latestHtmlContent, latestPrompt, currentProjectId);
-                    showMessage("✅ Reverted to old version!", false);
-                    handleScrollToOutput();
-                };
-
-                historyList.appendChild(li);
-            });
-        });
     }
 
 
@@ -1161,17 +1074,6 @@ if (imageDropArea) {
     // Scroll button event
     scrollDownBtn.addEventListener('click', () => {
         actionContainer.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    });
-
-    document.getElementById('scroll-bottom-btn').addEventListener('click', () => {
-        const scrollArea = document.body.classList.contains('desktop-mode') 
-                ? document.getElementById('main-scroll-area') 
-                : window;
-        if (scrollArea === window) {
-            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-        } else {
-            scrollArea.scrollTo({ top: scrollArea.scrollHeight, behavior: 'smooth' });
-        }
     });
 
     onAuthStateChanged(auth, (user) => {
