@@ -118,7 +118,6 @@
             box-shadow: none;
         }
 
-        /* New Button Styles for Requirements */
         .btn-accept { @apply bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all; }
         .btn-apply { @apply bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all; }
         .btn-cancel { @apply bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all; }
@@ -253,7 +252,7 @@
                     </div>
                 </div>
 
-                <pre class="bg-gray-100 p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm"><code id="output-code" class="whitespace-pre"></code></pre>
+                <pre class="bg-gray-100 p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm max-h-[600px] overflow-y-auto" id="output-scroll-container"><code id="output-code" class="whitespace-pre"></code></pre>
 
                 <div id="history-actions" class="flex gap-2 mt-4 hidden">
                     <button id="accept-btn" class="btn-accept">Accept</button>
@@ -514,16 +513,16 @@ if (imageDropArea) {
     const refineBtn = document.getElementById('refine-btn');
     const deploymentErrorMessage = document.getElementById('deployment-error-message'); 
 
-    // New Popup Elements
     const processPopup = document.getElementById('process-popup');
     const scrollDownBtn = document.getElementById('scroll-to-bottom-btn');
     const actionContainer = document.getElementById('action-buttons-container');
 
-    // Requirement 2 Elements
     const historyActions = document.getElementById('history-actions');
     const acceptBtn = document.getElementById('accept-btn');
     const applyBtn = document.getElementById('apply-btn');
     const cancelBtn = document.getElementById('cancel-btn');
+
+    const outputScrollContainer = document.getElementById('output-scroll-container');
 
     let listenersAttached = false;
     let latestHtmlContent = ''; 
@@ -531,14 +530,12 @@ if (imageDropArea) {
     let latestDeploymentUrl = ''; 
     let currentProjectId = null; 
 
-    // Requirement 1: History Tracking
     let generationHistory = [];
 
     function addToHistory(prompt, htmlContent) {
         generationHistory.push({ prompt, html: htmlContent, timestamp: new Date() });
     }
 
-    // Requirement 2: History Logic
     function showHistoryActions() { historyActions.classList.remove('hidden'); }
 
     acceptBtn.onclick = () => { latestHtmlContent = outputCode.textContent; showMessage("Changes accepted!", false); }
@@ -574,7 +571,6 @@ if (imageDropArea) {
             previewHtmlBtn.disabled = true;
             imageInput.disabled = true;
             
-            // Show process popup with custom message
             popupMessage.textContent = isRefining 
                 ? 'Refining your code...' 
                 : 'Please wait until the HTML check finishes...';
@@ -591,7 +587,6 @@ if (imageDropArea) {
             previewHtmlBtn.disabled = !latestHtmlContent;
             imageInput.disabled = false;
             
-            // Hide process popup
             processPopup.classList.remove('visible');
 
             generateBtn.innerHTML = 'Generate HTML Code';
@@ -606,7 +601,7 @@ if (imageDropArea) {
         publishBtn.textContent = 'Publish Site';
 
         if (isDeploying) {
-            processPopup.classList.add('visible'); // Show popup during deployment
+            processPopup.classList.add('visible'); 
             let text = 'Deployment Initiated...';
             if (status === 'queued') text = 'Deployment Queued...';
             if (status === 'building') text = 'Deployment Building...';
@@ -614,7 +609,7 @@ if (imageDropArea) {
             publishBtn.textContent = text;
             publishBtn.classList.add('bg-yellow-600', 'cursor-not-allowed');
         } else if (url) {
-            processPopup.classList.remove('visible'); // Hide after deploy
+            processPopup.classList.remove('visible'); 
             publishBtn.textContent = 'Open Live Site';
             publishBtn.classList.add('bg-green-600', 'cursor-pointer');
         } else if (latestHtmlContent) {
@@ -851,11 +846,9 @@ if (imageDropArea) {
         }
     }
 
-    // Requirement 6: Shared Cooldown
     function startCooldown(button, seconds = 60) {
         let countdown = seconds;
-        const originalText = button.innerHTML;
-        [generateBtn, refineBtn].forEach(btn => btn.disabled = true); // disable both buttons
+        [generateBtn, refineBtn].forEach(btn => btn.disabled = true); 
         
         const interval = setInterval(() => {
             generateBtn.innerText = `Cooling down (${countdown}s)...`;
@@ -937,8 +930,9 @@ if (imageDropArea) {
                             .replace(/\\"/g, '"') 
                             .trim();
 
-                        // Requirement 3: Auto-scroll
-                        outputDiv.scrollTop = outputDiv.scrollHeight;
+                        if (outputScrollContainer) {
+                            outputScrollContainer.scrollTop = outputScrollContainer.scrollHeight;
+                        }
 
                         if (isFirstChunk) {
                             outputDiv.classList.remove("hidden");
@@ -961,28 +955,21 @@ if (imageDropArea) {
             generationDone = true;
             currentProjectId = await autoSaveProject(latestHtmlContent, latestPrompt, null); 
             
-            // Requirement 1 & 7
             addToHistory(latestPrompt, latestHtmlContent);
-            // Requirement 2 & 7
             showHistoryActions();
 
-            showMessage(currentProjectId ? "✅ Saved!" : "✅ Generated (Save failed)", !currentProjectId);
+            showMessage(currentProjectId ? "✅ Saved!" : "✅ Generated", !currentProjectId);
             
             attachedImages = [];
             renderImagePreviews(); 
             lucide.createIcons();
-            handleScrollToOutput();
 
             setLoading(false);
             
-            // Requirement 4 & 7
             scrollDownBtn.classList.add('visible'); 
+            historyActions.scrollIntoView({ behavior: 'smooth', block: 'end' });
 
-            // Requirement 5 & 7: Auto-refine
             if (latestHtmlContent) {
-                refineBtn.click();
-                startCooldown(refineBtn, 60);
-            } else {
                 startCooldown(generateBtn, 60);
             }
 
@@ -1003,6 +990,7 @@ if (imageDropArea) {
 
         setLoading(true, true);
         generationDone = false;
+        outputCode.textContent = ""; 
         const originalHtml = latestHtmlContent;
 
         try {
@@ -1043,10 +1031,15 @@ if (imageDropArea) {
                     try {
                         const jsonChunk = JSON.parse(trimmedMsg);
                         refinedHtml += (jsonChunk.text || "");
-                        outputCode.textContent = refinedHtml.replace(/\\n/g, '\n').replace(/\\"/g, '"').trim();
                         
-                        // Requirement 3: Auto-scroll
-                        outputDiv.scrollTop = outputDiv.scrollHeight;
+                        outputCode.textContent = refinedHtml
+                            .replace(/\\n/g, '\n')
+                            .replace(/\\"/g, '"')
+                            .trim();
+                        
+                        if (outputScrollContainer) {
+                            outputScrollContainer.scrollTop = outputScrollContainer.scrollHeight;
+                        }
                     } catch (e) {
                         buffer = streamSeparator + trimmedMsg + buffer;
                     }
@@ -1065,15 +1058,15 @@ if (imageDropArea) {
             latestPrompt += `\n[Refinement]: ${refinePrompt}`; 
             await autoSaveProject(latestHtmlContent, latestPrompt, currentProjectId); 
             
-            // Requirement 1 & 7
             addToHistory(latestPrompt, latestHtmlContent);
-            // Requirement 2 & 7
             showHistoryActions();
 
             latestDeploymentUrl = "";
             setPublishButton(null, false);
             showMessage("✨ Refined!", false);
-            handleScrollToOutput();
+
+            scrollDownBtn.classList.add('visible');
+            historyActions.scrollIntoView({ behavior: 'smooth', block: 'end' });
 
             setLoading(false);
             startCooldown(refineBtn, 60);
@@ -1137,8 +1130,7 @@ if (imageDropArea) {
         localStorage.setItem('ammoue_saved_refine_prompt', e.target.value);
     });
 
-    // Requirement 4: End-of-page logic
-    scrollDownBtn.onclick = () => outputDiv.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    scrollDownBtn.onclick = () => historyActions.scrollIntoView({ behavior: 'smooth', block: 'end' });
 
     onAuthStateChanged(auth, (user) => {
         if (user) {
