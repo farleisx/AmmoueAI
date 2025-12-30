@@ -39,6 +39,16 @@
     </button>
   </div>
 
+  <!-- Subscription Plan -->
+  <div class="bg-white rounded-2xl shadow p-6 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div>
+      <p class="text-sm text-gray-500">Your Plan</p>
+      <p id="profile-plan" class="text-xl font-extrabold text-ammoue">Loading...</p>
+      <p id="profile-plan-desc" class="text-sm text-gray-500 mt-1"></p>
+    </div>
+    <div id="profile-upgrade-wrapper"></div>
+  </div>
+
   <!-- Stats -->
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
     <div class="bg-white p-4 rounded-2xl shadow text-center">
@@ -74,6 +84,10 @@ const appId = firebaseConfig.projectId;
 
 let currentUser;
 
+const profilePlanEl = document.getElementById("profile-plan");
+const profilePlanDesc = document.getElementById("profile-plan-desc");
+const profileUpgradeWrapper = document.getElementById("profile-upgrade-wrapper");
+
 onAuthStateChanged(auth, async user => {
   if (!user) {
     window.location.href = "login.html";
@@ -86,11 +100,33 @@ onAuthStateChanged(auth, async user => {
   const userRef = doc(db, "users", user.uid);
   const snap = await getDoc(userRef);
 
+  let plan = "free";
+
   if (snap.exists()) {
     const data = snap.data();
     document.getElementById("usernameInput").value = data.username || "";
     document.getElementById("genCount").textContent = data.generations || 0;
     document.getElementById("deployCount").textContent = data.deployments || 0;
+    plan = data.plan || "free";
+  }
+
+  // PLAN DISPLAY (same logic as dashboard)
+  profilePlanEl.textContent = plan.toUpperCase();
+  profilePlanEl.className = `text-xl font-extrabold ${
+    plan === "pro" ? "text-yellow-600" : "text-ammoue"
+  }`;
+
+  if (plan === "pro") {
+    profilePlanDesc.textContent = "Unlimited generations & deployments";
+    profileUpgradeWrapper.innerHTML = "";
+  } else {
+    profilePlanDesc.textContent = "Limited usage on Free plan";
+    profileUpgradeWrapper.innerHTML = `
+      <a href="/upgrade"
+         class="bg-yellow-500 text-white px-5 py-3 rounded-xl font-semibold hover:bg-yellow-600 transition shadow-md">
+        Upgrade
+      </a>
+    `;
   }
 
   const projectsSnap = await getDocs(
