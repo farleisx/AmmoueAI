@@ -528,6 +528,47 @@ if (imageDropArea) {
         }, 4000);
     }
 
+    let cooldownActive = false;
+    let cooldownInterval = null;
+
+    function startGlobalCooldown(seconds = 60) {
+        if (cooldownInterval || cooldownActive) return;
+
+        cooldownActive = true;
+        let remaining = seconds;
+        
+        localStorage.setItem('ammoue_cooldown_until', Date.now() + seconds * 1000);
+
+        generateBtn.disabled = true;
+        refineBtn.disabled = true;
+
+        const originalGenerateText = 'Generate HTML Code';
+        const originalRefineText = 'Refine Code';
+
+        generateBtn.innerText = `Cooling down (${remaining}s)...`;
+        refineBtn.innerText = `Cooling down (${remaining}s)...`;
+
+        cooldownInterval = setInterval(() => {
+            remaining--;
+
+            generateBtn.innerText = `Cooling down (${remaining}s)...`;
+            refineBtn.innerText = `Cooling down (${remaining}s)...`;
+
+            if (remaining <= 0) {
+                clearInterval(cooldownInterval);
+                cooldownInterval = null;
+                cooldownActive = false;
+                localStorage.removeItem('ammoue_cooldown_until');
+
+                generateBtn.innerHTML = originalGenerateText;
+                refineBtn.innerHTML = originalRefineText;
+
+                generateBtn.disabled = false;
+                refineBtn.disabled = !latestHtmlContent; // only enable refine if allowed
+            }
+        }, 1000);
+    }
+
     function setLoading(isLoading, isRefining = false) {
         const popupMessage = document.getElementById('process-popup-message');
         if (isLoading) {
@@ -548,8 +589,8 @@ if (imageDropArea) {
             const buttonToUpdate = isRefining ? refineBtn : generateBtn;
             buttonToUpdate.innerHTML = `<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> ${loadingText}`;
         } else {
-            generateBtn.disabled = false;
-            refineBtn.disabled = !latestHtmlContent;
+            generateBtn.disabled = cooldownActive;
+            refineBtn.disabled = !latestHtmlContent || cooldownActive;
             downloadBtn.disabled = !latestHtmlContent;
             publishBtn.disabled = !latestHtmlContent;
             previewHtmlBtn.disabled = !latestHtmlContent;
@@ -558,8 +599,10 @@ if (imageDropArea) {
             // Hide process popup
             processPopup.classList.remove('visible');
 
-            generateBtn.innerHTML = 'Generate HTML Code';
-            refineBtn.innerHTML = 'Refine Code';
+            if (!cooldownActive) {
+                generateBtn.innerHTML = 'Generate HTML Code';
+                refineBtn.innerHTML = 'Refine Code';
+            }
         }
     }
 
@@ -815,23 +858,11 @@ if (imageDropArea) {
         }
     }
 
-    function startCooldown(button, seconds = 60) {
-        let countdown = seconds;
-        const originalText = button.innerHTML;
-        button.disabled = true;
-        
-        const interval = setInterval(() => {
-            button.innerText = `Cooling down (${countdown}s)...`;
-            countdown--;
-            if (countdown < 0) {
-                clearInterval(interval);
-                button.innerHTML = originalText;
-                button.disabled = false;
-            }
-        }, 1000);
-    }
-
     async function handleGeneration() {
+        if (cooldownActive) {
+            showMessage("⏳ Please wait for cooldown to finish.", true);
+            return;
+        }
         const prompt = promptInput.value.trim();
         if (prompt.length < 10 && attachedImages.length === 0) return showMessage("Please provide a detailed prompt (min 10 chars) or an image.", true);
         
@@ -926,7 +957,7 @@ if (imageDropArea) {
             handleScrollToOutput();
 
             setLoading(false);
-            startCooldown(generateBtn, 60);
+            startGlobalCooldown(60);
 
         } catch (err) {
             console.error(err);
@@ -936,6 +967,10 @@ if (imageDropArea) {
     }
     
     async function handleRefine() {
+        if (cooldownActive) {
+            showMessage("⏳ Please wait for cooldown to finish.", true);
+            return;
+        }
         const refinePrompt = refinePromptInput.value.trim();
         if (refinePrompt.length < 5) return showMessage("Instruction too short.", true);
         if (!latestHtmlContent || !currentProjectId) return showMessage("No project to refine.", true);
@@ -1010,7 +1045,7 @@ if (imageDropArea) {
             handleScrollToOutput();
 
             setLoading(false);
-            startCooldown(refineBtn, 60);
+            startGlobalCooldown(60);
 
         } catch (error) {
             console.error(error);
@@ -1087,6 +1122,12 @@ if (imageDropArea) {
 
             const savedRefine = localStorage.getItem('ammoue_saved_refine_prompt');
             if(savedRefine) refinePromptInput.value = savedRefine;
+            
+            // Check for existing cooldown on page load
+            const cooldownUntil = Number(localStorage.getItem('ammoue_cooldown_until'));
+            if (cooldownUntil && cooldownUntil > Date.now()) {
+                startGlobalCooldown(Math.ceil((cooldownUntil - Date.now()) / 1000));
+            }
 
             if (!listenersAttached) {
                 generateBtn.addEventListener('click', handleGeneration);
