@@ -66,6 +66,17 @@
   </div>
 </main>
 
+<!-- Username Saved Popup -->
+<div id="usernamePopup" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
+  <div class="bg-white rounded-2xl shadow-xl p-6 w-[90%] max-w-sm text-center">
+    <h2 class="text-xl font-bold text-ammoue mb-2">Success</h2>
+    <p class="text-sm text-gray-600 mb-4">Your username has been saved successfully.</p>
+    <button onclick="closeUsernamePopup()" class="bg-ammoue text-white px-5 py-2 rounded-xl font-semibold w-full">
+      OK
+    </button>
+  </div>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
@@ -117,7 +128,7 @@ onAuthStateChanged(auth, async user => {
   }`;
 
   if (plan === "pro") {
-    profilePlanDesc.textContent = "Unlimited generations & deployments";
+    profilePlanDesc.textContent = "5 separated Deployments , 5 Refinments request And Agent 2 Access.";
     profileUpgradeWrapper.innerHTML = "";
   } else {
     profilePlanDesc.textContent = "Limited usage on Free plan";
@@ -144,7 +155,11 @@ window.saveUsername = async function () {
     username
   }, { merge: true });
 
-  alert("Username saved!");
+  document.getElementById("usernamePopup").classList.remove("hidden");
+};
+
+window.closeUsernamePopup = function () {
+  document.getElementById("usernamePopup").classList.add("hidden");
 };
 </script>
 </body>
