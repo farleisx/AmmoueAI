@@ -335,7 +335,7 @@
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-    import { getFirestore, collection, addDoc, doc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, doc, getDoc, updateDoc, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
     
     const firebaseConfig = {
         apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
@@ -783,6 +783,17 @@ if (imageDropArea) {
                         setPublishButton(latestDeploymentUrl, false); 
                         showMessage("🚀 Deployment Complete!", false);
                         await updateProjectDeploymentUrl(currentProjectId, latestDeploymentUrl);
+                        
+                        // Explicit Deployment Counter (Atomic)
+                        try {
+                            const userDocRef = doc(db, "users", currentUserId);
+                            await updateDoc(userDocRef, {
+                                deploymentCount: increment(1)
+                            });
+                        } catch (e) {
+                            console.error("Failed to increment deploymentCount:", e);
+                        }
+
                         processPopup.classList.remove('visible');
                         return; 
                     } else if (status === 'ERROR') {
@@ -949,6 +960,16 @@ if (imageDropArea) {
             generationDone = true;
             currentProjectId = await autoSaveProject(latestHtmlContent, latestPrompt, null); 
             
+            // Explicit Generation Counter (Atomic)
+            try {
+                const userDocRef = doc(db, "users", currentUserId);
+                await updateDoc(userDocRef, {
+                    generationCount: increment(1)
+                });
+            } catch (e) {
+                console.error("Failed to increment generationCount:", e);
+            }
+
             showMessage(currentProjectId ? "✅ Saved!" : "✅ Generated (Save failed)", !currentProjectId);
             
             attachedImages = [];
@@ -1038,6 +1059,16 @@ if (imageDropArea) {
             generationDone = true;
             latestPrompt += `\n[Refinement]: ${refinePrompt}`; 
             await autoSaveProject(latestHtmlContent, latestPrompt, currentProjectId); 
+
+            // Explicit Generation Counter (Atomic) - Refining counts as a generation
+            try {
+                const userDocRef = doc(db, "users", currentUserId);
+                await updateDoc(userDocRef, {
+                    generationCount: increment(1)
+                });
+            } catch (e) {
+                console.error("Failed to increment generationCount:", e);
+            }
             
             latestDeploymentUrl = "";
             setPublishButton(null, false);
