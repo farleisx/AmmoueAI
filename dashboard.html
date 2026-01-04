@@ -165,28 +165,29 @@
     </div>
     
 <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-    import { getFirestore, collection, onSnapshot, query, deleteDoc, doc, Timestamp, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+    // Import everything from your central firebase file
+    import { 
+        auth, 
+        db, 
+        appId, 
+        observeAuth, 
+        logout,
+        collection, 
+        onSnapshot, 
+        query, 
+        deleteDoc, 
+        doc, 
+        Timestamp, 
+        updateDoc, 
+        getDoc 
+    } from "./firedashboard.js";
 
-    const firebaseConfig = {
-        apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
-        authDomain: "ammoueai.firebaseapp.com",
-        projectId: "ammoueai",
-        storageBucket: "ammoueai.firebasestorage.app",
-        messagingSenderId: "135818868149",
-        appId: "1:135818868149:web:db9280baf9540a3339d5fc",
-    };
-
-    let auth = null;
-    let db = null;
+    // State management
     let currentUserId = null;
-    let isAuthReady = false;
-    const appId = firebaseConfig.projectId;
-    
     let projectsData = new Map();
     let allProjectsArray = []; 
 
+    // UI Element References
     const loadingScreen = document.getElementById('loading-screen');
     const dashboardContent = document.getElementById('dashboard-content');
     const userEmailSpan = document.getElementById('user-email');
@@ -202,6 +203,7 @@
     const deleteModalContent = document.getElementById('delete-modal-content');
     const confirmDeleteButton = document.getElementById('confirm-delete-button');
 
+    /* --- UI HELPERS --- */
     function showMessage(message, isError) {
         if (!msgBox) return;
         msgBox.textContent = message;
@@ -209,140 +211,6 @@
         msgBox.classList.add(isError ? 'bg-red-500' : 'bg-green-500');
         msgBox.classList.add('opacity-100');
         setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
-    }
-
-    async function generateScreenshot(projectId) {
-        // Function preserved but auto-trigger removed per instructions
-        console.log("Manual screenshot function available for future triggers.");
-    }
-
-    window.handlePreview = function(projectId) {
-        const project = projectsData.get(projectId);
-        if (!project) return;
-        if (project.deploymentUrl) {
-            window.open(project.deploymentUrl, "_blank");
-            return;
-        }
-        if (!project.encodedHtmlContent) return;
-        const decodedHtml = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
-        const previewWindow = window.open('', '_blank');
-        if (previewWindow) {
-            previewWindow.document.write(decodedHtml);
-            previewWindow.document.close();
-        }
-    }
-
-    window.handleDownload = function(projectId) {
-        const project = projectsData.get(projectId);
-        if (!project || !project.encodedHtmlContent) return;
-        const htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
-        const cleanTitle = project.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'ammoue_project'; 
-        const blob = new Blob([htmlContent], { type: 'text/html' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `${cleanTitle}.html`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-    }
-    
-    window.handleCopyCode = function(projectId) {
-        const project = projectsData.get(projectId);
-        if (!project || !project.encodedHtmlContent) return;
-        const htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
-        navigator.clipboard.writeText(htmlContent).then(() => showMessage("Code copied!", false));
-    }
-
-    window.handleUpgradeClick = function() {
-        window.location.href = '/upgrade';
-    };
-
-    window.openDeleteModal = function(projectId) {
-        const project = projectsData.get(projectId);
-        if (!project) return;
-        document.getElementById('delete-project-title').textContent = project.title;
-        confirmDeleteButton.setAttribute('data-project-id', projectId);
-        deleteConfirmModal.classList.remove('hidden');
-        deleteConfirmModal.classList.add('flex');
-        setTimeout(() => {
-            deleteModalContent.classList.remove('scale-95', 'opacity-0');
-            deleteModalContent.classList.add('scale-100', 'opacity-100');
-        }, 10);
-        lucide.createIcons();
-    }
-
-    window.closeDeleteModal = function() {
-        deleteModalContent.classList.remove('scale-100', 'opacity-100');
-        deleteModalContent.classList.add('scale-95', 'opacity-0');
-        setTimeout(() => {
-            deleteConfirmModal.classList.remove('flex');
-            deleteConfirmModal.classList.add('hidden');
-        }, 300);
-    }
-
-    async function executeDeleteProject(projectId) {
-        const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
-        await deleteDoc(docRef);
-        showMessage("Project deleted.", false);
-        window.closeDeleteModal();
-    }
-
-    confirmDeleteButton.addEventListener('click', () => {
-        const projectId = confirmDeleteButton.getAttribute('data-project-id');
-        if (projectId) executeDeleteProject(projectId);
-    });
-
-    window.openEditModal = function(projectId) {
-        const project = projectsData.get(projectId);
-        if (!project) return;
-        document.getElementById('edit-project-id').value = projectId;
-        document.getElementById('edit-title').value = project.title;
-        document.getElementById('edit-prompt').value = project.prompt; 
-        editModal.classList.remove('hidden');
-        editModal.classList.add('flex');
-        setTimeout(() => {
-            editModalContent.classList.remove('scale-95', 'opacity-0');
-            editModalContent.classList.add('scale-100', 'opacity-100');
-        }, 10);
-        lucide.createIcons();
-    }
-
-    window.closeEditModal = function() {
-        editModalContent.classList.remove('scale-100', 'opacity-100');
-        editModalContent.classList.add('scale-95', 'opacity-0');
-        setTimeout(() => {
-            editModal.classList.remove('flex');
-            editModal.classList.add('hidden');
-        }, 300);
-    }
-
-    async function handleEditFormSubmit(e) {
-        e.preventDefault();
-        const projectId = document.getElementById('edit-project-id').value;
-        const newTitle = document.getElementById('edit-title').value.trim();
-        const newPrompt = document.getElementById('edit-prompt').value.trim();
-        const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
-        await updateDoc(docRef, {
-            title: newTitle, 
-            prompt: newPrompt,
-            updatedAt: Timestamp.fromDate(new Date())
-        });
-        window.closeEditModal();
-        showMessage("Project updated.", false);
-    }
-
-    if (editForm) editForm.addEventListener('submit', handleEditFormSubmit);
-
-    window.filterProjects = function(query) {
-        const searchTerm = query.toLowerCase().trim();
-        let filteredProjects = allProjectsArray;
-        if (searchTerm) {
-            filteredProjects = allProjectsArray.filter(project => 
-                project.title.toLowerCase().includes(searchTerm) ||
-                project.prompt.toLowerCase().includes(searchTerm)
-            );
-        }
-        renderProjects(filteredProjects);
     }
 
     function timeAgo(date) {
@@ -360,11 +228,155 @@
         return "Just now";
     }
 
+    /* --- PROJECT ACTIONS (Global Window functions) --- */
+    window.handleLogout = async function() {
+        try {
+            await logout();
+            window.location.href = '/login';
+        } catch (error) {
+            console.error("Logout failed", error);
+        }
+    };
+
+    window.handlePreview = function(projectId) {
+        const project = projectsData.get(projectId);
+        if (!project) return;
+        if (project.deploymentUrl) {
+            window.open(project.deploymentUrl, "_blank");
+            return;
+        }
+        if (!project.encodedHtmlContent) return;
+        const decodedHtml = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
+        const previewWindow = window.open('', '_blank');
+        if (previewWindow) {
+            previewWindow.document.write(decodedHtml);
+            previewWindow.document.close();
+        }
+    };
+
+    window.handleDownload = function(projectId) {
+        const project = projectsData.get(projectId);
+        if (!project || !project.encodedHtmlContent) return;
+        const htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
+        const cleanTitle = project.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'ammoue_project'; 
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${cleanTitle}.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    };
+    
+    window.handleCopyCode = function(projectId) {
+        const project = projectsData.get(projectId);
+        if (!project || !project.encodedHtmlContent) return;
+        const htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
+        navigator.clipboard.writeText(htmlContent).then(() => showMessage("Code copied!", false));
+    };
+
+    window.handleUpgradeClick = function() {
+        window.location.href = '/upgrade';
+    };
+
+    /* --- MODAL LOGIC --- */
+    window.openDeleteModal = function(projectId) {
+        const project = projectsData.get(projectId);
+        if (!project) return;
+        document.getElementById('delete-project-title').textContent = project.title;
+        confirmDeleteButton.setAttribute('data-project-id', projectId);
+        deleteConfirmModal.classList.remove('hidden');
+        deleteConfirmModal.classList.add('flex');
+        setTimeout(() => {
+            deleteModalContent.classList.remove('scale-95', 'opacity-0');
+            deleteModalContent.classList.add('scale-100', 'opacity-100');
+        }, 10);
+    };
+
+    window.closeDeleteModal = function() {
+        deleteModalContent.classList.remove('scale-100', 'opacity-100');
+        deleteModalContent.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => {
+            deleteConfirmModal.classList.remove('flex');
+            deleteConfirmModal.classList.add('hidden');
+        }, 300);
+    };
+
+    window.openEditModal = function(projectId) {
+        const project = projectsData.get(projectId);
+        if (!project) return;
+        document.getElementById('edit-project-id').value = projectId;
+        document.getElementById('edit-title').value = project.title;
+        document.getElementById('edit-prompt').value = project.prompt; 
+        editModal.classList.remove('hidden');
+        editModal.classList.add('flex');
+        setTimeout(() => {
+            editModalContent.classList.remove('scale-95', 'opacity-0');
+            editModalContent.classList.add('scale-100', 'opacity-100');
+        }, 10);
+    };
+
+    window.closeEditModal = function() {
+        editModalContent.classList.remove('scale-100', 'opacity-100');
+        editModalContent.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => {
+            editModal.classList.remove('flex');
+            editModal.classList.add('hidden');
+        }, 300);
+    };
+
+    /* --- DATA OPERATIONS --- */
+    async function executeDeleteProject(projectId) {
+        try {
+            const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
+            await deleteDoc(docRef);
+            showMessage("Project deleted.", false);
+            window.closeDeleteModal();
+        } catch (e) { showMessage("Error deleting project", true); }
+    }
+
+    confirmDeleteButton.addEventListener('click', () => {
+        const projectId = confirmDeleteButton.getAttribute('data-project-id');
+        if (projectId) executeDeleteProject(projectId);
+    });
+
+    async function handleEditFormSubmit(e) {
+        e.preventDefault();
+        const projectId = document.getElementById('edit-project-id').value;
+        const newTitle = document.getElementById('edit-title').value.trim();
+        const newPrompt = document.getElementById('edit-prompt').value.trim();
+        try {
+            const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
+            await updateDoc(docRef, {
+                title: newTitle, 
+                prompt: newPrompt,
+                updatedAt: Timestamp.fromDate(new Date())
+            });
+            window.closeEditModal();
+            showMessage("Project updated.", false);
+        } catch (e) { showMessage("Error updating project", true); }
+    }
+
+    if (editForm) editForm.addEventListener('submit', handleEditFormSubmit);
+
+    /* --- RENDERING & FILTERING --- */
+    window.filterProjects = function(query) {
+        const searchTerm = query.toLowerCase().trim();
+        let filteredProjects = allProjectsArray;
+        if (searchTerm) {
+            filteredProjects = allProjectsArray.filter(project => 
+                project.title.toLowerCase().includes(searchTerm) ||
+                project.prompt.toLowerCase().includes(searchTerm)
+            );
+        }
+        renderProjects(filteredProjects);
+    };
+
     function renderProjects(projectsToRender) {
         if (!projectsContainer) return;
         document.getElementById('project-count').textContent = projectsToRender.length;
         
-        let createCardHtml = `
+        let projectsHtml = `
             <div onclick="window.location.href='/ai_prompt'"
                 class="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:border-ammoue transition duration-300 cursor-pointer hover:shadow-lg min-h-[180px]">
                 <i data-lucide="plus-circle" class="w-10 h-10 text-gray-400 mb-2"></i>
@@ -372,11 +384,8 @@
             </div>
         `;
 
-        projectsContainer.innerHTML = '';
-        let projectsHtml = createCardHtml;
-
-        if (projectsToRender.length === 0) {
-            projectsContainer.innerHTML = createCardHtml + `<p id="no-projects-message" class="col-span-full text-center text-gray-500 text-lg mt-10">You don't have any projects yet. Create your first AI site to get started!</p>`;
+        if (projectsToRender.length === 0 && allProjectsArray.length === 0) {
+            projectsContainer.innerHTML = projectsHtml + `<p class="col-span-full text-center text-gray-500 text-lg mt-10">You don't have any projects yet.</p>`;
             lucide.createIcons();
             return;
         }
@@ -389,7 +398,6 @@
             projectsHtml += `
                 <div onclick="window.location.href='/editor?id=${project.id}'"
                     class="bg-white border border-gray-200 rounded-2xl p-5 flex flex-col justify-between shadow-sm hover:shadow-md transition duration-200 cursor-pointer group relative">
-                    
                     <div class="mb-4">
                         <div class="flex items-start justify-between mb-2">
                             <span class="${isDeployed ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'} text-[10px] uppercase font-bold px-2 py-0.5 rounded-full">
@@ -419,7 +427,6 @@
                         <h3 class="text-lg font-bold text-gray-900 truncate mb-1">${project.title}</h3>
                         <p class="text-xs text-gray-500 line-clamp-2 h-8">${project.prompt}</p>
                     </div>
-
                     <div class="pt-4 border-t border-gray-50 flex items-center justify-between">
                         <span class="text-[10px] text-gray-400 font-medium">Last edited · ${displayTime}</span>
                         <button onclick="event.stopPropagation(); handlePreview('${project.id}')" 
@@ -430,13 +437,12 @@
                 </div>
             `;
         });
-
         projectsContainer.innerHTML = projectsHtml;
         lucide.createIcons();
     }
 
+    /* --- CORE LOGIC --- */
     function getProjects(userId) {
-        if (!db || !userId) return;
         const projectsRef = collection(db, 'artifacts', appId, 'users', userId, 'projects');
         const q = query(projectsRef);
         onSnapshot(q, (snapshot) => {
@@ -465,7 +471,6 @@
     }
 
     async function loadUserPlanAndGateContent(user) {
-        if (!user || !db) return;
         try {
             const userDocRef = doc(db, "users", user.uid);
             const userDoc = await getDoc(userDocRef);
@@ -487,32 +492,18 @@
         } catch (e) { console.error(e); }
     }
 
-    function initializeAppAndAuth() {
-        try {
-            const app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    currentUserId = user.uid;
-                    isAuthReady = true;
-                    getProjects(currentUserId);
-                    loadUserPlanAndGateContent(user);
-                    loadingScreen.classList.add('hidden');
-                    dashboardContent.classList.remove('hidden');
-                } else {
-                    window.location.href = '/login';
-                }
-            });
-        } catch (error) { console.error(error); }
-    }
-
-    window.handleLogout = async function() {
-        await signOut(auth);
-        window.location.href = '/login';
-    };
-
-    initializeAppAndAuth();
+    // Use the observer from firedashboard.js
+    observeAuth((user) => {
+        if (user) {
+            currentUserId = user.uid;
+            getProjects(currentUserId);
+            loadUserPlanAndGateContent(user);
+            loadingScreen.classList.add('hidden');
+            dashboardContent.classList.remove('hidden');
+        } else {
+            window.location.href = '/login';
+        }
+    });
 </script>
 </body>
 </html>
