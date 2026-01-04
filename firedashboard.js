@@ -1,4 +1,4 @@
-// firebase.js
+// firebase.js Acuatal name path firedashboard.js
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
 import {
   getAuth,
