@@ -165,24 +165,15 @@
     </div>
     
 <script type="module">
+    // Import shared instances from firedashboard.js
+    import { auth, db, appId, firebaseConfig } from "./firedashboard.js";
+    
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
     import { getFirestore, collection, onSnapshot, query, deleteDoc, doc, Timestamp, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
-    const firebaseConfig = {
-        apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
-        authDomain: "ammoueai.firebaseapp.com",
-        projectId: "ammoueai",
-        storageBucket: "ammoueai.firebasestorage.app",
-        messagingSenderId: "135818868149",
-        appId: "1:135818868149:web:db9280baf9540a3339d5fc",
-    };
-
-    let auth = null;
-    let db = null;
-    let currentUserId = null;
+    let currentUserId = null; 
     let isAuthReady = false;
-    const appId = firebaseConfig.projectId;
     
     let projectsData = new Map();
     let allProjectsArray = []; 
@@ -281,10 +272,15 @@
     }
 
     async function executeDeleteProject(projectId) {
-        const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
-        await deleteDoc(docRef);
-        showMessage("Project deleted.", false);
-        window.closeDeleteModal();
+        try {
+            const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
+            await deleteDoc(docRef);
+            showMessage("Project deleted.", false);
+            window.closeDeleteModal();
+        } catch (err) {
+            showMessage("Error deleting project.", true);
+            console.error(err);
+        }
     }
 
     confirmDeleteButton.addEventListener('click', () => {
@@ -318,20 +314,42 @@
 
     async function handleEditFormSubmit(e) {
         e.preventDefault();
-        const projectId = document.getElementById('edit-project-id').value;
-        const newTitle = document.getElementById('edit-title').value.trim();
-        const newPrompt = document.getElementById('edit-prompt').value.trim();
-        const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
-        await updateDoc(docRef, {
-            title: newTitle, 
-            prompt: newPrompt,
-            updatedAt: Timestamp.fromDate(new Date())
-        });
-        window.closeEditModal();
-        showMessage("Project updated.", false);
+        try {
+            const projectId = document.getElementById('edit-project-id').value;
+            const newTitle = document.getElementById('edit-title').value.trim();
+            const newPrompt = document.getElementById('edit-prompt').value.trim();
+            const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
+            await updateDoc(docRef, {
+                title: newTitle, 
+                prompt: newPrompt,
+                updatedAt: Timestamp.fromDate(new Date())
+            });
+            window.closeEditModal();
+            showMessage("Project updated.", false);
+        } catch (err) {
+            showMessage("Error updating project.", true);
+            console.error(err);
+        }
     }
 
     if (editForm) editForm.addEventListener('submit', handleEditFormSubmit);
+
+    // ESC key and backdrop click logic for modal closing
+    window.addEventListener('keydown', e => { if(e.key === 'Escape') { closeEditModal(); closeDeleteModal(); }});
+    editModal.addEventListener('click', e => { if(e.target === editModal) closeEditModal(); });
+    deleteConfirmModal.addEventListener('click', e => { if(e.target === deleteConfirmModal) closeDeleteModal(); });
+
+    // Dropdown toggle: logic to handle showing/hiding on click
+    document.addEventListener('click', e => {
+        document.querySelectorAll('.project-menu').forEach(menu => {
+            const btn = menu.previousElementSibling;
+            if (!menu.contains(e.target) && !btn.contains(e.target)) {
+                menu.classList.add('hidden');
+            } else if (btn.contains(e.target)) {
+                menu.classList.toggle('hidden');
+            }
+        });
+    });
 
     window.filterProjects = function(query) {
         const searchTerm = query.toLowerCase().trim();
@@ -399,7 +417,7 @@
                                 <button onclick="event.stopPropagation()" class="p-1 hover:bg-gray-100 rounded-full text-gray-400">
                                     <i data-lucide="more-vertical" class="w-4 h-4"></i>
                                 </button>
-                                <div class="project-menu absolute right-0 mt-1 bg-white border border-gray-100 shadow-xl rounded-xl p-1 w-40 overflow-hidden">
+                                <div class="project-menu hidden absolute right-0 mt-1 bg-white border border-gray-100 shadow-xl rounded-xl p-1 w-40 z-10">
                                     <button onclick="event.stopPropagation(); openEditModal('${project.id}')" class="w-full text-left px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 rounded-lg flex items-center">
                                         <i data-lucide="pencil" class="w-3.5 h-3.5 mr-2 text-amber-500"></i> Edit Details
                                     </button>
@@ -489,12 +507,9 @@
 
     function initializeAppAndAuth() {
         try {
-            const app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
             onAuthStateChanged(auth, (user) => {
                 if (user) {
-                    currentUserId = user.uid;
+                    currentUserId = user.uid; // Update currentUserId after login
                     isAuthReady = true;
                     getProjects(currentUserId);
                     loadUserPlanAndGateContent(user);
