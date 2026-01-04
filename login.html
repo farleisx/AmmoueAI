@@ -239,239 +239,122 @@
     </main>
 
     <script type="module">
-    // --- UI UX ENHANCEMENTS ---
-    window.togglePasswordVisibility = function(id, btn) {
-        const input = document.getElementById(id);
-        const icon = btn.querySelector('i');
-        if (input.type === 'password') {
-            input.type = 'text';
-            btn.innerHTML = '<i data-lucide="eye-off" class="w-4 h-4"></i>';
-        } else {
-            input.type = 'password';
-            btn.innerHTML = '<i data-lucide="eye" class="w-4 h-4"></i>';
-        }
-        lucide.createIcons();
-    };
+  /* ===============================
+     IMPORT AUTH API (NO FIREBASE HERE)
+     =============================== */
+  import {
+    login,
+    signup,
+    googleLogin,
+    githubLogin
+  } from "./login.js";
 
-    // --- TESTIMONIAL DATA & LOGIC ---
-    const reviewsData = [
-        { name: "Sarah K.", rating: 5, text: "Built my entire portfolio in an hour. Incredible speed!", avatar: "https://i.pravatar.cc/150?img=1" },
-        { name: "Jake D.", rating: 5, text: "The AI suggestions are spot-on. Traffic doubled!", avatar: "https://i.pravatar.cc/150?img=2" },
-        { name: "Aisha M.", rating: 4, text: "Great value. The foundation was absolutely perfect.", avatar: "https://i.pravatar.cc/150?img=3" },
-        { name: "Chris T.", rating: 5, text: "Finally, a site builder that understands design!", avatar: "https://i.pravatar.cc/150?img=4" },
-        { name: "Maria L.", rating: 5, text: "Flawless interface. Switched and haven't looked back.", avatar: "https://i.pravatar.cc/150?img=5" },
-        { name: "David B.", rating: 4, text: "Professional overnight for my small business.", avatar: "https://i.pravatar.cc/150?img=6" },
-    ];
+  /* ===============================
+     UI / UX ENHANCEMENTS
+     =============================== */
+  window.togglePasswordVisibility = function (id, btn) {
+    const input = document.getElementById(id);
+    if (!input) return;
 
-    function createReviewCard(review) {
-        const stars = '★'.repeat(review.rating) + '☆'.repeat(5 - review.rating);
-        return `
-            <div class="p-4 bg-white rounded-xl shadow-sm border border-gray-100 min-w-[280px] transition-all duration-300 hover:shadow-md hover:-translate-y-1">
-                <div class="flex items-center space-x-3 mb-2">
-                    <img class="w-8 h-8 rounded-full border border-gray-100" src="${review.avatar}" alt="${review.name}">
-                    <div>
-                        <p class="text-[11px] font-black text-gray-800">${review.name}</p>
-                        <p class="text-[10px] text-yellow-500">${stars}</p>
-                    </div>
-                </div>
-                <p class="text-xs text-gray-500 font-medium italic leading-relaxed">"${review.text}"</p>
-            </div>
-        `;
+    if (input.type === "password") {
+      input.type = "text";
+      btn.innerHTML = '<i data-lucide="eye-off" class="w-4 h-4"></i>';
+    } else {
+      input.type = "password";
+      btn.innerHTML = '<i data-lucide="eye" class="w-4 h-4"></i>';
     }
+    lucide.createIcons();
+  };
 
-    function populateReviews(containerId, data) {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-        const reviewsHtml = data.map(createReviewCard).join('');
-        container.innerHTML = reviewsHtml + reviewsHtml;
+  /* ===============================
+     TESTIMONIALS
+     =============================== */
+  const reviewsData = [
+    { name: "Sarah K.", rating: 5, text: "Built my entire portfolio in an hour. Incredible speed!", avatar: "https://i.pravatar.cc/150?img=1" },
+    { name: "Jake D.", rating: 5, text: "The AI suggestions are spot-on. Traffic doubled!", avatar: "https://i.pravatar.cc/150?img=2" },
+    { name: "Aisha M.", rating: 4, text: "Great value. The foundation was absolutely perfect.", avatar: "https://i.pravatar.cc/150?img=3" },
+    { name: "Chris T.", rating: 5, text: "Finally, a site builder that understands design!", avatar: "https://i.pravatar.cc/150?img=4" },
+    { name: "Maria L.", rating: 5, text: "Flawless interface. Switched and haven't looked back.", avatar: "https://i.pravatar.cc/150?img=5" },
+    { name: "David B.", rating: 4, text: "Professional overnight for my small business.", avatar: "https://i.pravatar.cc/150?img=6" },
+  ];
+
+  function createReviewCard(r) {
+    const stars = "★".repeat(r.rating) + "☆".repeat(5 - r.rating);
+    return `
+      <div class="p-4 bg-white rounded-xl shadow-sm border border-gray-100 min-w-[280px]">
+        <div class="flex items-center space-x-3 mb-2">
+          <img class="w-8 h-8 rounded-full" src="${r.avatar}" />
+          <div>
+            <p class="text-[11px] font-black">${r.name}</p>
+            <p class="text-[10px] text-yellow-500">${stars}</p>
+          </div>
+        </div>
+        <p class="text-xs text-gray-500 italic">"${r.text}"</p>
+      </div>
+    `;
+  }
+
+  function populateReviews(id, data) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const html = data.map(createReviewCard).join("");
+    el.innerHTML = html + html;
+  }
+
+  populateReviews("left-reviews", reviewsData);
+  populateReviews("right-reviews", [...reviewsData].reverse());
+
+  /* ===============================
+     FORM HANDLERS (API CALLS)
+     =============================== */
+  window.handleLogin = (e) => {
+    e.preventDefault();
+    login(
+      document.getElementById("login-email").value,
+      document.getElementById("login-password").value,
+      document.getElementById("login-btn")
+    );
+  };
+
+  window.handleSignup = (e) => {
+    e.preventDefault();
+    signup(
+      document.getElementById("signup-email").value,
+      document.getElementById("signup-password").value,
+      document.getElementById("signup-btn")
+    );
+  };
+
+  window.handleGoogleAuth = (btn) => googleLogin(btn);
+  window.handleGitHubAuth = (btn) => githubLogin(btn);
+
+  /* ===============================
+     FORM TOGGLE
+     =============================== */
+  const loginForm = document.getElementById("login-form");
+  const signupForm = document.getElementById("signup-form");
+  const loginTab = document.getElementById("login-tab");
+  const signupTab = document.getElementById("signup-tab");
+
+  window.toggleForm = function (type) {
+    if (type === "login") {
+      loginForm.classList.remove("hidden");
+      signupForm.classList.add("hidden");
+      loginTab.classList.add("tab-active", "bg-white");
+      signupTab.classList.remove("tab-active", "bg-white");
+    } else {
+      signupForm.classList.remove("hidden");
+      loginForm.classList.add("hidden");
+      signupTab.classList.add("tab-active", "bg-white");
+      loginTab.classList.remove("tab-active", "bg-white");
     }
+  };
 
-    populateReviews('left-reviews', reviewsData);
-    populateReviews('right-reviews', [...reviewsData].reverse());
-
-    // ----------------------------------------------------------------------------------
-    // 🔥 FIREBASE LOGIC (UNTOUCHED CORE) 🔥
-    // ----------------------------------------------------------------------------------
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, GithubAuthProvider, linkWithCredential } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-    import { getFirestore, doc, setDoc, Timestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
-
-    const firebaseConfig = {
-        apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
-        authDomain: "ammoueai.firebaseapp.com",
-        projectId: "ammoueai",
-        storageBucket: "ammoueai.firebasestorage.app",
-        messagingSenderId: "135818868149",
-        appId: "1:135818868149:web:db9280baf9540a3339d5fc",
-    };
-    
-    let auth = null; 
-    let db = null;
-    window.pendingCredential = null;
-    window.conflictingEmail = null;
-
-    const googleProvider = new GoogleAuthProvider();
-    const githubProvider = new GithubAuthProvider();
-
-    const loginForm = document.getElementById('login-form');
-    const signupForm = document.getElementById('signup-form');
-    const loginTab = document.getElementById('login-tab');
-    const signupTab = document.getElementById('signup-tab');
-    const loginBtn = document.getElementById('login-btn');
-    const signupBtn = document.getElementById('signup-btn');
-
-    // Message Utility with Animation
-    function showMessage(message, isError) {
-        const msgBox = document.getElementById('message-box');
-        msgBox.textContent = message;
-        msgBox.classList.remove('bg-green-500', 'bg-red-500', 'opacity-0', 'translate-y-[-20px]');
-        msgBox.classList.add(isError ? 'bg-red-500' : 'bg-green-500', 'opacity-100', 'translate-y-0');
-
-        setTimeout(() => {
-            msgBox.classList.add('opacity-0', 'translate-y-[-20px]');
-        }, 4000);
-    }
-
-    function setLoading(button, isLoading) {
-        if (isLoading) {
-            button.disabled = true;
-            button.setAttribute('data-original-text', button.innerHTML);
-            button.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 mr-2 animate-spin"></i> Authenticating...`;
-            lucide.createIcons();
-        } else {
-            button.disabled = false;
-            button.innerHTML = button.getAttribute('data-original-text');
-        }
-    }
-    
-    function getRedirectPath() {
-        const params = new URLSearchParams(window.location.search);
-        const path = params.get('redirect') ? decodeURIComponent(params.get('redirect')) : '/dashboard';
-        return path.startsWith('/') ? path.substring(1) : path;
-    }
-
-    function redirectToNextPage() {
-        window.location.href = getRedirectPath();
-    }
-
-    async function createUserDocument(user) {
-        if (!db) return;
-        try {
-            const userDocRef = doc(db, "users", user.uid);
-            await setDoc(userDocRef, {
-                uid: user.uid,
-                email: user.email,
-                displayName: user.displayName || null,
-                plan: "free",
-                signupDate: Timestamp.now(),
-            }, { merge: true });
-        } catch (error) {
-            console.error("Firestore error:", error);
-            showMessage("Warning: Account created, but profile save failed.", true);
-        }
-    }
-
-    async function initializeAppAndAuth() {
-        try {
-            const app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    showMessage(`Welcome back! Redirecting...`, false);
-                    setTimeout(redirectToNextPage, 1000);
-                }
-            });
-        } catch (error) {
-            showMessage(`Firebase initialization failed.`, true);
-        }
-    }
-
-    window.handleLogin = async function(event) {
-        event.preventDefault();
-        if (!auth) return;
-        setLoading(loginBtn, true);
-        const email = document.getElementById('login-email').value;
-        const password = document.getElementById('login-password').value;
-        try {
-            await signInWithEmailAndPassword(auth, email, password);
-            showMessage("Login successful!", false);
-            setTimeout(redirectToNextPage, 1000);
-        } catch (error) {
-            let msg = 'Login failed. Please check credentials.';
-            if (error.code === 'auth/user-not-found') msg = 'No account found with this email.';
-            showMessage(msg, true);
-            setLoading(loginBtn, false);
-        }
-    }
-
-    window.handleSignup = async function(event) {
-        event.preventDefault();
-        if (!auth) return;
-        setLoading(signupBtn, true);
-        const email = document.getElementById('signup-email').value;
-        const password = document.getElementById('signup-password').value;
-        try {
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            await createUserDocument(userCredential.user);
-            showMessage("Account created successfully!", false);
-            setTimeout(redirectToNextPage, 1000);
-        } catch (error) {
-            let msg = 'Sign-up failed.';
-            if (error.code === 'auth/email-already-in-use') msg = 'Email already in use.';
-            showMessage(msg, true);
-            setLoading(signupBtn, false);
-        }
-    }
-
-    window.handleGoogleAuth = async function(button) {
-        if (!auth) return;
-        setLoading(button, true);
-        try {
-            const result = await signInWithPopup(auth, googleProvider);
-            if (result.additionalUserInfo?.isNewUser) await createUserDocument(result.user);
-            showMessage(`Welcome, ${result.user.displayName}!`, false);
-        } catch (error) {
-            showMessage("Google sign-in failed.", true);
-            setLoading(button, false);
-        }
-    }
-
-    window.handleGitHubAuth = async function(button) {
-        if (!auth) return;
-        setLoading(button, true);
-        try {
-            const result = await signInWithPopup(auth, githubProvider);
-            if (result.additionalUserInfo?.isNewUser) await createUserDocument(result.user);
-            showMessage(`Welcome!`, false);
-        } catch (error) {
-            showMessage("GitHub sign-in failed.", true);
-            setLoading(button, false);
-        }
-    }
-
-    window.toggleForm = function(formType) {
-        if (formType === 'login') {
-            loginForm.classList.remove('hidden');
-            signupForm.classList.add('hidden');
-            loginTab.classList.add('bg-white', 'shadow-sm', 'tab-active');
-            signupTab.classList.remove('bg-white', 'shadow-sm', 'tab-active');
-            loginTab.classList.remove('text-gray-500');
-            signupTab.classList.add('text-gray-500');
-        } else {
-            loginForm.classList.add('hidden');
-            signupForm.classList.remove('hidden');
-            signupTab.classList.add('bg-white', 'shadow-sm', 'tab-active');
-            loginTab.classList.remove('bg-white', 'shadow-sm', 'tab-active');
-            signupTab.classList.remove('text-gray-500');
-            loginTab.classList.add('text-gray-500');
-        }
-    }
-
-    // Init
-    initializeAppAndAuth();
-    window.toggleForm('login');
-    if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+  /* ===============================
+     INIT
+     =============================== */
+  window.toggleForm("login");
+  lucide.createIcons();
 </script>
 </body>
 </html>
