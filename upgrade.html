@@ -74,84 +74,10 @@
 </div>
 
 
-<!-- PayPal Sandbox SDK -->
-<script src="https://www.paypal.com/sdk/js?client-id=AZV56OoDaOI2jTtex7U7x0Z_fsc9dm_98alHa81Y0okpIZkoZ-rVYhemDPsQ1FPvJOaF4Xt0dPHfprj1&currency=USD"></script>
+ <!-- PAYPAL SDK (CLIENT ID ONLY – SAFE) -->
+  <script src="https://www.paypal.com/sdk/js?client-id=AZV56OoDaOI2jTtex7U7x0Z_fsc9dm_98alHa81Y0okpIZkoZ-rVYhemDPsQ1FPvJOaF4Xt0dPHfprj1&currency=USD"></script>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
-
-// Firebase Config
-const firebaseConfig = {
-    apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
-    authDomain: "ammoueai.firebaseapp.com",
-    projectId: "ammoueai",
-    storageBucket: "ammoueai.firebasestorage.app",
-    messagingSenderId: "135818868149",
-    appId: "1:135818868149:web:db9280baf9540a3339d5fc",
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-let currentUser = null;
-const statusMessage = document.getElementById("status-message");
-
-// Update plan in Firestore and redirect
-async function setPlanToPro(uid) {
-    await setDoc(doc(db, "users", uid), { plan: "pro" }, { merge: true });
-    statusMessage.textContent = "Success! Redirecting… 🚀";
-    setTimeout(() => window.location.href = "dashboard.html", 1200);
-}
-
-// Monitor login state
-onAuthStateChanged(auth, (user) => {
-    currentUser = user;
-    if (!user) statusMessage.textContent = "⚠ Please log in to upgrade.";
-});
-
-// PayPal Smart Buttons
-paypal.Buttons({
-    createOrder: () => {
-        if (!currentUser) {
-            statusMessage.textContent = "⚠ You must log in first.";
-            return;
-        }
-        statusMessage.textContent = "Creating PayPal order…";
-
-        return fetch("/api/paypal-order", { method: "POST" })
-            .then(res => res.json())
-            .then(data => data.orderID)
-            .catch(() => {
-                statusMessage.textContent = "Error creating order. Backend may be missing.";
-            });
-    },
-
-    onApprove: (data) => {
-        if (!currentUser) {
-            statusMessage.textContent = "⚠ You must log in first.";
-            return;
-        }
-        statusMessage.textContent = "Processing payment…";
-
-        return fetch(`/api/paypal-capture?orderID=${data.orderID}`, {
-            headers: { "x-user-id": currentUser.uid }
-        })
-        .then(res => res.json())
-        .then(async () => setPlanToPro(currentUser.uid))
-        .catch(() => {
-            statusMessage.textContent = "Payment verification failed!";
-        });
-    },
-
-    onError: () => {
-        statusMessage.textContent = "Something went wrong. Try again.";
-    }
-
-}).render("#paypal-button-container");
-
-</script>
+  <!-- 🔐 SECURE FIREBASE + PAYPAL LOGIC -->
+  <script type="module" src="/js/fireupgrade.js"></script>
 </body>
 </html>
