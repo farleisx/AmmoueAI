@@ -333,10 +333,9 @@
 </div>
     
 <script type="module">
-    // 3️⃣ Modular Firebase Imports (Prepared for external file migration)
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-    import { getFirestore, collection, addDoc, doc, getDoc, updateDoc, serverTimestamp, increment, setDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, doc, getDoc, updateDoc, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
     
     const firebaseConfig = {
         apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
@@ -353,12 +352,6 @@
     const appId = firebaseConfig.projectId;
     let currentUserId = null;
     let generationDone = false;
-
-    // 2️⃣ History for refinement
-    let refinementHistory = []; 
-
-    // 5️⃣ Image import/remove system (Internal tracker)
-    let uploadedImages = [];
 
 // ================= LAYOUT TOGGLE LOGIC =================
 const layoutToggle = document.getElementById('layout-toggle');
@@ -490,35 +483,6 @@ if (imageDropArea) {
 }
 // ================= END IMAGE ATTACHMENT LOGIC =================
 
-    // 1️⃣ Auto-scroll helper
-    function scrollOutputToBottom() {
-        outputCode.scrollTo({
-            top: outputCode.scrollHeight,
-            behavior: 'smooth'
-        });
-    }
-
-    // 4️⃣ Unified Firebase Integration (Modular Functions)
-    async function saveProject(userId, projectId, htmlContent, prompt) {
-        const projectsRef = collection(db, "artifacts", appId, "users", userId, "projects");
-        const docRef = doc(projectsRef, projectId);
-        await setDoc(docRef, {
-            prompt: prompt.replace(/\\n/g, "\n"),
-            htmlContent,
-            updatedAt: serverTimestamp(), 
-        }, { merge: true });
-    }
-
-    async function incrementGeneration(userId) {
-        try {
-            const userDocRef = doc(db, "users", userId);
-            await updateDoc(userDocRef, {
-                generationCount: increment(1)
-            });
-        } catch (e) {
-            console.error("Failed to increment generationCount:", e);
-        }
-    }
 
     const loadingState = document.getElementById('loading-state');
     const mainContent = document.getElementById('main-content');
@@ -870,8 +834,12 @@ if (imageDropArea) {
             const projectsRef = collection(db, "artifacts", appId, "users", currentUserId, "projects");
             
             if (existingProjectId) {
-                // 4️⃣ Unified function used internally
-                await saveProject(currentUserId, existingProjectId, htmlContent, userPrompt);
+                const docRef = doc(projectsRef, existingProjectId);
+                await updateDoc(docRef, {
+                    prompt: userPrompt.replace(/\\n/g, "\n"),
+                    htmlContent,
+                    updatedAt: serverTimestamp(), 
+                });
                 return existingProjectId;
             } else {
                 const newDocRef = await addDoc(projectsRef, {
@@ -971,9 +939,6 @@ if (imageDropArea) {
                             .replace(/\\"/g, '"') 
                             .trim();
 
-                        // 1️⃣ Auto-scroll as code streams in
-                        scrollOutputToBottom();
-
                         if (isFirstChunk) {
                             outputDiv.classList.remove("hidden");
                             isFirstChunk = false;
@@ -995,8 +960,15 @@ if (imageDropArea) {
             generationDone = true;
             currentProjectId = await autoSaveProject(latestHtmlContent, latestPrompt, null); 
             
-            // 4️⃣ Atomic Generation Counter
-            await incrementGeneration(currentUserId);
+            // Explicit Generation Counter (Atomic)
+            try {
+                const userDocRef = doc(db, "users", currentUserId);
+                await updateDoc(userDocRef, {
+                    generationCount: increment(1)
+                });
+            } catch (e) {
+                console.error("Failed to increment generationCount:", e);
+            }
 
             showMessage(currentProjectId ? "✅ Saved!" : "✅ Generated (Save failed)", !currentProjectId);
             
@@ -1029,13 +1001,6 @@ if (imageDropArea) {
 
         setLoading(true, true);
         generationDone = false;
-        
-        // 2️⃣ History for refinement (Undo / Old Versions)
-        refinementHistory.push({
-            html: latestHtmlContent,
-            prompt: latestPrompt // Storing the prompt as well
-        });
-
         const originalHtml = latestHtmlContent;
 
         try {
@@ -1077,9 +1042,6 @@ if (imageDropArea) {
                         const jsonChunk = JSON.parse(trimmedMsg);
                         refinedHtml += (jsonChunk.text || "");
                         outputCode.textContent = refinedHtml.replace(/\\n/g, '\n').replace(/\\"/g, '"').trim();
-                        
-                        // 1️⃣ Auto-scroll as code streams in
-                        scrollOutputToBottom();
                     } catch (e) {
                         buffer = streamSeparator + trimmedMsg + buffer;
                     }
@@ -1098,8 +1060,15 @@ if (imageDropArea) {
             latestPrompt += `\n[Refinement]: ${refinePrompt}`; 
             await autoSaveProject(latestHtmlContent, latestPrompt, currentProjectId); 
 
-            // 4️⃣ Atomic Generation Counter
-            await incrementGeneration(currentUserId);
+            // Explicit Generation Counter (Atomic) - Refining counts as a generation
+            try {
+                const userDocRef = doc(db, "users", currentUserId);
+                await updateDoc(userDocRef, {
+                    generationCount: increment(1)
+                });
+            } catch (e) {
+                console.error("Failed to increment generationCount:", e);
+            }
             
             latestDeploymentUrl = "";
             setPublishButton(null, false);
@@ -1197,21 +1166,6 @@ if (imageDropArea) {
                 copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
                 downloadBtn.addEventListener('click', handleDownload);
                 
-                // 2️⃣ Undo Button Event Listener
-                const undoRefineBtn = document.getElementById('undo-refine');
-                if (undoRefineBtn) {
-                    undoRefineBtn.addEventListener('click', () => {
-                        if (refinementHistory.length === 0) return showMessage("No previous version.", true);
-                        const lastVersion = refinementHistory.pop();
-                        latestHtmlContent = lastVersion.html;
-                        latestPrompt = lastVersion.prompt; // Restore prompt history context
-                        outputCode.textContent = latestHtmlContent;
-                        showMessage("↩️ Reverted to previous version.", false);
-                        // Update Project in Firestore to revert state
-                        saveProject(currentUserId, currentProjectId, latestHtmlContent, latestPrompt);
-                    });
-                }
-
                 const modal = document.getElementById('publish-modal');
                 const confirmBtn = document.getElementById('confirm-publish');
                 const cancelBtn = document.getElementById('cancel-publish');
