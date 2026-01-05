@@ -1,27 +1,25 @@
-// fire_prompt.js
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, doc, getDoc, collection, addDoc, updateDoc, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+// fire.js
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, collection, addDoc, updateDoc, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
-// YOUR FIREBASE CONFIGURATION
-const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_AUTH_DOMAIN",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_STORAGE_BUCKET",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    appId: "YOUR_APP_ID"
+// 🔹 Firebase Config (actual credentials)
+export const firebaseConfig = {
+    apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
+    authDomain: "ammoueai.firebaseapp.com",
+    projectId: "ammoueai",
+    storageBucket: "ammoueai.firebasestorage.app",
+    messagingSenderId: "135818868149",
+    appId: "1:135818868149:web:db9280baf9540a3339d5fc"
 };
 
+// 🔹 Initialize Firebase
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const appId = "ammoue-ai";
+export const appId = firebaseConfig.projectId; // or any custom string
 
-/**
- * Logic moved from main file related to Plan/Permissions and Saving
- */
-
+// 🔹 Helper functions
 export async function getUserPlan(userId) {
     try {
         const userDocRef = doc(db, "users", userId);
@@ -29,7 +27,7 @@ export async function getUserPlan(userId) {
         return userDoc.exists() ? userDoc.data().plan || 'free' : 'free';
     } catch (error) {
         console.error("Failed to fetch user plan:", error);
-        return 'free'; 
+        return 'free';
     }
 }
 
@@ -42,7 +40,7 @@ export async function autoSaveProject(htmlContent, userPrompt, existingProjectId
             await updateDoc(docRef, {
                 prompt: userPrompt.replace(/\\n/g, "\n"),
                 htmlContent,
-                updatedAt: serverTimestamp(), 
+                updatedAt: serverTimestamp(),
             });
             return existingProjectId;
         } else {
@@ -56,7 +54,7 @@ export async function autoSaveProject(htmlContent, userPrompt, existingProjectId
         }
     } catch (error) {
         console.error("Error during auto-save:", error);
-        return null; 
+        return null;
     }
 }
 
