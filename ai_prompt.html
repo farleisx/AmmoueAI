@@ -1200,7 +1200,7 @@ if (imageDropArea) {
                 listenersAttached = true;
             }
         } else {
-            const redirectUrl = 'login.html?redirect=' + encodeURIComponent(window.location.pathname);
+            const redirectUrl = '/login?redirect=' + encodeURIComponent(window.location.pathname);
             window.location.replace(redirectUrl); 
         }
     });
