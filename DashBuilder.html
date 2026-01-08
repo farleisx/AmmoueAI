@@ -7,179 +7,157 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { font-family: 'Inter', sans-serif; }
-        #preview-frame { height: 100%; width: 100%; border: none; transition: all 0.3s ease; }
-        #code-view { height: 100%; width: 100%; border: none; font-family: 'Fira Code', monospace; font-size: 13px; outline: none; resize: none; color: #a5d6ff; background: #0f1115; }
+        body { font-family: 'Inter', sans-serif; background: #0f1115; color: #d1d5db; }
+        #preview-frame { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); background: white; border: none; }
+        .mobile-view { width: 375px !important; height: 667px !important; border: 12px solid #374151 !important; border-radius: 32px; }
         
-        /* Mobile Preview Mode */
-        .mobile-view { width: 375px !important; height: 667px !important; margin: auto; border: 12px solid #374151 !important; border-radius: 32px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
-        
-        /* Thinking Lines Animation */
-        .thinking-line { font-size: 11px; color: #6b7280; margin-bottom: 4px; border-left: 2px solid #3b82f6; padding-left: 8px; animation: slideIn 0.3s ease-out; }
-        @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
-        
-        .replit-input:focus-within { border-color: #3b82f6; }
-        .img-preview-bubble { position: relative; width: 50px; height: 50px; border-radius: 6px; overflow: hidden; border: 1px solid #374151; }
-        .remove-img-btn { position: absolute; top: -2px; right: -2px; background: #ef4444; color: white; border-radius: 50%; width: 16px; height: 16px; font-size: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        /* Thinking Console Styling */
+        .log-entry { font-size: 11px; color: #9ca3af; margin-bottom: 4px; font-family: 'Fira Code', monospace; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Image Bubble Styling */
+        .img-bubble { position: relative; width: 56px; height: 56px; border-radius: 8px; border: 1px solid #374151; overflow: hidden; }
+        .img-bubble img { width: 100%; height: 100%; object-cover: cover; }
+        .remove-img { position: absolute; top: 2px; right: 2px; background: rgba(239, 68, 68, 0.9); width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; color: white; }
     </style>
 </head>
-<body class="bg-[#0f1115] text-gray-300 h-screen flex flex-col overflow-hidden">
+<body class="h-screen flex flex-col overflow-hidden">
 
-    <nav class="border-b border-gray-800 px-4 py-2 flex justify-between items-center bg-[#161b22]">
+    <nav class="border-b border-gray-800 px-4 py-2 flex justify-between items-center bg-[#161b22] z-50">
         <div class="flex items-center gap-6">
-            <span class="text-white font-bold tracking-tighter text-lg italic">AmmoueAI</span>
-            
-            <div class="bg-gray-800 p-1 rounded-md flex gap-1">
-                <button id="show-preview" class="px-3 py-1 text-xs font-bold rounded bg-gray-700 text-white">Preview</button>
-                <button id="show-code" class="px-3 py-1 text-xs font-bold rounded text-gray-400 hover:text-white">Code</button>
-            </div>
-
-            <div id="device-controls" class="flex items-center gap-3 border-l border-gray-700 pl-4">
-                <button id="set-desktop" class="text-blue-400 hover:text-white transition"><i class="fa-solid fa-desktop"></i></button>
-                <button id="set-mobile" class="text-gray-500 hover:text-white transition"><i class="fa-solid fa-mobile-screen-button"></i></button>
-                <button id="open-new-tab" class="text-gray-500 hover:text-white transition ml-2" title="Open in new window"><i class="fa-solid fa-up-right-from-square"></i></button>
+            <span class="text-white font-black italic tracking-tighter text-xl">AmmoueAI</span>
+            <div class="flex bg-gray-900 rounded-lg p-1 gap-1">
+                <button id="set-desktop" class="p-2 text-blue-500 hover:bg-gray-800 rounded transition"><i class="fa-solid fa-desktop"></i></button>
+                <button id="set-mobile" class="p-2 text-gray-500 hover:bg-gray-800 rounded transition"><i class="fa-solid fa-mobile-screen"></i></button>
+                <button id="open-new-tab" class="p-2 text-gray-500 hover:bg-gray-800 rounded transition"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
             </div>
         </div>
 
-        <div class="flex items-center gap-3">
-            <button id="publish-btn" class="hidden text-xs bg-green-600 hover:bg-green-500 text-white px-4 py-1.5 rounded-md font-bold transition">Publish</button>
-            <div id="user-info" class="hidden flex items-center gap-2">
-                <img id="user-avatar" class="w-6 h-6 rounded-full border border-gray-600">
-                <button id="logout-btn" class="text-xs hover:text-white">Sign Out</button>
+        <div class="flex items-center gap-4">
+            <button id="publish-btn" class="hidden bg-green-600 hover:bg-green-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition">Publish Site</button>
+            <div id="user-ui" class="hidden flex items-center gap-3">
+                <img id="user-avatar" class="w-7 h-7 rounded-full ring-2 ring-gray-700">
+                <button id="logout-btn" class="text-xs text-gray-400 hover:text-white">Sign Out</button>
             </div>
-            <button id="login-btn" class="text-xs bg-white text-black px-3 py-1.5 rounded-md font-bold">Login</button>
+            <button id="login-btn" class="bg-white text-black text-xs font-bold px-4 py-2 rounded-lg">Login</button>
         </div>
     </nav>
 
     <main class="flex-1 flex overflow-hidden">
-        <aside class="w-[380px] border-r border-gray-800 bg-[#0f1115] p-4 flex flex-col">
-            <div class="flex-1 overflow-y-auto space-y-4 pr-2">
-                <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-widest">Builder</h2>
-                
-                <div class="replit-input bg-[#161b22] border border-gray-700 rounded-xl p-3 transition-all">
-                    <div id="image-preview-container" class="flex flex-wrap gap-2 mb-2"></div>
-                    <textarea id="user-prompt" class="w-full bg-transparent border-none outline-none text-white text-sm resize-none" placeholder="Describe your site..." rows="4"></textarea>
+        <aside class="w-[400px] border-r border-gray-800 p-4 flex flex-col gap-4 bg-[#0f1115]">
+            <div class="flex-1 overflow-y-auto space-y-4 pr-1">
+                <div class="bg-[#161b22] border border-gray-800 rounded-2xl p-4 focus-within:border-blue-500 transition shadow-2xl">
+                    <div id="img-tray" class="flex gap-2 mb-3 empty:hidden"></div>
                     
-                    <div class="flex justify-between items-center mt-2 border-t border-gray-800 pt-2">
-                        <label for="image-upload" class="cursor-pointer text-gray-400 hover:text-blue-400 transition">
-                            <i class="fa-solid fa-image text-lg"></i>
-                            <input type="file" id="image-upload" class="hidden" accept="image/*" multiple>
+                    <textarea id="user-prompt" class="w-full bg-transparent border-none outline-none text-sm text-white resize-none" rows="5" placeholder="Ask AI to build something..."></textarea>
+                    
+                    <div class="flex justify-between items-center mt-3 pt-3 border-t border-gray-800">
+                        <label class="cursor-pointer text-gray-500 hover:text-blue-400 transition">
+                            <i class="fa-solid fa-camera-retro text-lg"></i>
+                            <input type="file" id="img-input" class="hidden" accept="image/*" multiple>
                         </label>
-                        <button id="generate-btn" class="bg-blue-600 hover:bg-blue-500 text-white w-8 h-8 rounded-lg flex items-center justify-center transition">
+                        <button id="gen-btn" class="bg-blue-600 hover:bg-blue-500 text-white w-10 h-10 rounded-xl flex items-center justify-center transition active:scale-95 shadow-lg">
                             <span id="gen-icon">✨</span>
                         </button>
                     </div>
                 </div>
 
-                <div id="thinking-console" class="space-y-1 bg-[#0a0c10] p-3 rounded-lg border border-gray-800 min-h-[100px] max-h-[250px] overflow-y-auto hidden">
-                    <p class="text-[10px] text-blue-500 font-bold uppercase mb-2">AI System Logs</p>
-                    <div id="logs-container"></div>
+                <div id="thinking-box" class="hidden bg-[#0a0c10] border border-gray-800 rounded-xl p-4 max-h-[250px] overflow-y-auto">
+                    <div id="logs" class="space-y-1"></div>
                 </div>
             </div>
 
-            <div id="deploy-section" class="hidden border-t border-gray-800 pt-4 space-y-3">
-                <p class="text-[10px] font-bold text-gray-500 uppercase">Site Settings</p>
-                <input id="site-slug" type="text" placeholder="project-name" class="w-full bg-[#161b22] border border-gray-700 rounded-lg p-2 text-xs outline-none focus:border-blue-500">
-                <div id="live-url-box" class="hidden p-2 bg-green-500/10 border border-green-500/20 rounded text-center">
-                    <a id="live-url" href="#" target="_blank" class="text-[10px] text-green-400 font-mono"></a>
+            <div id="deploy-panel" class="hidden border-t border-gray-800 pt-4 space-y-3">
+                <input id="slug-input" type="text" placeholder="project-name" class="w-full bg-[#161b22] border border-gray-800 rounded-lg p-3 text-xs text-white outline-none focus:ring-1 focus:ring-blue-500">
+                <div id="url-display" class="hidden bg-blue-500/10 border border-blue-500/30 p-3 rounded-lg text-center">
+                    <a id="final-link" href="#" target="_blank" class="text-xs text-blue-400 font-mono underline"></a>
                 </div>
             </div>
         </aside>
 
-        <section class="flex-1 bg-[#1c1f26] flex items-center justify-center relative overflow-hidden">
-            <div id="preview-wrapper" class="w-full h-full transition-all duration-300">
-                <div id="preview-container" class="w-full h-full">
-                    <iframe id="preview-frame" class="bg-white"></iframe>
-                </div>
-                <div id="code-container" class="w-full h-full hidden">
-                    <textarea id="code-view" readonly></textarea>
-                </div>
+        <section class="flex-1 flex items-center justify-center p-8 bg-[#1c1f26] relative">
+            <div id="viewport" class="w-full h-full flex items-center justify-center">
+                <iframe id="preview-frame" class="shadow-2xl w-full h-full"></iframe>
             </div>
             
-            <button id="stop-btn" class="hidden absolute bottom-6 z-50 bg-red-500 text-white px-4 py-2 rounded-full text-xs font-bold shadow-2xl hover:bg-red-600">
-                <i class="fa-solid fa-stop mr-2"></i> Stop
+            <button id="stop-btn" class="hidden absolute bottom-10 bg-red-500 hover:bg-red-400 text-white px-6 py-2 rounded-full font-bold text-sm shadow-xl transition-all z-50">
+                <i class="fa-solid fa-hand mr-2"></i> Stop Generation
             </button>
         </section>
     </main>
 
     <script type="module">
-        import { auth, getUserPlan, autoSaveProject } from "./fire_prompt.js";
+        import { auth, getUserPlan, autoSaveProject, updateProjectDeploymentUrl } from "./fire_prompt.js";
         import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 
         let currentHtml = "";
         let currentProjectId = null;
-        let abortController = null;
         let attachedImages = [];
+        let abortCtrl = null;
 
-        const genBtn = document.getElementById('generate-btn');
-        const logsContainer = document.getElementById('logs-container');
-        const consoleEl = document.getElementById('thinking-console');
+        const genBtn = document.getElementById('gen-btn');
+        const imgInput = document.getElementById('img-input');
+        const imgTray = document.getElementById('img-tray');
+        const logs = document.getElementById('logs');
         const frame = document.getElementById('preview-frame');
 
-        // Thinking Lines Generator
-        const logNotes = [
-            "Analyzing user intent...",
-            "Designing responsive layout structure...",
-            "Injecting semantic HTML5 elements...",
-            "Optimizing CSS flexbox/grid containers...",
-            "Configuring color palette and typography...",
-            "Adding interactive event listeners...",
-            "Finalizing assets and components...",
-            "Vetting accessibility standards..."
-        ];
+        /* ---------------- IMAGE PREVIEW LOGIC ---------------- */
+        imgInput.onchange = async (e) => {
+            const files = Array.from(e.target.files);
+            for (const file of files) {
+                if (attachedImages.length >= 4) break;
+                const base64 = await toBase64(file);
+                attachedImages.push(base64);
+            }
+            renderImages();
+            imgInput.value = "";
+        };
 
-        function addLog(text) {
-            const line = document.createElement('div');
-            line.className = 'thinking-line';
-            line.innerText = `> ${text}`;
-            logsContainer.appendChild(line);
-            logsContainer.scrollTop = logsContainer.scrollHeight;
+        function toBase64(file) {
+            return new Promise(r => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => r(reader.result);
+            });
         }
 
-        /* ---------------- PREVIEW MODES ---------------- */
-        document.getElementById('set-desktop').onclick = () => {
-            frame.classList.remove('mobile-view');
-            document.getElementById('set-desktop').className = 'text-blue-400';
-            document.getElementById('set-mobile').className = 'text-gray-500';
+        function renderImages() {
+            imgTray.innerHTML = attachedImages.map((src, i) => `
+                <div class="img-bubble">
+                    <img src="${src}">
+                    <div class="remove-img" onclick="removeImg(${i})"><i class="fa-solid fa-x"></i></div>
+                </div>
+            `).join('');
+        }
+
+        window.removeImg = (i) => {
+            attachedImages.splice(i, 1);
+            renderImages();
         };
 
-        document.getElementById('set-mobile').onclick = () => {
-            frame.classList.add('mobile-view');
-            document.getElementById('set-mobile').className = 'text-blue-400';
-            document.getElementById('set-desktop').className = 'text-gray-500';
-        };
-
-        document.getElementById('open-new-tab').onclick = () => {
-            const newTab = window.open('about:blank', '_blank');
-            newTab.document.write(currentHtml);
-            newTab.document.close();
-        };
-
-        /* ---------------- GENERATION ---------------- */
+        /* ---------------- GENERATE LOGIC ---------------- */
         genBtn.onclick = async () => {
-            if (!auth.currentUser) return alert("Please Login");
+            if (!auth.currentUser) return signInWithPopup(auth, new GoogleAuthProvider());
             
-            abortController = new AbortController();
-            consoleEl.classList.remove('hidden');
-            logsContainer.innerHTML = "";
-            genBtn.classList.add('opacity-50', 'pointer-events-none');
+            abortCtrl = new AbortController();
+            document.getElementById('thinking-box').classList.remove('hidden');
+            logs.innerHTML = '<div class="log-entry">> Initializing AI engine...</div>';
             currentHtml = "";
-
-            let logIndex = 0;
-            const logInterval = setInterval(() => {
-                if (logIndex < logNotes.length) addLog(logNotes[logIndex++]);
-            }, 1500);
+            genBtn.disabled = true;
 
             try {
-                const idToken = await auth.currentUser.getIdToken();
-                const response = await fetch('/api/generate', {
+                const token = await auth.currentUser.getIdToken();
+                const res = await fetch('/api/generate', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-                    body: JSON.stringify({ prompt: document.getElementById('user-prompt').value, images: attachedImages }),
-                    signal: abortController.signal
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ 
+                        prompt: document.getElementById('user-prompt').value,
+                        images: attachedImages 
+                    }),
+                    signal: abortCtrl.signal
                 });
 
-                const reader = response.body.getReader();
+                const reader = res.body.getReader();
                 const decoder = new TextDecoder();
 
                 while (true) {
@@ -189,45 +167,88 @@
                     const lines = chunk.split('\n');
                     for (const line of lines) {
                         if (!line.startsWith('data: ')) continue;
-                        const raw = line.slice(6).trim();
-                        if (raw === '[DONE]') break;
+                        const dataStr = line.slice(6).trim();
+                        if (dataStr === '[DONE]') break;
                         try {
-                            const data = JSON.parse(raw);
-                            if (data.text) {
-                                currentHtml += data.text;
-                                updatePreview(currentHtml);
+                            const json = JSON.parse(dataStr);
+                            if (json.text) {
+                                currentHtml += json.text;
+                                updateFrame(currentHtml);
                             }
                         } catch (e) {}
                     }
                 }
                 
-                addLog("Project ready for deployment.");
-                document.getElementById('deploy-section').classList.remove('hidden');
+                currentProjectId = await autoSaveProject(currentHtml, document.getElementById('user-prompt').value, currentProjectId, auth.currentUser.uid);
+                document.getElementById('deploy-panel').classList.remove('hidden');
                 document.getElementById('publish-btn').classList.remove('hidden');
+                logs.innerHTML += '<div class="log-entry text-blue-400">> Generation complete.</div>';
             } catch (err) {
-                addLog("Error: Generation interrupted.");
+                logs.innerHTML += '<div class="log-entry text-red-400">> Error: Connection reset.</div>';
             } finally {
-                clearInterval(logInterval);
-                genBtn.classList.remove('opacity-50', 'pointer-events-none');
+                genBtn.disabled = false;
             }
         };
 
-        function updatePreview(html) {
-            const blob = new Blob([html], { type: 'text/html' });
-            frame.src = URL.createObjectURL(blob);
-            document.getElementById('code-view').value = html;
-        }
-
-        /* ---------------- PUBLISH ---------------- */
+        /* ---------------- PUBLISH & HELPERS ---------------- */
         document.getElementById('publish-btn').onclick = async () => {
-            const slug = document.getElementById('site-slug').value;
-            if(!slug) return alert("Please enter a project name first.");
+            const slug = document.getElementById('slug-input').value;
+            if (!slug) return alert("Enter a project name first.");
             
-            addLog(`Publishing to https://${slug}.vercel.app...`);
-            // Call your /api/deploy logic here (similar to main.js in previous step)
+            document.getElementById('publish-btn').innerText = "Deploying...";
+            
+            try {
+                const res = await fetch('/api/deploy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        htmlContent: currentHtml,
+                        userId: auth.currentUser.uid,
+                        plan: await getUserPlan(auth.currentUser.uid),
+                        projectId: currentProjectId,
+                        slug: slug
+                    })
+                });
+                
+                const data = await res.json();
+                if (data.deploymentUrl) {
+                    await updateProjectDeploymentUrl(currentProjectId, data.deploymentUrl, auth.currentUser.uid);
+                    document.getElementById('url-display').classList.remove('hidden');
+                    document.getElementById('final-link').href = data.deploymentUrl;
+                    document.getElementById('final-link').innerText = data.deploymentUrl;
+                    document.getElementById('publish-btn').innerText = "Live!";
+                }
+            } catch (e) {
+                alert("Publish failed.");
+                document.getElementById('publish-btn').innerText = "Publish Site";
+            }
         };
 
-        /* ---------------- AUTH & IMAGE HELPERS (OMITTED FOR BREVITY, SAME AS BEFORE) ---------------- */
+        // Device Toggles
+        document.getElementById('set-desktop').onclick = () => frame.className = "shadow-2xl w-full h-full";
+        document.getElementById('set-mobile').onclick = () => frame.className = "mobile-view";
+        document.getElementById('open-new-tab').onclick = () => {
+            const w = window.open('about:blank');
+            w.document.write(currentHtml);
+            w.document.close();
+        };
+
+        function updateFrame(h) {
+            const blob = new Blob([h], { type: 'text/html' });
+            frame.src = URL.createObjectURL(blob);
+        }
+
+        onAuthStateChanged(auth, u => {
+            if (u) {
+                document.getElementById('user-ui').classList.remove('hidden');
+                document.getElementById('login-btn').classList.add('hidden');
+                document.getElementById('user-avatar').src = u.photoURL;
+            } else {
+                document.getElementById('user-ui').classList.add('hidden');
+                document.getElementById('login-btn').classList.remove('hidden');
+            }
+        });
+        document.getElementById('logout-btn').onclick = () => signOut(auth);
     </script>
 </body>
 </html>
