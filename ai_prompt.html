@@ -460,6 +460,7 @@
                 document.getElementById('login-btn').classList.add('hidden');
                 document.getElementById('user-avatar').src = u.photoURL;
             } else {
+                window.location.href = "/login";
                 document.getElementById('user-ui').classList.add('hidden');
                 document.getElementById('login-btn').classList.remove('hidden');
             }
