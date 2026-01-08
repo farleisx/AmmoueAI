@@ -23,7 +23,6 @@
         .bg-ammoue { background-color: #0d9488; }
         .hover\:bg-ammoue-dark:hover { background-color: #0c7b72; }
         
-        /* Fixed Heights & Transitions */
         .CodeMirror { height: 400px !important; border-radius: 0.75rem; font-size: 14px; transition: height 0.3s ease; }
         .editor-expanded .CodeMirror { height: 75vh !important; }
         #live-preview { max-height: 500px; transition: max-height 0.3s ease; }
@@ -183,20 +182,15 @@
     const userDocRef = () => doc(db, 'users', currentUserId);
     const projectDocRef = (id) => doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', id);
 
-    // Toggle Editor Height Logic
     toggleBtn.onclick = () => {
         const wrapper = document.getElementById('editor-wrapper');
         const icon = document.getElementById('toggle-icon');
         const text = document.getElementById('toggle-text');
-        
         wrapper.classList.toggle('editor-expanded');
         const isExpanded = wrapper.classList.contains('editor-expanded');
-        
         text.textContent = isExpanded ? "Collapse Editor" : "Expand Editor";
         icon.setAttribute('data-lucide', isExpanded ? "minimize-2" : "maximize-2");
         lucide.createIcons();
-        
-        // Scroll to the top of the editor when expanding
         if(isExpanded) wrapper.scrollIntoView({ behavior: 'smooth' });
     };
 
@@ -207,7 +201,24 @@
     }
 
     function updateLivePreview(code) {
-        const html = code || cmEditor.getValue();
+        let html = code || cmEditor.getValue();
+        
+        // Safety wrapper to prevent null property errors in srcdoc
+        const safetyWrapper = `
+            <script>
+                window.onerror = function(msg, url, line) {
+                    console.warn("Live Preview Error: " + msg + " at line " + line);
+                    return true; 
+                };
+            <\/script>
+        `;
+
+        if (html.includes('<head>')) {
+            html = html.replace('<head>', '<head>' + safetyWrapper);
+        } else {
+            html = safetyWrapper + html;
+        }
+
         livePreviewFrame.srcdoc = html;
     }
 
@@ -226,24 +237,15 @@
     async function handleDeployment(htmlContent, plan, projectId) {
         setPreviewButton('', true);
         deployStatusText.textContent = "Status: Deploying...";
-        
-        const slugValue = document.getElementById('editor-slug').value.trim()
-            .toLowerCase()
-            .replace(/\s+/g, '-')
-            .replace(/[^a-z0-9-]/g, '');
-        
+        const slugValue = document.getElementById('editor-slug').value.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
         try {
             const idToken = await auth.currentUser.getIdToken();
             const response = await fetch("/api/deploy", {
                 method: "POST",
-                headers: { 
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${idToken}`
-                },
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
                 body: JSON.stringify({ htmlContent, userId: currentUserId, plan, projectId, slug: slugValue }),
             });
             const result = await response.json();
-            
             if (response.ok && result.deploymentUrl) {
                 latestDeploymentUrl = result.deploymentUrl;
                 let countdown = 10;
@@ -271,11 +273,9 @@
         if (e) e.preventDefault();
         const projectId = projectIdInput.value;
         const newHtml = cmEditor.getValue();
-        
         showMessage("Saving changes...", false);
         const snap = await getDoc(userDocRef());
         const plan = snap.exists() ? snap.data().plan : 'free';
-
         const url = await handleDeployment(newHtml, plan, projectId);
         await updateDoc(projectDocRef(projectId), {
             title: titleInput.value.trim(),
@@ -285,12 +285,9 @@
             deploymentUrl: url || latestDeploymentUrl,
             updatedAt: Timestamp.fromDate(new Date())
         });
-        
         titleHeader.textContent = titleInput.value;
         markDirty(false);
         showMessage("Saved & Deployed!", false);
-        
-        // Auto scroll to bottom of the preview on save
         window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
     }
 
@@ -299,22 +296,15 @@
         const currentHtml = cmEditor.getValue();
         const refinePrompt = promptInput.value.trim();
         if (!refinePrompt) { showMessage("Please describe the changes.", true); return; }
-
         codeRefineButton.disabled = true;
         deployStatusText.textContent = "Status: AI Thinking...";
         showMessage("AI is working...", false);
-
         try {
             const response = await fetch('/api/refine', { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await auth.currentUser.getIdToken()}` },
-                body: JSON.stringify({ 
-                    html: currentHtml, 
-                    prompt: refinePrompt,
-                    projectId: projectIdInput.value 
-                })
+                body: JSON.stringify({ html: currentHtml, prompt: refinePrompt, projectId: projectIdInput.value })
             });
-
             const data = await response.json();
             if (data.htmlCode) {
                 originalCodeBeforeAi = currentHtml;
@@ -354,15 +344,12 @@
     function initialize() {
         const projectId = new URLSearchParams(window.location.search).get('id');
         if (!projectId) { window.location.href = '/dashboard'; return; }
-
         const app = initializeApp(firebaseConfig);
         auth = getAuth(app);
         db = getFirestore(app);
-
         onAuthStateChanged(auth, async (user) => {
             if (!user) { window.location.href = '/login'; return; }
             currentUserId = user.uid;
-            
             const snap = await getDoc(projectDocRef(projectId));
             if (snap.exists()) {
                 const data = snap.data();
@@ -372,14 +359,11 @@
                 promptInput.value = (data.prompt || "").replace(/\\n/g, '\n');
                 titleHeader.textContent = data.title;
                 latestDeploymentUrl = data.deploymentUrl || '';
-
                 cmEditor = CodeMirror.fromTextArea(document.getElementById('code-editor'), {
                     mode: "htmlmixed", theme: "dracula", lineNumbers: true, lineWrapping: true
                 });
-
                 cmEditor.setValue(data.htmlContent || "");
                 cmEditor.on('change', () => { if(!pendingAiCode) { markDirty(true); updateLivePreview(); } });
-
                 updateLivePreview();
                 setPreviewButton(latestDeploymentUrl, false);
                 loadingScreen.classList.add('hidden');
@@ -387,7 +371,6 @@
                 lucide.createIcons();
             } else { window.location.href = '/dashboard'; }
         });
-
         document.getElementById('editor-slug').oninput = function() {
             this.value = this.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
         };
@@ -401,7 +384,6 @@
     window.onbeforeunload = () => { if (isDirty) return "Unsaved changes!"; };
     editorForm.onsubmit = handleSave;
     codeRefineButton.onclick = handleCodeRefine;
-    
     previewBtn.onclick = () => { 
         if (!latestDeploymentUrl || previewBtn.disabled) return;
         window.open(latestDeploymentUrl, "_blank"); 
