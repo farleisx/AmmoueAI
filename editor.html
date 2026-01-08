@@ -88,7 +88,11 @@
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Project Title</label>
                         <input type="text" id="editor-title" required class="w-full border border-gray-300 rounded-xl bg-white focus:border-ammoue focus:ring-2 focus:ring-teal-100 transition p-2.5 text-sm text-gray-800">
                     </div>
-                    <div class="lg:col-span-3">
+                    <div class="lg:col-span-1">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Site Identity (URL)</label>
+                        <input type="text" id="editor-slug" placeholder="my-project-name" class="w-full border border-gray-300 rounded-xl bg-white focus:border-ammoue focus:ring-2 focus:ring-teal-100 transition p-2.5 text-sm text-gray-800 font-mono">
+                    </div>
+                    <div class="lg:col-span-2">
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">AI Prompt (Ctrl + Enter)</label>
                         <div class="relative">
                             <input id="editor-prompt" required class="w-full border border-gray-300 rounded-xl bg-white focus:border-ammoue focus:ring-2 focus:ring-teal-100 transition p-2.5 pr-32 text-sm text-gray-800" placeholder="Describe changes...">
@@ -223,6 +227,11 @@
         setPreviewButton('', true);
         deployStatusText.textContent = "Status: Deploying...";
         
+        const slugValue = document.getElementById('editor-slug').value.trim()
+            .toLowerCase()
+            .replace(/\s+/g, '-')
+            .replace(/[^a-z0-9-]/g, '');
+        
         try {
             const idToken = await auth.currentUser.getIdToken();
             const response = await fetch("/api/deploy", {
@@ -231,7 +240,7 @@
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${idToken}`
                 },
-                body: JSON.stringify({ htmlContent, userId: currentUserId, plan, projectId }),
+                body: JSON.stringify({ htmlContent, userId: currentUserId, plan, projectId, slug: slugValue }),
             });
             const result = await response.json();
             
@@ -270,6 +279,7 @@
         const url = await handleDeployment(newHtml, plan, projectId);
         await updateDoc(projectDocRef(projectId), {
             title: titleInput.value.trim(),
+            slug: document.getElementById('editor-slug').value.trim(),
             prompt: promptInput.value.trim().replace(/\n/g, '\\n'),
             htmlContent: newHtml,
             deploymentUrl: url || latestDeploymentUrl,
@@ -296,7 +306,7 @@
 
         try {
             const response = await fetch('/api/refine', { 
-                method: 'POST',
+                method: 'POST', 
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await auth.currentUser.getIdToken()}` },
                 body: JSON.stringify({ 
                     html: currentHtml, 
@@ -318,7 +328,7 @@
         } catch (e) { 
             showMessage("AI Error", true); 
         } finally { 
-            codeRefineButton.disabled = false;
+            codeRefineButton.disabled = false; 
             deployStatusText.textContent = "Status: Idle";
         }
     }
@@ -358,6 +368,7 @@
                 const data = snap.data();
                 projectIdInput.value = snap.id;
                 titleInput.value = data.title;
+                if(data.slug) document.getElementById('editor-slug').value = data.slug;
                 promptInput.value = (data.prompt || "").replace(/\\n/g, '\n');
                 titleHeader.textContent = data.title;
                 latestDeploymentUrl = data.deploymentUrl || '';
@@ -376,6 +387,10 @@
                 lucide.createIcons();
             } else { window.location.href = '/dashboard'; }
         });
+
+        document.getElementById('editor-slug').oninput = function() {
+            this.value = this.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+        };
     }
 
     window.addEventListener('keydown', (e) => {
