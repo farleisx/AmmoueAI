@@ -385,6 +385,7 @@
             publishBtn.disabled = true;
             
             try {
+                const token = await auth.currentUser.getIdToken();
                 const faviconHtml = `<link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">`;
                 const finalContent = currentHtml.includes('<head>') 
                     ? currentHtml.replace('<head>', `<head>${faviconHtml}`)
@@ -392,7 +393,10 @@
 
                 const res = await fetch('/api/deploy', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}` 
+                    },
                     body: JSON.stringify({
                         htmlContent: finalContent,
                         userId: auth.currentUser.uid,
