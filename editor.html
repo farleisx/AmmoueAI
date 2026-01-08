@@ -142,253 +142,274 @@
     </div>
 
     <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-    import { getFirestore, doc, getDoc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
-    const firebaseConfig = {
-        apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
-        authDomain: "ammoueai.firebaseapp.com",
-        projectId: "ammoueai",
-        storageBucket: "ammoueai.firebasestorage.app",
-        messagingSenderId: "135818868149",
-        appId: "1:135818868149:web:db9280baf9540a3339d5fc",
-    };
+const firebaseConfig = {
+    apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
+    authDomain: "ammoueai.firebaseapp.com",
+    projectId: "ammoueai",
+    storageBucket: "ammoueai.firebasestorage.app",
+    messagingSenderId: "135818868149",
+    appId: "1:135818868149:web:db9280baf9540a3339d5fc",
+};
 
-    let auth, db, currentUserId, cmEditor;
-    let isDirty = false;
-    let pendingAiCode = null;
-    let originalCodeBeforeAi = null;
-    const appId = firebaseConfig.projectId;
+// State Variables
+let auth, db, currentUserId, cmEditor;
+let isDirty = false;
+let pendingAiCode = null;
+let originalCodeBeforeAi = null;
+let activeLiveUrl = ''; // Maps to latestDeploymentUrl
+let currentProjectId = '';
+const appId = firebaseConfig.projectId;
 
-    const loadingScreen = document.getElementById('loading-screen');
-    const editorContent = document.getElementById('editor-content');
-    const msgBox = document.getElementById('message-box');
-    const editorForm = document.getElementById('editor-form');
-    const titleInput = document.getElementById('editor-title');
-    const promptInput = document.getElementById('editor-prompt');
-    const titleHeader = document.getElementById('project-title-header');
-    const projectIdInput = document.getElementById('project-id-input');
-    const codeRefineButton = document.getElementById('ai-code-refine-button');
-    const previewBtn = document.getElementById('preview-btn');
-    const deployStatusText = document.getElementById('deploy-status');
-    const livePreviewFrame = document.getElementById('live-preview');
-    const aiReviewBar = document.getElementById('ai-review-bar');
-    const editorContainer = document.getElementById('editor-container');
-    const toggleBtn = document.getElementById('toggle-expand');
+// Elements
+const loadingScreen = document.getElementById('loading-screen');
+const editorContent = document.getElementById('editor-content');
+const msgBox = document.getElementById('message-box');
+const editorForm = document.getElementById('editor-form');
+const titleInput = document.getElementById('editor-title');
+const promptInput = document.getElementById('editor-prompt');
+const slugInput = document.getElementById('editor-slug');
+const titleHeader = document.getElementById('project-title-header');
+const codeRefineButton = document.getElementById('ai-code-refine-button');
+const saveBtn = document.getElementById('save-btn'); // This is your "Publish" button
+const deployStatusText = document.getElementById('deploy-status');
+const livePreviewFrame = document.getElementById('live-preview');
+const aiReviewBar = document.getElementById('ai-review-bar');
+const editorContainer = document.getElementById('editor-container');
 
-    let latestDeploymentUrl = '';
+// Helper References
+const userDocRef = () => doc(db, 'users', currentUserId);
+const projectDocRef = (id) => doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', id);
 
-    const userDocRef = () => doc(db, 'users', currentUserId);
-    const projectDocRef = (id) => doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', id);
+/* ---------------- DEPLOYMENT & SAVE LOGIC ---------------- */
 
-    toggleBtn.onclick = () => {
-        const wrapper = document.getElementById('editor-wrapper');
-        const icon = document.getElementById('toggle-icon');
-        const text = document.getElementById('toggle-text');
-        wrapper.classList.toggle('editor-expanded');
-        const isExpanded = wrapper.classList.contains('editor-expanded');
-        text.textContent = isExpanded ? "Collapse Editor" : "Expand Editor";
-        icon.setAttribute('data-lucide', isExpanded ? "minimize-2" : "maximize-2");
-        lucide.createIcons();
-        if(isExpanded) wrapper.scrollIntoView({ behavior: 'smooth' });
-    };
-
-    function showMessage(message, isError) {
-        msgBox.textContent = message;
-        msgBox.className = `p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 z-[110] ${isError ? 'bg-red-500' : 'bg-green-500'} opacity-100`;
-        setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
+async function handleSave(e) {
+    if (e) e.preventDefault();
+    
+    // 1. Check if already live (Optional: if you want 'Live' button to just open link)
+    if (activeLiveUrl && saveBtn.innerText === "LIVE") {
+        window.open(activeLiveUrl, '_blank');
+        return;
     }
 
-    function updateLivePreview(code) {
-        let html = code || cmEditor.getValue();
-        
-        const safetyWrapper = `
-            <script>
-                window.onerror = function(msg, url, line) {
-                    console.warn("Live Preview Error: " + msg + " at line " + line);
-                    return true; 
-                };
-            <\/script>
-        `;
-
-        if (html.includes('<head>')) {
-            html = html.replace('<head>', '<head>' + safetyWrapper);
-        } else {
-            html = safetyWrapper + html;
-        }
-
-        livePreviewFrame.srcdoc = html;
+    const slug = slugInput.value.trim();
+    if (!slug) {
+        showMessage("Select an identity (URL slug) for this project.", true);
+        return;
     }
 
-    function markDirty(dirty) {
-        isDirty = dirty;
-        document.getElementById('status-indicator').classList.toggle('is-dirty', dirty);
-    }
+    // UI Feedback
+    saveBtn.innerText = "BROADCASTING...";
+    saveBtn.disabled = true;
+    deployStatusText.textContent = "Status: Deploying...";
 
-    function setPreviewButton(url, isDeploying) {
-        previewBtn.disabled = isDeploying || !url;
-        previewBtn.className = `px-5 py-2.5 text-sm font-bold rounded-xl text-white transition shadow-md flex items-center justify-center ${isDeploying ? 'bg-yellow-600 cursor-not-allowed opacity-75' : url ? 'bg-green-600' : 'bg-gray-500'}`;
-        previewBtn.innerHTML = isDeploying ? '<i data-lucide="loader" class="w-4 h-4 mr-2 animate-spin"></i> Deploying' : '<i data-lucide="external-link" class="w-4 h-4 mr-2"></i> Preview Live';
-        lucide.createIcons();
-    }
-
-    async function handleDeployment(htmlContent, plan, projectId) {
-        setPreviewButton('', true);
-        deployStatusText.textContent = "Status: Deploying...";
-        const slugValue = document.getElementById('editor-slug').value.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-        try {
-            const idToken = await auth.currentUser.getIdToken();
-            const response = await fetch("/api/deploy.js", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
-                body: JSON.stringify({ htmlContent, userId: currentUserId, plan, projectId, slug: slugValue }),
-            });
-            const result = await response.json();
-            if (response.ok && result.deploymentUrl) {
-                latestDeploymentUrl = result.deploymentUrl;
-                let countdown = 10;
-                const timer = setInterval(() => {
-                    countdown--;
-                    deployStatusText.textContent = `Status: Propagating (${countdown}s)`;
-                    if (countdown <= 0) {
-                        clearInterval(timer);
-                        deployStatusText.textContent = "Status: Live";
-                        setPreviewButton(latestDeploymentUrl, false);
-                    }
-                }, 1000);
-                return latestDeploymentUrl;
-            }
-            throw new Error(result.error || "Deploy failed");
-        } catch (error) {
-            setPreviewButton(latestDeploymentUrl, false);
-            deployStatusText.textContent = "Status: Failed";
-            showMessage(error.message, true);
-            return null;
-        }
-    }
-
-    async function handleSave(e) {
-        if (e) e.preventDefault();
-        const projectId = projectIdInput.value;
-        const newHtml = cmEditor.getValue();
-        showMessage("Saving changes...", false);
-        const snap = await getDoc(userDocRef());
-        const plan = snap.exists() ? snap.data().plan : 'free';
-        const url = await handleDeployment(newHtml, plan, projectId);
-        await updateDoc(projectDocRef(projectId), {
-            title: titleInput.value.trim(),
-            slug: document.getElementById('editor-slug').value.trim(),
-            prompt: promptInput.value.trim().replace(/\n/g, '\\n'),
-            htmlContent: newHtml,
-            deploymentUrl: url || latestDeploymentUrl,
-            updatedAt: Timestamp.fromDate(new Date())
-        });
-        titleHeader.textContent = titleInput.value;
-        markDirty(false);
-        showMessage("Saved & Deployed!", false);
-        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-    }
-
-    async function handleCodeRefine() {
-        if (pendingAiCode) { showMessage("Finish reviewing current changes first.", true); return; }
+    try {
+        const idToken = await auth.currentUser.getIdToken(true);
         const currentHtml = cmEditor.getValue();
-        const refinePrompt = promptInput.value.trim();
-        if (!refinePrompt) { showMessage("Please describe the changes.", true); return; }
-        codeRefineButton.disabled = true;
-        deployStatusText.textContent = "Status: AI Thinking...";
-        showMessage("AI is working...", false);
-        try {
-            const response = await fetch('/api/refine', { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await auth.currentUser.getIdToken()}` },
-                body: JSON.stringify({ html: currentHtml, prompt: refinePrompt, projectId: projectIdInput.value })
-            });
-            const data = await response.json();
-            if (data.htmlCode) {
-                originalCodeBeforeAi = currentHtml;
-                pendingAiCode = data.htmlCode;
-                cmEditor.setValue(pendingAiCode);
-                updateLivePreview(pendingAiCode);
-                aiReviewBar.classList.remove('hidden');
-                editorContainer.classList.add('review-mode');
-                showMessage("Review AI changes.", false);
-            }
-        } catch (e) { 
-            showMessage("AI Error", true); 
-        } finally { 
-            codeRefineButton.disabled = false; 
-            deployStatusText.textContent = "Status: Idle";
-        }
-    }
 
-    document.getElementById('accept-ai').onclick = () => {
-        pendingAiCode = null;
-        aiReviewBar.classList.add('hidden');
-        editorContainer.classList.remove('review-mode');
-        markDirty(true);
-        showMessage("Changes accepted.", false);
-    };
+        // 2. Favicon Injection
+        const faviconHtml = `<link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">`;
+        const finalContent = currentHtml.includes('<head>') 
+            ? currentHtml.replace('<head>', `<head>${faviconHtml}`)
+            : faviconHtml + currentHtml;
 
-    document.getElementById('reject-ai').onclick = () => {
-        cmEditor.setValue(originalCodeBeforeAi);
-        updateLivePreview(originalCodeBeforeAi);
-        pendingAiCode = null;
-        aiReviewBar.classList.add('hidden');
-        editorContainer.classList.remove('review-mode');
-        markDirty(true);
-        showMessage("AI changes discarded.", true);
-    };
-
-    function initialize() {
-        const projectId = new URLSearchParams(window.location.search).get('id');
-        if (!projectId) { window.location.href = '/dashboard'; return; }
-        const app = initializeApp(firebaseConfig);
-        auth = getAuth(app);
-        db = getFirestore(app);
-        onAuthStateChanged(auth, async (user) => {
-            if (!user) { window.location.href = '/login'; return; }
-            currentUserId = user.uid;
-            const snap = await getDoc(projectDocRef(projectId));
-            if (snap.exists()) {
-                const data = snap.data();
-                projectIdInput.value = snap.id;
-                titleInput.value = data.title;
-                if(data.slug) document.getElementById('editor-slug').value = data.slug;
-                promptInput.value = (data.prompt || "").replace(/\\n/g, '\n');
-                titleHeader.textContent = data.title;
-                latestDeploymentUrl = data.deploymentUrl || '';
-                cmEditor = CodeMirror.fromTextArea(document.getElementById('code-editor'), {
-                    mode: "htmlmixed", theme: "dracula", lineNumbers: true, lineWrapping: true
-                });
-                cmEditor.setValue(data.htmlContent || "");
-                cmEditor.on('change', () => { if(!pendingAiCode) { markDirty(true); updateLivePreview(); } });
-                updateLivePreview();
-                setPreviewButton(latestDeploymentUrl, false);
-                loadingScreen.classList.add('hidden');
-                editorContent.classList.remove('hidden');
-                lucide.createIcons();
-            } else { window.location.href = '/dashboard'; }
+        // 3. API Call to Vercel
+        const res = await fetch('/api/deploy.js', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${idToken}`
+            },
+            body: JSON.stringify({
+                htmlContent: finalContent,
+                projectId: currentProjectId,
+                slug: slug,
+                userId: currentUserId
+            })
         });
-        document.getElementById('editor-slug').oninput = function() {
-            this.value = this.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-        };
-    }
 
-    window.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); handleSave(); }
-        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleCodeRefine(); }
+        const data = await res.json();
+
+        // 4. Handle Errors (Rate limits/Permissions)
+        if (res.status === 403 || res.status === 429) {
+            showMessage(data.error || "Deployment limit reached.", true);
+            resetSaveButton();
+            return;
+        }
+
+        if (!res.ok) throw new Error(data.error || "Deployment failed");
+
+        // 5. Success - Update Firestore & UI
+        if (data.deploymentUrl) {
+            activeLiveUrl = data.deploymentUrl;
+            
+            await updateDoc(projectDocRef(currentProjectId), {
+                title: titleInput.value.trim(),
+                slug: slug,
+                htmlContent: currentHtml,
+                deploymentUrl: activeLiveUrl,
+                updatedAt: Timestamp.fromDate(new Date())
+            });
+
+            markDirty(false);
+            titleHeader.textContent = titleInput.value;
+            
+            // Set Button to Live State
+            saveBtn.innerText = "LIVE";
+            saveBtn.disabled = false;
+            saveBtn.classList.replace('bg-ammoue', 'bg-emerald-500');
+            deployStatusText.textContent = "Status: Live";
+            
+            showMessage("Project is now LIVE!", false);
+            window.open(activeLiveUrl, '_blank');
+        }
+
+    } catch (e) {
+        console.error(e);
+        showMessage(e.message, true);
+        resetSaveButton();
+    }
+}
+
+function resetSaveButton() {
+    saveBtn.innerText = "SAVE & DEPLOY";
+    saveBtn.disabled = false;
+    saveBtn.classList.replace('bg-emerald-500', 'bg-ammoue');
+}
+
+/* ---------------- UTILITY FUNCTIONS ---------------- */
+
+function showMessage(message, isError) {
+    msgBox.textContent = message;
+    msgBox.className = `p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 z-[110] ${isError ? 'bg-red-500' : 'bg-green-500'} opacity-100`;
+    setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
+}
+
+function updateLivePreview(code) {
+    let html = code || cmEditor.getValue();
+    livePreviewFrame.srcdoc = html;
+}
+
+function markDirty(dirty) {
+    isDirty = dirty;
+    document.getElementById('status-indicator').classList.toggle('is-dirty', dirty);
+    if (dirty && saveBtn.innerText === "LIVE") {
+        resetSaveButton(); // Revert from "LIVE" to "SAVE" if user edits code
+    }
+}
+
+async function handleCodeRefine() {
+    if (pendingAiCode) return showMessage("Finish reviewing current changes first.", true);
+    const refinePrompt = promptInput.value.trim();
+    if (!refinePrompt) return showMessage("Please describe the changes.", true);
+
+    codeRefineButton.disabled = true;
+    deployStatusText.textContent = "Status: AI Thinking...";
+    
+    try {
+        const response = await fetch('/api/refine', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await auth.currentUser.getIdToken()}` },
+            body: JSON.stringify({ html: cmEditor.getValue(), prompt: refinePrompt, projectId: currentProjectId })
+        });
+        const data = await response.json();
+        if (data.htmlCode) {
+            originalCodeBeforeAi = cmEditor.getValue();
+            pendingAiCode = data.htmlCode;
+            cmEditor.setValue(pendingAiCode);
+            aiReviewBar.classList.remove('hidden');
+            editorContainer.classList.add('review-mode');
+        }
+    } catch (e) { 
+        showMessage("AI Error", true); 
+    } finally { 
+        codeRefineButton.disabled = false; 
+        deployStatusText.textContent = "Status: Idle";
+    }
+}
+
+/* ---------------- INITIALIZATION ---------------- */
+
+function initialize() {
+    const projectId = new URLSearchParams(window.location.search).get('id');
+    if (!projectId) { window.location.href = '/dashboard'; return; }
+    currentProjectId = projectId;
+
+    const app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+
+    onAuthStateChanged(auth, async (user) => {
+        if (!user) { window.location.href = '/login'; return; }
+        currentUserId = user.uid;
+
+        const snap = await getDoc(projectDocRef(currentProjectId));
+        if (snap.exists()) {
+            const data = snap.data();
+            titleInput.value = data.title || "Untitled";
+            slugInput.value = data.slug || "";
+            titleHeader.textContent = data.title || "Untitled";
+            activeLiveUrl = data.deploymentUrl || '';
+
+            cmEditor = CodeMirror.fromTextArea(document.getElementById('code-editor'), {
+                mode: "htmlmixed", theme: "dracula", lineNumbers: true, lineWrapping: true
+            });
+
+            cmEditor.setValue(data.htmlContent || "");
+            cmEditor.on('change', () => { if(!pendingAiCode) { markDirty(true); updateLivePreview(); } });
+            
+            updateLivePreview();
+            if (activeLiveUrl) {
+                saveBtn.innerText = "LIVE";
+                saveBtn.classList.replace('bg-ammoue', 'bg-emerald-500');
+            }
+
+            loadingScreen.classList.add('hidden');
+            editorContent.classList.remove('hidden');
+            lucide.createIcons();
+        } else {
+            window.location.href = '/dashboard';
+        }
     });
 
-    window.onbeforeunload = () => { if (isDirty) return "Unsaved changes!"; };
-    editorForm.onsubmit = handleSave;
-    codeRefineButton.onclick = handleCodeRefine;
-    previewBtn.onclick = () => { 
-        if (!latestDeploymentUrl || previewBtn.disabled) return;
-        window.open(latestDeploymentUrl, "_blank"); 
+    // Slug Auto-Cleanup
+    slugInput.oninput = function() {
+        this.value = this.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
     };
+}
 
-    initialize();
-    </script>
+// Event Listeners
+document.getElementById('accept-ai').onclick = () => {
+    pendingAiCode = null;
+    aiReviewBar.classList.add('hidden');
+    editorContainer.classList.remove('review-mode');
+    markDirty(true);
+};
+
+document.getElementById('reject-ai').onclick = () => {
+    cmEditor.setValue(originalCodeBeforeAi);
+    pendingAiCode = null;
+    aiReviewBar.classList.add('hidden');
+    editorContainer.classList.remove('review-mode');
+};
+
+document.getElementById('preview-btn').onclick = () => {
+    if (activeLiveUrl) window.open(activeLiveUrl, "_blank");
+    else showMessage("Deploy your project first to preview live.", true);
+};
+
+editorForm.onsubmit = handleSave;
+codeRefineButton.onclick = handleCodeRefine;
+
+window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); handleSave(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleCodeRefine(); }
+});
+
+initialize();
+</script>
 </body>
 </html>
