@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">
     <title>AmmoueAI | AI Builder</title>
+    <link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -134,6 +134,7 @@
 
                 <div id="thinking-box" class="hidden bg-black/40 border border-white/5 rounded-2xl p-5 max-h-[220px] overflow-y-auto">
                     <div id="logs" class="space-y-1.5"></div>
+                    <button id="resume-btn" class="hidden mt-3 w-full border border-[#D4AF37]/30 text-[#D4AF37] text-[10px] font-black py-2 rounded-lg hover:bg-[#D4AF37] hover:text-black transition-all uppercase tracking-widest">Resume Generation</button>
                 </div>
 
                 <div>
@@ -170,6 +171,8 @@
         let activeLiveUrl = null;
 
         const genBtn = document.getElementById('gen-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const resumeBtn = document.getElementById('resume-btn');
         const imgInput = document.getElementById('img-input');
         const imgTray = document.getElementById('img-tray');
         const logs = document.getElementById('logs');
@@ -181,6 +184,15 @@
         const confirmModal = document.getElementById('confirm-modal');
         const confirmDeployBtn = document.getElementById('confirm-deploy-btn');
         const cancelDeployBtn = document.getElementById('cancel-deploy-btn');
+
+        /* ---------------- STOP GENERATION ---------------- */
+        stopBtn.onclick = () => {
+            if (abortCtrl) {
+                abortCtrl.abort();
+                logs.innerHTML += '<div class="log-entry text-red-500 font-bold">> ABORTED BY USER.</div>';
+                stopBtn.classList.add('hidden');
+            }
+        };
 
         /* ---------------- AUTO-GENERATE NAME ---------------- */
         function generateCoolName() {
@@ -264,13 +276,24 @@
         window.removeImg = (i) => { attachedImages.splice(i, 1); renderImages(); };
 
         /* ---------------- GENERATE ---------------- */
-        genBtn.onclick = async () => {
+        genBtn.onclick = async () => startGeneration();
+        resumeBtn.onclick = async () => startGeneration(true);
+
+        async function startGeneration(isResume = false) {
             if (!auth.currentUser) return signInWithPopup(auth, new GoogleAuthProvider());
             
             abortCtrl = new AbortController();
             document.getElementById('thinking-box').classList.remove('hidden');
-            logs.innerHTML = '<div class="log-entry">> Initializing neural creative suite...</div>';
-            currentHtml = "";
+            resumeBtn.classList.add('hidden');
+            stopBtn.classList.remove('hidden');
+            
+            if (!isResume) {
+                logs.innerHTML = '<div class="log-entry">> Initializing neural creative suite...</div>';
+                currentHtml = "";
+            } else {
+                logs.innerHTML += '<div class="log-entry text-[#D4AF37]">> Resuming synthesis from last stable state...</div>';
+            }
+            
             genBtn.disabled = true;
             document.getElementById('gen-icon').innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
 
@@ -279,7 +302,11 @@
                 const res = await fetch('/api/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ prompt: document.getElementById('user-prompt').value, images: attachedImages }),
+                    body: JSON.stringify({ 
+                        prompt: document.getElementById('user-prompt').value, 
+                        images: attachedImages,
+                        partialCode: isResume ? currentHtml : null 
+                    }),
                     signal: abortCtrl.signal
                 });
 
@@ -287,34 +314,45 @@
                 const decoder = new TextDecoder();
 
                 while (true) {
-                    const { value, done } = await reader.read();
-                    if (done) break;
-                    const chunk = decoder.decode(value);
-                    const lines = chunk.split('\n');
-                    for (const line of lines) {
-                        if (!line.startsWith('data: ')) continue;
-                        const dataStr = line.slice(6).trim();
-                        if (dataStr === '[DONE]') break;
-                        try {
-                            const json = JSON.parse(dataStr);
-                            if (json.text) {
-                                currentHtml += json.text;
-                                updateFrame(currentHtml);
-                            }
-                        } catch (e) {}
+                    try {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+                        const chunk = decoder.decode(value);
+                        const lines = chunk.split('\n');
+                        for (const line of lines) {
+                            if (!line.startsWith('data: ')) continue;
+                            const dataStr = line.slice(6).trim();
+                            if (dataStr === '[DONE]') break;
+                            try {
+                                const json = JSON.parse(dataStr);
+                                if (json.text) {
+                                    currentHtml += json.text;
+                                    updateFrame(currentHtml);
+                                }
+                            } catch (e) {}
+                        }
+                    } catch (streamErr) {
+                        if (streamErr.name === 'AbortError') throw streamErr;
+                        console.error("Stream parsing error:", streamErr);
+                        logs.innerHTML += '<div class="log-entry text-red-400 font-bold">> NEURAL LINK INTERRUPTED: Parsing failed.</div>';
+                        resumeBtn.classList.remove('hidden');
+                        break; 
                     }
                 }
                 
                 currentProjectId = await autoSaveProject(currentHtml, document.getElementById('user-prompt').value, currentProjectId, auth.currentUser.uid);
-                addToHistory(document.getElementById('user-prompt').value);
-                logs.innerHTML += '<div class="log-entry text-[#D4AF37]">> Rendering complete. Data secured.</div>';
+                if (!isResume) addToHistory(document.getElementById('user-prompt').value);
+                logs.innerHTML += '<div class="log-entry text-[#D4AF37]">> Rendering cycle finalized.</div>';
             } catch (err) {
-                logs.innerHTML += '<div class="log-entry text-red-500">> Synthesis aborted.</div>';
+                if (err.name !== 'AbortError') {
+                    logs.innerHTML += '<div class="log-entry text-red-500">> Synthesis terminated unexpectedly.</div>';
+                }
             } finally {
                 genBtn.disabled = false;
+                stopBtn.classList.add('hidden');
                 document.getElementById('gen-icon').innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i>';
             }
-        };
+        }
 
         function addToHistory(prompt) {
             const list = document.getElementById('history-list');
@@ -347,7 +385,7 @@
             publishBtn.disabled = true;
             
             try {
-                const faviconHtml = `<link rel="icon" type="image/png" href="/Gemini_Generated_Image_qry9pfqry9pfqry9.png">`;
+                const faviconHtml = `<link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">`;
                 const finalContent = currentHtml.includes('<head>') 
                     ? currentHtml.replace('<head>', `<head>${faviconHtml}`)
                     : faviconHtml + currentHtml;
