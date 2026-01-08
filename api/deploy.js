@@ -11,6 +11,7 @@ const MAX_HTML_SIZE = 500_000; // 500KB
 const DEPLOY_COOLDOWN_MS = 30_000;
 const SLUG_TTL_MS = 5 * 60 * 1000;
 const MAX_VER_CEL_RETRIES = 2;
+// Updated origins to include both production and local dev if needed
 const ALLOWED_ORIGINS = ["https://ammoue-ai.vercel.app", "null"]; 
 
 const VERCEL_TOKEN = process.env.VERCEL_TOKEN;
@@ -59,8 +60,19 @@ function validateDomain(domain) {
 
 /* ================= HANDLER ================= */
 export default async function handler(req, res) {
+  // Handle CORS Preflight (OPTIONS) - Essential for browser POST requests
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Origin", "https://ammoue-ai.vercel.app");
+  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS,PATCH,DELETE,POST,PUT");
+  res.setHeader("Access-Control-Allow-Headers", "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization");
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
   try {
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+    
     const origin = req.headers.origin || "null";
     if (!ALLOWED_ORIGINS.includes(origin)) return res.status(403).json({ error: "CORS origin not allowed" });
 
@@ -141,7 +153,6 @@ export default async function handler(req, res) {
         deployment = await deployRes.json();
         if (!deployRes.ok) throw new Error("Vercel deployment failed");
         
-        // Assign the clean alias to this specific deployment
         if (finalSlug) {
             await fetch(`https://api.vercel.com/v2/deployments/${deployment.id}/aliases${VERCEL_TEAM_ID ? `?teamId=${VERCEL_TEAM_ID}`:""}`, {
                 method: "POST",
@@ -154,7 +165,6 @@ export default async function handler(req, res) {
       } catch (err) { if (attempt===MAX_VER_CEL_RETRIES) throw err; }
     }
 
-    // Determine return URL: if slug exists, use it. Otherwise, use the random deployment URL.
     const publicUrl = finalSlug ? `https://${finalSlug}.vercel.app` : `https://${deployment.url}`;
 
     await db.collection("deployments").add({ uid, projectId, deploymentId: deployment.id, status: "live", createdAt: FieldValue.serverTimestamp() });
