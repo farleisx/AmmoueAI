@@ -3,1209 +3,413 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">
-    <title>Ammoue | AI Site Generator</title>
+    <title>AmmoueAI | Creator</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f8fafc;
-            transition: background-color 0.3s ease;
-        }
-        .text-ammoue { color: #0d9488; }
-        .bg-ammoue { background-color: #0d9488; }
-
-        /* Loading screen */
-        #loading-state {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background-color: #fff;
-            z-index: 100;
-            transition: opacity 0.3s ease-in-out; 
-        }
-
-        /* Desktop Mode Specific Styles */
-        body.desktop-mode {
-            background-color: #f1f5f9;
-        }
-
-        body.desktop-mode #main-content {
-            max-width: 100% !important;
-            display: grid;
-            grid-template-columns: 280px 1fr;
-            gap: 2rem;
-            padding: 2rem;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        /* Sidebar Styling for Desktop */
-        body.desktop-mode #desktop-sidebar {
-            display: flex !important;
-            flex-direction: column;
-            background: white;
-            border-radius: 1.5rem;
-            padding: 1.5rem;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-            border: 1px solid #e2e8f0;
-        }
-
-        body.desktop-mode #main-scroll-area {
-            overflow-y: auto;
-            padding-right: 1rem;
-        }
-
-        /* Hide elements not needed in specific views */
-        #desktop-sidebar { display: none; }
+        body { font-family: 'Inter', sans-serif; background: #0f1115; color: #d1d5db; }
+        #preview-frame { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); background: white; border: none; }
+        .mobile-view { width: 375px !important; height: 667px !important; border: 12px solid #374151 !important; border-radius: 32px; box-shadow: 0 0 0 4px #1f2937; }
         
-        /* Message box */
-        #message-box {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
-            opacity: 0;
-            transition: opacity 0.3s ease-in-out;
-        }
+        #code-view { height: 100%; width: 100%; border: none; font-family: 'Fira Code', monospace; font-size: 13px; outline: none; resize: none; color: #a5d6ff; background: #0f1115; padding: 2rem; }
+        
+        .log-entry { font-size: 11px; color: #9ca3af; margin-bottom: 4px; font-family: 'Fira Code', monospace; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* Active Process Popup */
-        #process-popup {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%) translateY(100px);
-            z-index: 2500;
-            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease;
-            opacity: 0;
-            pointer-events: none;
-        }
-        #process-popup.visible {
-            transform: translateX(-50%) translateY(0);
-            opacity: 1;
-            pointer-events: auto;
-        }
+        .img-bubble { position: relative; width: 56px; height: 56px; border-radius: 8px; border: 1px solid #374151; overflow: hidden; background: #1c1f26; }
+        .img-bubble img { width: 100%; height: 100%; object-fit: cover; }
+        .remove-img { position: absolute; top: 2px; right: 2px; background: #ef4444; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; color: white; border: 1px solid #0f1115; }
+        
+        .history-item { cursor: pointer; transition: all 0.2s; border-left: 2px solid transparent; }
+        .history-item:hover { background: #161b22; border-left-color: #3b82f6; }
+        
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 10px; }
 
-        /* Hover effects */
-        a[href="/dashboard"],
-        #logout-btn {
-            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
-        }
-        a[href="dashboard.html"]:hover,
-        #logout-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            background-color: #f1f5f9;
-        }
-        #generate-btn:hover,
-        #refine-btn:hover {
-            box-shadow: 0 0 20px rgba(13, 148, 136, 0.6), 0 4px 12px rgba(13, 148, 136, 0.3);
-            transform: translateY(-2px) scale(1.02);
-        }
-        #generate-btn:disabled,
-        #refine-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
+        #limit-modal, #confirm-modal { backdrop-filter: blur(8px); }
     </style>
 </head>
-<body class="antialiased min-h-screen">
+<body class="h-screen flex flex-col overflow-hidden">
 
-    <div id="process-popup" class="bg-white/90 backdrop-blur-md border border-teal-100 shadow-2xl p-5 rounded-2xl flex flex-col sm:flex-row items-center gap-4 min-w-[320px]">
+    <div id="limit-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+        <div class="bg-[#1c1f26] border border-gray-800 rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl">
+            <div class="w-16 h-16 bg-blue-600/20 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                <i class="fa-solid fa-crown"></i>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-2">Limit Reached</h3>
+            <p id="limit-message" class="text-gray-400 text-sm mb-6">You've reached the deployment limit for your current plan. Upgrade to Pro for more projects and custom names.</p>
+            <div class="flex flex-col gap-2">
+                <button onclick="window.location.href='/pricing'" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition">UPGRADE TO PRO</button>
+                <button onclick="document.getElementById('limit-modal').classList.add('hidden')" class="text-gray-500 hover:text-white text-xs font-bold py-2">MAYBE LATER</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirm-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+        <div class="bg-[#1c1f26] border border-gray-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+            <h3 class="text-xl font-bold text-white mb-2">Confirm Deployment</h3>
+            <p class="text-gray-400 text-sm mb-4">Are you sure you want to publish this project? Your site will be live at the generated URL.</p>
+            <div class="bg-gray-900/50 p-3 rounded-lg border border-gray-700 mb-6">
+                <p class="text-[10px] text-gray-500 uppercase font-bold mb-1">Project Name</p>
+                <p id="confirm-slug-display" class="text-blue-400 font-mono text-sm"></p>
+            </div>
+            <div class="flex gap-3">
+                <button id="cancel-deploy-btn" class="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded-xl transition text-sm">CANCEL</button>
+                <button id="confirm-deploy-btn" class="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl transition text-sm">CONFIRM</button>
+            </div>
+        </div>
+    </div>
+
+    <nav class="border-b border-gray-800 px-4 py-2 flex justify-between items-center bg-[#161b22] z-50">
+        <div class="flex items-center gap-4">
+            <a href="/dashboard" class="text-gray-400 hover:text-white transition mr-2" title="Back to Dashboard">
+                <i class="fa-solid fa-house-chimney text-lg"></i>
+            </a>
+            <span class="text-white font-black italic tracking-tighter text-xl">AmmoueAI</span>
+            
+            <div class="flex bg-gray-900 rounded-lg p-1 gap-1 ml-4">
+                <button id="toggle-preview" class="px-3 py-1 text-[10px] font-bold rounded bg-blue-600 text-white transition">PREVIEW</button>
+                <button id="toggle-code" class="px-3 py-1 text-[10px] font-bold rounded text-gray-400 hover:text-white transition">CODE</button>
+            </div>
+        </div>
+
         <div class="flex items-center gap-3">
-            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-teal-50">
-                <svg class="animate-spin h-6 w-6 text-ammoue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
+            <div class="flex items-center gap-1 bg-gray-900 rounded-lg p-1">
+                <button id="set-desktop" class="p-1.5 text-blue-500 hover:bg-gray-800 rounded transition"><i class="fa-solid fa-desktop text-xs"></i></button>
+                <button id="set-mobile" class="p-1.5 text-gray-500 hover:bg-gray-800 rounded transition"><i class="fa-solid fa-mobile-screen text-xs"></i></button>
+                <button id="open-new-tab" class="p-1.5 text-gray-500 hover:bg-gray-800 rounded transition ml-1" title="Open in New Tab"><i class="fa-solid fa-external-link text-xs"></i></button>
             </div>
-            <p id="process-popup-message" aria-live="polite" class="text-lg font-semibold text-gray-800">Please wait until the HTML check finishes...</p>
+
+            <div id="publish-controls" class="flex items-center gap-2 bg-gray-900 p-1 rounded-lg border border-gray-700">
+                <input id="slug-input" type="text" placeholder="Project name..." class="bg-transparent border-none outline-none text-xs text-white px-2 w-32 placeholder:text-gray-600">
+                <button id="publish-btn" class="bg-green-600 hover:bg-green-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-md transition uppercase tracking-wider">Publish</button>
+                <button id="download-btn" class="text-gray-400 hover:text-white px-2 py-1.5 transition" title="Download Source (.zip)"><i class="fa-solid fa-file-zipper"></i></button>
+            </div>
+            
+            <div id="user-ui" class="hidden flex items-center gap-3 border-l border-gray-800 pl-4">
+                <img id="user-avatar" class="w-7 h-7 rounded-full ring-2 ring-gray-700">
+                <button id="logout-btn" class="text-[10px] text-gray-400 hover:text-white uppercase font-bold">Sign Out</button>
+            </div>
+            <button id="login-btn" class="bg-white text-black text-xs font-bold px-4 py-2 rounded-lg">LOGIN</button>
         </div>
-        <button id="scroll-to-bottom-btn" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2">
-            Jump to Actions <i data-lucide="arrow-down" class="w-4 h-4"></i>
-        </button>
-    </div>
+    </nav>
 
-    <div class="fixed top-4 right-4 z-[3000] flex items-center gap-2">
-        <button id="layout-toggle" class="bg-white border border-gray-200 shadow-sm p-2 rounded-lg hover:bg-gray-50 transition flex items-center gap-2 text-sm font-medium text-gray-700">
-            <i data-lucide="monitor" class="w-4 h-4" id="toggle-icon"></i>
-            <span id="toggle-text">Desktop View</span>
-        </button>
-    </div>
-
-    <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold"></div>
-
-    <div id="loading-state">
-        <div class="flex flex-col items-center">
-            <svg class="animate-spin h-8 w-8 text-ammoue mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <p class="text-gray-600 font-medium">Verifying session...</p>
-        </div>
-    </div>
-
-    <div id="main-content" class="max-w-4xl mx-auto p-6 lg:p-10 hidden">
-        
-        <aside id="desktop-sidebar">
-            <div class="mb-8">
-                <img src="Gemini_Generated_Image_qry9pfqry9pfqry9.png" class="w-10 h-10 rounded-lg mb-2" alt="Ammoue">
-                <h2 class="text-xl font-bold text-gray-900">Ammoue AI</h2>
-            </div>
-            <nav class="space-y-2 flex-1">
-                <a href="/dashboard" class="flex items-center p-3 text-gray-700 hover:bg-gray-100 rounded-xl transition font-medium">
-                    <i data-lucide="layout-dashboard" class="w-5 h-5 mr-3"></i> Dashboard
-                </a>
-                <div class="p-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mt-4">Generator Controls</div>
-                <button onclick="document.getElementById('ai-prompt').focus()" class="w-full flex items-center p-3 text-ammoue bg-teal-50 rounded-xl font-medium">
-                    <i data-lucide="plus-circle" class="w-5 h-5 mr-3"></i> New Website
-                </button>
-            </nav>
-            <div class="pt-4 border-t border-gray-100">
-                <button id="sidebar-logout" class="w-full flex items-center p-3 text-red-500 hover:bg-red-50 rounded-xl transition font-medium">
-                    <i data-lucide="log-out" class="w-5 h-5 mr-3"></i> Log Out
-                </button>
-            </div>
-        </aside>
-
-        <div id="main-scroll-area">
-            <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Generate Your AI Website</h1>
-            <p class="text-xl text-gray-500 mb-8">
-                Tell Ammoue exactly what website you want to generate (e.g., 'A modern portfolio site for a UX designer with a dark theme').
-            </p>
-
-            <textarea id="ai-prompt" rows="6"
-                class="w-full p-4 border-2 border-ammoue/30 rounded-2xl focus:ring-ammoue focus:border-ammoue transition duration-150 shadow-md bg-white"
-                placeholder="e.g., 'A vibrant landing page for a dog grooming salon called Paws & Claws...'"></textarea>
-
-            <div class="mt-4 mb-6">
-                <label class="block text-gray-700 font-medium mb-2">
-                    Optional: Upload images for AI reference
-                </label>
-                <div id="image-drop-area" 
-                     class="relative w-full p-6 border-2 border-ammoue/30 rounded-2xl shadow-md hover:border-ammoue hover:shadow-lg transition duration-200 bg-white text-gray-500 text-center cursor-pointer flex flex-col items-center justify-center">
-                    <i data-lucide="image" class="w-6 h-6 mb-2 text-ammoue"></i>
-                    <span id="image-drop-text">Click or drag images here to upload (multiple allowed)</span>
-                    <div id="image-preview-container" class="mt-3 flex flex-wrap gap-3 justify-center"></div>
-                    <input type="file" id="imageUploadInput" accept="image/*" multiple class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                </div>
-            </div>
-
-            <div class="mt-6 flex justify-end space-x-4">
-                <a href="/dashboard" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300 flex items-center sm-only-nav">
-                    <i data-lucide="layout-dashboard" class="w-4 h-4 mr-1"></i> Dashboard
-                </a>
-                <button id="logout-btn" class="px-6 py-3 text-base font-semibold rounded-xl text-gray-600 border border-gray-300 hover:bg-gray-100 transition duration-300 sm-only-nav">
-                    Log Out
-                </button>
-                <button id="generate-btn" class="px-8 py-3 text-lg font-bold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-300 shadow-lg shadow-teal-500/30 transform hover:scale-[1.01]">
-                    Generate HTML Code
-                </button>
-            </div>
-
-            <div class="mt-10 p-6 bg-white border border-gray-200 rounded-2xl shadow-xl">
-                <h2 class="text-3xl font-extrabold text-ammoue mb-3 flex items-center">
-                    <i data-lucide="sparkles" class="w-6 h-6 mr-2"></i> AI Refinement Agent
-                </h2>
-                <p class="text-lg text-gray-500 mb-6">
-                    Refine the **current generated code**. Tell the agent what to change, add, or remove.
-                </p>
-
-                <textarea id="refine-prompt" rows="3"
-                    class="w-full p-3 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 transition duration-150"
-                    placeholder="e.g., 'Make the primary button color a bright orange' or 'Add a 3-column feature section under the hero.'"></textarea>
-
-                <div class="mt-4 flex justify-end">
-                    <button id="refine-btn" disabled
-                        class="px-8 py-3 text-lg font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300 shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed">
-                        Refine Code
-                    </button>
-                </div>
-            </div>
-
-            <div id="generation-output" class="mt-12 p-6 bg-white border border-gray-100 rounded-2xl shadow-lg hidden">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-2xl font-bold text-gray-800 flex items-center">
-                        <i data-lucide="code" class="w-5 h-5 mr-2 text-ammoue"></i> Generated HTML Code
-                    </h3>
-                    <div class="flex space-x-3">
-                        <button id="copy-btn" class="text-sm font-medium text-ammoue hover:text-teal-600 flex items-center transition duration-200">
-                            <i data-lucide="copy" class="w-4 h-4 mr-1"></i> Copy Code
-                        </button>
-                        <button id="download-btn" disabled class="text-sm font-medium text-blue-600 hover:text-blue-700 disabled:text-gray-400 flex items-center transition duration-200">
-                            <i data-lucide="download" class="w-4 h-4 mr-1"></i> Download HTML
-                        </button>
+    <main class="flex-1 flex overflow-hidden">
+        <aside class="w-[380px] border-r border-gray-800 p-4 flex flex-col gap-4 bg-[#0f1115]">
+            <div class="flex-1 overflow-y-auto space-y-6 pr-1">
+                <div>
+                    <h2 class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-3">Creative Prompt</h2>
+                    <div class="bg-[#161b22] border border-gray-800 rounded-2xl p-4 focus-within:border-blue-500/50 transition-all duration-300 shadow-2xl">
+                        <div id="img-tray" class="flex flex-wrap gap-2 mb-3 empty:hidden"></div>
+                        <textarea id="user-prompt" class="w-full bg-transparent border-none outline-none text-sm text-white resize-none placeholder:text-gray-600" rows="5" placeholder="Build a landing page..."></textarea>
+                        <div class="flex justify-between items-center mt-3 pt-3 border-t border-gray-700">
+                            <label class="cursor-pointer text-gray-500 hover:text-blue-400 transition-colors p-2">
+                                <i class="fa-solid fa-paperclip text-lg"></i>
+                                <input type="file" id="img-input" class="hidden" accept="image/*" multiple>
+                            </label>
+                            <button id="gen-btn" class="bg-blue-600 hover:bg-blue-500 text-white w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-95 shadow-lg">
+                                <span id="gen-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                <pre class="bg-gray-100 p-4 rounded-xl overflow-x-auto border border-gray-300 text-sm"><code id="output-code" class="whitespace-pre"></code></pre>
-
-                <div id="action-buttons-container" class="mt-4 flex space-x-4">
-                    <button id="preview-html-btn" disabled
-                        class="px-6 py-2 text-base font-semibold rounded-xl text-white bg-teal-500 hover:bg-teal-600 transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed">
-                        <i data-lucide="eye" class="w-4 h-4 mr-1 inline-block"></i> Preview HTML
-                    </button>
-                    <button id="publish-btn" disabled
-                        class="px-6 py-2 text-base font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed">
-                        <i data-lucide="send" class="w-4 h-4 mr-1 inline-block"></i> Publish Site
-                    </button>
+                <div id="thinking-box" class="hidden bg-[#0a0c10] border border-gray-800 rounded-xl p-4 max-h-[200px] overflow-y-auto">
+                    <div id="logs" class="space-y-1"></div>
                 </div>
 
-                <div id="deployment-error-message" class="mt-4 p-4 rounded-xl text-center border-2 border-red-400 bg-red-100 text-red-700 font-semibold text-sm hidden">
+                <div>
+                    <h2 class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-3">Recent Projects</h2>
+                    <div id="history-list" class="space-y-1"></div>
                 </div>
             </div>
-            <div class="h-10"></div> </div>
-    </div>
+        </aside>
 
-<div id="publish-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-[2000] p-4">
-    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl transform transition-all">
-        <h3 class="text-2xl font-bold text-gray-900 mb-2">
-            Publish Your Site?
-        </h3>
-
-        <div class="mt-4 mb-3 text-left">
-            <label class="block text-sm font-medium text-gray-700 mb-1">
-                Choose a Site Name (Optional)
-            </label>
-
-            <div class="flex items-center border border-gray-300 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
-                <input
-                    type="text"
-                    id="site-slug-input"
-                    placeholder="my-awesome-site"
-                    class="w-full px-3 py-2 outline-none text-sm"
-                />
-                <span class="bg-gray-100 px-3 py-2 text-gray-500 text-sm border-l border-gray-300">
-                    .ammoue.app
-                </span>
+        <section class="flex-1 flex items-center justify-center p-6 bg-[#1c1f26] relative">
+            <div id="preview-wrapper" class="w-full h-full flex items-center justify-center relative">
+                <iframe id="preview-frame" class="shadow-2xl w-full h-full"></iframe>
+                <textarea id="code-view" class="hidden" readonly></textarea>
+                
+                <button id="copy-code-btn" class="hidden absolute top-4 right-4 bg-gray-800/80 hover:bg-blue-600 text-white px-3 py-1.5 rounded-md text-[10px] font-bold transition-all border border-gray-700 backdrop-blur-sm">
+                    <i class="fa-solid fa-copy mr-2"></i> COPY CODE
+                </button>
             </div>
-
-            <div class="mt-2 text-xs text-gray-400 flex items-start gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg"
-                     class="h-4 w-4 text-yellow-400 mt-[1px]"
-                     fill="none"
-                     viewBox="0 0 24 24"
-                     stroke="currentColor">
-                    <path stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M13 16h-1v-4h-1m1-4h.01M12 18a9 9 0 100-18 9 9 0 000 18z" />
-                </svg>
-
-                <span>
-                    <strong>Custom domains coming soon.</strong><br />
-                    This name will be used for your public site URL.
-                </span>
-            </div>
-        </div>
-
-        <p class="text-gray-600 mb-6 text-sm">
-            This will deploy your current HTML code to a live URL.
-            Deployment usually takes under a minute.
-        </p>
-
-        <div class="flex space-x-3 justify-end">
-            <button
-                id="cancel-publish"
-                class="px-5 py-2 text-gray-600 font-semibold hover:bg-gray-100 rounded-xl transition"
-            >
-                Cancel
+            
+            <button id="stop-btn" class="hidden absolute bottom-10 bg-red-500 hover:bg-red-400 text-white px-6 py-2 rounded-full font-bold text-sm shadow-xl z-50">
+                <i class="fa-solid fa-circle-stop mr-2"></i> STOP GENERATION
             </button>
+        </section>
+    </main>
 
-            <button
-                id="confirm-publish"
-                class="px-5 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-500/30"
-            >
-                Confirm & Publish
-            </button>
-        </div>
-    </div>
-</div>
-    
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-    import { getFirestore, collection, addDoc, doc, getDoc, updateDoc, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
-    
-    const firebaseConfig = {
-        apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
-        authDomain: "ammoueai.firebaseapp.com",
-        projectId: "ammoueai",
-        storageBucket: "ammoueai.firebasestorage.app",
-        messagingSenderId: "135818868149",
-        appId: "1:135818868149:web:db9280baf9540a3339d5fc",
-    };
-    
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const appId = firebaseConfig.projectId;
-    let currentUserId = null;
-    let generationDone = false;
+    <script type="module">
+        import { auth, getUserPlan, autoSaveProject, updateProjectDeploymentUrl } from "./fire_prompt.js";
+        import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 
-// ================= LAYOUT TOGGLE LOGIC =================
-const layoutToggle = document.getElementById('layout-toggle');
-const toggleText = document.getElementById('toggle-text');
-const toggleIcon = document.getElementById('toggle-icon');
+        let currentHtml = "";
+        let currentProjectId = null;
+        let attachedImages = [];
+        let abortCtrl = null;
+        let activeLiveUrl = null;
 
-function updateLayoutUI(isDesktop) {
-    if (isDesktop) {
-        document.body.classList.add('desktop-mode');
-        toggleText.textContent = 'Mobile View';
-        toggleIcon.setAttribute('data-lucide', 'smartphone');
-        document.querySelectorAll('.sm-only-nav').forEach(el => el.classList.add('hidden'));
-    } else {
-        document.body.classList.remove('desktop-mode');
-        toggleText.textContent = 'Desktop View';
-        toggleIcon.setAttribute('data-lucide', 'monitor');
-        document.querySelectorAll('.sm-only-nav').forEach(el => el.classList.remove('hidden'));
-    }
-    lucide.createIcons();
-}
+        const genBtn = document.getElementById('gen-btn');
+        const imgInput = document.getElementById('img-input');
+        const imgTray = document.getElementById('img-tray');
+        const logs = document.getElementById('logs');
+        const frame = document.getElementById('preview-frame');
+        const codeView = document.getElementById('code-view');
+        const copyBtn = document.getElementById('copy-code-btn');
+        const downloadBtn = document.getElementById('download-btn');
+        const publishBtn = document.getElementById('publish-btn');
+        const confirmModal = document.getElementById('confirm-modal');
+        const confirmDeployBtn = document.getElementById('confirm-deploy-btn');
+        const cancelDeployBtn = document.getElementById('cancel-deploy-btn');
 
-layoutToggle.addEventListener('click', () => {
-    const isNowDesktop = !document.body.classList.contains('desktop-mode');
-    localStorage.setItem('ammoue_layout_preference', isNowDesktop ? 'desktop' : 'mobile');
-    updateLayoutUI(isNowDesktop);
-});
+        /* ---------------- AUTO-GENERATE NAME ---------------- */
+        function generateCoolName() {
+            const adjs = ["cosmic", "neon", "stellar", "quantum", "vivid", "silent", "atomic", "sparkling", "mystic", "rapid"];
+            const nouns = ["nebula", "matrix", "vision", "flux", "pulse", "orbit", "delta", "haven", "pixel", "storm"];
+            const adj = adjs[Math.floor(Math.random() * adjs.length)];
+            const noun = nouns[Math.floor(Math.random() * nouns.length)];
+            const num = Math.floor(Math.random() * 99);
+            document.getElementById('slug-input').value = `${adj}-${noun}-${num}`;
+        }
+        generateCoolName();
 
-const savedLayout = localStorage.getItem('ammoue_layout_preference');
-if (savedLayout === 'desktop') updateLayoutUI(true);
-// ================= END LAYOUT TOGGLE LOGIC =================
+        /* ---------------- VIEW TOGGLES ---------------- */
+        const btnPreview = document.getElementById('toggle-preview');
+        const btnCode = document.getElementById('toggle-code');
 
-
-// ================= IMAGE ATTACHMENT LOGIC =================
-const imageInput = document.getElementById("imageUploadInput");
-const imageDropArea = document.getElementById("image-drop-area");
-const imagePreviewContainer = document.getElementById("image-preview-container");
-let attachedImages = []; 
-
-function fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-}
-
-function renderImagePreviews() {
-    imagePreviewContainer.innerHTML = "";
-
-    attachedImages.forEach((img, index) => {
-        const wrapper = document.createElement("div");
-        wrapper.className =
-            "relative w-16 h-16 rounded-xl overflow-hidden border shadow";
-
-        const image = document.createElement("img");
-        image.src = img.base64;
-        image.className = "w-full h-full object-cover";
-
-        const removeBtn = document.createElement("button");
-        removeBtn.innerHTML = "×";
-        removeBtn.className =
-            "absolute -top-2 -right-2 bg-red-500 text-white w-5 h-5 rounded-full text-xs flex items-center justify-center";
-        removeBtn.onclick = () => {
-            attachedImages.splice(index, 1);
-            renderImagePreviews();
+        btnPreview.onclick = () => {
+            frame.classList.remove('hidden');
+            codeView.classList.add('hidden');
+            copyBtn.classList.add('hidden');
+            btnPreview.className = "px-3 py-1 text-[10px] font-bold rounded bg-blue-600 text-white transition";
+            btnCode.className = "px-3 py-1 text-[10px] font-bold rounded text-gray-400 hover:text-white transition";
         };
 
-        wrapper.appendChild(image);
-        wrapper.appendChild(removeBtn);
-        imagePreviewContainer.appendChild(wrapper);
-    });
-}
+        btnCode.onclick = () => {
+            codeView.classList.remove('hidden');
+            frame.classList.add('hidden');
+            copyBtn.classList.remove('hidden');
+            btnCode.className = "px-3 py-1 text-[10px] font-bold rounded bg-blue-600 text-white transition";
+            btnPreview.className = "px-3 py-1 text-[10px] font-bold rounded text-gray-400 hover:text-white transition";
+            codeView.value = currentHtml;
+        };
 
-async function handleFiles(files) {
-    const MAX_SIZE_BYTES = 5 * 1024 * 1024; 
+        copyBtn.onclick = () => {
+            navigator.clipboard.writeText(currentHtml);
+            const originalText = copyBtn.innerHTML;
+            copyBtn.innerHTML = '<i class="fa-solid fa-check mr-2"></i> COPIED!';
+            setTimeout(() => copyBtn.innerHTML = originalText, 2000);
+        };
 
-    for (const file of files) {
-        if (!file.type.startsWith("image/")) continue;
-        if (attachedImages.length >= 4) {
-            showMessage("You can only attach a maximum of 4 images.", true);
-            break;
-        }
+        /* ---------------- DOWNLOAD ZIP ---------------- */
+        downloadBtn.onclick = async () => {
+            if (!currentHtml) return alert("Generate some code first!");
+            const zip = new JSZip();
+            const slug = document.getElementById('slug-input').value || 'project';
+            zip.file("index.html", currentHtml);
+            const content = await zip.generateAsync({type:"blob"});
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(content);
+            link.download = `${slug}.zip`;
+            link.click();
+        };
 
-        if (attachedImages.some(img => img.file.name === file.name && img.file.size === file.size)) {
-            showMessage(`Image "${file.name}" already attached.`, true);
-            continue;
-        }
-
-        if (file.size > MAX_SIZE_BYTES) {
-            showMessage(`Image ${file.name} is too large (max 5MB).`, true);
-            continue;
-        }
-
-        try {
-            const base64 = await fileToBase64(file);
-            attachedImages.push({ file, base64 });
-        } catch (e) {
-            console.error("Error converting file to base64:", e);
-            showMessage("Failed to process image file.", true);
-        }
-    }
-
-    renderImagePreviews();
-}
-
-if (imageInput) {
-    imageInput.addEventListener("change", (e) => {
-        handleFiles(e.target.files);
-        imageInput.value = "";
-    });
-}
-
-if (imageDropArea) {
-    imageDropArea.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        imageDropArea.classList.add("border-ammoue", "bg-ammoue/5");
-    });
-
-    imageDropArea.addEventListener("dragleave", () => {
-        imageDropArea.classList.remove("border-ammoue", "bg-ammoue/5");
-    });
-
-    imageDropArea.addEventListener("drop", (e) => {
-        e.preventDefault();
-        imageDropArea.classList.remove("border-ammoue", "bg-ammoue/5");
-        handleFiles(e.dataTransfer.files);
-    });
-}
-// ================= END IMAGE ATTACHMENT LOGIC =================
-
-
-    const loadingState = document.getElementById('loading-state');
-    const mainContent = document.getElementById('main-content');
-    const logoutBtn = document.getElementById('logout-btn');
-    const sidebarLogout = document.getElementById('sidebar-logout');
-    const generateBtn = document.getElementById('generate-btn');
-    const downloadBtn = document.getElementById('download-btn');
-    const promptInput = document.getElementById('ai-prompt');
-    const outputDiv = document.getElementById('generation-output');
-    const outputCode = document.getElementById('output-code');
-    const copyBtn = document.getElementById('copy-btn');
-    
-    const publishBtn = document.getElementById('publish-btn');
-    const previewHtmlBtn = document.getElementById('preview-html-btn'); 
-
-    const messageBox = document.getElementById('message-box');
-    const refinePromptInput = document.getElementById('refine-prompt');
-    const refineBtn = document.getElementById('refine-btn');
-    const deploymentErrorMessage = document.getElementById('deployment-error-message'); 
-
-    // New Popup Elements
-    const processPopup = document.getElementById('process-popup');
-    const scrollDownBtn = document.getElementById('scroll-to-bottom-btn');
-    const actionContainer = document.getElementById('action-buttons-container');
-
-    let listenersAttached = false;
-    let latestHtmlContent = ''; 
-    let latestPrompt = ''; 
-    let latestDeploymentUrl = ''; 
-    let currentProjectId = null; 
-
-    const delay = ms => new Promise(res => setTimeout(res, ms));
-
-    function showMessage(message, isError) {
-        messageBox.textContent = message;
-        messageBox.classList.toggle('bg-red-500', isError);
-        messageBox.classList.toggle('bg-ammoue', !isError);
-        messageBox.classList.remove('opacity-0');
-        messageBox.classList.add('opacity-100');
-        setTimeout(() => {
-            messageBox.classList.remove('opacity-100');
-            messageBox.classList.add('opacity-0');
-        }, 4000);
-    }
-
-    let cooldownActive = false;
-    let cooldownInterval = null;
-
-    function startGlobalCooldown(seconds = 60) {
-        if (cooldownInterval || cooldownActive) return;
-
-        cooldownActive = true;
-        let remaining = seconds;
-        
-        localStorage.setItem('ammoue_cooldown_until', Date.now() + seconds * 1000);
-
-        generateBtn.disabled = true;
-        refineBtn.disabled = true;
-
-        const originalGenerateText = 'Generate HTML Code';
-        const originalRefineText = 'Refine Code';
-
-        generateBtn.innerText = `Cooling down (${remaining}s)...`;
-        refineBtn.innerText = `Cooling down (${remaining}s)...`;
-
-        cooldownInterval = setInterval(() => {
-            remaining--;
-
-            generateBtn.innerText = `Cooling down (${remaining}s)...`;
-            refineBtn.innerText = `Cooling down (${remaining}s)...`;
-
-            if (remaining <= 0) {
-                clearInterval(cooldownInterval);
-                cooldownInterval = null;
-                cooldownActive = false;
-                localStorage.removeItem('ammoue_cooldown_until');
-
-                generateBtn.innerHTML = originalGenerateText;
-                refineBtn.innerHTML = originalRefineText;
-
-                generateBtn.disabled = false;
-                refineBtn.disabled = !latestHtmlContent; // only enable refine if allowed
+        /* ---------------- IMAGE PREVIEW ---------------- */
+        imgInput.onchange = async (e) => {
+            const files = Array.from(e.target.files);
+            for (const file of files) {
+                if (attachedImages.length >= 4) break;
+                attachedImages.push(await toBase64(file));
             }
-        }, 1000);
-    }
+            renderImages();
+            imgInput.value = "";
+        };
 
-    function setLoading(isLoading, isRefining = false) {
-        const popupMessage = document.getElementById('process-popup-message');
-        if (isLoading) {
-            generateBtn.disabled = true;
-            refineBtn.disabled = true;
-            downloadBtn.disabled = true;
-            publishBtn.disabled = true;
-            previewHtmlBtn.disabled = true;
-            imageInput.disabled = true;
+        function toBase64(file) {
+            return new Promise(r => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => r(reader.result);
+            });
+        }
+
+        function renderImages() {
+            imgTray.innerHTML = attachedImages.map((src, i) => `
+                <div class="img-bubble">
+                    <img src="${src}">
+                    <div class="remove-img" onclick="removeImg(${i})"><i class="fa-solid fa-xmark"></i></div>
+                </div>
+            `).join('');
+        }
+        window.removeImg = (i) => { attachedImages.splice(i, 1); renderImages(); };
+
+        /* ---------------- GENERATE ---------------- */
+        genBtn.onclick = async () => {
+            if (!auth.currentUser) return signInWithPopup(auth, new GoogleAuthProvider());
             
-            // Show process popup with custom message
-            popupMessage.textContent = isRefining 
-                ? 'Refining your code...' 
-                : 'Please wait until the HTML check finishes...';
-            processPopup.classList.add('visible');
+            abortCtrl = new AbortController();
+            document.getElementById('thinking-box').classList.remove('hidden');
+            logs.innerHTML = '<div class="log-entry">> Initializing neural synthesis...</div>';
+            currentHtml = "";
+            genBtn.disabled = true;
+            document.getElementById('gen-icon').innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
 
-            const loadingText = isRefining ? 'Refining...' : 'Building...';
-            const buttonToUpdate = isRefining ? refineBtn : generateBtn;
-            buttonToUpdate.innerHTML = `<svg class="animate-spin h-5 w-5 mr-3 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> ${loadingText}`;
-        } else {
-            generateBtn.disabled = cooldownActive;
-            refineBtn.disabled = !latestHtmlContent || cooldownActive;
-            downloadBtn.disabled = !latestHtmlContent;
-            publishBtn.disabled = !latestHtmlContent;
-            previewHtmlBtn.disabled = !latestHtmlContent;
-            imageInput.disabled = false;
-            
-            // Hide process popup
-            processPopup.classList.remove('visible');
-
-            if (!cooldownActive) {
-                generateBtn.innerHTML = 'Generate HTML Code';
-                refineBtn.innerHTML = 'Refine Code';
-            }
-        }
-    }
-
-    function setPublishButton(url, isDeploying = false, status = 'pending') {
-        publishBtn.disabled = !latestHtmlContent || isDeploying;
-        
-        publishBtn.classList.remove('bg-green-600', 'bg-blue-600', 'bg-yellow-600', 'bg-red-500', 'bg-gray-400', 'cursor-not-allowed', 'cursor-pointer');
-        publishBtn.textContent = 'Publish Site';
-
-        if (isDeploying) {
-            processPopup.classList.add('visible'); // Show popup during deployment
-            let text = 'Deployment Initiated...';
-            if (status === 'queued') text = 'Deployment Queued...';
-            if (status === 'building') text = 'Deployment Building...';
-            
-            publishBtn.textContent = text;
-            publishBtn.classList.add('bg-yellow-600', 'cursor-not-allowed');
-        } else if (url) {
-            processPopup.classList.remove('visible'); // Hide after deploy
-            publishBtn.textContent = 'Open Live Site';
-            publishBtn.classList.add('bg-green-600', 'cursor-pointer');
-        } else if (latestHtmlContent) {
-            publishBtn.textContent = 'Publish Site';
-            publishBtn.classList.add('bg-blue-600', 'cursor-pointer');
-        } else {
-            publishBtn.textContent = 'Publish Site';
-            publishBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
-        }
-    }
-
-    async function copyToClipboard(text) {
-        if (!text) return;
-        try {
-            await navigator.clipboard.writeText(text);
-            showMessage("Code copied to clipboard!", false);
-        } catch (err) {
-            const textarea = document.createElement('textarea');
-            textarea.value = text;
-            document.body.appendChild(textarea);
-            textarea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textarea);
-            showMessage("Code copied to clipboard!", false);
-        }
-    }
-
-    function handleDownload() {
-        if (!outputCode.textContent) return showMessage("No HTML code to download.", true);
-        const blob = new Blob([outputCode.textContent], { type: "text/html" });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = "ammoue_website.html"; 
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        showMessage("Download started!", false);
-    }
-    
-    function handlePreviewHtml() {
-        if (!latestHtmlContent) {
-            showMessage("Generate HTML first to preview.", true);
-            return;
-        }
-        if (!generationDone) {
-            showMessage("Please wait for generation to finish before previewing.", true);
-            return;
-        }
-
-        const previewWindow = window.open('', '_blank');
-        if (previewWindow) {
-            previewWindow.document.title = "Preview | Ammoue AI";
-            previewWindow.document.body.style.margin = "0";
-            
-            const iframe = previewWindow.document.createElement('iframe');
-            iframe.style.width = "100vw";
-            iframe.style.height = "100vh";
-            iframe.style.border = "none";
-            iframe.setAttribute("sandbox", "allow-scripts allow-forms allow-modals allow-same-origin");
-            
-            previewWindow.document.body.appendChild(iframe);
-            iframe.srcdoc = latestHtmlContent;
-        } else {
-            showMessage("Pop-up blocked! Please allow pop-ups for this site.", true);
-        }
-    }
-
-    function handleScrollToOutput() {
-        outputDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-
-    function isValidHtml(html) {
-        const lower = html.toLowerCase();
-        const hasTags = lower.includes('<html') && lower.includes('<head') && lower.includes('<body');
-        if (!hasTags) return { valid: false, error: "Missing standard HTML structure (html, head, or body tags)." };
-        return { valid: true };
-    }
-
-    async function handleDeployment() {
-        deploymentErrorMessage.classList.add('hidden'); 
-        const slug = document.getElementById('site-slug-input').value.trim();
-
-        if (latestDeploymentUrl && !slug) {
-            window.open(latestDeploymentUrl, "_blank");
-            return;
-        }
-
-        if (!currentUserId) return showMessage("Authentication error: User ID is missing.", true); 
-        if (!latestHtmlContent) return showMessage("No HTML content to deploy. Generate a site first.", true);
-        if (!currentProjectId) return showMessage("System Error: Project ID is missing. Please generate again.", true);
-
-        const validation = isValidHtml(latestHtmlContent);
-        if (!validation.valid) return showMessage(`❌ ${validation.error}`, true);
-
-        setPublishButton(latestDeploymentUrl, true);
-
-        try {
-            const userPlan = await getUserPlan(currentUserId);
-            const response = await fetch("/api/deploy", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        htmlContent: latestHtmlContent,
-                        userId: currentUserId,
-                        plan: userPlan, 
-                        projectId: currentProjectId,
-                        slug: slug || null
-                    }),
+            try {
+                const token = await auth.currentUser.getIdToken();
+                const res = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ prompt: document.getElementById('user-prompt').value, images: attachedImages }),
+                    signal: abortCtrl.signal
                 });
 
-                const result = await response.json();
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
 
-                if (!response.ok) {
-                    processPopup.classList.remove('visible');
-                    if (response.status === 409) return showMessage("❌ Site name is already taken.", true);
-                    if (response.status === 403) {
-                        deploymentErrorMessage.innerHTML = `
-                            <div class="text-xl mb-1 flex items-center justify-center">
-                                <i data-lucide="alert-triangle" class="w-6 h-6 mr-2"></i>
-                                <strong>FREE Plan Limit Reached</strong>
-                            </div>
-                            You have reached your limit or requested a Pro-only feature (Custom Name).
-                        `;
-                        deploymentErrorMessage.classList.remove('hidden');
-                        lucide.createIcons();
-                        throw new Error("Access Denied."); 
-                    }
-                    throw new Error(result.error || result.details || "Deployment failed.");
-                }
-
-                latestDeploymentUrl = result.deploymentUrl; 
-                const initialStatus = result.status; 
-                const deploymentIdToPoll = result.deploymentId; 
-
-                setPublishButton(latestDeploymentUrl, true, initialStatus.toLowerCase()); 
-                
-                showMessage("✅ Deployment initiated. Checking status...", false);
-                await updateProjectDeploymentUrl(currentProjectId, latestDeploymentUrl); 
-
-                const maxPollAttempts = 30; 
-                for (let attempt = 0; attempt < maxPollAttempts; attempt++) {
-                    await delay(5000); 
-
-                    const statusResponse = await fetch("/api/checkDeploymentStatus", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ 
-                            deploymentId: deploymentIdToPoll, 
-                            userId: currentUserId 
-                        }),
-                    });
-
-                    const statusResult = await statusResponse.json();
-                    const status = statusResult.status || 'pending'; 
-                    const finalUrl = statusResult.url; 
-
-                    if (status === 'READY') {
-                        latestDeploymentUrl = finalUrl || latestDeploymentUrl;
-                        setPublishButton(latestDeploymentUrl, false); 
-                        showMessage("🚀 Deployment Complete!", false);
-                        await updateProjectDeploymentUrl(currentProjectId, latestDeploymentUrl);
-                        
-                        // Explicit Deployment Counter (Atomic)
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+                    for (const line of lines) {
+                        if (!line.startsWith('data: ')) continue;
+                        const dataStr = line.slice(6).trim();
+                        if (dataStr === '[DONE]') break;
                         try {
-                            const userDocRef = doc(db, "users", currentUserId);
-                            await updateDoc(userDocRef, {
-                                deploymentCount: increment(1)
-                            });
-                        } catch (e) {
-                            console.error("Failed to increment deploymentCount:", e);
-                        }
-
-                        processPopup.classList.remove('visible');
-                        return; 
-                    } else if (status === 'ERROR') {
-                        processPopup.classList.remove('visible');
-                        throw new Error(`Deployment failed.`);
-                    } else {
-                        setPublishButton(latestDeploymentUrl, true, status.toLowerCase());
+                            const json = JSON.parse(dataStr);
+                            if (json.text) {
+                                currentHtml += json.text;
+                                updateFrame(currentHtml);
+                            }
+                        } catch (e) {}
                     }
                 }
                 
-                processPopup.classList.remove('visible');
-                throw new Error("Deployment timed out.");
-
-            } catch (error) {
-                processPopup.classList.remove('visible');
-                console.error("Deployment Error:", error);
-                showMessage(`❌ Deployment failed: ${error.message}`, true);
-                setPublishButton(latestDeploymentUrl, false);
+                currentProjectId = await autoSaveProject(currentHtml, document.getElementById('user-prompt').value, currentProjectId, auth.currentUser.uid);
+                addToHistory(document.getElementById('user-prompt').value);
+                logs.innerHTML += '<div class="log-entry text-blue-400">> Assets optimized and saved.</div>';
+            } catch (err) {
+                logs.innerHTML += '<div class="log-entry text-red-400">> Process terminated.</div>';
+            } finally {
+                genBtn.disabled = false;
+                document.getElementById('gen-icon').innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i>';
             }
+        };
+
+        function addToHistory(prompt) {
+            const list = document.getElementById('history-list');
+            const item = document.createElement('div');
+            item.className = 'history-item p-3 text-xs bg-[#161b22]/50 rounded-lg text-gray-400 truncate';
+            item.innerText = prompt;
+            list.prepend(item);
         }
 
-
-    async function getUserPlan(userId) {
-        try {
-            const userDocRef = doc(db, "users", userId);
-            const userDoc = await getDoc(userDocRef);
-            return userDoc.exists() ? userDoc.data().plan || 'free' : 'free';
-        } catch (error) {
-            console.error("Failed to fetch user plan:", error);
-            return 'free'; 
-        }
-    }
-
-    async function autoSaveProject(htmlContent, userPrompt, existingProjectId = null) {
-        if (!currentUserId || !htmlContent) return null;
-
-        try {
-            const projectsRef = collection(db, "artifacts", appId, "users", currentUserId, "projects");
+        /* ---------------- PUBLISH WITH CONFIRMATION ---------------- */
+        publishBtn.onclick = () => {
+            if (activeLiveUrl) {
+                window.open(activeLiveUrl, '_blank');
+                return;
+            }
+            const slug = document.getElementById('slug-input').value;
+            if (!slug) return alert("Enter a project name first.");
             
-            if (existingProjectId) {
-                const docRef = doc(projectsRef, existingProjectId);
-                await updateDoc(docRef, {
-                    prompt: userPrompt.replace(/\\n/g, "\n"),
-                    htmlContent,
-                    updatedAt: serverTimestamp(), 
+            document.getElementById('confirm-slug-display').innerText = slug;
+            confirmModal.classList.remove('hidden');
+        };
+
+        cancelDeployBtn.onclick = () => confirmModal.classList.add('hidden');
+
+        confirmDeployBtn.onclick = async () => {
+            confirmModal.classList.add('hidden');
+            const slug = document.getElementById('slug-input').value;
+            
+            publishBtn.innerText = "DEPLOYING...";
+            publishBtn.disabled = true;
+            
+            try {
+                const faviconHtml = `<link rel="icon" type="image/png" href="/Gemini_Generated_Image_qry9pfqry9pfqry9.png">`;
+                const finalContent = currentHtml.includes('<head>') 
+                    ? currentHtml.replace('<head>', `<head>${faviconHtml}`)
+                    : faviconHtml + currentHtml;
+
+                const res = await fetch('/api/deploy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        htmlContent: finalContent,
+                        userId: auth.currentUser.uid,
+                        plan: await getUserPlan(auth.currentUser.uid),
+                        projectId: currentProjectId,
+                        slug: slug
+                    })
                 });
-                return existingProjectId;
+
+                const data = await res.json();
+
+                if (res.status === 403) {
+                    const modal = document.getElementById('limit-modal');
+                    const msg = document.getElementById('limit-message');
+                    msg.innerText = data.error || "You've reached your plan limit.";
+                    modal.classList.remove('hidden');
+                    publishBtn.innerText = "PUBLISH";
+                    publishBtn.disabled = false;
+                    return;
+                }
+
+                if (data.deploymentUrl) {
+                    await updateProjectDeploymentUrl(currentProjectId, data.deploymentUrl, auth.currentUser.uid);
+                    activeLiveUrl = data.deploymentUrl;
+                    publishBtn.innerText = "LIVE";
+                    publishBtn.disabled = false;
+                    publishBtn.classList.replace('bg-green-600', 'bg-green-500');
+                    publishBtn.classList.add('cursor-pointer');
+                }
+            } catch (e) {
+                publishBtn.innerText = "PUBLISH";
+                publishBtn.disabled = false;
+            }
+        };
+
+        /* ---------------- DEVICE HELPERS ---------------- */
+        document.getElementById('set-desktop').onclick = () => {
+            frame.className = "shadow-2xl w-full h-full";
+            document.getElementById('set-desktop').classList.add('text-blue-500');
+            document.getElementById('set-mobile').classList.replace('text-blue-500', 'text-gray-500');
+        };
+        document.getElementById('set-mobile').onclick = () => {
+            frame.className = "mobile-view";
+            document.getElementById('set-mobile').classList.add('text-blue-500');
+            document.getElementById('set-desktop').classList.replace('text-blue-500', 'text-gray-500');
+        };
+        document.getElementById('open-new-tab').onclick = () => {
+            const w = window.open('about:blank');
+            w.document.write(currentHtml);
+            w.document.close();
+        };
+
+        function updateFrame(h) {
+            const blob = new Blob([h], { type: 'text/html' });
+            frame.src = URL.createObjectURL(blob);
+            codeView.value = h;
+            activeLiveUrl = null;
+            publishBtn.innerText = "PUBLISH";
+            publishBtn.classList.replace('bg-green-500', 'bg-green-600');
+        }
+
+        onAuthStateChanged(auth, u => {
+            if (u) {
+                document.getElementById('user-ui').classList.remove('hidden');
+                document.getElementById('login-btn').classList.add('hidden');
+                document.getElementById('user-avatar').src = u.photoURL;
             } else {
-                const newDocRef = await addDoc(projectsRef, {
-                    prompt: userPrompt.replace(/\\n/g, "\n"),
-                    htmlContent,
-                    deploymentUrl: null,
-                    createdAt: serverTimestamp(),
-                });
-                return newDocRef.id;
+                document.getElementById('user-ui').classList.add('hidden');
+                document.getElementById('login-btn').classList.remove('hidden');
             }
-        } catch (error) {
-            console.error("Error during auto-save:", error);
-            showMessage("⚠️ Warning: Failed to auto-save project.", true);
-            return null; 
-        }
-    }
-    
-    async function updateProjectDeploymentUrl(projectId, deploymentUrl) {
-        if (!currentUserId || !projectId) return;
-        try {
-            const projectDocRef = doc(db, "artifacts", appId, "users", currentUserId, "projects", projectId);
-            await updateDoc(projectDocRef, {
-                deploymentUrl: deploymentUrl,
-            });
-        } catch (error) {
-            console.error("Failed to update deployment URL in Firestore:", error);
-        }
-    }
-
-    async function handleGeneration() {
-        if (cooldownActive) {
-            showMessage("⏳ Please wait for cooldown to finish.", true);
-            return;
-        }
-        const prompt = promptInput.value.trim();
-        if (prompt.length < 10 && attachedImages.length === 0) return showMessage("Please provide a detailed prompt (min 10 chars) or an image.", true);
-        
-        const user = auth.currentUser;
-        if (!user) return showMessage("Auth error: Please log in again.", true);
-
-        setLoading(true);
-        generationDone = false;
-        outputCode.textContent = "";
-        latestHtmlContent = "";
-        latestDeploymentUrl = ""; 
-        setPublishButton(null, false); 
-        latestPrompt = prompt;
-        currentProjectId = null; 
-
-        try {
-            const idToken = await user.getIdToken(true);
-            const response = await fetch("/api/generate", {
-                method: "POST",
-                headers: { 
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${idToken}`
-                },
-                body: JSON.stringify({
-                    prompt,
-                    images: attachedImages.map(img => img.base64) 
-                }),
-            });
-
-            if (!response.ok || !response.body) {
-                setLoading(false);
-                outputDiv.classList.add("hidden"); 
-                return showMessage("Failed to connect to AI server.", true);
-            }
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder("utf-8");
-            
-            let buffer = ""; 
-            let html = "";
-            const streamSeparator = "data:";
-            let isFirstChunk = true;
-
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-                let messages = buffer.split(streamSeparator);
-                buffer = messages.pop(); 
-
-                for (const msg of messages) {
-                    const trimmedMsg = msg.trim();
-                    if (!trimmedMsg || trimmedMsg === '[DONE]') continue;
-
-                    try {
-                        const jsonChunk = JSON.parse(trimmedMsg);
-                        const textChunk = jsonChunk.text || "";
-                        html += textChunk;
-
-                        outputCode.textContent = html
-                            .replace(/\\n/g, '\n') 
-                            .replace(/\\"/g, '"') 
-                            .trim();
-
-                        if (isFirstChunk) {
-                            outputDiv.classList.remove("hidden");
-                            isFirstChunk = false;
-                        }
-                    } catch (e) {
-                        buffer = streamSeparator + trimmedMsg + buffer;
-                    }
-                }
-            }
-
-            latestHtmlContent = html
-                .replace(/\\n/g, '\n')
-                .replace(/\\"/g, '"')
-                .replace(/^```(html)?\s*/i, '') 
-                .replace(/\s*```$/, '') 
-                .trim();
-
-            outputCode.textContent = latestHtmlContent;
-            generationDone = true;
-            currentProjectId = await autoSaveProject(latestHtmlContent, latestPrompt, null); 
-            
-            // Explicit Generation Counter (Atomic)
-            try {
-                const userDocRef = doc(db, "users", currentUserId);
-                await updateDoc(userDocRef, {
-                    generationCount: increment(1)
-                });
-            } catch (e) {
-                console.error("Failed to increment generationCount:", e);
-            }
-
-            showMessage(currentProjectId ? "✅ Saved!" : "✅ Generated (Save failed)", !currentProjectId);
-            
-            attachedImages = [];
-            renderImagePreviews(); 
-            lucide.createIcons();
-            handleScrollToOutput();
-
-            setLoading(false);
-            startGlobalCooldown(60);
-
-        } catch (err) {
-            console.error(err);
-            showMessage("Unexpected error.", true);
-            setLoading(false);
-        }
-    }
-    
-    async function handleRefine() {
-        if (cooldownActive) {
-            showMessage("⏳ Please wait for cooldown to finish.", true);
-            return;
-        }
-        const refinePrompt = refinePromptInput.value.trim();
-        if (refinePrompt.length < 5) return showMessage("Instruction too short.", true);
-        if (!latestHtmlContent || !currentProjectId) return showMessage("No project to refine.", true);
-
-        const user = auth.currentUser;
-        if (!user) return showMessage("Auth error.", true);
-
-        setLoading(true, true);
-        generationDone = false;
-        const originalHtml = latestHtmlContent;
-
-        try {
-            const idToken = await user.getIdToken(true);
-            const response = await fetch("/api/refine", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${idToken}`,
-                },
-                body: JSON.stringify({
-                    prompt: refinePrompt,
-                    html: originalHtml,
-                    projectId: currentProjectId
-                }),
-            });
-                
-            if (!response.ok || !response.body) throw new Error("Connection failed.");
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder("utf-8");
-            let buffer = "";
-            let refinedHtml = "";
-            const streamSeparator = "data:";
-
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-                let messages = buffer.split(streamSeparator);
-                buffer = messages.pop(); 
-
-                for (const msg of messages) {
-                    const trimmedMsg = msg.trim();
-                    if (!trimmedMsg || trimmedMsg === '[DONE]') continue;
-
-                    try {
-                        const jsonChunk = JSON.parse(trimmedMsg);
-                        refinedHtml += (jsonChunk.text || "");
-                        outputCode.textContent = refinedHtml.replace(/\\n/g, '\n').replace(/\\"/g, '"').trim();
-                    } catch (e) {
-                        buffer = streamSeparator + trimmedMsg + buffer;
-                    }
-                }
-            }
-            
-            latestHtmlContent = refinedHtml
-                .replace(/\\n/g, '\n')
-                .replace(/\\"/g, '"')
-                .replace(/^```(html)?\s*/i, '') 
-                .replace(/\s*```$/, '') 
-                .trim();
-
-            outputCode.textContent = latestHtmlContent;
-            generationDone = true;
-            latestPrompt += `\n[Refinement]: ${refinePrompt}`; 
-            await autoSaveProject(latestHtmlContent, latestPrompt, currentProjectId); 
-
-            // Explicit Generation Counter (Atomic) - Refining counts as a generation
-            try {
-                const userDocRef = doc(db, "users", currentUserId);
-                await updateDoc(userDocRef, {
-                    generationCount: increment(1)
-                });
-            } catch (e) {
-                console.error("Failed to increment generationCount:", e);
-            }
-            
-            latestDeploymentUrl = "";
-            setPublishButton(null, false);
-            showMessage("✨ Refined!", false);
-            handleScrollToOutput();
-
-            setLoading(false);
-            startGlobalCooldown(60);
-
-        } catch (error) {
-            console.error(error);
-            showMessage("Refinement failed.", true);
-            setLoading(false);
-        }
-    }
-
-
-    const placeholderPrompts = [
-        "A minimalist SaaS landing page for a budgeting app",
-        "A dark-themed portfolio for a full-stack developer",
-        "A vibrant e-commerce site for handmade jewelry",
-        "An AI art generator website with live previews"
-    ];
-
-    let promptTypingIndex = 0, charIndex = 0, isDeleting = false;
-    const typingSpeed = 75, deletingSpeed = 40, delayBetweenPrompts = 2000;
-    const defaultPlaceholder = "e.g., 'A vibrant landing page for a dog grooming salon...'";
-
-    function typePlaceholderEffect() {
-        if (promptInput.value.length > 0) return;
-        const currentPrompt = placeholderPrompts[promptTypingIndex];
-        let placeholderText = promptInput.getAttribute('placeholder') || '';
-        if (isDeleting) {
-            placeholderText = currentPrompt.substring(0, charIndex - 1);
-            charIndex--;
-            if (charIndex === 0) {
-                isDeleting = false;
-                promptTypingIndex = (promptTypingIndex + 1) % placeholderPrompts.length;
-                setTimeout(typePlaceholderEffect, 500);
-                return;
-            }
-        } else {
-            placeholderText = currentPrompt.substring(0, charIndex + 1);
-            charIndex++;
-            if (charIndex === currentPrompt.length) {
-                isDeleting = true;
-                setTimeout(typePlaceholderEffect, delayBetweenPrompts);
-                return;
-            }
-        }
-        promptInput.setAttribute('placeholder', placeholderText);
-        setTimeout(typePlaceholderEffect, isDeleting ? deletingSpeed : typingSpeed);
-    }
-
-    promptInput.addEventListener('input', () => {
-        if (promptInput.value.length > 0) promptInput.setAttribute('placeholder', defaultPlaceholder);
-        else {
-            promptTypingIndex = 0;
-            charIndex = 0;
-            isDeleting = false;
-            typePlaceholderEffect();
-        }
-    });
-
-    refinePromptInput.addEventListener('input', (e) => {
-        localStorage.setItem('ammoue_saved_refine_prompt', e.target.value);
-    });
-
-    // Scroll button event
-    scrollDownBtn.addEventListener('click', () => {
-        actionContainer.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    });
-
-    onAuthStateChanged(auth, (user) => {
-        if (user) {
-            currentUserId = user.uid;
-            loadingState.style.pointerEvents = 'none';
-            loadingState.classList.add('hidden');
-            loadingState.style.opacity = '0';
-            mainContent.classList.remove('hidden');
-            setPublishButton(latestDeploymentUrl, false);
-
-            const savedRefine = localStorage.getItem('ammoue_saved_refine_prompt');
-            if(savedRefine) refinePromptInput.value = savedRefine;
-            
-            // Check for existing cooldown on page load
-            const cooldownUntil = Number(localStorage.getItem('ammoue_cooldown_until'));
-            if (cooldownUntil && cooldownUntil > Date.now()) {
-                startGlobalCooldown(Math.ceil((cooldownUntil - Date.now()) / 1000));
-            }
-
-            if (!listenersAttached) {
-                generateBtn.addEventListener('click', handleGeneration);
-                refineBtn.addEventListener('click', handleRefine);
-                copyBtn.addEventListener('click', () => copyToClipboard(outputCode.textContent));
-                downloadBtn.addEventListener('click', handleDownload);
-                
-                const modal = document.getElementById('publish-modal');
-                const confirmBtn = document.getElementById('confirm-publish');
-                const cancelBtn = document.getElementById('cancel-publish');
-
-                previewHtmlBtn.addEventListener('click', handlePreviewHtml);
-                
-                publishBtn.addEventListener('click', () => {
-                    if (latestDeploymentUrl) {
-                        window.open(latestDeploymentUrl, "_blank");
-                    } else if (latestHtmlContent) {
-                        modal.classList.remove('hidden');
-                        modal.classList.add('flex');
-                    }
-                });
-
-                cancelBtn.addEventListener('click', () => {
-                    modal.classList.add('hidden');
-                    modal.classList.remove('flex');
-                });
-
-                confirmBtn.addEventListener('click', () => {
-                    modal.classList.add('hidden');
-                    modal.classList.remove('flex');
-                    handleDeployment(); 
-                });
-                
-                const handleSignOut = async () => { try { await signOut(auth); } catch {} };
-                logoutBtn.addEventListener('click', handleSignOut);
-                sidebarLogout.addEventListener('click', handleSignOut);
-                
-                typePlaceholderEffect();
-                listenersAttached = true;
-            }
-        } else {
-            const redirectUrl = '/login?redirect=' + encodeURIComponent(window.location.pathname);
-            window.location.replace(redirectUrl); 
-        }
-    });
-
-    lucide.createIcons();
-</script>
+        });
+        document.getElementById('logout-btn').onclick = () => signOut(auth);
+    </script>
 </body>
 </html>
