@@ -224,9 +224,13 @@
         deployStatusText.textContent = "Status: Deploying...";
         
         try {
+            const idToken = await auth.currentUser.getIdToken();
             const response = await fetch("/api/deploy", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${idToken}`
+                },
                 body: JSON.stringify({ htmlContent, userId: currentUserId, plan, projectId }),
             });
             const result = await response.json();
@@ -346,7 +350,7 @@
         db = getFirestore(app);
 
         onAuthStateChanged(auth, async (user) => {
-            if (!user) { window.location.href = 'login.html'; return; }
+            if (!user) { window.location.href = '/login'; return; }
             currentUserId = user.uid;
             
             const snap = await getDoc(projectDocRef(projectId));
