@@ -11,7 +11,7 @@ const MAX_HTML_SIZE = 500_000; // 500KB
 const DEPLOY_COOLDOWN_MS = 30_000;
 const SLUG_TTL_MS = 5 * 60 * 1000;
 const MAX_VER_CEL_RETRIES = 2;
-const ALLOWED_ORIGINS = ["https://yourapp.com", "null"]; // allow null for Postman/mobile
+const ALLOWED_ORIGINS = ["https://ammoue-ai.vercel.app", "null"]; // allow null for Postman/mobile
 
 const VERCEL_TOKEN = process.env.VERCEL_TOKEN;
 const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID || null;
