@@ -240,7 +240,7 @@
         const slugValue = document.getElementById('editor-slug').value.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
         try {
             const idToken = await auth.currentUser.getIdToken();
-            const response = await fetch("/api/deploy", {
+            const response = await fetch("/api/deploy.js", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
                 body: JSON.stringify({ htmlContent, userId: currentUserId, plan, projectId, slug: slugValue }),
