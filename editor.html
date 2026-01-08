@@ -61,6 +61,27 @@
     
     <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 opacity-0 transition-opacity duration-300 z-[110]"></div>
 
+    <div id="plan-modal" class="hidden fixed inset-0 z-[200] flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
+        <div class="relative bg-white rounded-3xl shadow-2xl max-w-sm w-full p-8 text-center transform transition-all">
+            <div class="w-16 h-16 bg-teal-50 text-ammoue rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <i data-lucide="crown" class="w-8 h-8"></i>
+            </div>
+            <h3 class="text-xl font-extrabold text-gray-900 mb-2">Upgrade Required</h3>
+            <p id="plan-modal-message" class="text-gray-500 mb-8 text-sm leading-relaxed">
+                Custom identities and higher deployment limits are reserved for Pro members.
+            </p>
+            <div class="flex flex-col space-y-3">
+                <button onclick="window.location.href='/billing'" class="w-full py-3 bg-ammoue hover:bg-ammoue-dark text-white font-bold rounded-xl transition shadow-lg shadow-teal-200">
+                    View Pro Plans
+                </button>
+                <button onclick="document.getElementById('plan-modal').classList.add('hidden')" class="w-full py-3 text-gray-400 font-semibold hover:text-gray-600 transition">
+                    Maybe Later
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div id="editor-content" class="flex-grow flex flex-col p-4 md:p-6 w-full hidden">
         <div class="bg-white rounded-3xl shadow-2xl p-6 flex-grow flex flex-col w-full mx-auto">
             <header class="mb-4 border-b pb-4 flex flex-col md:flex-row justify-between items-start md:items-center">
@@ -89,7 +110,12 @@
                     </div>
                     <div class="lg:col-span-1">
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Site Identity (URL)</label>
-                        <input type="text" id="editor-slug" placeholder="my-project-name" class="w-full border border-gray-300 rounded-xl bg-white focus:border-ammoue focus:ring-2 focus:ring-teal-100 transition p-2.5 text-sm text-gray-800 font-mono">
+                        <div class="relative">
+                            <input type="text" id="editor-slug" placeholder="my-project-name" class="w-full border border-gray-300 rounded-xl bg-white focus:border-ammoue focus:ring-2 focus:ring-teal-100 transition p-2.5 text-sm text-gray-800 font-mono">
+                            <div id="slug-status" class="absolute right-3 top-2.5 hidden">
+                                <i data-lucide="check-circle" class="w-4 h-4 text-emerald-500"></i>
+                            </div>
+                        </div>
                     </div>
                     <div class="lg:col-span-2">
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">AI Prompt (Ctrl + Enter)</label>
@@ -142,274 +168,310 @@
     </div>
 
     <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+    // Fixed re-import error for firestore
+    import { getFirestore as getDB } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+    import { doc as docRef, getDoc as getDocData, updateDoc as updateDocData, Timestamp as TS } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
-const firebaseConfig = {
-    apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
-    authDomain: "ammoueai.firebaseapp.com",
-    projectId: "ammoueai",
-    storageBucket: "ammoueai.firebasestorage.app",
-    messagingSenderId: "135818868149",
-    appId: "1:135818868149:web:db9280baf9540a3339d5fc",
-};
+    const firebaseConfig = {
+        apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
+        authDomain: "ammoueai.firebaseapp.com",
+        projectId: "ammoueai",
+        storageBucket: "ammoueai.firebasestorage.app",
+        messagingSenderId: "135818868149",
+        appId: "1:135818868149:web:db9280baf9540a3339d5fc",
+    };
 
-// State Variables
-let auth, db, currentUserId, cmEditor;
-let isDirty = false;
-let pendingAiCode = null;
-let originalCodeBeforeAi = null;
-let activeLiveUrl = ''; // Maps to latestDeploymentUrl
-let currentProjectId = '';
-const appId = firebaseConfig.projectId;
+    let auth, db, currentUserId, cmEditor;
+    let isDirty = false;
+    let pendingAiCode = null;
+    let originalCodeBeforeAi = null;
+    const appId = firebaseConfig.projectId;
 
-// Elements
-const loadingScreen = document.getElementById('loading-screen');
-const editorContent = document.getElementById('editor-content');
-const msgBox = document.getElementById('message-box');
-const editorForm = document.getElementById('editor-form');
-const titleInput = document.getElementById('editor-title');
-const promptInput = document.getElementById('editor-prompt');
-const slugInput = document.getElementById('editor-slug');
-const titleHeader = document.getElementById('project-title-header');
-const codeRefineButton = document.getElementById('ai-code-refine-button');
-const saveBtn = document.getElementById('save-btn'); // This is your "Publish" button
-const deployStatusText = document.getElementById('deploy-status');
-const livePreviewFrame = document.getElementById('live-preview');
-const aiReviewBar = document.getElementById('ai-review-bar');
-const editorContainer = document.getElementById('editor-container');
+    const loadingScreen = document.getElementById('loading-screen');
+    const editorContent = document.getElementById('editor-content');
+    const msgBox = document.getElementById('message-box');
+    const editorForm = document.getElementById('editor-form');
+    const titleInput = document.getElementById('editor-title');
+    const promptInput = document.getElementById('editor-prompt');
+    const titleHeader = document.getElementById('project-title-header');
+    const projectIdInput = document.getElementById('project-id-input');
+    const codeRefineButton = document.getElementById('ai-code-refine-button');
+    const previewBtn = document.getElementById('preview-btn');
+    const deployStatusText = document.getElementById('deploy-status');
+    const livePreviewFrame = document.getElementById('live-preview');
+    const aiReviewBar = document.getElementById('ai-review-bar');
+    const editorContainer = document.getElementById('editor-container');
+    const toggleBtn = document.getElementById('toggle-expand');
+    const saveBtn = document.getElementById('save-btn');
+    const slugInput = document.getElementById('editor-slug');
 
-// Helper References
-const userDocRef = () => doc(db, 'users', currentUserId);
-const projectDocRef = (id) => doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', id);
+    let latestDeploymentUrl = '';
 
-/* ---------------- DEPLOYMENT & SAVE LOGIC ---------------- */
+    const userDocRef = () => docRef(db, 'users', currentUserId);
+    const projectDocRef = (id) => docRef(db, 'artifacts', appId, 'users', currentUserId, 'projects', id);
 
-async function handleSave(e) {
-    if (e) e.preventDefault();
-    
-    // 1. Check if already live (Optional: if you want 'Live' button to just open link)
-    if (activeLiveUrl && saveBtn.innerText === "LIVE") {
-        window.open(activeLiveUrl, '_blank');
-        return;
+    toggleBtn.onclick = () => {
+        const wrapper = document.getElementById('editor-wrapper');
+        const icon = document.getElementById('toggle-icon');
+        const text = document.getElementById('toggle-text');
+        wrapper.classList.toggle('editor-expanded');
+        const isExpanded = wrapper.classList.contains('editor-expanded');
+        text.textContent = isExpanded ? "Collapse Editor" : "Expand Editor";
+        icon.setAttribute('data-lucide', isExpanded ? "minimize-2" : "maximize-2");
+        lucide.createIcons();
+        if(isExpanded) wrapper.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    function showMessage(message, isError) {
+        msgBox.textContent = message;
+        msgBox.className = `p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 z-[110] ${isError ? 'bg-red-500' : 'bg-green-500'} opacity-100`;
+        setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
     }
 
-    const slug = slugInput.value.trim();
-    if (!slug) {
-        showMessage("Select an identity (URL slug) for this project.", true);
-        return;
+    function showPlanModal(message) {
+        document.getElementById('plan-modal-message').innerText = message;
+        document.getElementById('plan-modal').classList.remove('hidden');
+        lucide.createIcons();
     }
 
-    // UI Feedback
-    saveBtn.innerText = "BROADCASTING...";
-    saveBtn.disabled = true;
-    deployStatusText.textContent = "Status: Deploying...";
+    function updateLivePreview(code) {
+        let html = code || cmEditor.getValue();
+        
+        const safetyWrapper = `
+            <script>
+                window.onerror = function(msg, url, line) {
+                    console.warn("Live Preview Error: " + msg + " at line " + line);
+                    return true; 
+                };
+            <\/script>
+        `;
 
-    try {
-        const idToken = await auth.currentUser.getIdToken(true);
-        const currentHtml = cmEditor.getValue();
+        if (html.includes('<head>')) {
+            html = html.replace('<head>', '<head>' + safetyWrapper);
+        } else {
+            html = safetyWrapper + html;
+        }
 
-        // 2. Favicon Injection
-        const faviconHtml = `<link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">`;
-        const finalContent = currentHtml.includes('<head>') 
-            ? currentHtml.replace('<head>', `<head>${faviconHtml}`)
-            : faviconHtml + currentHtml;
+        livePreviewFrame.srcdoc = html;
+    }
 
-        // 3. API Call to Vercel
-        const res = await fetch('/api/deploy.js', {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${idToken}`
-            },
-            body: JSON.stringify({
-                htmlContent: finalContent,
-                projectId: currentProjectId,
-                slug: slug,
-                userId: currentUserId
-            })
-        });
+    function markDirty(dirty) {
+        isDirty = dirty;
+        document.getElementById('status-indicator').classList.toggle('is-dirty', dirty);
+        if(dirty && saveBtn.innerText === "LIVE") {
+            saveBtn.innerText = "SAVE & DEPLOY";
+            saveBtn.classList.replace('bg-emerald-500', 'bg-ammoue');
+        }
+    }
 
-        const data = await res.json();
+    function setPreviewButton(url, isDeploying) {
+        previewBtn.disabled = isDeploying || !url;
+        previewBtn.className = `px-5 py-2.5 text-sm font-bold rounded-xl text-white transition shadow-md flex items-center justify-center ${isDeploying ? 'bg-yellow-600 cursor-not-allowed opacity-75' : url ? 'bg-green-600' : 'bg-gray-500'}`;
+        previewBtn.innerHTML = isDeploying ? '<i data-lucide="loader" class="w-4 h-4 mr-2 animate-spin"></i> Deploying' : '<i data-lucide="external-link" class="w-4 h-4 mr-2"></i> Preview Live';
+        lucide.createIcons();
+    }
 
-        // 4. Handle Errors (Rate limits/Permissions)
-        if (res.status === 403 || res.status === 429) {
-            showMessage(data.error || "Deployment limit reached.", true);
-            resetSaveButton();
+    async function getUserPlan() {
+        try {
+            const snap = await getDocData(userDocRef());
+            return snap.exists() ? (snap.data().plan || 'free') : 'free';
+        } catch (e) { return 'free'; }
+    }
+
+    async function handleDeployment(htmlContent, plan, projectId) {
+        setPreviewButton('', true);
+        deployStatusText.textContent = "Status: Deploying...";
+        const slugValue = slugInput.value.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+        
+        try {
+            const idToken = await auth.currentUser.getIdToken(true);
+            const faviconHtml = `<link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">`;
+            const finalContent = htmlContent.includes('<head>') 
+                ? htmlContent.replace('<head>', `<head>${faviconHtml}`)
+                : faviconHtml + htmlContent;
+
+            const response = await fetch("/api/deploy", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
+                body: JSON.stringify({ htmlContent: finalContent, userId: currentUserId, plan, projectId, slug: slugValue }),
+            });
+
+            if (response.status === 403 || response.status === 409) {
+                const errData = await response.json();
+                showPlanModal(errData.error || "Plan restriction encountered.");
+                throw new Error("PLAN_RESTRICTED");
+            }
+
+            const result = await response.json();
+            if (response.ok && result.deploymentUrl) {
+                latestDeploymentUrl = result.deploymentUrl;
+                let countdown = 5;
+                const timer = setInterval(() => {
+                    countdown--;
+                    deployStatusText.textContent = `Status: Propagating (${countdown}s)`;
+                    if (countdown <= 0) {
+                        clearInterval(timer);
+                        deployStatusText.textContent = "Status: Live";
+                        setPreviewButton(latestDeploymentUrl, false);
+                    }
+                }, 1000);
+                return latestDeploymentUrl;
+            }
+            throw new Error(result.error || "Deploy failed");
+        } catch (error) {
+            setPreviewButton(latestDeploymentUrl, false);
+            deployStatusText.textContent = error.message === "PLAN_RESTRICTED" ? "Status: Upgrade Needed" : "Status: Failed";
+            if(error.message !== "PLAN_RESTRICTED") showMessage(error.message, true);
+            return null;
+        }
+    }
+
+    async function handleSave(e) {
+        if (e) e.preventDefault();
+        const projectId = projectIdInput.value;
+        const newHtml = cmEditor.getValue();
+        const plan = await getUserPlan();
+        const slug = slugInput.value.trim();
+
+        if (slug && plan !== 'pro') {
+            showPlanModal("Custom site identities are a Pro feature.");
             return;
         }
 
-        if (!res.ok) throw new Error(data.error || "Deployment failed");
+        saveBtn.innerText = "BROADCASTING...";
+        saveBtn.disabled = true;
+        showMessage("Saving changes...", false);
 
-        // 5. Success - Update Firestore & UI
-        if (data.deploymentUrl) {
-            activeLiveUrl = data.deploymentUrl;
-            
-            await updateDoc(projectDocRef(currentProjectId), {
-                title: titleInput.value.trim(),
-                slug: slug,
-                htmlContent: currentHtml,
-                deploymentUrl: activeLiveUrl,
-                updatedAt: Timestamp.fromDate(new Date())
-            });
-
-            markDirty(false);
-            titleHeader.textContent = titleInput.value;
-            
-            // Set Button to Live State
-            saveBtn.innerText = "LIVE";
+        const url = await handleDeployment(newHtml, plan, projectId);
+        if (!url) {
+            saveBtn.innerText = "SAVE & DEPLOY";
             saveBtn.disabled = false;
-            saveBtn.classList.replace('bg-ammoue', 'bg-emerald-500');
-            deployStatusText.textContent = "Status: Live";
-            
-            showMessage("Project is now LIVE!", false);
-            window.open(activeLiveUrl, '_blank');
+            return;
         }
 
-    } catch (e) {
-        console.error(e);
-        showMessage(e.message, true);
-        resetSaveButton();
-    }
-}
-
-function resetSaveButton() {
-    saveBtn.innerText = "SAVE & DEPLOY";
-    saveBtn.disabled = false;
-    saveBtn.classList.replace('bg-emerald-500', 'bg-ammoue');
-}
-
-/* ---------------- UTILITY FUNCTIONS ---------------- */
-
-function showMessage(message, isError) {
-    msgBox.textContent = message;
-    msgBox.className = `p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 z-[110] ${isError ? 'bg-red-500' : 'bg-green-500'} opacity-100`;
-    setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
-}
-
-function updateLivePreview(code) {
-    let html = code || cmEditor.getValue();
-    livePreviewFrame.srcdoc = html;
-}
-
-function markDirty(dirty) {
-    isDirty = dirty;
-    document.getElementById('status-indicator').classList.toggle('is-dirty', dirty);
-    if (dirty && saveBtn.innerText === "LIVE") {
-        resetSaveButton(); // Revert from "LIVE" to "SAVE" if user edits code
-    }
-}
-
-async function handleCodeRefine() {
-    if (pendingAiCode) return showMessage("Finish reviewing current changes first.", true);
-    const refinePrompt = promptInput.value.trim();
-    if (!refinePrompt) return showMessage("Please describe the changes.", true);
-
-    codeRefineButton.disabled = true;
-    deployStatusText.textContent = "Status: AI Thinking...";
-    
-    try {
-        const response = await fetch('/api/refine', { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await auth.currentUser.getIdToken()}` },
-            body: JSON.stringify({ html: cmEditor.getValue(), prompt: refinePrompt, projectId: currentProjectId })
+        await updateDocData(projectDocRef(projectId), {
+            title: titleInput.value.trim(),
+            slug: slug,
+            prompt: promptInput.value.trim().replace(/\n/g, '\\n'),
+            htmlContent: newHtml,
+            deploymentUrl: url,
+            updatedAt: TS.fromDate(new Date())
         });
-        const data = await response.json();
-        if (data.htmlCode) {
-            originalCodeBeforeAi = cmEditor.getValue();
-            pendingAiCode = data.htmlCode;
-            cmEditor.setValue(pendingAiCode);
-            aiReviewBar.classList.remove('hidden');
-            editorContainer.classList.add('review-mode');
-        }
-    } catch (e) { 
-        showMessage("AI Error", true); 
-    } finally { 
-        codeRefineButton.disabled = false; 
-        deployStatusText.textContent = "Status: Idle";
+
+        titleHeader.textContent = titleInput.value;
+        markDirty(false);
+        saveBtn.innerText = "LIVE";
+        saveBtn.disabled = false;
+        saveBtn.classList.replace('bg-ammoue', 'bg-emerald-500');
+        showMessage("Saved & Deployed!", false);
     }
-}
 
-/* ---------------- INITIALIZATION ---------------- */
-
-function initialize() {
-    const projectId = new URLSearchParams(window.location.search).get('id');
-    if (!projectId) { window.location.href = '/dashboard'; return; }
-    currentProjectId = projectId;
-
-    const app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    db = getFirestore(app);
-
-    onAuthStateChanged(auth, async (user) => {
-        if (!user) { window.location.href = '/login'; return; }
-        currentUserId = user.uid;
-
-        const snap = await getDoc(projectDocRef(currentProjectId));
-        if (snap.exists()) {
-            const data = snap.data();
-            titleInput.value = data.title || "Untitled";
-            slugInput.value = data.slug || "";
-            titleHeader.textContent = data.title || "Untitled";
-            activeLiveUrl = data.deploymentUrl || '';
-
-            cmEditor = CodeMirror.fromTextArea(document.getElementById('code-editor'), {
-                mode: "htmlmixed", theme: "dracula", lineNumbers: true, lineWrapping: true
+    async function handleCodeRefine() {
+        if (pendingAiCode) { showMessage("Finish reviewing current changes first.", true); return; }
+        const currentHtml = cmEditor.getValue();
+        const refinePrompt = promptInput.value.trim();
+        if (!refinePrompt) { showMessage("Please describe the changes.", true); return; }
+        codeRefineButton.disabled = true;
+        deployStatusText.textContent = "Status: AI Thinking...";
+        showMessage("AI is working...", false);
+        try {
+            const response = await fetch('/api/refine', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await auth.currentUser.getIdToken()}` },
+                body: JSON.stringify({ html: currentHtml, prompt: refinePrompt, projectId: projectIdInput.value })
             });
-
-            cmEditor.setValue(data.htmlContent || "");
-            cmEditor.on('change', () => { if(!pendingAiCode) { markDirty(true); updateLivePreview(); } });
-            
-            updateLivePreview();
-            if (activeLiveUrl) {
-                saveBtn.innerText = "LIVE";
-                saveBtn.classList.replace('bg-ammoue', 'bg-emerald-500');
+            const data = await response.json();
+            if (data.htmlCode) {
+                originalCodeBeforeAi = currentHtml;
+                pendingAiCode = data.htmlCode;
+                cmEditor.setValue(pendingAiCode);
+                updateLivePreview(pendingAiCode);
+                aiReviewBar.classList.remove('hidden');
+                editorContainer.classList.add('review-mode');
+                showMessage("Review AI changes.", false);
             }
-
-            loadingScreen.classList.add('hidden');
-            editorContent.classList.remove('hidden');
-            lucide.createIcons();
-        } else {
-            window.location.href = '/dashboard';
+        } catch (e) { 
+            showMessage("AI Error", true); 
+        } finally { 
+            codeRefineButton.disabled = false; 
+            deployStatusText.textContent = "Status: Idle";
         }
+    }
+
+    document.getElementById('accept-ai').onclick = () => {
+        pendingAiCode = null;
+        aiReviewBar.classList.add('hidden');
+        editorContainer.classList.remove('review-mode');
+        markDirty(true);
+        showMessage("Changes accepted.", false);
+    };
+
+    document.getElementById('reject-ai').onclick = () => {
+        cmEditor.setValue(originalCodeBeforeAi);
+        updateLivePreview(originalCodeBeforeAi);
+        pendingAiCode = null;
+        aiReviewBar.classList.add('hidden');
+        editorContainer.classList.remove('review-mode');
+        markDirty(true);
+        showMessage("AI changes discarded.", true);
+    };
+
+    function initialize() {
+        const projectId = new URLSearchParams(window.location.search).get('id');
+        if (!projectId) { window.location.href = '/dashboard'; return; }
+        const app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getDB(app);
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) { window.location.href = '/login'; return; }
+            currentUserId = user.uid;
+            const snap = await getDocData(projectDocRef(projectId));
+            if (snap.exists()) {
+                const data = snap.data();
+                projectIdInput.value = snap.id;
+                titleInput.value = data.title;
+                if(data.slug) slugInput.value = data.slug;
+                promptInput.value = (data.prompt || "").replace(/\\n/g, '\n');
+                titleHeader.textContent = data.title;
+                latestDeploymentUrl = data.deploymentUrl || '';
+                cmEditor = CodeMirror.fromTextArea(document.getElementById('code-editor'), {
+                    mode: "htmlmixed", theme: "dracula", lineNumbers: true, lineWrapping: true
+                });
+                cmEditor.setValue(data.htmlContent || "");
+                cmEditor.on('change', () => { if(!pendingAiCode) { markDirty(true); updateLivePreview(); } });
+                updateLivePreview();
+                if(latestDeploymentUrl) {
+                    saveBtn.innerText = "LIVE";
+                    saveBtn.classList.replace('bg-ammoue', 'bg-emerald-500');
+                }
+                setPreviewButton(latestDeploymentUrl, false);
+                loadingScreen.classList.add('hidden');
+                editorContent.classList.remove('hidden');
+                lucide.createIcons();
+            } else { window.location.href = '/dashboard'; }
+        });
+        slugInput.oninput = function() {
+            this.value = this.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+        };
+    }
+
+    window.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); handleSave(); }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleCodeRefine(); }
     });
 
-    // Slug Auto-Cleanup
-    slugInput.oninput = function() {
-        this.value = this.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    window.onbeforeunload = () => { if (isDirty) return "Unsaved changes!"; };
+    editorForm.onsubmit = handleSave;
+    codeRefineButton.onclick = handleCodeRefine;
+    previewBtn.onclick = () => { 
+        if (!latestDeploymentUrl || previewBtn.disabled) return;
+        window.open(latestDeploymentUrl, "_blank"); 
     };
-}
 
-// Event Listeners
-document.getElementById('accept-ai').onclick = () => {
-    pendingAiCode = null;
-    aiReviewBar.classList.add('hidden');
-    editorContainer.classList.remove('review-mode');
-    markDirty(true);
-};
-
-document.getElementById('reject-ai').onclick = () => {
-    cmEditor.setValue(originalCodeBeforeAi);
-    pendingAiCode = null;
-    aiReviewBar.classList.add('hidden');
-    editorContainer.classList.remove('review-mode');
-};
-
-document.getElementById('preview-btn').onclick = () => {
-    if (activeLiveUrl) window.open(activeLiveUrl, "_blank");
-    else showMessage("Deploy your project first to preview live.", true);
-};
-
-editorForm.onsubmit = handleSave;
-codeRefineButton.onclick = handleCodeRefine;
-
-window.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); handleSave(); }
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleCodeRefine(); }
-});
-
-initialize();
-</script>
+    initialize();
+    </script>
 </body>
 </html>
