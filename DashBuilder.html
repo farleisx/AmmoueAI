@@ -40,16 +40,16 @@
                 <button id="toggle-preview" class="px-3 py-1 text-[10px] font-bold rounded bg-blue-600 text-white transition">PREVIEW</button>
                 <button id="toggle-code" class="px-3 py-1 text-[10px] font-bold rounded text-gray-400 hover:text-white transition">CODE</button>
             </div>
+        </div>
 
-            <div class="flex items-center gap-1 bg-gray-900 rounded-lg p-1 ml-2">
+        <div class="flex items-center gap-3">
+            <div class="flex items-center gap-1 bg-gray-900 rounded-lg p-1">
                 <button id="set-desktop" class="p-1.5 text-blue-500 hover:bg-gray-800 rounded transition"><i class="fa-solid fa-desktop text-xs"></i></button>
                 <button id="set-mobile" class="p-1.5 text-gray-500 hover:bg-gray-800 rounded transition"><i class="fa-solid fa-mobile-screen text-xs"></i></button>
                 <button id="open-new-tab" class="p-1.5 text-gray-500 hover:bg-gray-800 rounded transition ml-1" title="Open in New Tab"><i class="fa-solid fa-external-link text-xs"></i></button>
             </div>
-        </div>
 
-        <div class="flex items-center gap-3">
-            <div id="publish-controls" class="hidden flex items-center gap-2 bg-gray-900 p-1 rounded-lg border border-gray-700">
+            <div id="publish-controls" class="flex items-center gap-2 bg-gray-900 p-1 rounded-lg border border-gray-700">
                 <input id="slug-input" type="text" placeholder="Project name..." class="bg-transparent border-none outline-none text-xs text-white px-2 w-32 placeholder:text-gray-600">
                 <button id="publish-btn" class="bg-green-600 hover:bg-green-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-md transition uppercase tracking-wider">Publish</button>
             </div>
@@ -88,8 +88,7 @@
 
                 <div>
                     <h2 class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-3">Recent Projects</h2>
-                    <div id="history-list" class="space-y-1">
-                        </div>
+                    <div id="history-list" class="space-y-1"></div>
                 </div>
             </div>
 
@@ -195,7 +194,7 @@
             
             abortCtrl = new AbortController();
             document.getElementById('thinking-box').classList.remove('hidden');
-            logs.innerHTML = '<div class="log-entry">> Initializing neural synthesis...</div>';
+            logs.innerHTML = '<div class="log-entry">> Initiating neural synthesis...</div>';
             currentHtml = "";
             genBtn.disabled = true;
             document.getElementById('gen-icon').innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
@@ -232,7 +231,6 @@
                 }
                 
                 currentProjectId = await autoSaveProject(currentHtml, document.getElementById('user-prompt').value, currentProjectId, auth.currentUser.uid);
-                document.getElementById('publish-controls').classList.remove('hidden');
                 addToHistory(document.getElementById('user-prompt').value);
                 logs.innerHTML += '<div class="log-entry text-blue-400">> Assets optimized and saved.</div>';
             } catch (err) {
