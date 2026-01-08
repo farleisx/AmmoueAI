@@ -203,7 +203,6 @@
     function updateLivePreview(code) {
         let html = code || cmEditor.getValue();
         
-        // Safety wrapper to prevent null property errors in srcdoc
         const safetyWrapper = `
             <script>
                 window.onerror = function(msg, url, line) {
