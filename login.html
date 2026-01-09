@@ -247,9 +247,46 @@ window.handleGoogleAuth = handleGoogleAuth;
 window.handleGitHubAuth = handleGitHubAuth;
 window.toggleForm = toggleForm;
 
-// Init
+// Init login/signup tab
 toggleForm('login');
 if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+
+// ------------------ Reviews / Testimonials ------------------
+const reviewsData = [
+    { name: "Sarah K.", rating: 5, text: "Built my entire portfolio in an hour. Incredible speed!", avatar: "https://i.pravatar.cc/150?img=1" },
+    { name: "Jake D.", rating: 5, text: "The AI suggestions are spot-on. Traffic doubled!", avatar: "https://i.pravatar.cc/150?img=2" },
+    { name: "Aisha M.", rating: 4, text: "Great value. The foundation was absolutely perfect.", avatar: "https://i.pravatar.cc/150?img=3" },
+    { name: "Chris T.", rating: 5, text: "Finally, a site builder that understands design!", avatar: "https://i.pravatar.cc/150?img=4" },
+    { name: "Maria L.", rating: 5, text: "Flawless interface. Switched and haven't looked back.", avatar: "https://i.pravatar.cc/150?img=5" },
+    { name: "David B.", rating: 4, text: "Professional overnight for my small business.", avatar: "https://i.pravatar.cc/150?img=6" },
+];
+
+function createReviewCard(review) {
+    const stars = '★'.repeat(review.rating) + '☆'.repeat(5 - review.rating);
+    return `
+        <div class="p-4 bg-white rounded-xl shadow-sm border border-gray-100 min-w-[280px] transition-all duration-300 hover:shadow-md hover:-translate-y-1">
+            <div class="flex items-center space-x-3 mb-2">
+                <img class="w-8 h-8 rounded-full border border-gray-100" src="${review.avatar}" alt="${review.name}">
+                <div>
+                    <p class="text-[11px] font-black text-gray-800">${review.name}</p>
+                    <p class="text-[10px] text-yellow-500">${stars}</p>
+                </div>
+            </div>
+            <p class="text-xs text-gray-500 font-medium italic leading-relaxed">"${review.text}"</p>
+        </div>
+    `;
+}
+
+function populateReviews(containerId, data) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const reviewsHtml = data.map(createReviewCard).join('');
+    container.innerHTML = reviewsHtml + reviewsHtml;
+}
+
+// Populate both left and right reviews
+populateReviews('left-reviews', reviewsData);
+populateReviews('right-reviews', [...reviewsData].reverse());
 </script>
 </body>
 </html>
