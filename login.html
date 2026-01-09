@@ -151,17 +151,17 @@
                 </div>
 
                 <div class="flex p-1.5 bg-gray-100/80 rounded-xl">
-                    <button id="login-tab" onclick="window.toggleForm('login')" 
+                    <button id="login-tab" onclick="toggleForm('login')" 
                         class="flex-1 py-2.5 px-4 rounded-lg transition-all duration-300 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-ammoue/20">
                         Log In
                     </button>
-                    <button id="signup-tab" onclick="window.toggleForm('signup')" 
+                    <button id="signup-tab" onclick="toggleForm('signup')" 
                         class="flex-1 py-2.5 px-4 rounded-lg transition-all duration-300 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-ammoue/20">
                         Sign Up
                     </button>
                 </div>
 
-                <form id="login-form" class="space-y-5 hidden form-transition" onsubmit="window.handleLogin(event)">
+                <form id="login-form" class="space-y-5 hidden form-transition" onsubmit="handleLogin(event)">
                     <div class="space-y-1">
                         <label for="login-email" class="block text-sm font-bold text-gray-700">Email Address</label>
                         <input id="login-email" type="email" required placeholder="name@company.com" 
@@ -175,7 +175,7 @@
                         <div class="relative group">
                             <input id="login-password" type="password" required placeholder="••••••••"
                                 class="custom-input mt-1 block w-full border border-gray-200 rounded-xl p-3 text-sm transition-all bg-gray-50/50">
-                            <button type="button" onclick="window.togglePasswordVisibility('login-password', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                            <button type="button" onclick="togglePasswordVisibility('login-password', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
                                 <i data-lucide="eye" class="w-4 h-4"></i>
                             </button>
                         </div>
@@ -186,7 +186,7 @@
                     </button>
                 </form>
 
-                <form id="signup-form" class="space-y-5 hidden form-transition" onsubmit="window.handleSignup(event)">
+                <form id="signup-form" class="space-y-5 hidden form-transition" onsubmit="handleSignup(event)">
                     <div class="space-y-1">
                         <label for="signup-email" class="block text-sm font-bold text-gray-700">Email Address</label>
                         <input id="signup-email" type="email" required placeholder="name@company.com"
@@ -197,7 +197,7 @@
                         <div class="relative">
                             <input id="signup-password" type="password" required minlength="6" placeholder="At least 6 characters"
                                 class="custom-input mt-1 block w-full border border-gray-200 rounded-xl p-3 text-sm transition-all bg-gray-50/50">
-                            <button type="button" onclick="window.togglePasswordVisibility('signup-password', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                            <button type="button" onclick="togglePasswordVisibility('signup-password', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
                                 <i data-lucide="eye" class="w-4 h-4"></i>
                             </button>
                         </div>
@@ -222,12 +222,12 @@
                     </div>
 
                     <div class="mt-6 grid grid-cols-2 gap-4">
-                        <button id="google-auth-btn" onclick="window.handleGoogleAuth(this)" type="button" 
+                        <button id="google-auth-btn" onclick="handleGoogleAuth(this)" type="button" 
                             class="btn-google w-full inline-flex items-center justify-center py-3 px-4 border border-gray-200 rounded-xl shadow-sm bg-white text-sm font-bold text-gray-600 hover:shadow-md active:scale-95 transition-all">
                             <i data-lucide="mail" class="w-4 h-4 mr-2 text-red-500"></i>
                             Google
                         </button>
-                        <button id="github-auth-btn" onclick="window.handleGitHubAuth(this)" type="button" 
+                        <button id="github-auth-btn" onclick="handleGitHubAuth(this)" type="button" 
                             class="btn-github w-full inline-flex items-center justify-center py-3 px-4 border border-gray-200 rounded-xl shadow-sm bg-white text-sm font-bold text-gray-600 hover:shadow-md active:scale-95 transition-all">
                             <i data-lucide="github" class="w-4 h-4 mr-2 text-gray-900"></i>
                             GitHub
@@ -239,112 +239,158 @@
     </main>
 
    <script type="module">
-  import { login, signup, googleLogin, githubLogin } from "./firebase.js";
+  /* ===============================
+     IMPORT AUTH API
+     =============================== */
+  import { login, signup, googleLogin, githubLogin } from "./login.js";
 
-  /* --- UTILITIES ATTACHED TO WINDOW --- */
+  /* ===============================
+     MESSAGE POPUPS (RESTORED)
+     =============================== */
   window.showMessage = function (message, isError = false) {
     const msgBox = document.getElementById("message-box");
     if (!msgBox) return;
+
     msgBox.textContent = message;
-    msgBox.className = `fixed top-6 right-6 z-50 p-4 text-white font-semibold rounded-xl shadow-2xl transition-all duration-500 transform min-w-80 ${
-      isError ? "bg-red-500" : "bg-green-500"
-    } opacity-100 translate-y-0`;
+    msgBox.classList.remove(
+      "bg-green-500",
+      "bg-red-500",
+      "opacity-0",
+      "translate-y-[-20px]"
+    );
+
+    msgBox.classList.add(
+      isError ? "bg-red-500" : "bg-green-500",
+      "opacity-100",
+      "translate-y-0"
+    );
 
     setTimeout(() => {
-      msgBox.classList.replace("opacity-100", "opacity-0");
-      msgBox.classList.replace("translate-y-0", "translate-y-[-20px]");
+      msgBox.classList.add("opacity-0", "translate-y-[-20px]");
     }, 4000);
   };
 
+  /* ===============================
+     BUTTON LOADING (RESTORED)
+     =============================== */
   window.setLoading = function (button, state) {
     if (!button) return;
+
     if (state) {
       button.disabled = true;
       button.dataset.original = button.innerHTML;
-      button.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 mr-2 animate-spin"></i> Authenticating...';
+      button.innerHTML =
+        '<i data-lucide="loader-2" class="w-4 h-4 mr-2 animate-spin"></i> Authenticating...';
       lucide.createIcons();
     } else {
       button.disabled = false;
-      button.innerHTML = button.dataset.original || button.innerHTML;
+      button.innerHTML = button.dataset.original;
     }
   };
 
+  /* ===============================
+     PASSWORD VISIBILITY
+     =============================== */
   window.togglePasswordVisibility = function (id, btn) {
     const input = document.getElementById(id);
     if (!input) return;
-    const isPassword = input.type === "password";
-    input.type = isPassword ? "text" : "password";
-    btn.innerHTML = `<i data-lucide="${isPassword ? 'eye-off' : 'eye'}" class="w-4 h-4"></i>`;
+
+    if (input.type === "password") {
+      input.type = "text";
+      btn.innerHTML = '<i data-lucide="eye-off" class="w-4 h-4"></i>';
+    } else {
+      input.type = "password";
+      btn.innerHTML = '<i data-lucide="eye" class="w-4 h-4"></i>';
+    }
     lucide.createIcons();
   };
 
-  /* --- FORM HANDLERS --- */
+  /* ===============================
+     TESTIMONIALS (UNCHANGED)
+     =============================== */
+  const reviewsData = [
+    { name: "Sarah K.", rating: 5, text: "Built my entire portfolio in an hour. Incredible speed!", avatar: "https://i.pravatar.cc/150?img=1" },
+    { name: "Jake D.", rating: 5, text: "The AI suggestions are spot-on. Traffic doubled!", avatar: "https://i.pravatar.cc/150?img=2" },
+    { name: "Aisha M.", rating: 4, text: "Great value. The foundation was absolutely perfect.", avatar: "https://i.pravatar.cc/150?img=3" },
+    { name: "Chris T.", rating: 5, text: "Finally, a site builder that understands design!", avatar: "https://i.pravatar.cc/150?img=4" },
+    { name: "Maria L.", rating: 5, text: "Flawless interface. Switched and haven't looked back.", avatar: "https://i.pravatar.cc/150?img=5" },
+    { name: "David B.", rating: 4, text: "Professional overnight for my small business.", avatar: "https://i.pravatar.cc/150?img=6" },
+  ];
+
+  function createReviewCard(r) {
+    const stars = "★".repeat(r.rating) + "☆".repeat(5 - r.rating);
+    return `
+      <div class="p-4 bg-white rounded-xl shadow-sm border border-gray-100 min-w-[280px]">
+        <div class="flex items-center space-x-3 mb-2">
+          <img class="w-8 h-8 rounded-full" src="${r.avatar}">
+          <div>
+            <p class="text-[11px] font-black">${r.name}</p>
+            <p class="text-[10px] text-yellow-500">${stars}</p>
+          </div>
+        </div>
+        <p class="text-xs text-gray-500 italic">"${r.text}"</p>
+      </div>
+    `;
+  }
+
+  function populateReviews(id, data) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const html = data.map(createReviewCard).join("");
+    el.innerHTML = html + html;
+  }
+
+  populateReviews("left-reviews", reviewsData);
+  populateReviews("right-reviews", [...reviewsData].reverse());
+
+  /* ===============================
+     FORM HANDLERS (WITH UX)
+     =============================== */
   window.handleLogin = async (e) => {
     e.preventDefault();
     const btn = document.getElementById("login-btn");
-    window.setLoading(btn, true);
-    try {
-        await login(
-          document.getElementById("login-email").value,
-          document.getElementById("login-password").value,
-          btn
-        );
-    } catch (err) {
-        console.error(err);
-        window.showMessage(err.message || "Login failed", true);
-    } finally {
-        window.setLoading(btn, false);
-    }
+    setLoading(btn, true);
+    await login(
+      document.getElementById("login-email").value,
+      document.getElementById("login-password").value,
+      btn
+    );
+    setLoading(btn, false);
   };
 
   window.handleSignup = async (e) => {
     e.preventDefault();
     const btn = document.getElementById("signup-btn");
-    window.setLoading(btn, true);
-    try {
-        await signup(
-          document.getElementById("signup-email").value,
-          document.getElementById("signup-password").value,
-          btn
-        );
-    } catch (err) {
-        console.error(err);
-        window.showMessage(err.message || "Signup failed", true);
-    } finally {
-        window.setLoading(btn, false);
-    }
+    setLoading(btn, true);
+    await signup(
+      document.getElementById("signup-email").value,
+      document.getElementById("signup-password").value,
+      btn
+    );
+    setLoading(btn, false);
   };
 
   window.handleGoogleAuth = async (btn) => {
-    window.setLoading(btn, true);
-    try {
-        await googleLogin(btn);
-    } catch (err) {
-        console.error(err);
-        window.showMessage(err.message || "Google authentication failed", true);
-    } finally {
-        window.setLoading(btn, false);
-    }
+    setLoading(btn, true);
+    await googleLogin(btn);
+    setLoading(btn, false);
   };
 
   window.handleGitHubAuth = async (btn) => {
-    window.setLoading(btn, true);
-    try {
-        await githubLogin(btn);
-    } catch (err) {
-        console.error(err);
-        window.showMessage(err.message || "GitHub authentication failed", true);
-    } finally {
-        window.setLoading(btn, false);
-    }
+    setLoading(btn, true);
+    await githubLogin(btn);
+    setLoading(btn, false);
   };
 
-  window.toggleForm = function (type) {
-    const loginForm = document.getElementById("login-form");
-    const signupForm = document.getElementById("signup-form");
-    const loginTab = document.getElementById("login-tab");
-    const signupTab = document.getElementById("signup-tab");
+  /* ===============================
+     FORM TOGGLE (UNCHANGED UX)
+     =============================== */
+  const loginForm = document.getElementById("login-form");
+  const signupForm = document.getElementById("signup-form");
+  const loginTab = document.getElementById("login-tab");
+  const signupTab = document.getElementById("signup-tab");
 
+  window.toggleForm = function (type) {
     if (type === "login") {
       loginForm.classList.remove("hidden");
       signupForm.classList.add("hidden");
@@ -358,35 +404,9 @@
     }
   };
 
-  /* --- TESTIMONIALS & INIT --- */
-  const reviewsData = [
-    { name: "Sarah K.", rating: 5, text: "Built my entire portfolio in an hour. Incredible speed!", avatar: "https://i.pravatar.cc/150?img=1" },
-    { name: "Jake D.", rating: 5, text: "The AI suggestions are spot-on. Traffic doubled!", avatar: "https://i.pravatar.cc/150?img=2" },
-    { name: "Chris T.", rating: 5, text: "Finally, a site builder that understands design!", avatar: "https://i.pravatar.cc/150?img=4" },
-    { name: "Maria L.", rating: 5, text: "Flawless interface. Switched and haven't looked back.", avatar: "https://i.pravatar.cc/150?img=5" },
-  ];
-
-  function populateReviews(id, data) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    const cards = data.map(r => `
-      <div class="p-4 bg-white rounded-xl shadow-sm border border-gray-100 min-w-[280px]">
-        <div class="flex items-center space-x-3 mb-2">
-          <img class="w-8 h-8 rounded-full" src="${r.avatar}">
-          <div>
-            <p class="text-[11px] font-black">${r.name}</p>
-            <p class="text-[10px] text-yellow-500">${"★".repeat(r.rating)}</p>
-          </div>
-        </div>
-        <p class="text-xs text-gray-500 italic">"${r.text}"</p>
-      </div>
-    `).join("");
-    el.innerHTML = cards + cards;
-  }
-
-  populateReviews("left-reviews", reviewsData);
-  populateReviews("right-reviews", [...reviewsData].reverse());
-  
+  /* ===============================
+     INIT
+     =============================== */
   window.toggleForm("login");
   lucide.createIcons();
 </script>
