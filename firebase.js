@@ -1,21 +1,7 @@
 // firebase.js
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-import {
-  getAuth,
-  GoogleAuthProvider,
-  GithubAuthProvider,
-  signInWithPopup,
-} from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-import {
-  getFirestore,
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  serverTimestamp,
-} from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
-
-/* ================= FIREBASE CONFIG ================= */
+import { getAuth, GoogleAuthProvider, GithubAuthProvider } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
@@ -28,58 +14,8 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-/* ================= SERVICES ================= */
-
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-/* ================= PROVIDERS ================= */
-
-const googleProvider = new GoogleAuthProvider();
-const githubProvider = new GithubAuthProvider();
-
-/* ================= USER TRACKING ================= */
-
-async function trackUserLogin(user, providerName) {
-  const userRef = doc(db, "users", user.uid);
-  const snap = await getDoc(userRef);
-
-  if (!snap.exists()) {
-    // First login
-    await setDoc(userRef, {
-      uid: user.uid,
-      email: user.email || null,
-      displayName: user.displayName || null,
-      photoURL: user.photoURL || null,
-
-      plan: "free",
-      provider: providerName,
-
-      createdAt: serverTimestamp(),
-      lastLoginAt: serverTimestamp(),
-      loginCount: 1,
-
-      banned: false,
-    });
-  } else {
-    // Returning user
-    await updateDoc(userRef, {
-      lastLoginAt: serverTimestamp(),
-      loginCount: (snap.data().loginCount || 0) + 1,
-    });
-  }
-}
-
-/* ================= LOGIN HELPERS ================= */
-
-export async function loginWithGoogle() {
-  const result = await signInWithPopup(auth, googleProvider);
-  await trackUserLogin(result.user, "google");
-  return result.user;
-}
-
-export async function loginWithGitHub() {
-  const result = await signInWithPopup(auth, githubProvider);
-  await trackUserLogin(result.user, "github");
-  return result.user;
-}
+export const googleProvider = new GoogleAuthProvider();
+export const githubProvider = new GithubAuthProvider();
