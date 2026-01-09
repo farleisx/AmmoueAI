@@ -49,7 +49,7 @@ async function createUserDoc(user) {
       plan: "free",
       signupDate: serverTimestamp(),
     },
-    { merge: true } // won't overwrite existing fields
+    { merge: false } // won't overwrite existing fields
   );
 }
 
