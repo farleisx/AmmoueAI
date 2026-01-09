@@ -1,111 +1,154 @@
 // login.js
-import { auth, db, googleProvider, githubProvider } from "./firebase.js";
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signInWithPopup,
-  updateProfile,
-} from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+import { auth, db, googleProvider, githubProvider, onAuthChange } from './firebase.js';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 import { doc, setDoc, Timestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
-/* ===============================
-   HELPER: CREATE OR UPDATE USER DOC
-   =============================== */
-async function createOrUpdateUserDoc(user) {
-  if (!user || !db) return;
+let pendingCredential = null;
+let conflictingEmail = null;
 
-  try {
-    const userDocRef = doc(db, "users", user.uid);
-    await setDoc(
-      userDocRef,
-      {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName || null,
-        plan: "free",
-        signupDate: Timestamp.now(),
-        lastLogin: Timestamp.now(),
-      },
-      { merge: true } // preserves existing fields
-    );
-    console.log("User document saved/updated:", user.uid);
-  } catch (error) {
-    console.error("Firestore error:", error);
-    if (window.showMessage) window.showMessage("Warning: User document save failed.", true);
-  }
+// ----------------- UI Utilities -----------------
+export function showMessage(message, isError) {
+    const msgBox = document.getElementById('message-box');
+    msgBox.textContent = message;
+    msgBox.classList.remove('bg-green-500', 'bg-red-500', 'opacity-0', 'translate-y-[-20px]');
+    msgBox.classList.add(isError ? 'bg-red-500' : 'bg-green-500', 'opacity-100', 'translate-y-0');
+
+    setTimeout(() => {
+        msgBox.classList.add('opacity-0', 'translate-y-[-20px]');
+    }, 4000);
 }
 
-/* ===============================
-   EMAIL/PASSWORD LOGIN
-   =============================== */
-window.login = async function (email, password, btn) {
-  try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-    await setDoc(doc(db, "users", user.uid), { lastLogin: Timestamp.now() }, { merge: true });
-    console.log("Logged in:", user.uid);
-    if (window.showMessage) window.showMessage("Login successful!", false);
-    setTimeout(() => { window.location.href = "/dashboard.html"; }, 1000);
-  } catch (error) {
-    console.error(error);
-    if (window.showMessage) {
-      let msg = "Login failed. Check credentials.";
-      if (error.code === "auth/user-not-found") msg = "No account found with this email.";
-      else if (error.code === "auth/wrong-password") msg = "Incorrect password.";
-      window.showMessage(msg, true);
+export function setLoading(button, isLoading) {
+    if (isLoading) {
+        button.disabled = true;
+        button.setAttribute('data-original-text', button.innerHTML);
+        button.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 mr-2 animate-spin"></i> Authenticating...`;
+    } else {
+        button.disabled = false;
+        button.innerHTML = button.getAttribute('data-original-text');
     }
-  }
-};
+}
 
-/* ===============================
-   EMAIL/PASSWORD SIGNUP
-   =============================== */
-window.signup = async function (email, password, btn) {
-  try {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    await createOrUpdateUserDoc(userCredential.user);
-    console.log("Signed up:", userCredential.user.uid);
-    if (window.showMessage) window.showMessage("Account created successfully!", false);
-    setTimeout(() => { window.location.href = "/dashboard.html"; }, 1000);
-  } catch (error) {
-    console.error(error);
-    if (window.showMessage) {
-      let msg = "Sign-up failed.";
-      if (error.code === "auth/email-already-in-use") msg = "Email already in use.";
-      else if (error.code === "auth/weak-password") msg = "Password too weak.";
-      window.showMessage(msg, true);
+function getRedirectPath() {
+    const params = new URLSearchParams(window.location.search);
+    const path = params.get('redirect') ? decodeURIComponent(params.get('redirect')) : '/dashboard';
+    return path.startsWith('/') ? path.substring(1) : path;
+}
+
+function redirectToNextPage() {
+    window.location.href = getRedirectPath();
+}
+
+// ----------------- Firestore -----------------
+async function createUserDocument(user) {
+    try {
+        const userDocRef = doc(db, "users", user.uid);
+        await setDoc(userDocRef, {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName || null,
+            plan: "free",
+            signupDate: Timestamp.now(),
+            lastLogin: Timestamp.now()
+        }, { merge: true });
+    } catch (error) {
+        console.error("Firestore error:", error);
+        showMessage("Warning: Account created, but profile save failed.", true);
     }
-  }
-};
+}
 
-/* ===============================
-   GOOGLE LOGIN
-   =============================== */
-window.googleLogin = async function (btn) {
-  try {
-    const result = await signInWithPopup(auth, googleProvider);
-    await createOrUpdateUserDoc(result.user);
-    console.log("Google login:", result.user.uid);
-    if (window.showMessage) window.showMessage("Logged in with Google!", false);
-    setTimeout(() => { window.location.href = "/dashboard.html"; }, 1000);
-  } catch (error) {
-    console.error(error);
-    if (window.showMessage) window.showMessage("Google login failed: " + error.message, true);
-  }
-};
+// ----------------- Auth Handlers -----------------
+export async function handleLogin(event) {
+    event.preventDefault();
+    const loginBtn = document.getElementById('login-btn');
+    setLoading(loginBtn, true);
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
 
-/* ===============================
-   GITHUB LOGIN
-   =============================== */
-window.githubLogin = async function (btn) {
-  try {
-    const result = await signInWithPopup(auth, githubProvider);
-    await createOrUpdateUserDoc(result.user);
-    console.log("GitHub login:", result.user.uid);
-    if (window.showMessage) window.showMessage("Logged in with GitHub!", false);
-    setTimeout(() => { window.location.href = "/dashboard.html"; }, 1000);
-  } catch (error) {
-    console.error(error);
-    if (window.showMessage) window.showMessage("GitHub login failed: " + error.message, true);
-  }
-};
+    try {
+        await signInWithEmailAndPassword(auth, email, password);
+        showMessage("Login successful!", false);
+        setTimeout(redirectToNextPage, 1000);
+    } catch (error) {
+        let msg = 'Login failed. Please check credentials.';
+        if (error.code === 'auth/user-not-found') msg = 'No account found with this email.';
+        showMessage(msg, true);
+        setLoading(loginBtn, false);
+    }
+}
+
+export async function handleSignup(event) {
+    event.preventDefault();
+    const signupBtn = document.getElementById('signup-btn');
+    setLoading(signupBtn, true);
+    const email = document.getElementById('signup-email').value;
+    const password = document.getElementById('signup-password').value;
+
+    try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await createUserDocument(userCredential.user);
+        showMessage("Account created successfully!", false);
+        setTimeout(redirectToNextPage, 1000);
+    } catch (error) {
+        let msg = 'Sign-up failed.';
+        if (error.code === 'auth/email-already-in-use') msg = 'Email already in use.';
+        showMessage(msg, true);
+        setLoading(signupBtn, false);
+    }
+}
+
+export async function handleGoogleAuth(button) {
+    setLoading(button, true);
+    try {
+        const result = await signInWithPopup(auth, googleProvider);
+        if (result.additionalUserInfo?.isNewUser) await createUserDocument(result.user);
+        showMessage(`Welcome, ${result.user.displayName || "User"}!`, false);
+    } catch (error) {
+        showMessage("Google sign-in failed.", true);
+        setLoading(button, false);
+    }
+}
+
+export async function handleGitHubAuth(button) {
+    setLoading(button, true);
+    try {
+        const result = await signInWithPopup(auth, githubProvider);
+        if (result.additionalUserInfo?.isNewUser) await createUserDocument(result.user);
+        showMessage(`Welcome!`, false);
+    } catch (error) {
+        showMessage("GitHub sign-in failed.", true);
+        setLoading(button, false);
+    }
+}
+
+// ----------------- Tab Switch -----------------
+export function toggleForm(formType) {
+    const loginForm = document.getElementById('login-form');
+    const signupForm = document.getElementById('signup-form');
+    const loginTab = document.getElementById('login-tab');
+    const signupTab = document.getElementById('signup-tab');
+
+    if (formType === 'login') {
+        loginForm.classList.remove('hidden');
+        signupForm.classList.add('hidden');
+        loginTab.classList.add('bg-white', 'shadow-sm', 'tab-active');
+        signupTab.classList.remove('bg-white', 'shadow-sm', 'tab-active');
+        loginTab.classList.remove('text-gray-500');
+        signupTab.classList.add('text-gray-500');
+    } else {
+        loginForm.classList.add('hidden');
+        signupForm.classList.remove('hidden');
+        signupTab.classList.add('bg-white', 'shadow-sm', 'tab-active');
+        loginTab.classList.remove('bg-white', 'shadow-sm', 'tab-active');
+        signupTab.classList.remove('text-gray-500');
+        loginTab.classList.add('text-gray-500');
+    }
+}
+
+// ----------------- Auth State Redirect -----------------
+onAuthChange((user) => {
+    if (user) {
+        showMessage(`Welcome back! Redirecting...`, false);
+        setTimeout(redirectToNextPage, 1000);
+    }
+});
