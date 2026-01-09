@@ -9,15 +9,16 @@ import {
 import {
   doc,
   setDoc,
-  Timestamp,
+  serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
 import { auth, db, googleProvider, githubProvider } from "./firebase.js";
 
 /* ---------------- UTILITIES ---------------- */
 
-function showMessage(message, isError) {
+function showMessage(message, isError = false) {
   const box = document.getElementById("message-box");
+  if (!box) return;
   box.textContent = message;
   box.className =
     "fixed top-6 right-6 z-50 p-4 rounded-xl text-white font-semibold " +
@@ -25,6 +26,7 @@ function showMessage(message, isError) {
 }
 
 function setLoading(btn, state) {
+  if (!btn) return;
   btn.disabled = state;
   btn.style.opacity = state ? "0.7" : "1";
 }
@@ -43,10 +45,11 @@ async function createUserDoc(user) {
     {
       uid: user.uid,
       email: user.email,
+      displayName: user.displayName || null, // null if not set
       plan: "free",
-      createdAt: Timestamp.now(),
+      signupDate: serverTimestamp(),
     },
-    { merge: true }
+    { merge: true } // won't overwrite existing fields
   );
 }
 
@@ -59,6 +62,7 @@ export async function login(email, password, btn) {
     showMessage("Login successful", false);
     redirectNext();
   } catch (e) {
+    console.error(e);
     showMessage("Invalid credentials", true);
     setLoading(btn, false);
   }
@@ -72,6 +76,7 @@ export async function signup(email, password, btn) {
     showMessage("Account created", false);
     redirectNext();
   } catch (e) {
+    console.error(e);
     showMessage("Email already in use", true);
     setLoading(btn, false);
   }
@@ -81,11 +86,13 @@ export async function googleLogin(btn) {
   setLoading(btn, true);
   try {
     const res = await signInWithPopup(auth, googleProvider);
-    if (res.additionalUserInfo?.isNewUser) {
+    if (res.user) {
+      // Save displayName from Google
       await createUserDoc(res.user);
     }
     redirectNext();
-  } catch {
+  } catch (e) {
+    console.error(e);
     showMessage("Google login failed", true);
     setLoading(btn, false);
   }
@@ -95,11 +102,13 @@ export async function githubLogin(btn) {
   setLoading(btn, true);
   try {
     const res = await signInWithPopup(auth, githubProvider);
-    if (res.additionalUserInfo?.isNewUser) {
+    if (res.user) {
+      // Save displayName from GitHub (may be null)
       await createUserDoc(res.user);
     }
     redirectNext();
-  } catch {
+  } catch (e) {
+    console.error(e);
     showMessage("GitHub login failed", true);
     setLoading(btn, false);
   }
@@ -107,6 +116,7 @@ export async function githubLogin(btn) {
 
 /* ---------------- SESSION ---------------- */
 
+// Automatically redirect logged-in users
 onAuthStateChanged(auth, (user) => {
   if (user) redirectNext();
 });
