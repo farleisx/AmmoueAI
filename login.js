@@ -1,62 +1,26 @@
 // login.js
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
 import {
+  getAuth,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signInWithPopup,
   onAuthStateChanged,
-  getAuth,
-  GoogleAuthProvider,
-  GithubAuthProvider
 } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-
 import {
+  getFirestore,
   doc,
   setDoc,
-  Timestamp,
   serverTimestamp,
-  getFirestore
+  Timestamp,
 } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+import { googleProvider, githubProvider, firebaseConfig } from "./firebase.js";
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+let auth = null;
+let db = null;
 
-// ---------------- CONFIG ----------------
-const firebaseConfig = {
-  apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
-  authDomain: "ammoueai.firebaseapp.com",
-  projectId: "ammoueai",
-  storageBucket: "ammoueai.firebasestorage.app",
-  messagingSenderId: "135818868149",
-  appId: "1:135818868149:web:db9280baf9540a3339d5fc",
-};
-
-let auth, db;
-const googleProvider = new GoogleAuthProvider();
-const githubProvider = new GithubAuthProvider();
-
-// ---------------- UTILITIES ----------------
-function showMessage(message, isError = false) {
-  const box = document.getElementById("message-box");
-  if (!box) return;
-  box.textContent = message;
-  box.className =
-    "fixed top-6 right-6 z-50 p-4 rounded-xl text-white font-semibold " +
-    (isError ? "bg-red-500" : "bg-green-500");
-}
-
-function setLoading(btn, state) {
-  if (!btn) return;
-  btn.disabled = state;
-  btn.style.opacity = state ? "0.7" : "1";
-}
-
-function redirectToNextPage() {
-  const params = new URLSearchParams(window.location.search);
-  const path = params.get("redirect") || "/dashboard";
-  window.location.href = path;
-}
-
-// ---------------- FIRESTORE ----------------
-async function createUserDocument(user, isNewUser = false) {
+/* ---------------- FIRESTORE ---------------- */
+async function createUserDocument(user) {
   if (!db) return;
   try {
     const userDocRef = doc(db, "users", user.uid);
@@ -64,26 +28,23 @@ async function createUserDocument(user, isNewUser = false) {
       userDocRef,
       {
         uid: user.uid,
-        email: user.email,
+        email: user.email || null,
         displayName: user.displayName || null,
         plan: "free",
-        createdAt: isNewUser ? serverTimestamp() : undefined, // only set once
-        signupDate: isNewUser ? serverTimestamp() : undefined,
-        lastLogin: serverTimestamp(),
+        signupDate: Timestamp.now(),
+        lastLogin: Timestamp.now(),
+        serverTimestamp: serverTimestamp(),
       },
-      { merge: true }
+      { merge: true } // merge ensures we don’t delete existing fields
     );
   } catch (error) {
     console.error("Firestore error:", error);
-    showMessage(
-      "Warning: Account created, but profile save failed.",
-      true
-    );
+    showMessage("Warning: Account created, but profile save failed.", true);
   }
 }
 
-// ---------------- FIREBASE INIT ----------------
-async function initializeAppAndAuth() {
+/* ---------------- INIT ---------------- */
+export async function initializeAppAndAuth() {
   try {
     const app = initializeApp(firebaseConfig);
     auth = getAuth(app);
@@ -91,89 +52,95 @@ async function initializeAppAndAuth() {
 
     onAuthStateChanged(auth, async (user) => {
       if (user) {
-        await createUserDocument(user, false); // update lastLogin on every login
+        await createUserDocument(user); // update lastLogin for existing users
         showMessage(`Welcome back! Redirecting...`, false);
         setTimeout(redirectToNextPage, 1000);
       }
     });
   } catch (error) {
-    showMessage("Firebase initialization failed.", true);
     console.error(error);
+    showMessage("Firebase initialization failed.", true);
   }
 }
 
-initializeAppAndAuth();
-
-// ---------------- AUTH ACTIONS ----------------
-window.handleLogin = async function (event) {
-  event.preventDefault();
+/* ---------------- AUTH ACTIONS ---------------- */
+export async function login(email, password, btn) {
   if (!auth) return;
-  const loginBtn = document.getElementById("login-btn");
-  setLoading(loginBtn, true);
-
-  const email = document.getElementById("login-email").value;
-  const password = document.getElementById("login-password").value;
-
+  setLoading(btn, true);
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    await createUserDocument(userCredential.user, false); // update lastLogin
+    await createUserDocument(userCredential.user);
     showMessage("Login successful!", false);
     setTimeout(redirectToNextPage, 1000);
   } catch (error) {
     let msg = "Login failed. Please check credentials.";
-    if (error.code === "auth/user-not-found")
-      msg = "No account found with this email.";
+    if (error.code === "auth/user-not-found") msg = "No account found with this email.";
+    if (error.code === "auth/wrong-password") msg = "Incorrect password.";
     showMessage(msg, true);
-    setLoading(loginBtn, false);
+    setLoading(btn, false);
   }
-};
+}
 
-window.handleSignup = async function (event) {
-  event.preventDefault();
+export async function signup(email, password, btn) {
   if (!auth) return;
-  const signupBtn = document.getElementById("signup-btn");
-  setLoading(signupBtn, true);
-
-  const email = document.getElementById("signup-email").value;
-  const password = document.getElementById("signup-password").value;
-
+  setLoading(btn, true);
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    await createUserDocument(userCredential.user, true);
+    await createUserDocument(userCredential.user);
     showMessage("Account created successfully!", false);
     setTimeout(redirectToNextPage, 1000);
   } catch (error) {
     let msg = "Sign-up failed.";
     if (error.code === "auth/email-already-in-use") msg = "Email already in use.";
     showMessage(msg, true);
-    setLoading(signupBtn, false);
+    setLoading(btn, false);
   }
-};
+}
 
-window.handleGoogleAuth = async function (btn) {
+export async function googleLogin(btn) {
   if (!auth) return;
   setLoading(btn, true);
   try {
     const res = await signInWithPopup(auth, googleProvider);
-    const isNew = res.additionalUserInfo?.isNewUser || false;
-    await createUserDocument(res.user, isNew);
-    redirectToNextPage();
+    await createUserDocument(res.user);
+    setTimeout(redirectToNextPage, 1000);
   } catch (error) {
-    showMessage("Google login failed.", true);
+    console.error(error);
+    showMessage("Google login failed", true);
     setLoading(btn, false);
   }
-};
+}
 
-window.handleGitHubAuth = async function (btn) {
+export async function githubLogin(btn) {
   if (!auth) return;
   setLoading(btn, true);
   try {
     const res = await signInWithPopup(auth, githubProvider);
-    const isNew = res.additionalUserInfo?.isNewUser || false;
-    await createUserDocument(res.user, isNew);
-    redirectToNextPage();
+    await createUserDocument(res.user);
+    setTimeout(redirectToNextPage, 1000);
   } catch (error) {
-    showMessage("GitHub login failed.", true);
+    console.error(error);
+    showMessage("GitHub login failed", true);
     setLoading(btn, false);
   }
+}
+
+/* ---------------- WINDOW BINDINGS ---------------- */
+window.handleLogin = (e) => {
+  e.preventDefault();
+  const btn = document.getElementById("login-btn");
+  const email = document.getElementById("login-email").value;
+  const password = document.getElementById("login-password").value;
+  login(email, password, btn);
 };
+
+window.handleSignup = (e) => {
+  e.preventDefault();
+  const btn = document.getElementById("signup-btn");
+  const email = document.getElementById("signup-email").value;
+  const password = document.getElementById("signup-password").value;
+  signup(email, password, btn);
+};
+
+window.handleGoogleAuth = (btn) => googleLogin(btn);
+window.handleGitHubAuth = (btn) => githubLogin(btn);
