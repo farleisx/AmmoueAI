@@ -11,6 +11,9 @@ const PLAN_LIMITS = {
   pro: 5,
 };
 
+const DEPLOY_COOLDOWN_MS = 15_000; // 15 seconds
+const MAX_HTML_SIZE = 500_000; // 500KB
+
 const VERCEL_TOKEN = process.env.VERCEL_TOKEN;
 const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID || null;
 const VERCEL_PROJECT = "ammoueai-sites";
@@ -41,8 +44,6 @@ function validateDomain(domain) {
   return /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain);
 }
 
-/* ================= SLUG RESERVATION ================= */
-
 async function reserveSlug(slug, userId, projectId) {
   const ref = db.collection("slugReservations").doc(slug);
 
@@ -54,7 +55,7 @@ async function reserveSlug(slug, userId, projectId) {
       if (data.projectId !== projectId) {
         throw new Error("SLUG_TAKEN");
       }
-      return; // already reserved by this project
+      return;
     }
 
     tx.set(ref, {
@@ -72,53 +73,89 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const {
-    htmlContent,
-    userId,
-    plan,
-    projectId,
-    slug,
-    customDomain,
-  } = req.body;
-
-  if (!htmlContent || !userId || !plan || !projectId) {
-    return res.status(400).json({ error: "Missing parameters" });
-  }
-
-  if (!PLAN_LIMITS[plan]) {
-    return res.status(400).json({ error: "Invalid plan" });
-  }
-
-  const projectRef = db
-    .collection("artifacts")
-    .doc(VERCEL_PROJECT)
-    .collection("users")
-    .doc(userId)
-    .collection("projects")
-    .doc(projectId);
-
   try {
-    /* -------- PLAN LIMIT CHECK -------- */
+    /* ---------- AUTH ---------- */
+
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const idToken = authHeader.split("Bearer ")[1];
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    const userId = decoded.uid;
+
+    /* ---------- INPUT ---------- */
+
+    const { htmlContent, projectId, slug, customDomain } = req.body;
+
+    if (!htmlContent || !projectId) {
+      return res.status(400).json({ error: "Missing parameters" });
+    }
+
+    if (htmlContent.length > MAX_HTML_SIZE) {
+      return res.status(413).json({ error: "HTML too large" });
+    }
+
+    /* ---------- USER + PLAN ---------- */
+
+    const userRef = db.collection("users").doc(userId);
+    const userSnap = await userRef.get();
+
+    const plan = userSnap.exists ? userSnap.data().plan : "free";
+
+    if (!PLAN_LIMITS[plan]) {
+      return res.status(403).json({ error: "Invalid plan" });
+    }
+
+    /* ---------- PROJECT ---------- */
+
+    const projectRef = db
+      .collection("artifacts")
+      .doc(VERCEL_PROJECT)
+      .collection("users")
+      .doc(userId)
+      .collection("projects")
+      .doc(projectId);
+
+    const projectSnap = await projectRef.get();
+
+    if (!projectSnap.exists) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+
+    const projectData = projectSnap.data();
+
+    /* ---------- OWNERSHIP ---------- */
+
+    if (projectData.userId && projectData.userId !== userId) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    /* ---------- DEPLOY COOLDOWN ---------- */
+
+    const lastDeploy = projectData.lastDeployAt?.toMillis?.() || 0;
+    if (Date.now() - lastDeploy < DEPLOY_COOLDOWN_MS) {
+      return res
+        .status(429)
+        .json({ error: "Deploy cooldown active (15s)" });
+    }
+
+    /* ---------- PLAN LIMIT ---------- */
 
     const projectsSnap = await projectRef.parent.get();
-
     if (projectsSnap.size > PLAN_LIMITS[plan]) {
       return res
         .status(403)
         .json({ error: "Plan deployment limit reached" });
     }
 
-    /* -------- LOAD PROJECT -------- */
-
-    const projectSnap = await projectRef.get();
-    const projectData = projectSnap.exists ? projectSnap.data() : {};
-
-    /* -------- INTERNAL NAME (STABLE FOREVER) -------- */
+    /* ---------- INTERNAL NAME ---------- */
 
     const internalName =
       projectData.internalName || `site-${projectId}`;
 
-    /* -------- SLUG LOGIC -------- */
+    /* ---------- SLUG ---------- */
 
     let finalSlug = projectData.slug || null;
     let publicAlias = null;
@@ -147,7 +184,7 @@ export default async function handler(req, res) {
       publicAlias = `${finalSlug}.vercel.app`;
     }
 
-    /* -------- CUSTOM DOMAIN -------- */
+    /* ---------- CUSTOM DOMAIN ---------- */
 
     let customDomainUrl = projectData.customDomainUrl || null;
     const aliasList = [];
@@ -169,7 +206,7 @@ export default async function handler(req, res) {
       customDomainUrl = `https://${customDomain}`;
     }
 
-    /* -------- DEPLOY TO VERCEL -------- */
+    /* ---------- DEPLOY ---------- */
 
     const deployRes = await fetch(
       `https://api.vercel.com/v13/deployments${
@@ -206,7 +243,7 @@ export default async function handler(req, res) {
       ? `https://${publicAlias}`
       : `https://${deployment.url}`;
 
-    /* -------- SAVE PROJECT -------- */
+    /* ---------- SAVE ---------- */
 
     await projectRef.set(
       {
@@ -215,6 +252,7 @@ export default async function handler(req, res) {
         deploymentId: deployment.id,
         deploymentUrl,
         customDomainUrl,
+        lastDeployAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       },
       { merge: true }
