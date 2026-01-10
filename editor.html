@@ -284,10 +284,20 @@
         deployStatusText.textContent = "Status: Deploying...";
         
         try {
+            // Get the ID token for secure verification on the backend
+            const token = await auth.currentUser.getIdToken();
+
             const response = await fetch("/api/deploy", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ htmlContent, userId: currentUserId, plan, projectId }),
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}` // ✅ Secure Bearer Token
+                },
+                body: JSON.stringify({ 
+                    htmlContent, 
+                    projectId 
+                    // NOTICE: userId and plan are DELETED. Backend extracts them from token.
+                }),
             });
             const result = await response.json();
             
