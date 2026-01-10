@@ -12,7 +12,7 @@ const PLAN_LIMITS = {
 };
 
 const DEPLOY_COOLDOWN_MS = 15_000; // 15 seconds
-const MAX_HTML_SIZE = 500_000; // 500KB
+const MAX_HTML_SIZE = 5000_000; // 50KB
 
 const VERCEL_TOKEN = process.env.VERCEL_TOKEN;
 const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID || null;
