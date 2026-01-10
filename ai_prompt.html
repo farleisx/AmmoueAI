@@ -385,25 +385,33 @@
             publishBtn.disabled = true;
             
             try {
+                // 1. Get the Firebase ID Token (The ONLY way to prove identity)
+                const token = await auth.currentUser.getIdToken();
+
                 const faviconHtml = `<link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">`;
                 const finalContent = currentHtml.includes('<head>') 
                     ? currentHtml.replace('<head>', `<head>${faviconHtml}`)
                     : faviconHtml + currentHtml;
 
+                // 2. Send the request SECURELY
                 const res = await fetch('/api/deploy', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}` // ✅ Added token here
+                    },
                     body: JSON.stringify({
                         htmlContent: finalContent,
-                        userId: auth.currentUser.uid,
-                        plan: await getUserPlan(auth.currentUser.uid),
                         projectId: currentProjectId,
                         slug: slug
+                        // NOTICE: userId and plan are DELETED. 
+                        // The backend extracts these from the Bearer token.
                     })
                 });
 
                 const data = await res.json();
 
+                // 3. Handle Plan Limits (Returned from backend verification)
                 if (res.status === 403) {
                     const modal = document.getElementById('limit-modal');
                     const msg = document.getElementById('limit-message');
@@ -423,6 +431,7 @@
                     publishBtn.classList.add('cursor-pointer');
                 }
             } catch (e) {
+                console.error("Deployment failed:", e);
                 publishBtn.innerText = "PUBLISH";
                 publishBtn.disabled = false;
             }
