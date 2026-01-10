@@ -76,6 +76,9 @@
         /* Social Button Branding */
         .btn-google:hover { border-color: #4285F4; background-color: rgba(66, 133, 244, 0.05); }
         .btn-github:hover { border-color: #24292e; background-color: rgba(36, 41, 46, 0.05); }
+
+        /* Strength Meter Styles */
+        .strength-bar { height: 4px; transition: all 0.3s ease; border-radius: 2px; width: 0; }
     </style>
 </head>
 <body class="bg-gray-50 antialiased min-h-screen flex flex-col overflow-x-hidden">
@@ -195,12 +198,16 @@
                     <div class="space-y-1">
                         <label for="signup-password" class="block text-sm font-bold text-gray-700">Create Password</label>
                         <div class="relative">
-                            <input id="signup-password" type="password" required minlength="6" placeholder="At least 6 characters"
+                            <input id="signup-password" oninput="updatePasswordStrength(this.value)" type="password" required minlength="6" placeholder="At least 6 characters"
                                 class="custom-input mt-1 block w-full border border-gray-200 rounded-xl p-3 text-sm transition-all bg-gray-50/50">
                             <button type="button" onclick="togglePasswordVisibility('signup-password', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
                                 <i data-lucide="eye" class="w-4 h-4"></i>
                             </button>
                         </div>
+                        <div class="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                            <div id="strength-meter" class="strength-bar bg-gray-300"></div>
+                        </div>
+                        <p id="strength-text" class="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-wider">Weak</p>
                     </div>
                     <button id="signup-btn" type="submit" 
                         class="w-full flex items-center justify-center py-3.5 px-4 rounded-xl shadow-lg shadow-teal-700/20 text-sm font-bold text-white bg-ammoue hover:bg-teal-700 active:scale-[0.98] transition-all duration-200">
@@ -246,6 +253,38 @@ window.handleSignup = handleSignup;
 window.handleGoogleAuth = handleGoogleAuth;
 window.handleGitHubAuth = handleGitHubAuth;
 window.toggleForm = toggleForm;
+
+// New functions for UI logic
+window.togglePasswordVisibility = function(inputId, btn) {
+    const input = document.getElementById(inputId);
+    const icon = btn.querySelector('i');
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.setAttribute('data-lucide', 'eye-off');
+    } else {
+        input.type = 'password';
+        icon.setAttribute('data-lucide', 'eye');
+    }
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+};
+
+window.updatePasswordStrength = function(val) {
+    const meter = document.getElementById('strength-meter');
+    const text = document.getElementById('strength-text');
+    let strength = 0;
+    if (val.length >= 6) strength++;
+    if (val.match(/[A-Z]/)) strength++;
+    if (val.match(/[0-9]/)) strength++;
+    if (val.match(/[^a-zA-Z0-9]/)) strength++;
+
+    const colors = ['bg-red-400', 'bg-orange-400', 'bg-yellow-400', 'bg-teal-500'];
+    const labels = ['Weak', 'Fair', 'Good', 'Strong'];
+    
+    meter.style.width = (strength * 25) + '%';
+    meter.className = 'strength-bar ' + (colors[strength-1] || 'bg-gray-300');
+    text.innerText = labels[strength-1] || 'Too Short';
+    text.className = 'text-[10px] font-bold mt-1 uppercase tracking-wider ' + (strength > 0 ? 'text-gray-600' : 'text-gray-400');
+};
 
 // Init login/signup tab
 toggleForm('login');
