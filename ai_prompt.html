@@ -394,7 +394,7 @@
                     : faviconHtml + currentHtml;
 
                 // 2. Send the request SECURELY
-                const res = await fetch('/api/deploy.js', {
+                const res = await fetch('/api/deploy', {
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json',
