@@ -52,6 +52,16 @@
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
             z-index: 50;
         }
+
+        /* Slot Machine Animation */
+        @keyframes slot-in {
+            0% { transform: translateY(-20px); opacity: 0; }
+            20% { transform: translateY(0); opacity: 1; }
+            80% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(20px); opacity: 0; }
+        }
+        .slot-text { display: inline-block; animation: slot-in 1.5s ease-in-out infinite; }
+        .ai-working-overlay { background: rgba(13, 148, 136, 0.96); backdrop-filter: blur(8px); }
     </style>
 </head>
 <body class="antialiased">
@@ -102,6 +112,18 @@
                 <div class="flex-grow grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <div class="flex flex-col relative" id="editor-wrapper">
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-2">HTML Code</label>
+                        <div id="ai-loading-overlay" class="hidden absolute inset-0 z-40 flex flex-col items-center justify-center rounded-xl ai-working-overlay text-white">
+                            <div class="flex flex-col items-center w-full max-w-xs">
+                                <i data-lucide="sparkles" class="w-12 h-12 mb-4 animate-pulse"></i>
+                                <div class="h-8 overflow-hidden text-center mb-6">
+                                    <span id="slot-machine-text" class="slot-text text-xl font-bold italic">Analyzing Structure...</span>
+                                </div>
+                                <div class="w-full bg-teal-800/50 h-1.5 rounded-full overflow-hidden">
+                                    <div id="ai-progress-bar" class="bg-white h-full transition-all duration-500 ease-out" style="width: 0%"></div>
+                                </div>
+                                <p class="text-teal-100 text-[10px] mt-3 tracking-widest uppercase font-bold">Ammoue Intelligence</p>
+                            </div>
+                        </div>
                         <div id="editor-container" class="flex-grow rounded-xl overflow-hidden border border-gray-300 shadow-inner">
                             <textarea id="code-editor"></textarea>
                         </div>
@@ -180,6 +202,43 @@
     const userDocRef = () => doc(db, 'users', currentUserId);
     const projectDocRef = (id) => doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', id);
 
+    // AI Slot Machine Setup
+    const aiMessages = [
+        "Analyzing Structure...",
+        "Changing Layout Order...",
+        "Optimizing Tailwind...",
+        "Polishing Components...",
+        "Refining Logic Flow...",
+        "Injecting Styles...",
+        "Checking UI Harmony...",
+        "Finalizing Code..."
+    ];
+    let slotInterval;
+
+    function startSlotMachine() {
+        const textEl = document.getElementById('slot-machine-text');
+        const progressEl = document.getElementById('ai-progress-bar');
+        const overlay = document.getElementById('ai-loading-overlay');
+        overlay.classList.remove('hidden');
+        let i = 0;
+        let progress = 0;
+        slotInterval = setInterval(() => {
+            textEl.textContent = aiMessages[i];
+            i = (i + 1) % aiMessages.length;
+            progress = Math.min(progress + 12, 95);
+            progressEl.style.width = `${progress}%`;
+        }, 1500);
+    }
+
+    function stopSlotMachine() {
+        clearInterval(slotInterval);
+        document.getElementById('ai-progress-bar').style.width = '100%';
+        setTimeout(() => {
+            document.getElementById('ai-loading-overlay').classList.add('hidden');
+            document.getElementById('ai-progress-bar').style.width = '0%';
+        }, 300);
+    }
+
     // Toggle Editor Height Logic
     toggleBtn.onclick = () => {
         const wrapper = document.getElementById('editor-wrapper');
@@ -193,7 +252,6 @@
         icon.setAttribute('data-lucide', isExpanded ? "minimize-2" : "maximize-2");
         lucide.createIcons();
         
-        // Scroll to the top of the editor when expanding
         if(isExpanded) wrapper.scrollIntoView({ behavior: 'smooth' });
     };
 
@@ -284,8 +342,6 @@
         titleHeader.textContent = titleInput.value;
         markDirty(false);
         showMessage("Saved & Deployed!", false);
-        
-        // Auto scroll to bottom of the preview on save
         window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
     }
 
@@ -297,7 +353,7 @@
 
         codeRefineButton.disabled = true;
         deployStatusText.textContent = "Status: AI Thinking...";
-        showMessage("AI is working...", false);
+        startSlotMachine();
 
         try {
             const response = await fetch('/api/refine', { 
@@ -325,6 +381,7 @@
         } finally { 
             codeRefineButton.disabled = false;
             deployStatusText.textContent = "Status: Idle";
+            stopSlotMachine();
         }
     }
 
