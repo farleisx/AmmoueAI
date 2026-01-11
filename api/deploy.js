@@ -1,4 +1,4 @@
-// pages/api/deploy.js
+// /api/deploy.js
 import fetch from "node-fetch";
 import admin from "firebase-admin";
 import { initializeApp, getApps } from "firebase-admin/app";
