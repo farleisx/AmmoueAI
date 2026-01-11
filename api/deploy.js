@@ -12,7 +12,7 @@ const PLAN_LIMITS = {
 };
 
 const DEPLOY_COOLDOWN_MS = 15_000; // 15 seconds
-const MAX_HTML_SIZE = 5000_000; // 50KB
+const MAX_HTML_SIZE = 5_000_000; // 5MB
 
 const VERCEL_TOKEN = process.env.VERCEL_TOKEN;
 const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID || null;
@@ -50,12 +50,8 @@ async function reserveSlug(slug, userId, projectId) {
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
 
-    if (snap.exists) {
-      const data = snap.data();
-      if (data.projectId !== projectId) {
-        throw new Error("SLUG_TAKEN");
-      }
-      return;
+    if (snap.exists && snap.data().projectId !== projectId) {
+      throw new Error("SLUG_TAKEN");
     }
 
     tx.set(ref, {
@@ -99,9 +95,7 @@ export default async function handler(req, res) {
 
     /* ---------- USER + PLAN ---------- */
 
-    const userRef = db.collection("users").doc(userId);
-    const userSnap = await userRef.get();
-
+    const userSnap = await db.collection("users").doc(userId).get();
     const plan = userSnap.exists ? userSnap.data().plan : "free";
 
     if (!PLAN_LIMITS[plan]) {
@@ -126,13 +120,11 @@ export default async function handler(req, res) {
 
     const projectData = projectSnap.data();
 
-    /* ---------- OWNERSHIP ---------- */
-
     if (projectData.userId && projectData.userId !== userId) {
       return res.status(403).json({ error: "Forbidden" });
     }
 
-    /* ---------- DEPLOY COOLDOWN ---------- */
+    /* ---------- COOLDOWN ---------- */
 
     const lastDeploy = projectData.lastDeployAt?.toMillis?.() || 0;
     if (Date.now() - lastDeploy < DEPLOY_COOLDOWN_MS) {
@@ -155,18 +147,12 @@ export default async function handler(req, res) {
     const internalName =
       projectData.internalName || `site-${projectId}`;
 
-    /* ---------- SLUG ---------- */
+    /* ---------- SLUG (FREE + PRO) ---------- */
 
     let finalSlug = projectData.slug || null;
     let publicAlias = null;
 
     if (slug) {
-      if (plan !== "free") {
-        return res
-          .status(403)
-          .json({ error: "Custom site names are Pro-only" });
-      }
-
       const normalized = normalizeSlug(slug);
 
       if (!normalized || normalized.length < 3) {
@@ -184,7 +170,7 @@ export default async function handler(req, res) {
       publicAlias = `${finalSlug}.vercel.app`;
     }
 
-    /* ---------- CUSTOM DOMAIN ---------- */
+    /* ---------- CUSTOM DOMAIN (PRO ONLY) ---------- */
 
     let customDomainUrl = projectData.customDomainUrl || null;
     const aliasList = [];
@@ -206,7 +192,7 @@ export default async function handler(req, res) {
       customDomainUrl = `https://${customDomain}`;
     }
 
-    /* ---------- DEPLOY ---------- */
+    /* ---------- DEPLOY TO VERCEL ---------- */
 
     const deployRes = await fetch(
       `https://api.vercel.com/v13/deployments${
@@ -228,7 +214,7 @@ export default async function handler(req, res) {
               data: htmlContent,
             },
           ],
-          ...(aliasList.length && { alias: aliasList }),
+          ...(aliasList.length ? { alias: aliasList } : {}),
         }),
       }
     );
