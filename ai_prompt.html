@@ -100,6 +100,7 @@
 
             <div id="publish-controls" class="flex items-center gap-2 bg-black/40 p-1.5 rounded-xl border border-white/5">
                 <input id="slug-input" type="text" placeholder="Identity..." class="bg-transparent border-none outline-none text-xs text-white px-3 w-36 placeholder:text-gray-700 font-medium">
+                <input id="custom-domain-input" type="text" placeholder="Custom domain (Pro)" class="bg-transparent border-none outline-none text-[10px] text-gray-400 px-3 w-44 placeholder:text-gray-700 font-medium hidden" />
                 <button id="publish-btn" class="bg-emerald-600 hover:bg-emerald-500 text-black text-[10px] font-black px-5 py-2 rounded-lg transition uppercase tracking-widest shadow-lg shadow-emerald-900/20">Publish</button>
                 <button id="download-btn" class="text-gray-500 hover:text-white px-3 py-2 transition" title="Export (.zip)"><i class="fa-solid fa-file-zipper"></i></button>
             </div>
@@ -371,7 +372,8 @@
             const slug = document.getElementById('slug-input').value;
             if (!slug) return alert("Select an identity for this project.");
             
-            document.getElementById('confirm-slug-display').innerText = slug;
+            const domain = document.getElementById("custom-domain-input")?.value?.trim();
+            document.getElementById("confirm-slug-display").innerText = domain ? `https://${domain}` : `https://${slug}.vercel.app`;
             confirmModal.classList.remove('hidden');
         };
 
@@ -393,6 +395,8 @@
                     ? currentHtml.replace('<head>', `<head>${faviconHtml}`)
                     : faviconHtml + currentHtml;
 
+                const customDomain = document.getElementById("custom-domain-input")?.value?.trim();
+
                 // 2. Send the request SECURELY
                 const res = await fetch('/api/deploy', {
                     method: 'POST',
@@ -403,9 +407,8 @@
                     body: JSON.stringify({
                         htmlContent: finalContent,
                         projectId: currentProjectId,
-                        slug: slug
-                        // NOTICE: userId and plan are DELETED. 
-                        // The backend extracts these from the Bearer token.
+                        slug,
+                        customDomain: customDomain || null
                     })
                 });
 
@@ -415,7 +418,8 @@
                 if (res.status === 403) {
                     const modal = document.getElementById('limit-modal');
                     const msg = document.getElementById('limit-message');
-                    msg.innerText = data.error || "Portfolio capacity reached.";
+                    const msgText = data.error || "Portfolio capacity reached.";
+                    msg.innerText = msgText;
                     modal.classList.remove('hidden');
                     publishBtn.innerText = "PUBLISH";
                     publishBtn.disabled = false;
@@ -463,11 +467,19 @@
             publishBtn.classList.replace('bg-emerald-500', 'bg-emerald-600');
         }
 
-        onAuthStateChanged(auth, u => {
+        onAuthStateChanged(auth, async u => {
             if (u) {
                 document.getElementById('user-ui').classList.remove('hidden');
                 document.getElementById('login-btn').classList.add('hidden');
                 document.getElementById('user-avatar').src = u.photoURL;
+
+                const plan = await getUserPlan(u.uid);
+                const customDomainInput = document.getElementById("custom-domain-input");
+                if (plan === "pro") {
+                    customDomainInput.classList.remove("hidden");
+                } else {
+                    customDomainInput.classList.add("hidden");
+                }
             } else {
                 window.location.href = "/login";
                 document.getElementById('user-ui').classList.add('hidden');
