@@ -161,7 +161,7 @@ export default async function handler(req, res) {
     let publicAlias = null;
 
     if (slug) {
-      if (plan !== "pro") {
+      if (plan !== "free") {
         return res
           .status(403)
           .json({ error: "Custom site names are Pro-only" });
