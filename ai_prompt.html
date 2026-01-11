@@ -70,6 +70,7 @@
             <div class="bg-black/40 p-4 rounded-2xl border border-white/5 mb-8">
                 <p class="text-[9px] text-gray-500 uppercase font-black tracking-widest mb-1">Public Identifier</p>
                 <p id="confirm-slug-display" class="text-[#D4AF37] font-mono text-sm font-bold"></p>
+                <p id="custom-domain-status" class="text-[8px] text-gray-500 mt-2 uppercase tracking-widest"></p>
             </div>
             <div class="flex gap-4">
                 <button id="cancel-deploy-btn" class="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-4 rounded-2xl transition text-xs tracking-widest">CANCEL</button>
@@ -387,7 +388,7 @@
             publishBtn.disabled = true;
             
             try {
-                // 1. Get the Firebase ID Token (The ONLY way to prove identity)
+                // 1. Get the Firebase ID Token
                 const token = await auth.currentUser.getIdToken();
 
                 const faviconHtml = `<link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">`;
@@ -397,12 +398,12 @@
 
                 const customDomain = document.getElementById("custom-domain-input")?.value?.trim();
 
-                // 2. Send the request SECURELY
+                // 2. Send the deployment request
                 const res = await fetch('/api/deploy', {
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}` // ✅ Added token here
+                        'Authorization': `Bearer ${token}` 
                     },
                     body: JSON.stringify({
                         htmlContent: finalContent,
@@ -414,7 +415,6 @@
 
                 const data = await res.json();
 
-                // 3. Handle Plan Limits (Returned from backend verification)
                 if (res.status === 403) {
                     const modal = document.getElementById('limit-modal');
                     const msg = document.getElementById('limit-message');
@@ -434,6 +434,63 @@
                     publishBtn.classList.replace('bg-emerald-600', 'bg-emerald-500');
                     publishBtn.classList.add('cursor-pointer');
                 }
+
+                // 2️⃣ Frontend: Attach & Poll Domain
+                const customDomainInput = document.getElementById("custom-domain-input");
+                const domainStatus = document.getElementById("custom-domain-status");
+
+                if (customDomainInput?.value) {
+                    domainStatus.innerText = "Status: Pending...";
+                    const domain = customDomainInput.value.trim();
+
+                    try {
+                        // Attach domain
+                        await fetch("/api/domain", {
+                            method: "POST",
+                            headers: { 
+                                "Content-Type": "application/json",
+                                "Authorization": `Bearer ${token}`
+                            },
+                            body: JSON.stringify({ domain })
+                        });
+
+                        // Poll until READY
+                        const pollDomainStatus = async () => {
+                            try {
+                                const res = await fetch("/api/domain-status", {
+                                    method: "POST",
+                                    headers: { 
+                                        "Content-Type": "application/json",
+                                        "Authorization": `Bearer ${token}`
+                                    },
+                                    body: JSON.stringify({ domain })
+                                });
+                                const data = await res.json();
+
+                                domainStatus.innerText = `Status: ${data.status || "Pending"}`;
+                                
+                                // Polish: Apply success styling if READY
+                                if (data.status === "READY") {
+                                    domainStatus.classList.replace('text-gray-500', 'text-emerald-500');
+                                    domainStatus.classList.add('animate-pulse');
+                                }
+
+                                if (data.status !== "READY" && data.status !== "ERROR") {
+                                    setTimeout(pollDomainStatus, 5000); // poll every 5 seconds
+                                }
+                            } catch (pollErr) {
+                                console.error("Polling error:", pollErr);
+                                domainStatus.innerText = "Status: Check Failed";
+                            }
+                        };
+
+                        pollDomainStatus();
+                    } catch (err) {
+                        console.error("Domain attach or polling failed", err);
+                        domainStatus.innerText = "Status: Failed";
+                    }
+                }
+
             } catch (e) {
                 console.error("Deployment failed:", e);
                 publishBtn.innerText = "PUBLISH";
