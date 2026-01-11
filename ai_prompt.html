@@ -388,7 +388,6 @@
             publishBtn.disabled = true;
             
             try {
-                // 1. Get the Firebase ID Token
                 const token = await auth.currentUser.getIdToken();
 
                 const faviconHtml = `<link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">`;
@@ -398,12 +397,11 @@
 
                 const customDomain = document.getElementById("custom-domain-input")?.value?.trim();
 
-                // 2. Send the deployment request
                 const res = await fetch('/api/deploy', {
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}` 
+                        'Authorization': `Bearer ${token}`
                     },
                     body: JSON.stringify({
                         htmlContent: finalContent,
@@ -418,8 +416,7 @@
                 if (res.status === 403) {
                     const modal = document.getElementById('limit-modal');
                     const msg = document.getElementById('limit-message');
-                    const msgText = data.error || "Portfolio capacity reached.";
-                    msg.innerText = msgText;
+                    msg.innerText = data.error || "Portfolio capacity reached.";
                     modal.classList.remove('hidden');
                     publishBtn.innerText = "PUBLISH";
                     publishBtn.disabled = false;
@@ -435,7 +432,6 @@
                     publishBtn.classList.add('cursor-pointer');
                 }
 
-                // 2️⃣ Frontend: Attach & Poll Domain
                 const customDomainInput = document.getElementById("custom-domain-input");
                 const domainStatus = document.getElementById("custom-domain-status");
 
@@ -444,7 +440,6 @@
                     const domain = customDomainInput.value.trim();
 
                     try {
-                        // Attach domain
                         await fetch("/api/domain", {
                             method: "POST",
                             headers: { 
@@ -454,7 +449,6 @@
                             body: JSON.stringify({ domain })
                         });
 
-                        // Poll until READY
                         const pollDomainStatus = async () => {
                             try {
                                 const res = await fetch("/api/domain-status", {
@@ -468,25 +462,23 @@
                                 const data = await res.json();
 
                                 domainStatus.innerText = `Status: ${data.status || "Pending"}`;
-                                
-                                // Polish: Apply success styling if READY
+
                                 if (data.status === "READY") {
-                                    domainStatus.classList.replace('text-gray-500', 'text-emerald-500');
+                                    domainStatus.style.color = "#10b981";
                                     domainStatus.classList.add('animate-pulse');
                                 }
 
                                 if (data.status !== "READY" && data.status !== "ERROR") {
-                                    setTimeout(pollDomainStatus, 5000); // poll every 5 seconds
+                                    setTimeout(pollDomainStatus, 5000);
                                 }
                             } catch (pollErr) {
                                 console.error("Polling error:", pollErr);
                                 domainStatus.innerText = "Status: Check Failed";
                             }
                         };
-
                         pollDomainStatus();
                     } catch (err) {
-                        console.error("Domain attach or polling failed", err);
+                        console.error("Domain attach failed", err);
                         domainStatus.innerText = "Status: Failed";
                     }
                 }
