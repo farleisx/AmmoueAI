@@ -163,7 +163,7 @@
     </main>
 
     <script type="module">
-        import { auth, getUserPlan, autoSaveProject, updateProjectDeploymentUrl } from "./fire_prompt.js";
+        import { auth, getUserPlan, autoSaveProject, updateProjectDeploymentUrl, getUserProjects } from "./fire_prompt.js";
         import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 
         let currentHtml = "";
@@ -277,6 +277,50 @@
         }
         window.removeImg = (i) => { attachedImages.splice(i, 1); renderImages(); };
 
+        /* ---------------- PROJECT HISTORY LOADING ---------------- */
+        function renderProjectHistory(projects) {
+            const list = document.getElementById("history-list");
+            list.innerHTML = "";
+
+            projects.forEach(p => {
+                const item = document.createElement("div");
+                item.className = "history-item p-4 rounded-2xl bg-white/5 hover:bg-[#D4AF37]/10 transition cursor-pointer";
+                item.innerHTML = `
+                    <div class="text-xs font-semibold text-white truncate">
+                        ${p.title || p.prompt || "Untitled Project"}
+                    </div>
+                    <div class="text-[9px] uppercase tracking-widest mt-1 ${p.deploymentUrl ? "text-emerald-400" : "text-gray-500"}">
+                        ${p.deploymentUrl ? "LIVE" : "DRAFT"}
+                    </div>
+                `;
+                item.onclick = () => loadProject(p);
+                list.appendChild(item);
+            });
+        }
+
+        function loadProject(project) {
+            currentProjectId = project.id;
+            currentHtml = project.htmlContent || "";
+            activeLiveUrl = project.deploymentUrl || null;
+
+            document.getElementById("user-prompt").value = project.prompt || "";
+            updateFrame(currentHtml, false);
+
+            if (activeLiveUrl) {
+                publishBtn.innerText = "LIVE";
+                publishBtn.classList.replace("bg-emerald-600", "bg-emerald-500");
+            } else {
+                publishBtn.innerText = "PUBLISH";
+                publishBtn.classList.replace("bg-emerald-500", "bg-emerald-600");
+            }
+
+            logs.innerHTML = `
+                <div class="log-entry text-[#D4AF37]">
+                    > Loaded project from Studio Archives
+                </div>
+            `;
+        }
+
         /* ---------------- GENERATE ---------------- */
         genBtn.onclick = async () => startGeneration();
         resumeBtn.onclick = async () => startGeneration(true);
@@ -329,7 +373,7 @@
                                 const json = JSON.parse(dataStr);
                                 if (json.text) {
                                     currentHtml += json.text;
-                                    updateFrame(currentHtml);
+                                    updateFrame(currentHtml, true);
                                 }
                             } catch (e) {}
                         }
@@ -343,7 +387,10 @@
                 }
                 
                 currentProjectId = await autoSaveProject(currentHtml, document.getElementById('user-prompt').value, currentProjectId, auth.currentUser.uid);
-                if (!isResume) addToHistory(document.getElementById('user-prompt').value);
+                // Refresh history after save
+                const projects = await getUserProjects(auth.currentUser.uid);
+                renderProjectHistory(projects);
+
                 logs.innerHTML += '<div class="log-entry text-[#D4AF37]">> Rendering cycle finalized.</div>';
             } catch (err) {
                 if (err.name !== 'AbortError') {
@@ -354,14 +401,6 @@
                 stopBtn.classList.add('hidden');
                 document.getElementById('gen-icon').innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i>';
             }
-        }
-
-        function addToHistory(prompt) {
-            const list = document.getElementById('history-list');
-            const item = document.createElement('div');
-            item.className = 'history-item p-4 text-xs rounded-2xl text-gray-500 truncate font-medium';
-            item.innerText = prompt;
-            list.prepend(item);
         }
 
         /* ---------------- PUBLISH LOGIC ---------------- */
@@ -507,13 +546,16 @@
             w.document.close();
         };
 
-        function updateFrame(h) {
+        function updateFrame(h, resetLive = false) {
             const blob = new Blob([h], { type: 'text/html' });
             frame.src = URL.createObjectURL(blob);
             codeView.value = h;
-            activeLiveUrl = null;
-            publishBtn.innerText = "PUBLISH";
-            publishBtn.classList.replace('bg-emerald-500', 'bg-emerald-600');
+
+            if (resetLive) {
+                activeLiveUrl = null;
+                publishBtn.innerText = "PUBLISH";
+                publishBtn.classList.replace('bg-emerald-500', 'bg-emerald-600');
+            }
         }
 
         onAuthStateChanged(auth, async u => {
@@ -529,6 +571,14 @@
                 } else {
                     customDomainInput.classList.add("hidden");
                 }
+
+                // 🔥 LOAD ALL PROJECTS
+                const projects = await getUserProjects(u.uid);
+                renderProjectHistory(projects);
+
+                // 🔥 AUTO-LOAD LAST PROJECT
+                if (projects.length) loadProject(projects[0]);
+
             } else {
                 window.location.href = "/login";
                 document.getElementById('user-ui').classList.add('hidden');
