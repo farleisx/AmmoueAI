@@ -328,11 +328,17 @@
                 publishBtn.classList.replace("bg-emerald-500", "bg-emerald-600");
             }
 
-            logs.innerHTML = `
-                <div class="log-entry text-[#D4AF37]">
-                    > Loaded project from Studio Archives
-                </div>
-            `;
+            // Restore Saved Action Lines
+            if (project.actionLogs) {
+                document.getElementById('thinking-box').classList.remove('hidden');
+                logs.innerHTML = project.actionLogs;
+            } else {
+                logs.innerHTML = `
+                    <div class="log-entry text-[#D4AF37]">
+                        > Loaded project from Studio Archives
+                    </div>
+                `;
+            }
         }
 
         /* ---------------- GENERATE ---------------- */
@@ -372,7 +378,6 @@
 
                 const reader = res.body.getReader();
                 const decoder = new TextDecoder();
-                let accumulatedText = "";
 
                 while (true) {
                     try {
@@ -387,8 +392,6 @@
                             try {
                                 const json = JSON.parse(dataStr);
                                 if (json.text) {
-                                    accumulatedText += json.text;
-                                    
                                     // IMPROVEMENT: Parse Real-time Actions [ACTION: Description]
                                     const actionMatch = json.text.match(/\[ACTION:\s*(.*?)\]/);
                                     if (actionMatch) {
@@ -419,7 +422,10 @@
                     }
                 }
                 
-                currentProjectId = await autoSaveProject(currentHtml, document.getElementById('user-prompt').value, currentProjectId, auth.currentUser.uid);
+                // SAVE WITH ACTION LOGS
+                const currentActionLogs = logs.innerHTML;
+                currentProjectId = await autoSaveProject(currentHtml, document.getElementById('user-prompt').value, currentProjectId, auth.currentUser.uid, currentActionLogs);
+                
                 // Refresh history after save
                 const projects = await getUserProjects(auth.currentUser.uid);
                 renderProjectHistory(projects);
