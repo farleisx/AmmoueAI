@@ -257,6 +257,27 @@
             voiceBtn.classList.add('hidden');
         }
 
+        /* ---------------- VISUAL SYNC LOGIC ---------------- */
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'SYNC_TEXT') {
+                const { syncId, newContent } = event.data;
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(currentHtml, 'text/html');
+                const textTags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'li', 'button'];
+                const target = doc.querySelectorAll(textTags.join(','))[syncId];
+                
+                if (target) {
+                    target.innerHTML = newContent;
+                    currentHtml = doc.documentElement.outerHTML;
+                    codeView.value = currentHtml;
+                    logs.innerHTML += `<div class="log-entry text-emerald-500/50">> Manual sync: Element ${syncId} updated.</div>`;
+                    if (currentProjectId && auth.currentUser) {
+                        autoSaveProject(currentHtml, document.getElementById('user-prompt').value, currentProjectId, auth.currentUser.uid, logs.innerHTML);
+                    }
+                }
+            }
+        });
+
         /* ---------------- STOP GENERATION ---------------- */
         stopBtn.onclick = () => {
             if (abortCtrl) {
@@ -650,7 +671,33 @@
         };
 
         function updateFrame(h, resetLive = false) {
-            frame.srcdoc = h;
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(h, 'text/html');
+            const textTags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'li', 'button'];
+            doc.querySelectorAll(textTags.join(',')).forEach((el, index) => {
+                el.setAttribute('contenteditable', 'true');
+                el.setAttribute('data-sync-id', index);
+                el.style.outline = 'none';
+                el.addEventListener('focus', () => el.style.boxShadow = '0 0 0 2px #D4AF37');
+                el.addEventListener('blur', () => el.style.boxShadow = 'none');
+            });
+            const bridgeScript = `
+                <script>
+                    document.querySelectorAll('[contenteditable]').forEach(el => {
+                        el.addEventListener('blur', () => {
+                            window.parent.postMessage({
+                                type: 'SYNC_TEXT',
+                                syncId: el.getAttribute('data-sync-id'),
+                                newContent: el.innerHTML
+                            }, '*');
+                        });
+                        el.addEventListener('mouseenter', () => el.style.boxShadow = '0 0 0 1px #D4AF37');
+                        el.addEventListener('mouseleave', () => el.style.boxShadow = 'none');
+                    });
+                <\/script>
+            `;
+            const finalHtml = doc.documentElement.outerHTML + bridgeScript;
+            frame.srcdoc = finalHtml;
             codeView.value = h;
             if (resetLive) {
                 activeLiveUrl = null;
