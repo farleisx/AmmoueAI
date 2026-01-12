@@ -603,8 +603,8 @@
         };
 
         function updateFrame(h, resetLive = false) {
-            const blob = new Blob([h], { type: 'text/html' });
-            frame.src = URL.createObjectURL(blob);
+            // FIX: Using srcdoc for direct rendering to prevent "blank white" issues on generation finish
+            frame.srcdoc = h;
             codeView.value = h;
 
             if (resetLive) {
