@@ -162,11 +162,15 @@ Generate ONE self-contained HTML file.
 
 REPLIT-STYLE NARRATION:
 Before you write each major section of the code, output a single line starting with [ACTION: ...] 
-describing what you are doing in 3-4 words.
-Example:
-[ACTION: Building Navigation Bar]
-[ACTION: Styling Hero Section]
-[ACTION: Injecting Tailwind Config]
+describing what you are doing *right now* in 3-5 words.
+Make it dynamic, varied, and reflective of the actual step you are performing.
+Examples of more “alive” lines:
+[ACTION: Creating hero heading]
+[ACTION: Embedding user image]
+[ACTION: Linking social icons]
+[ACTION: Adding responsive CSS]
+[ACTION: Building subscription form]
+[ACTION: Injecting Tailwind utilities]
 
 ABSOLUTE RULES:
 - Output ONLY valid HTML and these ACTION tags.
@@ -199,6 +203,12 @@ ${images.join("\n\n") || "None"}
 
 USER PROMPT:
 ${prompt}
+
+NOTE:
+- Every [ACTION: ...] line must describe the *exact operation you are currently performing*.
+- Do NOT repeat generic action lines like “Building Section” or “Styling Hero Section”.
+- Vary wording, include specific elements, components, or content being created.
+- Make it feel like the AI is narrating its live process step by step.
 `.trim();
 
 
