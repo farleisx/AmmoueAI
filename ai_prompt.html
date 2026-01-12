@@ -45,6 +45,10 @@
         .btn-luxury:hover { background: var(--gold-hover); transform: translateY(-1px); box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3); }
         
         .nav-glass { background: rgba(10, 10, 11, 0.8); backdrop-filter: blur(10px); border-bottom: 1px solid #1c1c1f; }
+
+        /* Improvements Styling */
+        .action-line { display: flex; align-items: center; gap: 8px; font-size: 10px; font-weight: 700; color: var(--emerald); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; animation: fadeIn 0.4s ease; }
+        .action-check { width: 14px; height: 14px; background: rgba(16, 185, 129, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 8px; }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden">
@@ -116,33 +120,43 @@
 
     <main class="flex-1 flex overflow-hidden">
         <aside class="w-[400px] border-r border-white/5 p-6 flex flex-col gap-6 bg-[#0a0a0b]">
-            <div class="flex-1 overflow-y-auto space-y-8 pr-2">
-                <div>
-                    <h2 class="text-[9px] font-black text-[#D4AF37] uppercase tracking-[0.3em] mb-4 opacity-70">Creative Directive</h2>
-                    <div class="bg-[#161618] border border-white/5 rounded-3xl p-5 focus-within:border-[#D4AF37]/30 transition-all duration-500 shadow-inner">
-                        <div id="img-tray" class="flex flex-wrap gap-2 mb-4 empty:hidden"></div>
-                        <textarea id="user-prompt" class="w-full bg-transparent border-none outline-none text-sm text-gray-300 resize-none placeholder:text-gray-700 leading-relaxed" rows="5" placeholder="Define your digital masterpiece..."></textarea>
-                        <div class="flex justify-between items-center mt-4 pt-4 border-t border-white/5">
-                            <label class="cursor-pointer text-gray-600 hover:text-[#D4AF37] transition-all p-2">
-                                <i class="fa-solid fa-paperclip text-lg"></i>
-                                <input type="file" id="img-input" class="hidden" accept="image/*" multiple>
-                            </label>
-                            <button id="gen-btn" class="bg-[#D4AF37] hover:bg-[#F1C40F] text-black w-12 h-12 rounded-2xl flex items-center justify-center transition-all active:scale-90 shadow-xl shadow-yellow-900/10">
-                                <span id="gen-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
-                            </button>
-                        </div>
+            <div class="flex justify-between items-center">
+                <button id="new-project-btn" class="bg-white/5 hover:bg-white/10 text-[10px] font-black px-4 py-2 rounded-lg transition uppercase tracking-widest border border-white/10">
+                    <i class="fa-solid fa-plus mr-2"></i> NEW PROJECT
+                </button>
+                <div class="relative group">
+                    <button class="p-2 text-gray-400 hover:text-[#D4AF37] transition">
+                        <i class="fa-solid fa-folder-tree text-lg"></i>
+                    </button>
+                    <div id="history-menu" class="hidden group-hover:block absolute left-0 top-10 w-64 bg-[#111113] border border-white/10 rounded-2xl shadow-2xl z-[60] p-4 max-h-[400px] overflow-y-auto">
+                        <h2 class="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-3">Project Archive</h2>
+                        <div id="history-list" class="space-y-2"></div>
                     </div>
                 </div>
+            </div>
 
-                <div id="thinking-box" class="hidden bg-black/40 border border-white/5 rounded-2xl p-5 max-h-[220px] overflow-y-auto">
-                    <div id="logs" class="space-y-1.5"></div>
-                    <button id="resume-btn" class="hidden mt-3 w-full border border-[#D4AF37]/30 text-[#D4AF37] text-[10px] font-black py-2 rounded-lg hover:bg-[#D4AF37] hover:text-black transition-all uppercase tracking-widest">Resume Generation</button>
+            <div class="flex-1 flex flex-col overflow-hidden">
+                <h2 class="text-[9px] font-black text-[#D4AF37] uppercase tracking-[0.3em] mb-4 opacity-70">Creative Directive</h2>
+                
+                <div id="thinking-box" class="hidden mb-4 overflow-y-auto max-h-[120px]">
+                    <div id="logs" class="space-y-1"></div>
                 </div>
 
-                <div>
-                    <h2 class="text-[9px] font-black text-gray-600 uppercase tracking-[0.3em] mb-4">Studio Archives</h2>
-                    <div id="history-list" class="space-y-2"></div>
+                <div class="flex-1 flex flex-col bg-[#161618] border border-white/5 rounded-3xl p-5 focus-within:border-[#D4AF37]/30 transition-all duration-500 shadow-inner overflow-hidden">
+                    <div id="img-tray" class="flex flex-wrap gap-2 mb-4 empty:hidden"></div>
+                    <textarea id="user-prompt" class="flex-1 w-full bg-transparent border-none outline-none text-sm text-gray-300 resize-none placeholder:text-gray-700 leading-relaxed" placeholder="Define your digital masterpiece..."></textarea>
+                    
+                    <div class="flex justify-between items-center mt-4 pt-4 border-t border-white/5">
+                        <label class="cursor-pointer text-gray-600 hover:text-[#D4AF37] transition-all p-2">
+                            <i class="fa-solid fa-paperclip text-lg"></i>
+                            <input type="file" id="img-input" class="hidden" accept="image/*" multiple>
+                        </label>
+                        <button id="gen-btn" class="bg-[#D4AF37] hover:bg-[#F1C40F] text-black w-12 h-12 rounded-2xl flex items-center justify-center transition-all active:scale-90 shadow-xl shadow-yellow-900/10">
+                            <span id="gen-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+                        </button>
+                    </div>
                 </div>
+                <button id="resume-btn" class="hidden mt-3 w-full border border-[#D4AF37]/30 text-[#D4AF37] text-[10px] font-black py-2 rounded-lg hover:bg-[#D4AF37] hover:text-black transition-all uppercase tracking-widest">Resume Generation</button>
             </div>
         </aside>
 
@@ -334,7 +348,7 @@
             stopBtn.classList.remove('hidden');
             
             if (!isResume) {
-                logs.innerHTML = '<div class="log-entry">> Initializing neural creative suite...</div>';
+                logs.innerHTML = '<div class="log-entry text-emerald-500/50">> Initializing neural creative suite...</div>';
                 currentHtml = "";
             } else {
                 logs.innerHTML += '<div class="log-entry text-[#D4AF37]">> Resuming synthesis from last stable state...</div>';
@@ -358,6 +372,7 @@
 
                 const reader = res.body.getReader();
                 const decoder = new TextDecoder();
+                let accumulatedText = "";
 
                 while (true) {
                     try {
@@ -372,7 +387,25 @@
                             try {
                                 const json = JSON.parse(dataStr);
                                 if (json.text) {
-                                    currentHtml += json.text;
+                                    accumulatedText += json.text;
+                                    
+                                    // IMPROVEMENT: Parse Real-time Actions [ACTION: Description]
+                                    const actionMatch = json.text.match(/\[ACTION:\s*(.*?)\]/);
+                                    if (actionMatch) {
+                                        const actionText = actionMatch[1];
+                                        const actionEl = document.createElement('div');
+                                        actionEl.className = "action-line";
+                                        actionEl.innerHTML = `
+                                            <div class="action-check"><i class="fa-solid fa-check"></i></div>
+                                            <span>${actionText}</span>
+                                        `;
+                                        logs.appendChild(actionEl);
+                                        logs.parentElement.scrollTop = logs.parentElement.scrollHeight;
+                                    }
+
+                                    // Filter out tags from the code view
+                                    const cleanChunk = json.text.replace(/\[ACTION:.*?\]/g, "");
+                                    currentHtml += cleanChunk;
                                     updateFrame(currentHtml, true);
                                 }
                             } catch (e) {}
@@ -391,7 +424,7 @@
                 const projects = await getUserProjects(auth.currentUser.uid);
                 renderProjectHistory(projects);
 
-                logs.innerHTML += '<div class="log-entry text-[#D4AF37]">> Rendering cycle finalized.</div>';
+                logs.innerHTML += '<div class="log-entry text-emerald-500 font-bold">> Rendering cycle finalized.</div>';
             } catch (err) {
                 if (err.name !== 'AbortError') {
                     logs.innerHTML += '<div class="log-entry text-red-500">> Synthesis terminated unexpectedly.</div>';
@@ -544,6 +577,23 @@
             const w = window.open('about:blank');
             w.document.write(currentHtml);
             w.document.close();
+        };
+
+        /* ---------------- NEW PROJECT BUTTON ---------------- */
+        document.getElementById('new-project-btn').onclick = () => {
+            currentProjectId = null;
+            currentHtml = "";
+            activeLiveUrl = null;
+            attachedImages = [];
+            imgTray.innerHTML = "";
+            logs.innerHTML = '<div class="log-entry text-emerald-500/50">> Workspace reset. Ready for new directive.</div>';
+            document.getElementById('user-prompt').value = "";
+            document.getElementById('thinking-box').classList.add('hidden');
+            frame.srcdoc = "";
+            codeView.value = "";
+            generateCoolName();
+            publishBtn.innerText = "PUBLISH";
+            publishBtn.classList.replace('bg-emerald-500', 'bg-emerald-600');
         };
 
         function updateFrame(h, resetLive = false) {
