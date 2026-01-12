@@ -152,17 +152,26 @@ Return ONLY the query text.
 
     // ---------------- STEP 4: SYSTEM INSTRUCTION ----------------
 
-    const systemInstruction = `
+    // ---------------- STEP 4: SYSTEM INSTRUCTION (UPDATED) ----------------
+
+const systemInstruction = `
 You are an elite web development AI.
 
 TASK:
 Generate ONE self-contained HTML file.
 
+REPLIT-STYLE NARRATION:
+Before you write each major section of the code, output a single line starting with [ACTION: ...] 
+describing what you are doing in 3-4 words.
+Example:
+[ACTION: Building Navigation Bar]
+[ACTION: Styling Hero Section]
+[ACTION: Injecting Tailwind Config]
+
 ABSOLUTE RULES:
-- Output ONLY valid HTML
-- NO markdown
-- NO explanations
-- NO placeholders
+- Output ONLY valid HTML and these ACTION tags.
+- NO markdown (no \`\`\`html blocks).
+- NO explanations outside of the ACTION tags.
 - NEVER invent URLs
 
 IMAGE RULES (CRITICAL):
@@ -191,6 +200,7 @@ ${images.join("\n\n") || "None"}
 USER PROMPT:
 ${prompt}
 `.trim();
+
 
     // ---------------- STEP 5: GEMINI INPUT ----------------
 
