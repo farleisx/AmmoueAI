@@ -55,7 +55,8 @@ export async function autoSaveProject(
   htmlContent,
   userPrompt,
   existingProjectId,
-  currentUserId
+  currentUserId,
+  actionLogs = ""
 ) {
   if (!currentUserId || !htmlContent) return null;
 
@@ -74,6 +75,7 @@ export async function autoSaveProject(
       await updateDoc(docRef, {
         prompt: userPrompt.replace(/\\n/g, "\n"),
         htmlContent,
+        actionLogs,
         updatedAt: serverTimestamp()
       });
       return existingProjectId;
@@ -81,6 +83,7 @@ export async function autoSaveProject(
       const newDocRef = await addDoc(projectsRef, {
         prompt: userPrompt.replace(/\\n/g, "\n"),
         htmlContent,
+        actionLogs,
         deploymentUrl: null,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
