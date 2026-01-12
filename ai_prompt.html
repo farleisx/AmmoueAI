@@ -674,31 +674,33 @@
             const parser = new DOMParser();
             const doc = parser.parseFromString(h, 'text/html');
             const textTags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'li', 'button'];
+            
             doc.querySelectorAll(textTags.join(',')).forEach((el, index) => {
                 el.setAttribute('contenteditable', 'true');
                 el.setAttribute('data-sync-id', index);
                 el.style.outline = 'none';
-                el.addEventListener('focus', () => el.style.boxShadow = '0 0 0 2px #D4AF37');
-                el.addEventListener('blur', () => el.style.boxShadow = 'none');
             });
-            const bridgeScript = `
-                <script>
-                    document.querySelectorAll('[contenteditable]').forEach(el => {
-                        el.addEventListener('blur', () => {
-                            window.parent.postMessage({
-                                type: 'SYNC_TEXT',
-                                syncId: el.getAttribute('data-sync-id'),
-                                newContent: el.innerHTML
-                            }, '*');
-                        });
-                        el.addEventListener('mouseenter', () => el.style.boxShadow = '0 0 0 1px #D4AF37');
-                        el.addEventListener('mouseleave', () => el.style.boxShadow = 'none');
+
+            const s = doc.createElement('script');
+            s.textContent = `
+                document.querySelectorAll('[contenteditable]').forEach(el => {
+                    el.addEventListener('blur', () => {
+                        window.parent.postMessage({
+                            type: 'SYNC_TEXT',
+                            syncId: el.getAttribute('data-sync-id'),
+                            newContent: el.innerHTML
+                        }, '*');
                     });
-                <\/script>
+                    el.addEventListener('mouseenter', () => el.style.boxShadow = '0 0 0 1px #D4AF37');
+                    el.addEventListener('mouseleave', () => el.style.boxShadow = 'none');
+                });
             `;
-            const finalHtml = doc.documentElement.outerHTML + bridgeScript;
+            doc.body.appendChild(s);
+
+            const finalHtml = doc.documentElement.outerHTML;
             frame.srcdoc = finalHtml;
             codeView.value = h;
+            
             if (resetLive) {
                 activeLiveUrl = null;
                 publishBtn.innerText = "PUBLISH";
