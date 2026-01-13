@@ -1,4 +1,3 @@
-// fire_prompt.js
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 import {
@@ -163,5 +162,19 @@ export async function incrementCounter(userId, field) {
     });
   } catch (e) {
     console.error(`Failed to increment ${field}:`, e);
+  }
+}
+
+export async function getUsage(userId) {
+  try {
+    const ref = doc(db, "users", userId);
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      return snap.data();
+    }
+    return { dailyCount: 0, plan: "free" };
+  } catch (e) {
+    console.error("Failed to fetch usage:", e);
+    return { dailyCount: 0, plan: "free" };
   }
 }
