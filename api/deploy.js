@@ -56,7 +56,6 @@ async function releaseSlug(slug) {
 
 /* ---------------- VALIDATION ---------------- */
 function validateCustomDomain(domain) {
-  // Simple regex to ensure it looks like a domain
   return /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain);
 }
 
@@ -66,10 +65,37 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { htmlContent, userId, plan, projectId, slug, customDomain } = req.body;
+  const { htmlContent, projectId, slug, customDomain } = req.body;
 
-  if (!htmlContent || !userId || !plan || !projectId) {
+  if (!htmlContent || !projectId) {
     return res.status(400).json({ error: "Missing parameters" });
+  }
+
+  /* ---------------- AUTH VERIFY ---------------- */
+  const authHeader = req.headers.authorization; // 🔐 ADDED
+  if (!authHeader?.startsWith("Bearer ")) {     // 🔐 ADDED
+    return res.status(401).json({ error: "Unauthorized" }); // 🔐 ADDED
+  }
+
+  let userId; // 🔐 ADDED
+  try {
+    const token = authHeader.split("Bearer ")[1]; // 🔐 ADDED
+    const decoded = await admin.auth().verifyIdToken(token); // 🔐 ADDED
+    userId = decoded.uid; // 🔐 ADDED
+  } catch (err) {
+    return res.status(401).json({ error: "Invalid token" }); // 🔐 ADDED
+  }
+
+  /* ---------------- FETCH USER PLAN ---------------- */
+  let plan = "free"; // 🔐 ADDED
+  try {
+    const userDoc = await db.collection("users").doc(userId).get(); // 🔐 ADDED
+    if (userDoc.exists) {
+      plan = userDoc.data().plan || "free"; // 🔐 ADDED
+    }
+  } catch (err) {
+    console.error("PLAN FETCH ERROR:", err); // 🔐 ADDED
+    return res.status(500).json({ error: "Failed to fetch plan" }); // 🔐 ADDED
   }
 
   // Enforce plan deployment limits
@@ -119,7 +145,6 @@ export default async function handler(req, res) {
     const aliasList = [];
     if (publicAlias) aliasList.push(publicAlias);
 
-    // Add custom domain if provided and Pro user
     let customDomainUrl = null;
     if (customDomain) {
       if (plan !== "pro") {
@@ -189,7 +214,6 @@ export default async function handler(req, res) {
       status: deployment.readyState,
     });
   } catch (err) {
-    // Release slug on any failure
     if (finalSlug) await releaseSlug(finalSlug);
 
     if (err.message === "SLUG_TAKEN") {
