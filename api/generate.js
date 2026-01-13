@@ -150,11 +150,9 @@ Return ONLY the query text.
         data.videos?.[0]?.video_files?.[0]?.link || "";
     } catch {}
 
-    // ---------------- STEP 4: SYSTEM INSTRUCTION ----------------
+    // ---------------- STEP 4: SYSTEM INSTRUCTION (SAFE) ----------------
 
-    // ---------------- STEP 4: SYSTEM INSTRUCTION (UPDATED) ----------------
-
-const systemInstruction = `
+    const systemInstruction = `
 You are an elite web development AI.
 
 TASK:
@@ -162,26 +160,18 @@ Generate ONE self-contained HTML file.
 
 REPLIT-STYLE NARRATION:
 Before you write each major section of the code, output a single line starting with [ACTION: ...] 
-describing what you are doing *right now* in 3-5 words.
-Make it dynamic, varied, and reflective of the actual step you are performing.
-Examples of more “alive” lines:
-[ACTION: Creating hero heading]
-[ACTION: Embedding user image]
-[ACTION: Linking social icons]
-[ACTION: Adding responsive CSS]
-[ACTION: Building subscription form]
-[ACTION: Injecting Tailwind utilities]
+describing what you are doing right now in 3-5 words.
 
 ABSOLUTE RULES:
 - Output ONLY valid HTML and these ACTION tags.
-- NO markdown (no \`\`\`html blocks).
-- NO explanations outside of the ACTION tags.
-- NEVER invent URLs
+- NO markdown.
+- NEVER invent URLs.
 
-IMAGE RULES (CRITICAL):
-- User-uploaded images are Base64 Data URIs
-- You MUST embed them directly using <img src="data:...">
-- NEVER invent image URLs
+CRITICAL IMAGE RULES:
+- NEVER output Base64 data directly
+- Use <img data-user-image="INDEX"> placeholders ONLY
+- Placeholders must be replaced later by the system
+- NEVER place [ACTION] inside HTML tags or attributes
 
 VIDEO RULES:
 - Use hero video ONLY if provided
@@ -198,34 +188,24 @@ ${heroVideo || "None"}
 STOCK IMAGES:
 ${imageURLs.join("\n") || "None"}
 
-USER UPLOADED IMAGES:
-${images.join("\n\n") || "None"}
-
 USER PROMPT:
 ${prompt}
-
-NOTE:
-- Every [ACTION: ...] line must describe the *exact operation you are currently performing*.
-- Do NOT repeat generic action lines like “Building Section” or “Styling Hero Section”.
-- Vary wording, include specific elements, components, or content being created.
-- Make it feel like the AI is narrating its live process step by step.
 `.trim();
 
+    // ---------------- STEP 5: GEMINI INPUT (IMAGES FIRST) ----------------
 
-    // ---------------- STEP 5: GEMINI INPUT ----------------
+    const imageParts = images
+      .filter(i => typeof i === "string" && i.startsWith("data:"))
+      .slice(0, 4)
+      .map(img => {
+        const inline = dataUriToInlineData(img);
+        return inline ? { inlineData: inline } : null;
+      })
+      .filter(Boolean);
 
     const parts = [
+      ...imageParts,
       { text: systemInstruction },
-      ...images
-        .filter(i => typeof i === "string" && i.startsWith("data:"))
-        .slice(0, 4)
-        .map(img => {
-          const inline = dataUriToInlineData(img);
-          return inline
-            ? { inlineData: inline }
-            : null;
-        })
-        .filter(Boolean),
     ];
 
     // ---------------- STEP 6: STREAM ----------------
@@ -239,12 +219,26 @@ NOTE:
       contents: [{ role: "user", parts }],
     });
 
+    let fullHtml = "";
+
     for await (const chunk of stream.stream ?? []) {
       const text = chunk.text?.();
       if (text) {
+        fullHtml += text;
         res.write(`data: ${JSON.stringify({ text })}\n\n`);
       }
     }
+
+    // ---------------- IMAGE PLACEHOLDER INJECTION ----------------
+
+    let finalHtml = fullHtml;
+
+    images.forEach((img, index) => {
+      finalHtml = finalHtml.replaceAll(
+        `<img data-user-image="${index}">`,
+        `<img src="${img}">`
+      );
+    });
 
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
     res.write(`data: [DONE]\n\n`);
