@@ -119,9 +119,9 @@ Return ONLY the query text.
     let imageURLs = [];
     try {
       const r = await fetch(
-        `https://api.pexels.com/v1/search?query=${encodeURIComponent(
+        \`https://api.pexels.com/v1/search?query=\${encodeURIComponent(
           pexelsQuery
-        )}&per_page=${imageCount}`,
+        )}&per_page=\${imageCount}\`,
         { headers: { Authorization: PEXELS_API_KEY } }
       );
 
@@ -137,9 +137,9 @@ Return ONLY the query text.
     let heroVideo = "";
     try {
       const r = await fetch(
-        `https://api.pexels.com/videos/search?query=${encodeURIComponent(
+        \`https://api.pexels.com/videos/search?query=\${encodeURIComponent(
           pexelsQuery
-        )}&per_page=${videoCount}`,
+        )}&per_page=\${videoCount}\`,
         { headers: { Authorization: PEXELS_API_KEY } }
       );
 
@@ -148,37 +148,39 @@ Return ONLY the query text.
         data.videos?.[0]?.video_files?.[0]?.link || "";
     } catch {}
 
-    // ---------------- STEP 4: SYSTEM INSTRUCTION (FIXED) ----------------
+    // ---------------- STEP 4: SYSTEM INSTRUCTION (BEEFED UP) ----------------
 
     const systemInstruction = `
-You are an elite web development AI.
+You are an elite, world-class, top 0.1% web development AI —
+a principal-level engineer who builds award-winning, visually stunning,
+ultra-polished, production-grade websites for high-end startups,
+luxury brands, and Silicon Valley companies.
+
+You think like a senior frontend architect, UI/UX perfectionist,
+and performance-focused engineer combined.
+Your HTML is clean, modern, semantic, responsive, animated,
+beautifully styled, and engineered with extreme attention to detail.
 
 TASK:
 Generate ONE self-contained HTML file.
 
 REPLIT-STYLE NARRATION:
-Before you write each major section of the code, output a single line starting with [ACTION: ...] 
-describing what you are doing right now in 3-5 words.
+Before each major section, output a single line:
+[ACTION: ...] (3–5 words)
 
 ABSOLUTE RULES:
-- Output ONLY valid HTML and these ACTION tags.
-- NO markdown.
-- NEVER invent URLs.
+- Output ONLY valid HTML and ACTION lines
+- NO markdown
+- NO explanations
+- NEVER invent URLs
 
 CRITICAL IMAGE RULES:
-- NEVER output Base64 data directly
-- Use <img src="about:blank" data-user-image="INDEX"> placeholders ONLY
-- Placeholders will be replaced later by the system
-- NEVER place [ACTION] inside HTML tags or attributes
-
-VIDEO RULES:
-- Use hero video ONLY if provided
-
-SOCIAL MEDIA RULES:
-- Use homepage links only
-- Facebook: https://www.facebook.com
-- Instagram: https://www.instagram.com
-- Twitter: https://www.twitter.com
+- NEVER output Base64 directly
+- ALWAYS use this placeholder EXACTLY:
+<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-user-image="INDEX">
+- This placeholder WILL be replaced later
+- NEVER omit src
+- NEVER place ACTION inside HTML
 
 HERO VIDEO:
 ${heroVideo || "None"}
@@ -223,23 +225,40 @@ ${prompt}
       const text = chunk.text?.();
       if (text) {
         fullHtml += text;
-        res.write(`data: ${JSON.stringify({ text })}\n\n`);
+        res.write(\`data: \${JSON.stringify({ text })}\n\n\`);
       }
     }
 
-    // ---------------- IMAGE PLACEHOLDER INJECTION ----------------
+    // ---------------- SAFETY NET + HYDRATION ----------------
 
-    let finalHtml = fullHtml;
+    let finalHtml = fullHtml
+      .replaceAll(
+        /<img([^>]*?)data-user-image="(\d+)"([^>]*)>/g,
+        '<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-user-image="$2" style="width:100%;height:auto;display:block;">'
+      );
 
     images.forEach((img, index) => {
       finalHtml = finalHtml.replaceAll(
-        `<img src="about:blank" data-user-image="${index}">`,
-        `<img src="${img}">`
+        \`data-user-image="\${index}"\`,
+        \`src="\${img}"\`
       );
     });
 
-    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-    res.write(`data: [DONE]\n\n`);
+    finalHtml += `
+<script>
+(function(){
+  const imgs = document.querySelectorAll("img[data-user-image]");
+  imgs.forEach(img => {
+    if (!img.complete) {
+      img.style.background = "#f2f2f2";
+    }
+  });
+})();
+</script>
+`;
+
+    res.write(\`data: \${JSON.stringify({ done: true })}\n\n\`);
+    res.write(\`data: [DONE]\n\n\`);
     res.end();
 
   } catch (err) {
