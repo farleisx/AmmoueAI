@@ -1,25 +1,17 @@
-// /api/deploy.js
+// pages/api/deploy.js
 import fetch from "node-fetch";
 import admin from "firebase-admin";
 import { initializeApp, getApps } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import crypto from "crypto";
 
-/* ================= CONFIG ================= */
-
-const PLAN_LIMITS = {
-  free: 1,
-  pro: 5,
-};
-
-const DEPLOY_COOLDOWN_MS = 15_000; // 15 seconds
-const MAX_HTML_SIZE = 5_000_000; // 5MB
-
+/* ---------------- CONFIG ---------------- */
+const PLAN_LIMITS = { free: 1, pro: 5 };
 const VERCEL_TOKEN = process.env.VERCEL_TOKEN;
 const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID || null;
-const VERCEL_PROJECT = "ammoueai-sites";
+const VERCEL_PROJECT = "ammoueai-sites"; // ✅ Dedicated project for user deployments
 
-/* ================= FIREBASE INIT ================= */
-
+/* ---------------- FIREBASE INIT ---------------- */
 if (!getApps().length) {
   initializeApp({
     credential: admin.credential.cert(
@@ -30,8 +22,7 @@ if (!getApps().length) {
 
 const db = getFirestore();
 
-/* ================= HELPERS ================= */
-
+/* ---------------- HELPERS ---------------- */
 function normalizeSlug(slug) {
   return slug
     .toLowerCase()
@@ -40,8 +31,8 @@ function normalizeSlug(slug) {
     .slice(0, 32);
 }
 
-function validateDomain(domain) {
-  return /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain);
+function randomInternalName(userId) {
+  return `${userId}-${crypto.randomBytes(4).toString("hex")}`;
 }
 
 async function reserveSlug(slug, userId, projectId) {
@@ -49,10 +40,7 @@ async function reserveSlug(slug, userId, projectId) {
 
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
-
-    if (snap.exists && snap.data().projectId !== projectId) {
-      throw new Error("SLUG_TAKEN");
-    }
+    if (snap.exists) throw new Error("SLUG_TAKEN");
 
     tx.set(ref, {
       userId,
@@ -62,129 +50,83 @@ async function reserveSlug(slug, userId, projectId) {
   });
 }
 
-/* ================= HANDLER ================= */
+async function releaseSlug(slug) {
+  await db.collection("slugReservations").doc(slug).delete();
+}
 
+/* ---------------- VALIDATION ---------------- */
+function validateCustomDomain(domain) {
+  // Simple regex to ensure it looks like a domain
+  return /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain);
+}
+
+/* ---------------- HANDLER ---------------- */
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  const { htmlContent, userId, plan, projectId, slug, customDomain } = req.body;
+
+  if (!htmlContent || !userId || !plan || !projectId) {
+    return res.status(400).json({ error: "Missing parameters" });
+  }
+
+  // Enforce plan deployment limits
   try {
-    /* ---------- AUTH ---------- */
-
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const idToken = authHeader.split("Bearer ")[1];
-    const decoded = await admin.auth().verifyIdToken(idToken);
-    const userId = decoded.uid;
-
-    /* ---------- INPUT ---------- */
-
-    const { htmlContent, projectId, slug, customDomain } = req.body;
-
-    if (!htmlContent || !projectId) {
-      return res.status(400).json({ error: "Missing parameters" });
-    }
-
-    if (htmlContent.length > MAX_HTML_SIZE) {
-      return res.status(413).json({ error: "HTML too large" });
-    }
-
-    /* ---------- USER + PLAN ---------- */
-
-    const userSnap = await db.collection("users").doc(userId).get();
-    const plan = userSnap.exists ? userSnap.data().plan : "free";
-
-    if (!PLAN_LIMITS[plan]) {
-      return res.status(403).json({ error: "Invalid plan" });
-    }
-
-    /* ---------- PROJECT ---------- */
-
-    const projectRef = db
+    const userProjectsSnap = await db
       .collection("artifacts")
       .doc(VERCEL_PROJECT)
       .collection("users")
       .doc(userId)
       .collection("projects")
-      .doc(projectId);
+      .get();
 
-    const projectSnap = await projectRef.get();
-
-    if (!projectSnap.exists) {
-      return res.status(404).json({ error: "Project not found" });
+    if (userProjectsSnap.size >= PLAN_LIMITS[plan]) {
+      return res.status(403).json({ error: "Plan deployment limit reached" });
     }
+  } catch (err) {
+    console.error("PLAN CHECK ERROR:", err);
+    return res.status(500).json({ error: "Failed to check plan limits" });
+  }
 
-    const projectData = projectSnap.data();
+  let finalSlug = null;
+  let publicAlias = null;
 
-    if (projectData.userId && projectData.userId !== userId) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-
-    /* ---------- COOLDOWN ---------- */
-
-    const lastDeploy = projectData.lastDeployAt?.toMillis?.() || 0;
-    if (Date.now() - lastDeploy < DEPLOY_COOLDOWN_MS) {
-      return res
-        .status(429)
-        .json({ error: "Deploy cooldown active (15s)" });
-    }
-
-    /* ---------- PLAN LIMIT ---------- */
-
-    const projectsSnap = await projectRef.parent.get();
-    if (projectsSnap.size > PLAN_LIMITS[plan]) {
-      return res
-        .status(403)
-        .json({ error: "Plan deployment limit reached" });
-    }
-
-    /* ---------- INTERNAL NAME ---------- */
-
-    const internalName =
-      projectData.internalName || `site-${projectId}`;
-
-    /* ---------- SLUG (FREE + PRO) ---------- */
-
-    let finalSlug = projectData.slug || null;
-    let publicAlias = null;
-
+  try {
+    /* -------- SLUG LOGIC -------- */
     if (slug) {
-      const normalized = normalizeSlug(slug);
+      if (plan !== "pro") {
+        return res.status(403).json({
+          error: "Custom site names are Pro-only",
+        });
+      }
 
-      if (!normalized || normalized.length < 3) {
+      finalSlug = normalizeSlug(slug);
+
+      if (!finalSlug || finalSlug.length < 3) {
         return res.status(400).json({ error: "Invalid site name" });
       }
 
-      if (normalized !== projectData.slug) {
-        await reserveSlug(normalized, userId, projectId);
-      }
-
-      finalSlug = normalized;
-    }
-
-    if (finalSlug) {
+      await reserveSlug(finalSlug, userId, projectId);
       publicAlias = `${finalSlug}.vercel.app`;
     }
 
-    /* ---------- CUSTOM DOMAIN (PRO ONLY) ---------- */
+    /* -------- INTERNAL PROJECT NAME -------- */
+    const internalName = randomInternalName(userId);
 
-    let customDomainUrl = projectData.customDomainUrl || null;
+    /* -------- DEPLOY -------- */
     const aliasList = [];
-
     if (publicAlias) aliasList.push(publicAlias);
 
+    // Add custom domain if provided and Pro user
+    let customDomainUrl = null;
     if (customDomain) {
       if (plan !== "pro") {
-        return res
-          .status(403)
-          .json({ error: "Custom domains are Pro-only" });
+        return res.status(403).json({ error: "Custom domains are Pro-only" });
       }
 
-      if (!validateDomain(customDomain)) {
+      if (!validateCustomDomain(customDomain)) {
         return res.status(400).json({ error: "Invalid custom domain" });
       }
 
@@ -192,12 +134,8 @@ export default async function handler(req, res) {
       customDomainUrl = `https://${customDomain}`;
     }
 
-    /* ---------- DEPLOY TO VERCEL ---------- */
-
     const deployRes = await fetch(
-      `https://api.vercel.com/v13/deployments${
-        VERCEL_TEAM_ID ? `?teamId=${VERCEL_TEAM_ID}` : ""
-      }`,
+      `https://api.vercel.com/v13/deployments${VERCEL_TEAM_ID ? `?teamId=${VERCEL_TEAM_ID}` : ""}`,
       {
         method: "POST",
         headers: {
@@ -208,13 +146,8 @@ export default async function handler(req, res) {
           name: internalName,
           project: VERCEL_PROJECT,
           target: "production",
-          files: [
-            {
-              file: "index.html",
-              data: htmlContent,
-            },
-          ],
-          ...(aliasList.length ? { alias: aliasList } : {}),
+          files: [{ file: "index.html", data: htmlContent }],
+          ...(aliasList.length > 0 && { alias: aliasList }),
         }),
       }
     );
@@ -229,20 +162,24 @@ export default async function handler(req, res) {
       ? `https://${publicAlias}`
       : `https://${deployment.url}`;
 
-    /* ---------- SAVE ---------- */
-
-    await projectRef.set(
-      {
-        internalName,
-        slug: finalSlug,
-        deploymentId: deployment.id,
-        deploymentUrl,
-        customDomainUrl,
-        lastDeployAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true }
-    );
+    /* -------- SAVE PROJECT -------- */
+    await db
+      .collection("artifacts")
+      .doc(VERCEL_PROJECT)
+      .collection("users")
+      .doc(userId)
+      .collection("projects")
+      .doc(projectId)
+      .set(
+        {
+          slug: finalSlug || null,
+          deploymentId: deployment.id,
+          deploymentUrl,
+          customDomainUrl: customDomainUrl || null,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
 
     return res.status(200).json({
       deploymentId: deployment.id,
@@ -252,11 +189,14 @@ export default async function handler(req, res) {
       status: deployment.readyState,
     });
   } catch (err) {
+    // Release slug on any failure
+    if (finalSlug) await releaseSlug(finalSlug);
+
     if (err.message === "SLUG_TAKEN") {
       return res.status(409).json({ error: "Site name already taken" });
     }
 
     console.error("DEPLOY ERROR:", err);
-    return res.status(500).json({ error: "Deployment failed" });
+    return res.status(500).json({ error: err.message });
   }
 }
