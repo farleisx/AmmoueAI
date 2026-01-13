@@ -119,9 +119,9 @@ Return ONLY the query text.
     let imageURLs = [];
     try {
       const r = await fetch(
-        \`https://api.pexels.com/v1/search?query=\${encodeURIComponent(
+        `https://api.pexels.com/v1/search?query=${encodeURIComponent(
           pexelsQuery
-        )}&per_page=\${imageCount}\`,
+        )}&per_page=${imageCount}`,
         { headers: { Authorization: PEXELS_API_KEY } }
       );
 
@@ -137,9 +137,9 @@ Return ONLY the query text.
     let heroVideo = "";
     try {
       const r = await fetch(
-        \`https://api.pexels.com/videos/search?query=\${encodeURIComponent(
+        `https://api.pexels.com/videos/search?query=${encodeURIComponent(
           pexelsQuery
-        )}&per_page=\${videoCount}\`,
+        )}&per_page=${videoCount}`,
         { headers: { Authorization: PEXELS_API_KEY } }
       );
 
@@ -225,25 +225,27 @@ ${prompt}
       const text = chunk.text?.();
       if (text) {
         fullHtml += text;
-        res.write(\`data: \${JSON.stringify({ text })}\n\n\`);
+        res.write(`data: ${JSON.stringify({ text })}\n\n`);
       }
     }
 
-    // ---------------- SAFETY NET + HYDRATION ----------------
+    // ---------------- SAFETY NET + HYDRATION (BEEFED-UP WORLD-CLASS) ----------------
 
     let finalHtml = fullHtml
       .replaceAll(
         /<img([^>]*?)data-user-image="(\d+)"([^>]*)>/g,
-        '<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-user-image="$2" style="width:100%;height:auto;display:block;">'
+        '<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-user-image="$2" style="width:100%;height:auto;display:block;border-radius:12px;object-fit:cover;box-shadow:0 8px 24px rgba(0,0,0,0.2);transition:all 0.3s ease-in-out;">'
       );
 
+    // Replace placeholders with actual user images if provided
     images.forEach((img, index) => {
       finalHtml = finalHtml.replaceAll(
-        \`data-user-image="\${index}"\`,
-        \`src="\${img}"\`
+        `data-user-image="${index}"`,
+        `src="${img}"`
       );
     });
 
+    // Inject advanced hydration JS: swaps images smoothly without reflow
     finalHtml += `
 <script>
 (function(){
@@ -251,14 +253,17 @@ ${prompt}
   imgs.forEach(img => {
     if (!img.complete) {
       img.style.background = "#f2f2f2";
+      img.onload = () => { img.style.opacity = 1; };
+      img.style.transition = "opacity 0.6s ease-in-out";
+      img.style.opacity = 0;
     }
   });
 })();
 </script>
 `;
 
-    res.write(\`data: \${JSON.stringify({ done: true })}\n\n\`);
-    res.write(\`data: [DONE]\n\n\`);
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    res.write(`data: [DONE]\n\n`);
     res.end();
 
   } catch (err) {
