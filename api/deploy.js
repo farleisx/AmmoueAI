@@ -72,30 +72,30 @@ export default async function handler(req, res) {
   }
 
   /* ---------------- AUTH VERIFY ---------------- */
-  const authHeader = req.headers.authorization; // 🔐 ADDED
-  if (!authHeader?.startsWith("Bearer ")) {     // 🔐 ADDED
-    return res.status(401).json({ error: "Unauthorized" }); // 🔐 ADDED
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Unauthorized" });
   }
 
-  let userId; // 🔐 ADDED
+  let userId;
   try {
-    const token = authHeader.split("Bearer ")[1]; // 🔐 ADDED
-    const decoded = await admin.auth().verifyIdToken(token); // 🔐 ADDED
-    userId = decoded.uid; // 🔐 ADDED
+    const token = authHeader.split("Bearer ")[1];
+    const decoded = await admin.auth().verifyIdToken(token);
+    userId = decoded.uid;
   } catch (err) {
-    return res.status(401).json({ error: "Invalid token" }); // 🔐 ADDED
+    return res.status(401).json({ error: "Invalid token" });
   }
 
   /* ---------------- FETCH USER PLAN ---------------- */
-  let plan = "free"; // 🔐 ADDED
+  let plan = "free";
   try {
-    const userDoc = await db.collection("users").doc(userId).get(); // 🔐 ADDED
+    const userDoc = await db.collection("users").doc(userId).get();
     if (userDoc.exists) {
-      plan = userDoc.data().plan || "free"; // 🔐 ADDED
+      plan = userDoc.data().plan || "free";
     }
   } catch (err) {
-    console.error("PLAN FETCH ERROR:", err); // 🔐 ADDED
-    return res.status(500).json({ error: "Failed to fetch plan" }); // 🔐 ADDED
+    console.error("PLAN FETCH ERROR:", err);
+    return res.status(500).json({ error: "Failed to fetch plan" });
   }
 
   // Enforce plan deployment limits
@@ -122,12 +122,6 @@ export default async function handler(req, res) {
   try {
     /* -------- SLUG LOGIC -------- */
     if (slug) {
-      if (plan !== "pro") {
-        return res.status(403).json({
-          error: "Custom site names are Pro-only",
-        });
-      }
-
       finalSlug = normalizeSlug(slug);
 
       if (!finalSlug || finalSlug.length < 3) {
