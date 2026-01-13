@@ -136,7 +136,12 @@
             </div>
 
             <div class="flex-1 flex flex-col overflow-hidden">
-                <h2 class="text-[9px] font-black text-[#D4AF37] uppercase tracking-[0.3em] mb-4 opacity-70">Creative Directive</h2>
+                <div class="flex justify-between items-end mb-4">
+                    <h2 class="text-[9px] font-black text-[#D4AF37] uppercase tracking-[0.3em] opacity-70">Creative Directive</h2>
+                    <div id="usage-badge" class="text-[9px] font-black px-2 py-1 bg-white/5 rounded border border-white/10 text-gray-500 uppercase tracking-widest">
+                        Credits: --/--
+                    </div>
+                </div>
                 
                 <div id="thinking-box" class="hidden mb-4 overflow-y-auto max-h-[120px]">
                     <div id="logs" class="space-y-1"></div>
@@ -189,7 +194,7 @@
     </main>
 
     <script type="module">
-        import { auth, getUserPlan, autoSaveProject, updateProjectDeploymentUrl, getUserProjects } from "./fire_prompt.js";
+        import { auth, getUserPlan, autoSaveProject, updateProjectDeploymentUrl, getUserProjects, getUsage } from "./fire_prompt.js";
         import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 
         let currentHtml = "";
@@ -212,6 +217,23 @@
         const confirmModal = document.getElementById('confirm-modal');
         const confirmDeployBtn = document.getElementById('confirm-deploy-btn');
         const cancelDeployBtn = document.getElementById('cancel-deploy-btn');
+        const usageBadge = document.getElementById('usage-badge');
+
+        /* ---------------- USAGE TRACKING ---------------- */
+        async function refreshUsage() {
+            if (!auth.currentUser) return;
+            const usage = await getUsage(auth.currentUser.uid);
+            if (usage) {
+                const limit = usage.plan === "pro" ? 10 : 5;
+                usageBadge.innerText = `Credits: ${usage.dailyCount || 0}/${limit}`;
+                if (usage.dailyCount >= limit) {
+                    usageBadge.classList.replace('text-gray-500', 'text-red-500');
+                } else {
+                    usageBadge.classList.replace('text-red-500', 'text-[#D4AF37]');
+                }
+                return usage;
+            }
+        }
 
         /* ---------------- VOICE COMMAND LOGIC ---------------- */
         const voiceBtn = document.getElementById('voice-btn');
@@ -425,6 +447,12 @@
         async function startGeneration(isResume = false) {
             if (!auth.currentUser) return signInWithPopup(auth, new GoogleAuthProvider());
             
+            const usage = await refreshUsage();
+            if (usage && usage.dailyCount >= (usage.plan === "pro" ? 10 : 5)) {
+                document.getElementById('limit-modal').classList.remove('hidden');
+                return;
+            }
+
             abortCtrl = new AbortController();
             document.getElementById('thinking-box').classList.remove('hidden');
             resumeBtn.classList.add('hidden');
@@ -453,6 +481,11 @@
                     signal: abortCtrl.signal
                 });
 
+                if (res.status === 429) {
+                     document.getElementById('limit-modal').classList.remove('hidden');
+                     throw new Error("Limit reached");
+                }
+
                 const reader = res.body.getReader();
                 const decoder = new TextDecoder();
 
@@ -470,7 +503,7 @@
                                 const json = JSON.parse(dataStr);
                                 if (json.text) {
                                     const actionMatch = json.text.match(/\[ACTION:\s*(.*?)\]/);
-                                    if (actionMatch) {
+                                    if (actionMatch) { 
                                         const actionText = actionMatch[1];
                                         const actionEl = document.createElement('div');
                                         actionEl.className = "action-line";
@@ -499,6 +532,7 @@
                 const currentActionLogs = logs.innerHTML;
                 currentProjectId = await autoSaveProject(currentHtml, document.getElementById('user-prompt').value, currentProjectId, auth.currentUser.uid, currentActionLogs);
                 
+                await refreshUsage();
                 const projects = await getUserProjects(auth.currentUser.uid);
                 renderProjectHistory(projects);
 
@@ -717,6 +751,8 @@
                 const customDomainInput = document.getElementById("custom-domain-input");
                 if (plan === "pro") { customDomainInput.classList.remove("hidden"); } 
                 else { customDomainInput.classList.add("hidden"); }
+                
+                await refreshUsage();
                 const projects = await getUserProjects(u.uid);
                 renderProjectHistory(projects);
                 if (projects.length) loadProject(projects[0]);
