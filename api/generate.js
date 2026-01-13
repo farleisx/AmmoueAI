@@ -22,7 +22,6 @@ const API_MODEL = "gemini-2.5-flash";
 
 // ---------------- HELPERS ----------------
 
-// Extract keywords fallback
 function extractKeywords(text = "") {
   return text
     .toLowerCase()
@@ -31,7 +30,6 @@ function extractKeywords(text = "") {
     .filter(Boolean);
 }
 
-// Convert Data URI → Gemini inlineData
 function dataUriToInlineData(dataUri) {
   if (!dataUri?.startsWith("data:")) return null;
 
@@ -150,7 +148,7 @@ Return ONLY the query text.
         data.videos?.[0]?.video_files?.[0]?.link || "";
     } catch {}
 
-    // ---------------- STEP 4: SYSTEM INSTRUCTION (SAFE) ----------------
+    // ---------------- STEP 4: SYSTEM INSTRUCTION (FIXED) ----------------
 
     const systemInstruction = `
 You are an elite web development AI.
@@ -169,8 +167,8 @@ ABSOLUTE RULES:
 
 CRITICAL IMAGE RULES:
 - NEVER output Base64 data directly
-- Use <img data-user-image="INDEX"> placeholders ONLY
-- Placeholders must be replaced later by the system
+- Use <img src="about:blank" data-user-image="INDEX"> placeholders ONLY
+- Placeholders will be replaced later by the system
 - NEVER place [ACTION] inside HTML tags or attributes
 
 VIDEO RULES:
@@ -192,7 +190,7 @@ USER PROMPT:
 ${prompt}
 `.trim();
 
-    // ---------------- STEP 5: GEMINI INPUT (IMAGES FIRST) ----------------
+    // ---------------- STEP 5: GEMINI INPUT ----------------
 
     const imageParts = images
       .filter(i => typeof i === "string" && i.startsWith("data:"))
@@ -235,7 +233,7 @@ ${prompt}
 
     images.forEach((img, index) => {
       finalHtml = finalHtml.replaceAll(
-        `<img data-user-image="${index}">`,
+        `<img src="about:blank" data-user-image="${index}">`,
         `<img src="${img}">`
       );
     });
