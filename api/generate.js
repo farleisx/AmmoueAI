@@ -14,6 +14,59 @@ if (!admin.apps.length) {
 
 const auth = admin.auth();
 
+/* ================== ADDED ================== */
+const db = admin.firestore();
+
+const LIMITS = {
+  free: 5,
+  pro: 10,
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+async function enforceDailyLimit(uid) {
+  const userRef = db.collection("users").doc(uid);
+  const snap = await userRef.get();
+
+  const now = Date.now();
+  const data = snap.exists ? snap.data() : {};
+  const plan = data.plan === "pro" ? "pro" : "free";
+  const limit = LIMITS[plan];
+
+  let count = data.dailyCount || 0;
+  let resetAt = data.dailyResetAt || 0;
+
+  if (now > resetAt) {
+    count = 0;
+    resetAt = now + DAY_MS;
+  }
+
+  if (count >= limit) {
+    return {
+      allowed: false,
+      plan,
+      limit,
+      resetAt,
+    };
+  }
+
+  await userRef.set(
+    {
+      plan,
+      dailyCount: count + 1,
+      dailyResetAt: resetAt,
+    },
+    { merge: true }
+  );
+
+  return {
+    allowed: true,
+    remaining: limit - (count + 1),
+    plan,
+  };
+}
+/* ================= END ADDED ================= */
+
 // ---------------- CONFIG ----------------
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -72,6 +125,19 @@ export default async function handler(req, res) {
 
     const uid = decoded.uid;
     const email = decoded.email || null;
+
+    /* ================== ADDED ================== */
+    const rate = await enforceDailyLimit(uid);
+
+    if (!rate.allowed) {
+      return res.status(429).json({
+        error: "Daily request limit reached",
+        plan: rate.plan,
+        limit: rate.limit,
+        resetAt: rate.resetAt,
+      });
+    }
+    /* ================= END ADDED ================== */
 
     // ---------------- REQUEST BODY ----------------
 
@@ -229,15 +295,13 @@ ${prompt}
       }
     }
 
-    // ---------------- SAFETY NET + HYDRATION (BEEFED-UP WORLD-CLASS) ----------------
+    // ---------------- SAFETY NET + HYDRATION ----------------
 
-    let finalHtml = fullHtml
-      .replaceAll(
-        /<img([^>]*?)data-user-image="(\d+)"([^>]*)>/g,
-        '<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-user-image="$2" style="width:100%;height:auto;display:block;border-radius:12px;object-fit:cover;box-shadow:0 8px 24px rgba(0,0,0,0.2);transition:all 0.3s ease-in-out;">'
-      );
+    let finalHtml = fullHtml.replaceAll(
+      /<img([^>]*?)data-user-image="(\d+)"([^>]*)>/g,
+      '<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-user-image="$2" style="width:100%;height:auto;display:block;border-radius:12px;object-fit:cover;box-shadow:0 8px 24px rgba(0,0,0,0.2);transition:all 0.3s ease-in-out;">'
+    );
 
-    // Replace placeholders with actual user images if provided
     images.forEach((img, index) => {
       finalHtml = finalHtml.replaceAll(
         `data-user-image="${index}"`,
@@ -245,7 +309,6 @@ ${prompt}
       );
     });
 
-    // Inject advanced hydration JS: swaps images smoothly without reflow
     finalHtml += `
 <script>
 (function(){
