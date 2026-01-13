@@ -140,6 +140,7 @@ export default async function handler(req, res) {
     if (publicAlias) aliasList.push(publicAlias);
 
     let customDomainUrl = null;
+
     if (customDomain) {
       if (plan !== "pro") {
         return res.status(403).json({ error: "Custom domains are Pro-only" });
@@ -149,8 +150,35 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Invalid custom domain" });
       }
 
-      aliasList.push(customDomain);
-      customDomainUrl = `https://${customDomain}`;
+      // ---------------- ATTACH DOMAIN VIA VERCEL API ----------------
+      try {
+        const attachRes = await fetch(
+          `https://api.vercel.com/v9/projects/${VERCEL_PROJECT}/domains`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${VERCEL_TOKEN}`,
+              "Content-Type": "application/json",
+              ...(VERCEL_TEAM_ID ? { "X-Vercel-Team-Id": VERCEL_TEAM_ID } : {}),
+            },
+            body: JSON.stringify({
+              name: customDomain,
+              project: VERCEL_PROJECT,
+              ...(VERCEL_TEAM_ID ? { teamId: VERCEL_TEAM_ID } : {}),
+            }),
+          }
+        );
+
+        const attachData = await attachRes.json();
+        if (!attachRes.ok) {
+          throw new Error(attachData.error?.message || "Vercel domain attach failed");
+        }
+
+        customDomainUrl = `https://${customDomain}`;
+        aliasList.push(customDomain);
+      } catch (err) {
+        return res.status(500).json({ error: "Failed to attach custom domain: " + err.message });
+      }
     }
 
     const deployRes = await fetch(
