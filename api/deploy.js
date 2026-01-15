@@ -98,22 +98,29 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Failed to fetch plan" });
   }
 
-  // Enforce plan deployment limits
-  try {
-    const userProjectsSnap = await db
-      .collection("artifacts")
-      .doc(VERCEL_PROJECT)
-      .collection("users")
-      .doc(userId)
-      .collection("projects")
-      .get();
+  /* ---------------- PLAN LIMIT FALLBACK (ADDED) ---------------- */
+  const planLimit = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free;
 
-    if (userProjectsSnap.size >= PLAN_LIMITS[plan]) {
-      return res.status(403).json({ error: "Plan deployment limit reached" });
+  /* ---------------- TOTAL DEPLOYMENT LIMIT (ADDED) ---------------- */
+  try {
+    const statsRef = db.collection("deploymentStats").doc(userId);
+    const statsSnap = await statsRef.get();
+
+    const totalDeployments = statsSnap.exists
+      ? statsSnap.data().totalDeployments || 0
+      : 0;
+
+    if (totalDeployments >= planLimit) {
+      return res.status(403).json({
+        error: "Plan deployment limit reached",
+        upgradeRequired: true,
+        currentPlan: plan,
+        limit: planLimit,
+      });
     }
   } catch (err) {
-    console.error("PLAN CHECK ERROR:", err);
-    return res.status(500).json({ error: "Failed to check plan limits" });
+    console.error("DEPLOYMENT LIMIT ERROR:", err);
+    return res.status(500).json({ error: "Failed to check deployment limits" });
   }
 
   let finalSlug = null;
@@ -143,14 +150,17 @@ export default async function handler(req, res) {
 
     if (customDomain) {
       if (plan !== "pro") {
-        return res.status(403).json({ error: "Custom domains are Pro-only" });
+        return res.status(403).json({
+          error: "Custom domains are Pro-only",
+          upgradeRequired: true,
+          requiredPlan: "pro",
+        });
       }
 
       if (!validateCustomDomain(customDomain)) {
         return res.status(400).json({ error: "Invalid custom domain" });
       }
 
-      // ---------------- ATTACH DOMAIN VIA VERCEL API ----------------
       try {
         const attachRes = await fetch(
           `https://api.vercel.com/v9/projects/${VERCEL_PROJECT}/domains`,
@@ -171,18 +181,24 @@ export default async function handler(req, res) {
 
         const attachData = await attachRes.json();
         if (!attachRes.ok) {
-          throw new Error(attachData.error?.message || "Vercel domain attach failed");
+          throw new Error(
+            attachData.error?.message || "Vercel domain attach failed"
+          );
         }
 
         customDomainUrl = `https://${customDomain}`;
         aliasList.push(customDomain);
       } catch (err) {
-        return res.status(500).json({ error: "Failed to attach custom domain: " + err.message });
+        return res
+          .status(500)
+          .json({ error: "Failed to attach custom domain: " + err.message });
       }
     }
 
     const deployRes = await fetch(
-      `https://api.vercel.com/v13/deployments${VERCEL_TEAM_ID ? `?teamId=${VERCEL_TEAM_ID}` : ""}`,
+      `https://api.vercel.com/v13/deployments${
+        VERCEL_TEAM_ID ? `?teamId=${VERCEL_TEAM_ID}` : ""
+      }`,
       {
         method: "POST",
         headers: {
@@ -228,12 +244,34 @@ export default async function handler(req, res) {
         { merge: true }
       );
 
+    /* -------- DEPLOYMENT ANALYTICS (ADDED) -------- */
+    await db
+      .collection("deploymentStats")
+      .doc(userId)
+      .set(
+        {
+          plan,
+          totalDeployments: FieldValue.increment(1),
+          lastDeploymentAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+    await db.collection("deploymentAnalytics").add({
+      userId,
+      plan,
+      projectId,
+      deploymentId: deployment.id,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+
     return res.status(200).json({
       deploymentId: deployment.id,
       deploymentUrl,
       slug: finalSlug,
       customDomainUrl,
       status: deployment.readyState,
+      plan,
     });
   } catch (err) {
     if (finalSlug) await releaseSlug(finalSlug);
