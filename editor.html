@@ -98,7 +98,14 @@
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Project Title</label>
                         <input type="text" id="editor-title" required class="w-full border border-gray-300 rounded-xl bg-white focus:border-ammoue focus:ring-2 focus:ring-teal-100 transition p-2.5 text-sm text-gray-800">
                     </div>
-                    <div class="lg:col-span-3">
+                    <div class="lg:col-span-1">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Site Slug</label>
+                        <div class="relative">
+                            <input type="text" id="editor-slug" placeholder="unique-name" class="w-full border border-gray-300 rounded-xl bg-white focus:border-ammoue focus:ring-2 focus:ring-teal-100 transition p-2.5 pr-10 text-sm text-gray-800">
+                            <div id="slug-status-icon" class="absolute right-3 top-1/2 -translate-y-1/2 hidden"></div>
+                        </div>
+                    </div>
+                    <div class="lg:col-span-2">
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">AI Prompt (Ctrl + Enter)</label>
                         <div class="relative">
                             <input id="editor-prompt" required class="w-full border border-gray-300 rounded-xl bg-white focus:border-ammoue focus:ring-2 focus:ring-teal-100 transition p-2.5 pr-32 text-sm text-gray-800" placeholder="Describe changes...">
@@ -178,6 +185,7 @@
     let isDirty = false;
     let pendingAiCode = null;
     let originalCodeBeforeAi = null;
+    let debounceTimer;
     const appId = firebaseConfig.projectId;
 
     const loadingScreen = document.getElementById('loading-screen');
@@ -185,6 +193,8 @@
     const msgBox = document.getElementById('message-box');
     const editorForm = document.getElementById('editor-form');
     const titleInput = document.getElementById('editor-title');
+    const slugInput = document.getElementById('editor-slug');
+    const slugStatusIcon = document.getElementById('slug-status-icon');
     const promptInput = document.getElementById('editor-prompt');
     const titleHeader = document.getElementById('project-title-header');
     const projectIdInput = document.getElementById('project-id-input');
@@ -239,6 +249,18 @@
         }, 300);
     }
 
+    function setSlugStatus(status) {
+        slugStatusIcon.classList.remove('hidden');
+        if (status === 'loading') {
+            slugStatusIcon.innerHTML = '<i data-lucide="loader" class="w-4 h-4 text-gray-400 animate-spin"></i>';
+        } else if (status === 'available') {
+            slugStatusIcon.innerHTML = '<i data-lucide="check-circle" class="w-4 h-4 text-green-500"></i>';
+        } else if (status === 'taken') {
+            slugStatusIcon.innerHTML = '<i data-lucide="alert-circle" class="w-4 h-4 text-red-500"></i>';
+        }
+        lucide.createIcons();
+    }
+
     // Toggle Editor Height Logic
     toggleBtn.onclick = () => {
         const wrapper = document.getElementById('editor-wrapper');
@@ -278,29 +300,33 @@
         lucide.createIcons();
     }
 
-    async function handleDeployment(htmlContent, plan, projectId) {
+    async function handleDeployment(htmlContent, plan, projectId, slug) {
         setPreviewButton('', true);
         saveBtn.disabled = true;
         deployStatusText.textContent = "Status: Deploying...";
         
         try {
-            // Get the ID token for secure verification on the backend
             const token = await auth.currentUser.getIdToken();
 
             const response = await fetch("/api/deploy", {
                 method: "POST",
                 headers: { 
                     "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}` // ✅ Secure Bearer Token
+                    "Authorization": `Bearer ${token}` 
                 },
                 body: JSON.stringify({ 
                     htmlContent, 
-                    projectId 
-                    // NOTICE: userId and plan are DELETED. Backend extracts them from token.
+                    projectId,
+                    slug
                 }),
             });
             const result = await response.json();
             
+            if (response.status === 409) {
+                setSlugStatus('taken');
+                throw new Error("Site name already taken");
+            }
+
             if (response.ok && result.deploymentUrl) {
                 latestDeploymentUrl = result.deploymentUrl;
                 let countdown = 10;
@@ -309,7 +335,7 @@
                     deployStatusText.textContent = `Status: Propagating (${countdown}s)`;
                     if (countdown <= 0) {
                         clearInterval(timer);
-                        deployStatusText.textContent = "Status: Live";
+                        deployStatusText.textContent = `Status: Live at ${latestDeploymentUrl.replace('https://', '')}`;
                         setPreviewButton(latestDeploymentUrl, false);
                         saveBtn.disabled = false;
                     }
@@ -330,6 +356,7 @@
         if (e) e.preventDefault();
         const projectId = projectIdInput.value;
         const newHtml = cmEditor.getValue();
+        const slugValue = slugInput.value.trim();
         
         if (!newHtml.trim()) {
             showMessage("HTML cannot be empty", true);
@@ -340,9 +367,12 @@
         const snap = await getDoc(userDocRef());
         const plan = snap.exists() ? snap.data().plan : 'free';
 
-        const url = await handleDeployment(newHtml, plan, projectId);
+        const url = await handleDeployment(newHtml, plan, projectId, slugValue);
+        if (!url && deployStatusText.textContent === "Status: Failed") return;
+
         await updateDoc(projectDocRef(projectId), {
             title: titleInput.value.trim(),
+            slug: slugValue,
             prompt: promptInput.value.trim().replace(/\n/g, '\\n'),
             htmlContent: newHtml,
             deploymentUrl: url || latestDeploymentUrl,
@@ -430,6 +460,7 @@
                 const data = snap.data();
                 projectIdInput.value = snap.id;
                 titleInput.value = data.title;
+                slugInput.value = data.slug || "";
                 promptInput.value = (data.prompt || "").replace(/\\n/g, '\n');
                 titleHeader.textContent = data.title;
                 latestDeploymentUrl = data.deploymentUrl || '';
@@ -449,6 +480,34 @@
             } else { window.location.href = '/dashboard'; }
         });
     }
+
+    slugInput.addEventListener('input', (e) => {
+        const slug = e.target.value.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
+        e.target.value = slug;
+
+        clearTimeout(debounceTimer);
+        if (slug.length < 3) {
+            slugStatusIcon.classList.add('hidden');
+            return;
+        }
+
+        setSlugStatus('loading');
+        debounceTimer = setTimeout(async () => {
+            try {
+                const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js");
+                const slugRef = doc(db, "slugReservations", slug);
+                const snap = await getDoc(slugRef);
+                
+                if (snap.exists() && snap.data().projectId !== projectIdInput.value) {
+                    setSlugStatus('taken');
+                } else {
+                    setSlugStatus('available');
+                }
+            } catch (err) {
+                console.error("Slug check failed", err);
+            }
+        }, 500);
+    });
 
     window.addEventListener('keydown', (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); handleSave(); }
