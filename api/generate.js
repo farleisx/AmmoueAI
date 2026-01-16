@@ -3,7 +3,6 @@ import fetch from "node-fetch";
 import admin from "firebase-admin";
 
 // ---------------- FIREBASE ADMIN ----------------
-
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert(
@@ -67,13 +66,13 @@ async function enforceDailyLimit(uid) {
 /* ================= END ADDED ================= */
 
 // ---------------- CONFIG ----------------
-
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
+const GOOGLE_CX = process.env.GOOGLE_CX;
+const GOOGLE_SEARCH_KEY = process.env.GOOGLE_SEARCH_KEY;
 const API_MODEL = "gemini-2.5-flash";
 
 // ---------------- HELPERS ----------------
-
 function extractKeywords(text = "") {
   return text
     .toLowerCase()
@@ -96,8 +95,14 @@ function dataUriToInlineData(dataUri) {
   };
 }
 
-// ---------------- HANDLER ----------------
+// ---------------- BRAND DETECTION ----------------
+const BRAND_KEYWORDS = ["ferromat", "zbeda"];
+function getBrandKeywords(prompt) {
+  const promptLower = prompt.toLowerCase();
+  return BRAND_KEYWORDS.filter((b) => promptLower.includes(b));
+}
 
+// ---------------- HANDLER ----------------
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Use POST." });
@@ -105,7 +110,6 @@ export default async function handler(req, res) {
 
   try {
     // ---------------- AUTH ----------------
-
     const authHeader = req.headers.authorization || "";
     const token = authHeader.startsWith("Bearer ")
       ? authHeader.slice(7)
@@ -136,10 +140,9 @@ export default async function handler(req, res) {
         resetAt: rate.resetAt,
       });
     }
-    /* ================= END ADDED ================== */
+    /* ================= END ADDED ================= */
 
     // ---------------- REQUEST BODY ----------------
-
     const {
       prompt,
       images = [],
@@ -153,68 +156,80 @@ export default async function handler(req, res) {
     }
 
     // ---------------- GEMINI INIT ----------------
-
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: API_MODEL });
 
-    // ---------------- STEP 1: PEXELS QUERY ----------------
+    // ---------------- IMAGE SEARCH ----------------
+    let imageURLs = [];
+    const brandKeywords = getBrandKeywords(prompt);
+    let searchQuery = prompt;
 
-    let pexelsQuery = userQuery;
-
-    if (!pexelsQuery) {
+    if (brandKeywords.length && GOOGLE_CX && GOOGLE_SEARCH_KEY) {
+      searchQuery = `${brandKeywords[0]} logo Israel`;
       try {
-        const queryPrompt = `
+        const gRes = await fetch(
+          `https://www.googleapis.com/customsearch/v1?q=${encodeURIComponent(
+            searchQuery
+          )}&cx=${GOOGLE_CX}&key=${GOOGLE_SEARCH_KEY}&searchType=image&num=${imageCount}`
+        );
+        const gData = await gRes.json();
+        imageURLs = (gData.items || []).map((i) => i.link).filter(Boolean);
+      } catch {
+        // fallback will handle
+      }
+    }
+
+    // ---------------- FALLBACK PEXELS ----------------
+    if (!imageURLs.length) {
+      let pexelsQuery = userQuery;
+      if (!pexelsQuery) {
+        try {
+          const queryPrompt = `
 Given this website description:
 "${prompt}"
 
 Generate a short (1–5 words) Pexels search query
 focused ONLY on real-world objects.
 Return ONLY the query text.
-        `.trim();
+          `.trim();
 
-        const q = await model.generateContent(queryPrompt);
-        pexelsQuery = q.response.text()?.trim();
-      } catch {
-        pexelsQuery = extractKeywords(prompt).slice(0, 4).join(" ");
+          const q = await model.generateContent(queryPrompt);
+          pexelsQuery = q.response.text()?.trim();
+        } catch {
+          pexelsQuery = extractKeywords(prompt).slice(0, 4).join(" ");
+        }
       }
+
+      try {
+        const r = await fetch(
+          `https://api.pexels.com/v1/search?query=${encodeURIComponent(
+            pexelsQuery
+          )}&per_page=${imageCount}`,
+          { headers: { Authorization: PEXELS_API_KEY } }
+        );
+        const data = await r.json();
+        imageURLs = (data.photos || []).map((p) => p.src?.large).filter(Boolean);
+      } catch {}
     }
 
-    // ---------------- STEP 2: PEXELS IMAGES ----------------
-
-    let imageURLs = [];
-    try {
-      const r = await fetch(
-        `https://api.pexels.com/v1/search?query=${encodeURIComponent(
-          pexelsQuery
-        )}&per_page=${imageCount}`,
-        { headers: { Authorization: PEXELS_API_KEY } }
-      );
-
-      const data = await r.json();
-      imageURLs = (data.photos || [])
-        .map(p => p.src?.large)
-        .filter(Boolean)
-        .slice(0, 6);
-    } catch {}
+    if (!imageURLs.length) {
+      imageURLs = ["https://via.placeholder.com/1200x600?text=No+Image+Found"];
+    }
 
     // ---------------- STEP 3: PEXELS VIDEOS ----------------
-
     let heroVideo = "";
     try {
       const r = await fetch(
         `https://api.pexels.com/videos/search?query=${encodeURIComponent(
-          pexelsQuery
+          prompt
         )}&per_page=${videoCount}`,
         { headers: { Authorization: PEXELS_API_KEY } }
       );
-
       const data = await r.json();
-      heroVideo =
-        data.videos?.[0]?.video_files?.[0]?.link || "";
+      heroVideo = data.videos?.[0]?.video_files?.[0]?.link || "";
     } catch {}
 
-    // ---------------- STEP 4: SYSTEM INSTRUCTION (BEEFED UP) ----------------
-
+    // ---------------- STEP 4: SYSTEM INSTRUCTION ----------------
     const systemInstruction = `
 You are an elite, world-class, top 0.1% web development AI —
 a principal-level engineer who builds award-winning, visually stunning,
@@ -258,23 +273,18 @@ ${prompt}
 `.trim();
 
     // ---------------- STEP 5: GEMINI INPUT ----------------
-
     const imageParts = images
-      .filter(i => typeof i === "string" && i.startsWith("data:"))
+      .filter((i) => typeof i === "string" && i.startsWith("data:"))
       .slice(0, 4)
-      .map(img => {
+      .map((img) => {
         const inline = dataUriToInlineData(img);
         return inline ? { inlineData: inline } : null;
       })
       .filter(Boolean);
 
-    const parts = [
-      ...imageParts,
-      { text: systemInstruction },
-    ];
+    const parts = [...imageParts, { text: systemInstruction }];
 
     // ---------------- STEP 6: STREAM ----------------
-
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
@@ -295,17 +305,13 @@ ${prompt}
     }
 
     // ---------------- SAFETY NET + HYDRATION ----------------
-
     let finalHtml = fullHtml.replaceAll(
       /<img([^>]*?)data-user-image="(\d+)"([^>]*)>/g,
       '<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-user-image="$2" style="width:100%;height:auto;display:block;border-radius:12px;object-fit:cover;box-shadow:0 8px 24px rgba(0,0,0,0.2);transition:all 0.3s ease-in-out;">'
     );
 
     images.forEach((img, index) => {
-      finalHtml = finalHtml.replaceAll(
-        `data-user-image="${index}"`,
-        `src="${img}"`
-      );
+      finalHtml = finalHtml.replaceAll(`data-user-image="${index}"`, `src="${img}"`);
     });
 
     finalHtml += `
@@ -327,7 +333,6 @@ ${prompt}
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
     res.write(`data: [DONE]\n\n`);
     res.end();
-
   } catch (err) {
     console.error("Generate error:", err);
     if (!res.headersSent) {
