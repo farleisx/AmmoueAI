@@ -21,7 +21,9 @@ const LIMITS = {
   pro: 10,
 };
 
-const WINDOW_MS = 60 * 1000;
+// Updated to 24 hours for true daily limits
+const WINDOW_MS = 24 * 60 * 60 * 1000;
+
 async function enforceDailyLimit(uid) {
   const userRef = db.collection("users").doc(uid);
   const snap = await userRef.get();
@@ -45,6 +47,7 @@ async function enforceDailyLimit(uid) {
       plan,
       limit,
       resetAt,
+      remaining: 0,
     };
   }
 
@@ -138,6 +141,7 @@ export default async function handler(req, res) {
         plan: rate.plan,
         limit: rate.limit,
         resetAt: rate.resetAt,
+        remaining: rate.remaining,
       });
     }
     /* ================= END ADDED ================= */
@@ -175,7 +179,7 @@ export default async function handler(req, res) {
         const gData = await gRes.json();
         imageURLs = (gData.items || []).map((i) => i.link).filter(Boolean);
       } catch {
-        // fallback will handle
+        // fallback handled below
       }
     }
 
@@ -209,9 +213,39 @@ Return ONLY the query text.
         );
         const data = await r.json();
         imageURLs = (data.photos || []).map((p) => p.src?.large).filter(Boolean);
-      } catch {}
+      } catch {
+        // fallback handled below
+      }
     }
 
+    // ---------------- ROBUST FALLBACK ----------------
+    if (!imageURLs.length) {
+      // Try 3 generic keyword sets
+      const genericQueries = [
+        "website hero",
+        "business background",
+        "modern design",
+      ];
+
+      for (const q of genericQueries) {
+        try {
+          const r = await fetch(
+            `https://api.pexels.com/v1/search?query=${encodeURIComponent(
+              q
+            )}&per_page=2`,
+            { headers: { Authorization: PEXELS_API_KEY } }
+          );
+          const data = await r.json();
+          const results = (data.photos || []).map((p) => p.src?.large).filter(Boolean);
+          if (results.length) {
+            imageURLs.push(...results);
+            break;
+          }
+        } catch {}
+      }
+    }
+
+    // Final absolute fallback
     if (!imageURLs.length) {
       imageURLs = ["https://via.placeholder.com/1200x600?text=No+Image+Found"];
     }
@@ -330,7 +364,8 @@ ${prompt}
 </script>
 `;
 
-    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    // ---------------- FINAL STREAM END ----------------
+    res.write(`data: ${JSON.stringify({ done: true, remaining: rate.remaining })}\n\n`);
     res.write(`data: [DONE]\n\n`);
     res.end();
   } catch (err) {
