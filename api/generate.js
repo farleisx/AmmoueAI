@@ -276,17 +276,19 @@ Your HTML is clean, modern, semantic, responsive, animated,
 beautifully styled, and engineered with extreme attention to detail.
 
 TASK:
-Generate ONE self-contained HTML file.
+Generate ONLY ONE self-contained HTML file.
 
 REPLIT-STYLE NARRATION:
 Before each major section, output a single line:
 [ACTION: ...] (3–5 words)
 
 ABSOLUTE RULES:
-- Output ONLY valid HTML and ACTION lines
-- NO markdown
-- NO explanations
-- NEVER invent URLs
+- Output ONLY valid HTML and ACTION lines.
+- DO NOT wrap the code in markdown backticks (\`\`\`html or \`\`\`).
+- NEVER start a new <!DOCTYPE html> if you have already started one.
+- DO NOT include conversational text like "Sure, here is your site".
+- NO markdown explanations.
+- NEVER invent URLs.
 
 CRITICAL IMAGE RULES:
 - NEVER output Base64 directly
@@ -331,8 +333,22 @@ ${prompt}
     let fullHtml = "";
 
     for await (const chunk of stream.stream ?? []) {
-      const text = chunk.text?.();
+      let text = chunk.text?.();
       if (text) {
+        // Clean markdown hallucinations if they occur mid-stream
+        text = text.replace(/```html/gi, "").replace(/```/g, "");
+
+        // Safety: If the model restarts the document, strip the redundant headers
+        if (fullHtml.length > 100) {
+            text = text.replace(/<!DOCTYPE html>/gi, "")
+                       .replace(/<html[^>]*>/gi, "")
+                       .replace(/<head>/gi, "")
+                       .replace(/<\/head>/gi, "")
+                       .replace(/<body[^>]*>/gi, "")
+                       .replace(/<\/body>/gi, "")
+                       .replace(/<\/html>/gi, "");
+        }
+
         fullHtml += text;
         res.write(`data: ${JSON.stringify({ text })}\n\n`);
       }
