@@ -22,8 +22,7 @@ const LIMITS = {
   pro: 10,
 };
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
+const WINDOW_MS = 60 * 1000;
 async function enforceDailyLimit(uid) {
   const userRef = db.collection("users").doc(uid);
   const snap = await userRef.get();
@@ -38,7 +37,7 @@ async function enforceDailyLimit(uid) {
 
   if (now > resetAt) {
     count = 0;
-    resetAt = now + DAY_MS;
+    resetAt = now + WINDOW_MS;
   }
 
   if (count >= limit) {
