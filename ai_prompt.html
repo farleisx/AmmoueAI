@@ -7,6 +7,7 @@
     <link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/bold-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         /* Luxury Color Palette: Midnight Gold & Deep Emerald */
@@ -361,7 +362,7 @@
             }
         } else { voiceBtn.classList.add('hidden'); }
 
-        /* ---------------- VISUAL SYNC LOGIC ---------------- */
+        /* ---------------- VISUAL SYNC & ROUTING LOGIC ---------------- */
         window.addEventListener('message', (event) => {
             if (event.data.type === 'SYNC_TEXT') {
                 const { syncId, newContent } = event.data;
@@ -374,10 +375,17 @@
                     currentHtml = doc.documentElement.outerHTML;
                     projectPages[currentPage] = currentHtml;
                     codeView.value = currentHtml;
-                    logs.innerHTML += `<div class="log-entry text-emerald-500/50">> Manual sync: Element ${syncId} updated.</div>`;
                     if (currentProjectId && auth.currentUser) {
-                        autoSaveProject(currentHtml, document.getElementById('user-prompt').value, currentProjectId, auth.currentUser.uid, logs.innerHTML, currentPage);
+                        autoSaveProject(projectPages, document.getElementById('user-prompt').value, currentProjectId, auth.currentUser.uid, logs.innerHTML, currentPage);
                     }
+                }
+            }
+            if (event.data.type === 'SWITCH_PAGE_INTERNAL') {
+                const targetPage = event.data.pageName;
+                if (projectPages[targetPage]) {
+                    window.switchPage(targetPage);
+                } else {
+                    logs.innerHTML += `<div class="log-entry text-red-400">> AI has not synthesized ${targetPage} yet.</div>`;
                 }
             }
         });
@@ -511,10 +519,7 @@
             document.getElementById('set-mobile').classList.replace('text-[#D4AF37]', 'text-gray-500');
             currentProjectId = project.id;
             if (project.pages) {
-                projectPages = {};
-                Object.entries(project.pages).forEach(([name, data]) => {
-                    projectPages[name] = data.html;
-                });
+                projectPages = project.pages;
                 currentPage = Object.keys(projectPages)[0] || "landing";
             } else {
                 projectPages = { "landing": project.htmlContent || "" };
@@ -566,8 +571,6 @@
             if (!isResume) {
                 logs.innerHTML = `<div class="log-entry text-emerald-500/50">> Initializing neural creative suite...</div>`;
                 currentHtml = "";
-            } else {
-                logs.innerHTML += '<div class="log-entry text-[#D4AF37]">> Resuming synthesis from last stable state...</div>';
             }
             
             genBtn.disabled = true;
@@ -653,11 +656,10 @@
                 }
                 
                 const currentActionLogs = logs.innerHTML;
-                currentProjectId = await autoSaveProject(currentHtml, document.getElementById('user-prompt').value, currentProjectId, auth.currentUser.uid, currentActionLogs, currentPage);
+                currentProjectId = await autoSaveProject(projectPages, document.getElementById('user-prompt').value, currentProjectId, auth.currentUser.uid, currentActionLogs, currentPage);
                 await refreshUsage();
                 const projects = await getUserProjects(auth.currentUser.uid);
                 renderProjectHistory(projects);
-                logs.innerHTML += '<div class="log-entry text-emerald-500 font-bold">> Rendering cycle finalized.</div>';
             } catch (err) {
                 if (err.name !== 'AbortError') logs.innerHTML += '<div class="log-entry text-red-500">> Synthesis terminated unexpectedly.</div>';
             } finally {
@@ -784,20 +786,19 @@
                             newContent: el.innerHTML
                         }, '*');
                     });
-                    el.addEventListener('focus', () => {
-                        el.style.outline = '2px solid #10b981';
-                        el.style.outlineOffset = '2px';
-                    });
-                    el.addEventListener('mouseenter', () => { 
-                        if(document.activeElement !== el) {
-                            el.style.boxShadow = '0 0 0 1px #D4AF37';
-                            el.style.background = 'rgba(16,185,129,0.05)';
+                });
+
+                document.querySelectorAll('a').forEach(link => {
+                    link.addEventListener('click', (e) => {
+                        const href = link.getAttribute('href');
+                        if (href && href.endsWith('.html')) {
+                            e.preventDefault();
+                            const pageName = href.replace('.html', '');
+                            window.parent.postMessage({
+                                type: 'SWITCH_PAGE_INTERNAL',
+                                pageName: pageName
+                            }, '*');
                         }
-                    });
-                    el.addEventListener('mouseleave', () => { 
-                        el.style.background = 'transparent';
-                        if(document.activeElement !== el) el.style.boxShadow = 'none'; 
-                        el.style.outline = 'none'; 
                     });
                 });
             `;
