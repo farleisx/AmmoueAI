@@ -78,15 +78,12 @@
         .action-line { display: flex; align-items: center; gap: 8px; font-size: 10px; font-weight: 700; color: var(--emerald); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; animation: fadeIn 0.4s ease; }
         .action-check { width: 14px; height: 14px; background: rgba(16, 185, 129, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 8px; }
 
-        /* 3A & 3B: Presets & Styles */
         .preset-chip { font-size: 9px; font-weight: 800; padding: 4px 10px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); color: #71717a; transition: all 0.3s; cursor: pointer; text-transform: uppercase; }
         .preset-chip:hover { border-color: var(--gold); color: white; background: rgba(212,175,55,0.05); }
         
         button { cursor: pointer; }
-        /* Luxury Detail: Cursor Consistency */
         a, [contenteditable] { cursor: text; }
 
-        /* Multi-page styling */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
@@ -161,8 +158,7 @@
     <main class="flex-1 flex overflow-hidden">
         <aside class="w-[400px] border-r border-white/5 p-6 flex flex-col gap-6 bg-[#0a0a0b]">
             <div id="page-navigator" class="flex items-center gap-2 overflow-x-auto pb-2 border-b border-white/5 no-scrollbar">
-                <div id="pages-container" class="flex gap-2">
-                    </div>
+                <div id="pages-container" class="flex gap-2"></div>
                 <button id="add-page-btn" class="p-2 text-gray-500 hover:text-[#D4AF37] transition-all" title="Add Page">
                     <i class="fa-solid fa-plus-circle text-lg"></i>
                 </button>
@@ -376,7 +372,6 @@
                 if (target) {
                     target.innerHTML = newContent;
                     currentHtml = doc.documentElement.outerHTML;
-                    // Update state object
                     projectPages[currentPage] = currentHtml;
                     codeView.value = currentHtml;
                     logs.innerHTML += `<div class="log-entry text-emerald-500/50">> Manual sync: Element ${syncId} updated.</div>`;
@@ -437,12 +432,9 @@
             if (!currentHtml) return alert("Generate content first.");
             const zip = new JSZip();
             const slug = document.getElementById('slug-input').value || 'ammoue-project';
-            
-            // Logic to include all pages from project.pages
             for (const [pageName, pageData] of Object.entries(projectPages)) {
                 zip.file(`${pageName}.html`, pageData || "");
             }
-            
             const content = await zip.generateAsync({type:"blob"});
             const link = document.createElement("a");
             link.href = URL.createObjectURL(content);
@@ -481,7 +473,6 @@
         }
 
         window.switchPage = (name) => {
-            // Save current content to state before switching
             projectPages[currentPage] = currentHtml;
             currentPage = name;
             currentHtml = projectPages[name] || "";
@@ -518,10 +509,7 @@
             frame.className = "shadow-[0_40px_100px_rgba(0,0,0,0.6)] w-full h-full rounded-sm";
             document.getElementById('set-desktop').classList.add('text-[#D4AF37]');
             document.getElementById('set-mobile').classList.replace('text-[#D4AF37]', 'text-gray-500');
-
             currentProjectId = project.id;
-            
-            // Handle multiple pages per project from Firestore
             if (project.pages) {
                 projectPages = {};
                 Object.entries(project.pages).forEach(([name, data]) => {
@@ -532,14 +520,11 @@
                 projectPages = { "landing": project.htmlContent || "" };
                 currentPage = "landing";
             }
-
             currentHtml = projectPages[currentPage] || "";
             activeLiveUrl = project.deploymentUrl || null;
             document.getElementById("user-prompt").value = project.prompt || "";
-            
             renderPageTabs();
             updateFrame(currentHtml, false);
-
             if (activeLiveUrl) {
                 publishBtn.innerText = "LIVE";
                 publishBtn.classList.replace("bg-emerald-600", "bg-emerald-500");
@@ -579,7 +564,7 @@
             stopBtn.classList.remove('hidden');
             
             if (!isResume) {
-                logs.innerHTML = `<div class="log-entry text-emerald-500/50">> Initializing neural creative suite for page: ${currentPage}...</div>`;
+                logs.innerHTML = `<div class="log-entry text-emerald-500/50">> Initializing neural creative suite...</div>`;
                 currentHtml = "";
             } else {
                 logs.innerHTML += '<div class="log-entry text-[#D4AF37]">> Resuming synthesis from last stable state...</div>';
@@ -630,18 +615,29 @@
                             try {
                                 const json = JSON.parse(dataStr);
                                 if (json.text) {
+                                    // AUTOMATED MULTI-PAGE DETECTION
+                                    const autoPageMatch = json.text.match(/\[NEW_PAGE:\s*(.*?)\]/);
+                                    if (autoPageMatch) {
+                                        const autoName = autoPageMatch[1].trim().toLowerCase();
+                                        if (!projectPages[autoName]) {
+                                            projectPages[autoName] = ""; 
+                                            currentPage = autoName; 
+                                            currentHtml = ""; 
+                                            renderPageTabs(); 
+                                            logs.innerHTML += `<div class="log-entry text-[#D4AF37]">> AI initialized new architecture: ${autoName}</div>`;
+                                        }
+                                    }
+
                                     const actionMatch = json.text.match(/\[ACTION:\s*(.*?)\]/);
                                     if (actionMatch) { 
-                                        const actionText = actionMatch[1];
                                         const actionEl = document.createElement('div');
                                         actionEl.className = "action-line";
-                                        actionEl.innerHTML = `<div class="action-check"><i class="fa-solid fa-check"></i></div><span>${actionText}</span>`;
+                                        actionEl.innerHTML = `<div class="action-check"><i class="fa-solid fa-check"></i></div><span>${actionMatch[1]}</span>`;
                                         logs.appendChild(actionEl);
                                         logs.parentElement.scrollTop = logs.parentElement.scrollHeight;
                                     }
-                                    const cleanChunk = json.text.replace(/\[ACTION:.*?\]/g, "");
                                     
-                                    // Update content per current page
+                                    const cleanChunk = json.text.replace(/\[ACTION:.*?\]/g, "").replace(/\[NEW_PAGE:.*?\]/g, "");
                                     currentHtml += cleanChunk;
                                     projectPages[currentPage] = currentHtml;
                                     updateFrameDebounced(currentHtml);
@@ -667,7 +663,6 @@
             } finally {
                 pf.style.width = "100%";
                 setTimeout(() => pb.classList.add('hidden'), 600);
-                
                 genBtn.disabled = false;
                 stopBtn.classList.add('hidden');
                 document.getElementById('gen-icon').innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i>';
@@ -699,8 +694,6 @@
             try {
                 const token = await auth.currentUser.getIdToken();
                 const faviconHtml = `<link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">`;
-                
-                // For deployment, we use the primary current HTML
                 const finalContent = currentHtml.includes('<head>') ? currentHtml.replace('<head>', `<head>${faviconHtml}`) : faviconHtml + currentHtml;
                 const customDomain = document.getElementById("custom-domain-input")?.value?.trim();
                 const res = await fetch('/api/deploy', {
@@ -758,11 +751,9 @@
             document.getElementById('thinking-box').classList.add('hidden');
             frame.srcdoc = "";
             codeView.value = "";
-            
             currentPage = "landing";
             projectPages = { "landing": "" };
             renderPageTabs();
-
             generateCoolName();
             publishBtn.innerText = "PUBLISH";
             publishBtn.classList.replace('bg-emerald-500', 'bg-emerald-600');
@@ -772,20 +763,17 @@
             const parser = new DOMParser();
             const sanitizedHtml = h.replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gim, "");
             const doc = parser.parseFromString(sanitizedHtml, 'text/html');
-            
             doc.querySelectorAll('*').forEach(el => {
                 [...el.attributes].forEach(attr => {
                     if (attr.name.toLowerCase().startsWith('on')) el.removeAttribute(attr.name);
                 });
             });
-
             const textTags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'li', 'button'];
             doc.querySelectorAll(textTags.join(',')).forEach((el, index) => {
                 el.setAttribute('contenteditable', 'true');
                 el.setAttribute('data-sync-id', index);
                 el.style.outline = 'none';
             });
-
             const s = doc.createElement('script');
             s.textContent = `
                 document.querySelectorAll('[contenteditable]').forEach(el => {
@@ -829,8 +817,7 @@
                 document.getElementById('login-btn').classList.add('hidden');
                 document.getElementById('user-avatar').src = u.photoURL;
                 const plan = await getUserPlan(u.uid);
-                const customDomainInput = document.getElementById("custom-domain-input");
-                if (plan === "pro") customDomainInput.classList.remove("hidden");
+                if (plan === "pro") document.getElementById("custom-domain-input").classList.remove("hidden");
                 await refreshUsage();
                 const projects = await getUserProjects(u.uid);
                 renderProjectHistory(projects);
@@ -841,8 +828,6 @@
             }
         });
         document.getElementById('logout-btn').onclick = () => signOut(auth);
-
-        // Initial tab render
         renderPageTabs();
     </script>
 </body>
