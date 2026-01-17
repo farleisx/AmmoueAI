@@ -51,13 +51,14 @@ export async function getUserPlan(userId) {
 /* ================= PROJECT AUTOSAVE ================= */
 
 export async function autoSaveProject(
-  htmlContent,
+  allPages, // Updated to accept the projectPages object
   userPrompt,
   existingProjectId,
   currentUserId,
-  actionLogs = ""
+  actionLogs = "",
+  activePageName = "landing" // New: tracks the current view
 ) {
-  if (!currentUserId || !htmlContent) return null;
+  if (!currentUserId || !allPages) return null;
 
   try {
     const projectsRef = collection(
@@ -69,23 +70,24 @@ export async function autoSaveProject(
       "projects"
     );
 
+    // Prepare data including the full pages map
+    const projectData = {
+      prompt: userPrompt.replace(/\\n/g, "\n"),
+      htmlContent: allPages[activePageName] || "", // Primary page for compatibility
+      pages: allPages,                             // The map of all generated pages
+      actionLogs,
+      updatedAt: serverTimestamp()
+    };
+
     if (existingProjectId) {
       const docRef = doc(projectsRef, existingProjectId);
-      await updateDoc(docRef, {
-        prompt: userPrompt.replace(/\\n/g, "\n"),
-        htmlContent,
-        actionLogs,
-        updatedAt: serverTimestamp()
-      });
+      await updateDoc(docRef, projectData);
       return existingProjectId;
     } else {
       const newDocRef = await addDoc(projectsRef, {
-        prompt: userPrompt.replace(/\\n/g, "\n"),
-        htmlContent,
-        actionLogs,
+        ...projectData,
         deploymentUrl: null,
         createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
       });
       return newDocRef.id;
     }
