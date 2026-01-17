@@ -1,4 +1,4 @@
-/firefile.js
+// firefile.js
 
 /* ================= FIREBASE CONFIG ================= */
 
