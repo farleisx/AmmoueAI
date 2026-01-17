@@ -85,6 +85,10 @@
         button { cursor: pointer; }
         /* Luxury Detail: Cursor Consistency */
         a, [contenteditable] { cursor: text; }
+
+        /* Multi-page styling */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden">
@@ -156,6 +160,14 @@
 
     <main class="flex-1 flex overflow-hidden">
         <aside class="w-[400px] border-r border-white/5 p-6 flex flex-col gap-6 bg-[#0a0a0b]">
+            <div id="page-navigator" class="flex items-center gap-2 overflow-x-auto pb-2 border-b border-white/5 no-scrollbar">
+                <div id="pages-container" class="flex gap-2">
+                    </div>
+                <button id="add-page-btn" class="p-2 text-gray-500 hover:text-[#D4AF37] transition-all" title="Add Page">
+                    <i class="fa-solid fa-plus-circle text-lg"></i>
+                </button>
+            </div>
+
             <div class="flex justify-between items-center">
                 <button id="new-project-btn" class="bg-white/5 hover:bg-white/10 text-[10px] font-black px-4 py-2 rounded-lg transition uppercase tracking-widest border border-white/10">
                     <i class="fa-solid fa-plus mr-2"></i> NEW PROJECT
@@ -259,6 +271,10 @@
         let activeLiveUrl = null;
         let frameTimeout;
 
+        // Multi-page state management
+        let currentPage = "landing";
+        let projectPages = { "landing": "" };
+
         const genBtn = document.getElementById('gen-btn');
         const stopBtn = document.getElementById('stop-btn');
         const resumeBtn = document.getElementById('resume-btn');
@@ -274,6 +290,9 @@
         const confirmDeployBtn = document.getElementById('confirm-deploy-btn');
         const cancelDeployBtn = document.getElementById('cancel-deploy-btn');
         const usageBadge = document.getElementById('usage-badge');
+
+        const pagesContainer = document.getElementById('pages-container');
+        const addPageBtn = document.getElementById('add-page-btn');
 
         /* ---------------- USAGE TRACKING ---------------- */
         let resetInterval = null;
@@ -357,10 +376,12 @@
                 if (target) {
                     target.innerHTML = newContent;
                     currentHtml = doc.documentElement.outerHTML;
+                    // Update state object
+                    projectPages[currentPage] = currentHtml;
                     codeView.value = currentHtml;
                     logs.innerHTML += `<div class="log-entry text-emerald-500/50">> Manual sync: Element ${syncId} updated.</div>`;
                     if (currentProjectId && auth.currentUser) {
-                        autoSaveProject(currentHtml, document.getElementById('user-prompt').value, currentProjectId, auth.currentUser.uid, logs.innerHTML);
+                        autoSaveProject(currentHtml, document.getElementById('user-prompt').value, currentProjectId, auth.currentUser.uid, logs.innerHTML, currentPage);
                     }
                 }
             }
@@ -416,7 +437,12 @@
             if (!currentHtml) return alert("Generate content first.");
             const zip = new JSZip();
             const slug = document.getElementById('slug-input').value || 'ammoue-project';
-            zip.file("index.html", currentHtml);
+            
+            // Logic to include all pages from project.pages
+            for (const [pageName, pageData] of Object.entries(projectPages)) {
+                zip.file(`${pageName}.html`, pageData || "");
+            }
+            
             const content = await zip.generateAsync({type:"blob"});
             const link = document.createElement("a");
             link.href = URL.createObjectURL(content);
@@ -445,6 +471,33 @@
         }
         window.removeImg = (i) => { attachedImages.splice(i, 1); renderImages(); };
 
+        /* ---------------- PAGE MANAGEMENT ---------------- */
+        function renderPageTabs() {
+            pagesContainer.innerHTML = Object.keys(projectPages).map(name => `
+                <button onclick="window.switchPage('${name}')" class="px-3 py-1 text-[9px] font-black rounded-lg transition-all uppercase tracking-tighter ${currentPage === name ? 'bg-[#D4AF37] text-black' : 'bg-white/5 text-gray-500 hover:text-white'}">
+                    ${name}
+                </button>
+            `).join('');
+        }
+
+        window.switchPage = (name) => {
+            // Save current content to state before switching
+            projectPages[currentPage] = currentHtml;
+            currentPage = name;
+            currentHtml = projectPages[name] || "";
+            updateFrame(currentHtml, false);
+            renderPageTabs();
+            logs.innerHTML += `<div class="log-entry text-gray-500">> Neural context shifted to page: ${name}</div>`;
+        };
+
+        addPageBtn.onclick = () => {
+            const newPage = prompt("Identify the new page (e.g., pricing, gallery):");
+            if (newPage && !projectPages[newPage]) {
+                projectPages[newPage.toLowerCase()] = "";
+                window.switchPage(newPage.toLowerCase());
+            }
+        };
+
         /* ---------------- PROJECT HISTORY LOADING ---------------- */
         function renderProjectHistory(projects) {
             const list = document.getElementById("history-list");
@@ -462,16 +515,31 @@
         }
 
         function loadProject(project) {
-            // ⚠️ 3: Mobile Preview Mode Reset Safety
             frame.className = "shadow-[0_40px_100px_rgba(0,0,0,0.6)] w-full h-full rounded-sm";
             document.getElementById('set-desktop').classList.add('text-[#D4AF37]');
             document.getElementById('set-mobile').classList.replace('text-[#D4AF37]', 'text-gray-500');
 
             currentProjectId = project.id;
-            currentHtml = project.htmlContent || "";
+            
+            // Handle multiple pages per project from Firestore
+            if (project.pages) {
+                projectPages = {};
+                Object.entries(project.pages).forEach(([name, data]) => {
+                    projectPages[name] = data.html;
+                });
+                currentPage = Object.keys(projectPages)[0] || "landing";
+            } else {
+                projectPages = { "landing": project.htmlContent || "" };
+                currentPage = "landing";
+            }
+
+            currentHtml = projectPages[currentPage] || "";
             activeLiveUrl = project.deploymentUrl || null;
             document.getElementById("user-prompt").value = project.prompt || "";
+            
+            renderPageTabs();
             updateFrame(currentHtml, false);
+
             if (activeLiveUrl) {
                 publishBtn.innerText = "LIVE";
                 publishBtn.classList.replace("bg-emerald-600", "bg-emerald-500");
@@ -511,7 +579,7 @@
             stopBtn.classList.remove('hidden');
             
             if (!isResume) {
-                logs.innerHTML = '<div class="log-entry text-emerald-500/50">> Initializing neural creative suite...</div>';
+                logs.innerHTML = `<div class="log-entry text-emerald-500/50">> Initializing neural creative suite for page: ${currentPage}...</div>`;
                 currentHtml = "";
             } else {
                 logs.innerHTML += '<div class="log-entry text-[#D4AF37]">> Resuming synthesis from last stable state...</div>';
@@ -528,7 +596,12 @@
                 const res = await fetch('/api/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ prompt: finalPrompt, images: attachedImages, partialCode: isResume ? currentHtml : null }),
+                    body: JSON.stringify({ 
+                        prompt: finalPrompt, 
+                        images: attachedImages, 
+                        partialCode: isResume ? currentHtml : null,
+                        pageName: currentPage 
+                    }),
                     signal: abortCtrl.signal
                 });
 
@@ -567,7 +640,10 @@
                                         logs.parentElement.scrollTop = logs.parentElement.scrollHeight;
                                     }
                                     const cleanChunk = json.text.replace(/\[ACTION:.*?\]/g, "");
+                                    
+                                    // Update content per current page
                                     currentHtml += cleanChunk;
+                                    projectPages[currentPage] = currentHtml;
                                     updateFrameDebounced(currentHtml);
                                 }
                             } catch (e) {}
@@ -581,7 +657,7 @@
                 }
                 
                 const currentActionLogs = logs.innerHTML;
-                currentProjectId = await autoSaveProject(currentHtml, document.getElementById('user-prompt').value, currentProjectId, auth.currentUser.uid, currentActionLogs);
+                currentProjectId = await autoSaveProject(currentHtml, document.getElementById('user-prompt').value, currentProjectId, auth.currentUser.uid, currentActionLogs, currentPage);
                 await refreshUsage();
                 const projects = await getUserProjects(auth.currentUser.uid);
                 renderProjectHistory(projects);
@@ -589,7 +665,6 @@
             } catch (err) {
                 if (err.name !== 'AbortError') logs.innerHTML += '<div class="log-entry text-red-500">> Synthesis terminated unexpectedly.</div>';
             } finally {
-                // ⚠️ 2: Ensure Progress Bar Hits 100% and hides always
                 pf.style.width = "100%";
                 setTimeout(() => pb.classList.add('hidden'), 600);
                 
@@ -624,6 +699,8 @@
             try {
                 const token = await auth.currentUser.getIdToken();
                 const faviconHtml = `<link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">`;
+                
+                // For deployment, we use the primary current HTML
                 const finalContent = currentHtml.includes('<head>') ? currentHtml.replace('<head>', `<head>${faviconHtml}`) : faviconHtml + currentHtml;
                 const customDomain = document.getElementById("custom-domain-input")?.value?.trim();
                 const res = await fetch('/api/deploy', {
@@ -681,6 +758,11 @@
             document.getElementById('thinking-box').classList.add('hidden');
             frame.srcdoc = "";
             codeView.value = "";
+            
+            currentPage = "landing";
+            projectPages = { "landing": "" };
+            renderPageTabs();
+
             generateCoolName();
             publishBtn.innerText = "PUBLISH";
             publishBtn.classList.replace('bg-emerald-500', 'bg-emerald-600');
@@ -688,11 +770,9 @@
 
         function updateFrame(h, resetLive = false) {
             const parser = new DOMParser();
-            // 4B: Basic Sanitization
             const sanitizedHtml = h.replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gim, "");
             const doc = parser.parseFromString(sanitizedHtml, 'text/html');
             
-            // ⚠️ 1: Attribute Sanitization (Block onerror, etc)
             doc.querySelectorAll('*').forEach(el => {
                 [...el.attributes].forEach(attr => {
                     if (attr.name.toLowerCase().startsWith('on')) el.removeAttribute(attr.name);
@@ -720,7 +800,6 @@
                         el.style.outline = '2px solid #10b981';
                         el.style.outlineOffset = '2px';
                     });
-                    /* Luxury Detail: Hover Affordance */
                     el.addEventListener('mouseenter', () => { 
                         if(document.activeElement !== el) {
                             el.style.boxShadow = '0 0 0 1px #D4AF37';
@@ -756,11 +835,15 @@
                 const projects = await getUserProjects(u.uid);
                 renderProjectHistory(projects);
                 if (projects.length) loadProject(projects[0]);
+                renderPageTabs();
             } else {
                 window.location.href = "/login";
             }
         });
         document.getElementById('logout-btn').onclick = () => signOut(auth);
+
+        // Initial tab render
+        renderPageTabs();
     </script>
 </body>
 </html>
