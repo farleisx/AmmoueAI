@@ -78,20 +78,19 @@
 </div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+import { auth, db, appId, PLANS } from "./firefile.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
-  authDomain: "ammoueai.firebaseapp.com",
-  projectId: "ammoueai"
-};
+import { onAuthStateChanged } from
+  "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = firebaseConfig.projectId;
+import {
+  doc,
+  getDoc,
+  setDoc,
+  collection,
+  getDocs
+} from
+  "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
 let currentUser;
 
@@ -99,7 +98,7 @@ const profilePlanEl = document.getElementById("profile-plan");
 const profilePlanDesc = document.getElementById("profile-plan-desc");
 const profileUpgradeWrapper = document.getElementById("profile-upgrade-wrapper");
 
-onAuthStateChanged(auth, async user => {
+onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.href = "/login";
     return;
@@ -112,33 +111,35 @@ onAuthStateChanged(auth, async user => {
   const snap = await getDoc(userRef);
 
   let plan = "free";
+  let username = "";
 
   if (snap.exists()) {
     const data = snap.data();
-    document.getElementById("usernameInput").value = data.username || "";
     plan = data.plan || "free";
+    username = data.username || "";
   }
 
-  // PLAN DISPLAY
-  profilePlanEl.textContent = plan.toUpperCase();
-  profilePlanEl.className = `text-xl font-extrabold ${
-    plan === "pro" ? "text-yellow-600" : "text-ammoue"
-  }`;
+  document.getElementById("usernameInput").value = username;
 
-  if (plan === "pro") {
-    profilePlanDesc.textContent = "5 separated Deployments , 5 Refinments request And Agent 2 Access.";
-    profileUpgradeWrapper.innerHTML = "";
-  } else {
-    profilePlanDesc.textContent = "Limited usage on Free plan";
-    profileUpgradeWrapper.innerHTML = `
+  /* ================= PLAN DISPLAY ================= */
+
+  const planConfig = PLANS[plan] || PLANS.free;
+
+  profilePlanEl.textContent = planConfig.name;
+  profilePlanEl.className = `text-xl font-extrabold ${planConfig.color}`;
+  profilePlanDesc.textContent = planConfig.description;
+
+  profileUpgradeWrapper.innerHTML = planConfig.showUpgrade
+    ? `
       <a href="/upgrade"
          class="bg-yellow-500 text-white px-5 py-3 rounded-xl font-semibold hover:bg-yellow-600 transition shadow-md">
         Upgrade
       </a>
-    `;
-  }
+    `
+    : "";
 
-  // --- PROJECTS + GENERATION + DEPLOYMENT COUNTS ---
+  /* ================= STATS ================= */
+
   const projectsSnap = await getDocs(
     collection(db, "artifacts", appId, "users", user.uid, "projects")
   );
@@ -146,9 +147,9 @@ onAuthStateChanged(auth, async user => {
   let generationCount = 0;
   let deploymentCount = 0;
 
-  projectsSnap.forEach((doc) => {
-    const p = doc.data();
-    generationCount += p.generations || 1; // fallback if no field, 1 per project
+  projectsSnap.forEach((docSnap) => {
+    const p = docSnap.data();
+    generationCount += p.generations || 1;
     if (p.deploymentUrl) deploymentCount += 1;
   });
 
@@ -157,14 +158,21 @@ onAuthStateChanged(auth, async user => {
   document.getElementById("projectCount").textContent = projectsSnap.size;
 });
 
+/* ================= USERNAME SAVE ================= */
+
 window.saveUsername = async function () {
-  const username = document.getElementById("usernameInput").value.trim();
+  const input = document.getElementById("usernameInput");
+  const username = input.value.trim();
   if (!username) return;
 
-  await setDoc(doc(db, "users", currentUser.uid), {
-    email: currentUser.email,
-    username
-  }, { merge: true });
+  await setDoc(
+    doc(db, "users", currentUser.uid),
+    {
+      email: currentUser.email,
+      username
+    },
+    { merge: true }
+  );
 
   document.getElementById("usernamePopup").classList.remove("hidden");
 };
