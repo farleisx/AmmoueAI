@@ -153,6 +153,8 @@ export default async function handler(req, res) {
       pexelsQuery: userQuery,
       imageCount = 8,
       videoCount = 2,
+      projectId,
+      pageName = "landing", // new: multi-page support
     } = req.body;
 
     if (!prompt) {
@@ -235,7 +237,6 @@ Return ONLY the query text.
             )}&per_page=2`,
             { headers: { Authorization: PEXELS_API_KEY } }
           );
-          const data = await r.json();
           const results = (data.photos || []).map((p) => p.src?.large).filter(Boolean);
           if (results.length) {
             imageURLs.push(...results);
@@ -379,6 +380,20 @@ ${prompt}
 })();
 </script>
 `;
+
+    /* ================== ADDED: SAVE TO FIRESTORE PER PAGE ================== */
+    if (projectId) {
+      const projectRef = db.collection("projects").doc(projectId);
+      await projectRef.set(
+        {
+          pages: {
+            [pageName]: { html: finalHtml, updatedAt: admin.firestore.FieldValue.serverTimestamp() }
+          }
+        },
+        { merge: true }
+      );
+    }
+    /* ================= END ADDED ================= */
 
     // ---------------- FINAL STREAM END ----------------
     res.write(`data: ${JSON.stringify({ done: true, remaining: rate.remaining })}\n\n`);
