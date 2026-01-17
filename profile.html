@@ -27,7 +27,6 @@
 <main class="max-w-3xl mx-auto p-6">
   <h1 class="text-3xl font-bold mb-6">Your Profile</h1>
 
-  <!-- User Info -->
   <div class="bg-white rounded-2xl shadow p-6 mb-6">
     <p class="text-sm text-gray-500">Email</p>
     <p id="email" class="font-semibold mb-4">Loading...</p>
@@ -39,7 +38,6 @@
     </button>
   </div>
 
-  <!-- Subscription Plan -->
   <div class="bg-white rounded-2xl shadow p-6 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
     <div>
       <p class="text-sm text-gray-500">Your Plan</p>
@@ -49,7 +47,6 @@
     <div id="profile-upgrade-wrapper"></div>
   </div>
 
-  <!-- Stats -->
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
     <div class="bg-white p-4 rounded-2xl shadow text-center">
       <p class="text-sm text-gray-500">Generations</p>
@@ -66,13 +63,34 @@
   </div>
 </main>
 
-<!-- Username Saved Popup -->
-<div id="usernamePopup" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
-  <div class="bg-white rounded-2xl shadow-xl p-6 w-[90%] max-w-sm text-center">
-    <h2 class="text-xl font-bold text-ammoue mb-2">Success</h2>
-    <p class="text-sm text-gray-600 mb-4">Your username has been saved successfully.</p>
-    <button onclick="closeUsernamePopup()" class="bg-ammoue text-white px-5 py-2 rounded-xl font-semibold w-full">
-      OK
+<div
+  id="usernamePopup"
+  class="fixed inset-0 hidden z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+>
+  <div
+    id="usernamePopupCard"
+    class="bg-white rounded-2xl shadow-2xl p-6 w-[90%] max-w-sm text-center
+           scale-90 opacity-0 transition-all duration-300"
+  >
+    <div class="mb-3 flex justify-center">
+      <div class="h-12 w-12 rounded-full bg-ammoue/10 flex items-center justify-center">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-ammoue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M5 13l4 4L19 7" />
+        </svg>
+      </div>
+    </div>
+
+    <h2 class="text-xl font-bold text-ammoue mb-1">Username Saved</h2>
+    <p class="text-sm text-gray-600 mb-5">
+      Your username has been updated successfully.
+    </p>
+
+    <button
+      onclick="closeUsernamePopup()"
+      class="bg-ammoue text-white px-5 py-2 rounded-xl font-semibold w-full hover:opacity-90 transition"
+    >
+      Done
     </button>
   </div>
 </div>
@@ -174,11 +192,30 @@ window.saveUsername = async function () {
     { merge: true }
   );
 
-  document.getElementById("usernamePopup").classList.remove("hidden");
+  const popup = document.getElementById("usernamePopup");
+  const card = document.getElementById("usernamePopupCard");
+
+  popup.classList.remove("hidden");
+  popup.classList.add("flex");
+
+  // animate in
+  setTimeout(() => {
+    card.classList.remove("scale-90", "opacity-0");
+    card.classList.add("scale-100", "opacity-100");
+  }, 10);
 };
 
 window.closeUsernamePopup = function () {
-  document.getElementById("usernamePopup").classList.add("hidden");
+  const popup = document.getElementById("usernamePopup");
+  const card = document.getElementById("usernamePopupCard");
+
+  // animate out
+  card.classList.add("scale-90", "opacity-0");
+
+  setTimeout(() => {
+    popup.classList.add("hidden");
+    popup.classList.remove("flex");
+  }, 300);
 };
 </script>
 </body>
