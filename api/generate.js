@@ -176,6 +176,7 @@ export default async function handler(req, res) {
       pageName = "landing", // new: multi-page support
       targetSection = null, // new: for refinement
       isRefinement = false, // new: mode toggle
+      framework = "vanilla" // new: framework support
     } = req.body;
 
     if (!prompt) {
@@ -317,6 +318,8 @@ Return ONLY the query text.
       systemInstruction = `
 You are editing an EXISTING production website section.
 
+FRAMEWORK MODE: ${framework.toUpperCase()}
+
 WEBSITE TOPIC (LOCKED — DO NOT CHANGE):
 "${topicLock}"
 
@@ -331,52 +334,48 @@ RULES:
 - DO NOT change the website topic.
 - DO NOT touch other sections.
 - Preserve the data-section="${targetSection}" attribute.
-- Output ONLY the updated section HTML.
-- NO markdown, NO explanations, NO full document tags (html/body).
+- Output ONLY the updated section code consistent with ${framework}.
+- NO markdown, NO explanations, NO full document tags.
 - Use these stock images if needed: ${imageURLs.join("\n")}
 `.trim();
     } else {
       systemInstruction = `
 You are an elite, world-class, top 0.1% web development AI —
 a principal-level engineer who builds award-winning, visually stunning,
-ultra-polished, production-grade websites for high-end startups,
-luxury brands, and Silicon Valley companies.
+ultra-polished, production-grade websites.
 
-You think like a senior frontend architect, UI/UX perfectionist,
-and performance-focused engineer combined.
-Your HTML is clean, modern, semantic, responsive, animated,
-beautifully styled, and engineered with extreme attention to detail.
+SELECTED FRAMEWORK: ${framework.toUpperCase()}
+
+ARCHITECTURAL PROTOCOL PER FRAMEWORK:
+- If VANILLA: Output complete HTML with Tailwind CSS CDN and script tags.
+- If REACT: Output standard JSX functional components. Assume Lucide-React and Tailwind are available.
+- If NEXTJS: Output Page-router or App-router compliant React code.
+- If VUE: Output Single File Component (.vue) structure.
 
 TASK:
 Generate a complete website based on the user prompt. If the user implies a multi-page site 
 (e.g., "a landing page and a dashboard" or "add a login page"), you must generate them sequentially.
 
-ARCHITECTURAL PROTOCOL:
+GENERAL ARCHITECTURAL PROTOCOL:
 1. BEFORE starting the code for ANY page, output this exact tag: [NEW_PAGE: page_name]
 2. The first page must always be: [NEW_PAGE: landing]
-3. Use lowercase snake_case for page names (e.g., [NEW_PAGE: member_portal]).
-4. All internal <a> links must point to "page_name.html" (e.g., <a href="member_portal.html">).
+3. Use lowercase snake_case for page names.
+4. All internal links must point to the appropriate extension/route for ${framework}.
 
 REPLIT-STYLE NARRATION:
 Before each major UI section within a page, output a single line:
 [ACTION: ...] (3–5 words)
 
 ABSOLUTE RULES:
-- Output ONLY valid HTML, [NEW_PAGE:] tags, and [ACTION:] lines.
-- DO NOT wrap the code in markdown backticks (\`\`\`html or \`\`\`).
-- NEVER start a new <!DOCTYPE html> if you have already started one for the current page.
-- DO NOT include conversational text like "Sure, here is your site".
-- NO markdown explanations.
-- NEVER invent URLs.
-- EVERY major section (header, hero, features, footer) MUST include a data-section="unique_name" attribute.
+- Output ONLY valid code, [NEW_PAGE:] tags, and [ACTION:] lines.
+- DO NOT wrap the code in markdown backticks.
+- NO conversational text.
+- EVERY major section MUST include a data-section="unique_name" attribute.
 
 CRITICAL IMAGE RULES:
-- NEVER output Base64 directly.
 - ALWAYS use this placeholder EXACTLY:
 <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-user-image="INDEX">
-- This placeholder WILL be replaced later.
-- NEVER omit src.
-- NEVER place ACTION inside HTML.
+- (For React/Vue, adapt the syntax but keep data-user-image attribute).
 
 HERO VIDEO:
 ${heroVideo || "None"}
@@ -419,11 +418,11 @@ ${prompt}
     for await (const chunk of stream.stream ?? []) {
       let text = chunk.text?.();
       if (text) {
-        // Clean markdown hallucinations if they occur mid-stream
-        text = text.replace(/```html/gi, "").replace(/```/g, "");
+        // Clean markdown hallucinations
+        text = text.replace(/```html/gi, "").replace(/```javascript/gi, "").replace(/```jsx/gi, "").replace(/```/g, "");
 
-        // Safety: If the model restarts the document, strip the redundant headers
-        if (!isRefinement && fullHtml.length > 100) {
+        // Safety for document restarts
+        if (!isRefinement && fullHtml.length > 100 && framework === "vanilla") {
             text = text.replace(/<!DOCTYPE html>/gi, "")
                        .replace(/<html[^>]*>/gi, "")
                        .replace(/<head>/gi, "")
@@ -442,11 +441,9 @@ ${prompt}
     let finalHtml = fullHtml;
 
     if (isRefinement && targetSection) {
-      // Patch the existing HTML with the new section content
       const oldFullHtml = projectData.pages?.[pageName]?.html || "";
       finalHtml = replaceSection(oldFullHtml, targetSection, fullHtml);
-    } else {
-      // Standard full generation hydration
+    } else if (framework === "vanilla") {
       finalHtml = finalHtml.replaceAll(
         /<img([^>]*?)data-user-image="(\d+)"([^>]*)>/g,
         '<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-user-image="$2" style="width:100%;height:auto;display:block;border-radius:12px;object-fit:cover;box-shadow:0 8px 24px rgba(0,0,0,0.2);transition:all 0.3s ease-in-out;">'
@@ -479,8 +476,12 @@ ${prompt}
       await projectRef.set(
         {
           topicLock,
+          framework, // Store the framework used for this project
           pages: {
-            [pageName]: { html: finalHtml, updatedAt: admin.firestore.FieldValue.serverTimestamp() }
+            [pageName]: { 
+                html: finalHtml, 
+                updatedAt: admin.firestore.FieldValue.serverTimestamp() 
+            }
           }
         },
         { merge: true }
