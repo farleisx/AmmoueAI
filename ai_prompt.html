@@ -210,6 +210,12 @@
                             <option value="neon">Neon</option>
                             <option value="brutalist">Brutalist</option>
                         </select>
+                        <select id="framework-selector" class="preset-chip bg-transparent outline-none border-emerald-500/30 text-emerald-500">
+                            <option value="vanilla">Vanilla HTML</option>
+                            <option value="react">React (Vite)</option>
+                            <option value="nextjs">Next.js</option>
+                            <option value="vue">Vue.js</option>
+                        </select>
                     </div>
 
                     <div id="voice-indicator" class="hidden absolute top-4 right-4 flex items-center gap-2">
@@ -579,7 +585,8 @@
             try {
                 const token = await auth.currentUser.getIdToken();
                 const style = document.getElementById('style-selector').value;
-                const finalPrompt = style ? `Style Directive: ${style}. ${document.getElementById('user-prompt').value}` : document.getElementById('user-prompt').value;
+                const framework = document.getElementById('framework-selector').value;
+                const finalPrompt = `Framework Directive: ${framework}. Style Directive: ${style}. ${document.getElementById('user-prompt').value}`;
 
                 const res = await fetch('/api/generate', {
                     method: 'POST',
@@ -588,7 +595,8 @@
                         prompt: finalPrompt, 
                         images: attachedImages, 
                         partialCode: isResume ? currentHtml : null,
-                        pageName: currentPage 
+                        pageName: currentPage,
+                        framework: framework
                     }),
                     signal: abortCtrl.signal
                 });
@@ -710,6 +718,7 @@
                 });
 
                 const customDomain = document.getElementById("custom-domain-input")?.value?.trim();
+                const framework = document.getElementById('framework-selector').value;
                 const res = await fetch('/api/deploy', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -717,7 +726,8 @@
                         files: filesToDeploy, // Sending the array of all pages
                         projectId: currentProjectId, 
                         slug, 
-                        customDomain: customDomain || null 
+                        customDomain: customDomain || null,
+                        framework: framework
                     })
                 });
                 const data = await res.json();
