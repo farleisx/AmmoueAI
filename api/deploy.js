@@ -9,6 +9,7 @@ const PLAN_LIMITS = { free: 1, pro: 5 };
 const VERCEL_TOKEN = process.env.VERCEL_TOKEN;
 const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID || null;
 const VERCEL_PROJECT = "ammoueai-sites"; // ✅ Dedicated project for user deployments
+const FIREBASE_PROJECT_ID = "ammoueai"; // ✅ Matches appId in fire_prompt.js
 
 /* ---------------- FIREBASE INIT ---------------- */
 if (!getApps().length) {
@@ -104,24 +105,24 @@ export default async function handler(req, res) {
   /* ---------------- FETCH ALL PAGES FOR DEPLOYMENT ---------------- */
   let vercelFiles = [];
   try {
-    const projectRef = db.collection("artifacts").doc(VERCEL_PROJECT).collection("users").doc(userId).collection("projects").doc(projectId);
+    const projectRef = db.collection("artifacts").doc(FIREBASE_PROJECT_ID).collection("users").doc(userId).collection("projects").doc(projectId);
     const projectSnap = await projectRef.get();
     
     if (projectSnap.exists) {
       const projectData = projectSnap.data();
-      const pages = projectData.pages || { "landing": htmlContent };
+      const pages = projectData.pages || { "landing": projectData.htmlContent || htmlContent };
 
       Object.entries(pages).forEach(([name, content]) => {
         // Map "landing" to index.html for root access
-        const fileName = name === "landing" ? "index.html" : `${name}.html`;
+        const fileName = (name === "landing" || name === "index") ? "index.html" : `${name.replace('.html', '')}.html`;
         
-        // FIX: Explicitly ensure content is a string and not undefined/null
-        const fileData = typeof content === 'string' ? content : (content?.html || "");
+        // Robust extraction ensuring a string is always sent
+        const fileData = typeof content === 'string' ? content : (content?.html || content?.content || "");
         
         vercelFiles.push({ file: fileName, data: String(fileData || "") });
         
         // Also provide landing.html so internal <a> links don't break
-        if (name === "landing") {
+        if (name === "landing" || name === "index") {
           vercelFiles.push({ file: "landing.html", data: String(fileData || "") });
         }
       });
@@ -132,6 +133,11 @@ export default async function handler(req, res) {
   } catch (err) {
     console.error("PROJECT FETCH ERROR:", err);
     return res.status(500).json({ error: "Failed to prepare deployment files" });
+  }
+
+  // Safety check to prevent empty deployments
+  if (vercelFiles.length === 0 || vercelFiles.every(f => !f.data || f.data.trim() === "")) {
+    return res.status(400).json({ error: "No content found for deployment. Please save your project first." });
   }
 
   /* ---------------- TOTAL DEPLOYMENT LIMIT (ADDED) ---------------- */
@@ -244,7 +250,7 @@ export default async function handler(req, res) {
           name: internalName,
           project: VERCEL_PROJECT,
           target: "production",
-          files: vercelFiles, // ✅ Updated to send the multi-page array
+          files: vercelFiles, 
           ...(aliasList.length > 0 && { alias: aliasList }),
         }),
       }
@@ -260,24 +266,37 @@ export default async function handler(req, res) {
       ? `https://${publicAlias}`
       : `https://${deployment.url}`;
 
-    /* -------- SAVE PROJECT -------- */
-    await db
+    /* -------- SAVE PROJECT (DUAL SAVE) -------- */
+    const updatePayload = {
+      slug: finalSlug || null,
+      deploymentId: deployment.id,
+      deploymentUrl,
+      customDomainUrl: customDomainUrl || null,
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+
+    // 1. Save to the path used by fire_prompt.js (ammoueai)
+    const firebasePath = db
+      .collection("artifacts")
+      .doc(FIREBASE_PROJECT_ID)
+      .collection("users")
+      .doc(userId)
+      .collection("projects")
+      .doc(projectId);
+
+    // 2. Save to the legacy path (ammoueai-sites)
+    const legacyPath = db
       .collection("artifacts")
       .doc(VERCEL_PROJECT)
       .collection("users")
       .doc(userId)
       .collection("projects")
-      .doc(projectId)
-      .set(
-        {
-          slug: finalSlug || null,
-          deploymentId: deployment.id,
-          deploymentUrl,
-          customDomainUrl: customDomainUrl || null,
-          updatedAt: FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-      );
+      .doc(projectId);
+
+    await Promise.all([
+      firebasePath.set(updatePayload, { merge: true }),
+      legacyPath.set(updatePayload, { merge: true })
+    ]);
 
     /* -------- DEPLOYMENT ANALYTICS (ADDED) -------- */
     await db
