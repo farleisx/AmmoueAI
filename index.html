@@ -8,6 +8,7 @@
     <title>Ammoue | AI-Powered Website Builder</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/typed.js@2.0.12"></script>
     <style>
         /* Custom Font Setup */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
@@ -109,7 +110,7 @@
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
                 <p class="text-sm font-semibold text-ammoue uppercase tracking-widest mb-3">The Future of Web Design</p>
                 <h1 class="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-gray-900 leading-tight mb-6">
-                    Build Your Website in <span class="text-ammoue">60 Seconds</span>. Seriously.
+                    Build Your <span id="typed-target" class="text-ammoue">Website</span> in <span class="text-ammoue">60 Seconds</span>. Seriously.
                 </h1>
                 <p class="mt-4 max-w-3xl mx-auto text-xl text-gray-500 mb-10">
                     Ammoue uses cutting-edge AI to design, write, and launch stunning, professional websites. Just describe your business and watch the magic happen.
@@ -391,6 +392,17 @@
                 mobileMenuIconContainer.setAttribute('data-lucide', 'menu');
                 lucide.createIcons();
             });
+        });
+
+        // 4. Typing Effect Script
+        var typed = new Typed('#typed-target', {
+            strings: ['Website', 'Design', 'Portfolio', 'Landing Page', 'App'],
+            typeSpeed: 80,
+            backSpeed: 50,
+            backDelay: 2000,
+            loop: true,
+            showCursor: true,
+            cursorChar: '|'
         });
     </script>
 </body>
