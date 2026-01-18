@@ -66,7 +66,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { htmlContent, projectId, slug, customDomain } = req.body;
+  const { htmlContent, projectId, slug, customDomain, framework = "vanilla" } = req.body;
 
   if (!projectId) {
     return res.status(400).json({ error: "Missing parameters" });
@@ -114,8 +114,12 @@ export default async function handler(req, res) {
 
       Object.entries(pages).forEach(([name, content]) => {
         // Map "landing" to index.html for root access
-        const fileName = (name === "landing" || name === "index") ? "index.html" : `${name.replace('.html', '')}.html`;
+        let fileName = (name === "landing" || name === "index") ? "index.html" : `${name.replace('.html', '')}.html`;
         
+        // FRAMEWORK ADJUSTMENT: Adjust file extensions for framework-specific deployments
+        if (framework === "react") fileName = fileName.replace(".html", ".jsx");
+        if (framework === "nextjs") fileName = fileName.replace(".html", ".js");
+
         // Robust extraction ensuring a string is always sent
         const fileData = typeof content === 'string' ? content : (content?.html || content?.content || "");
         
@@ -236,6 +240,14 @@ export default async function handler(req, res) {
       }
     }
 
+    // FRAMEWORK CONFIG: Define build settings based on framework type
+    const frameworkSettings = {
+      vanilla: { framework: null, buildCommand: null, outputDirectory: null },
+      react: { framework: "create-react-app", buildCommand: "npm run build", outputDirectory: "build" },
+      nextjs: { framework: "nextjs", buildCommand: "npm run build", outputDirectory: ".next" },
+      vue: { framework: "vue", buildCommand: "npm run build", outputDirectory: "dist" }
+    }[framework] || { framework: null };
+
     const deployRes = await fetch(
       `https://api.vercel.com/v13/deployments${
         VERCEL_TEAM_ID ? `?teamId=${VERCEL_TEAM_ID}` : ""
@@ -251,6 +263,7 @@ export default async function handler(req, res) {
           project: VERCEL_PROJECT,
           target: "production",
           files: vercelFiles, 
+          projectSettings: frameworkSettings, // Apply framework-specific build logic
           ...(aliasList.length > 0 && { alias: aliasList }),
         }),
       }
@@ -272,6 +285,7 @@ export default async function handler(req, res) {
       deploymentId: deployment.id,
       deploymentUrl,
       customDomainUrl: customDomainUrl || null,
+      framework: framework, // Save framework choice to DB
       updatedAt: FieldValue.serverTimestamp(),
     };
 
@@ -326,6 +340,7 @@ export default async function handler(req, res) {
       customDomainUrl,
       status: deployment.readyState,
       plan,
+      framework
     });
   } catch (err) {
     if (finalSlug) await releaseSlug(finalSlug);
