@@ -696,12 +696,29 @@
             try {
                 const token = await auth.currentUser.getIdToken();
                 const faviconHtml = `<link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">`;
-                const finalContent = currentHtml.includes('<head>') ? currentHtml.replace('<head>', `<head>${faviconHtml}`) : faviconHtml + currentHtml;
+                
+                // FIXED: Packaging all pages into an array for deployment
+                const filesToDeploy = Object.entries(projectPages).map(([name, content]) => {
+                    let finalPageContent = content.includes('<head>') 
+                        ? content.replace('<head>', `<head>${faviconHtml}`) 
+                        : faviconHtml + content;
+                    
+                    return {
+                        fileName: name === "landing" ? "index.html" : `${name}.html`,
+                        content: finalPageContent
+                    };
+                });
+
                 const customDomain = document.getElementById("custom-domain-input")?.value?.trim();
                 const res = await fetch('/api/deploy', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ htmlContent: finalContent, projectId: currentProjectId, slug, customDomain: customDomain || null })
+                    body: JSON.stringify({ 
+                        files: filesToDeploy, // Sending the array of all pages
+                        projectId: currentProjectId, 
+                        slug, 
+                        customDomain: customDomain || null 
+                    })
                 });
                 const data = await res.json();
                 if (res.status === 403) {
