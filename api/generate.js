@@ -73,7 +73,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
 const GOOGLE_CX = process.env.GOOGLE_CX;
 const GOOGLE_SEARCH_KEY = process.env.GOOGLE_SEARCH_KEY;
-const API_MODEL = "gemini-2.5-flash";
+const API_MODEL = "gemini-2.5-flash"; // Adjusted to current stable
 
 // ---------------- HELPERS ----------------
 function extractKeywords(text = "") {
@@ -97,6 +97,25 @@ function dataUriToInlineData(dataUri) {
     mimeType: mimeType || "image/png",
   };
 }
+
+/* ================== REFINEMENT HELPERS ================== */
+function extractSectionHtml(fullHtml, sectionName) {
+  const regex = new RegExp(
+    `<[^>]+data-section="${sectionName}"[\\s\\S]*?<\\/[^>]+>`,
+    "i"
+  );
+  const match = fullHtml.match(regex);
+  return match ? match[0] : null;
+}
+
+function replaceSection(fullHtml, sectionName, newSectionHtml) {
+  const regex = new RegExp(
+    `<[^>]+data-section="${sectionName}"[\\s\\S]*?<\\/[^>]+>`,
+    "i"
+  );
+  return fullHtml.replace(regex, newSectionHtml);
+}
+/* ======================================================= */
 
 // ---------------- BRAND DETECTION ----------------
 const BRAND_KEYWORDS = ["ferromat", "zbeda"];
@@ -155,6 +174,8 @@ export default async function handler(req, res) {
       videoCount = 2,
       projectId,
       pageName = "landing", // new: multi-page support
+      targetSection = null, // new: for refinement
+      isRefinement = false, // new: mode toggle
     } = req.body;
 
     if (!prompt) {
@@ -164,6 +185,27 @@ export default async function handler(req, res) {
     // ---------------- GEMINI INIT ----------------
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: API_MODEL });
+
+    /* ================== TOPIC LOCK & PROJECT DATA ================== */
+    let projectData = {};
+    let topicLock = "";
+    if (projectId) {
+      const snap = await db.collection("projects").doc(projectId).get();
+      projectData = snap.exists ? snap.data() : {};
+      topicLock = projectData.topicLock || "";
+    }
+
+    // Generate topic lock if it doesn't exist and we aren't refining
+    if (!topicLock && !isRefinement) {
+      try {
+        const topicPrompt = `Summarize this website intent in 1 sentence. No styling, no marketing. Pure intent: "${prompt}"`;
+        const result = await model.generateContent(topicPrompt);
+        topicLock = result.response.text().trim();
+      } catch (e) {
+        topicLock = prompt.slice(0, 100);
+      }
+    }
+    /* =============================================================== */
 
     // ---------------- IMAGE SEARCH ----------------
     let imageURLs = [];
@@ -237,6 +279,7 @@ Return ONLY the query text.
             )}&per_page=2`,
             { headers: { Authorization: PEXELS_API_KEY } }
           );
+          const data = await r.json();
           const results = (data.photos || []).map((p) => p.src?.large).filter(Boolean);
           if (results.length) {
             imageURLs.push(...results);
@@ -265,7 +308,35 @@ Return ONLY the query text.
     } catch {}
 
     // ---------------- STEP 4: SYSTEM INSTRUCTION ----------------
-const systemInstruction = `
+    let systemInstruction = "";
+
+    if (isRefinement && targetSection) {
+      const existingHtml = projectData.pages?.[pageName]?.html || "";
+      const sectionHtml = extractSectionHtml(existingHtml, targetSection);
+
+      systemInstruction = `
+You are editing an EXISTING production website section.
+
+WEBSITE TOPIC (LOCKED — DO NOT CHANGE):
+"${topicLock}"
+
+EDIT REQUEST:
+"${prompt}"
+
+TARGET SECTION TO MODIFY:
+${sectionHtml}
+
+RULES:
+- Modify ONLY the target section.
+- DO NOT change the website topic.
+- DO NOT touch other sections.
+- Preserve the data-section="${targetSection}" attribute.
+- Output ONLY the updated section HTML.
+- NO markdown, NO explanations, NO full document tags (html/body).
+- Use these stock images if needed: ${imageURLs.join("\n")}
+`.trim();
+    } else {
+      systemInstruction = `
 You are an elite, world-class, top 0.1% web development AI —
 a principal-level engineer who builds award-winning, visually stunning,
 ultra-polished, production-grade websites for high-end startups,
@@ -297,6 +368,7 @@ ABSOLUTE RULES:
 - DO NOT include conversational text like "Sure, here is your site".
 - NO markdown explanations.
 - NEVER invent URLs.
+- EVERY major section (header, hero, features, footer) MUST include a data-section="unique_name" attribute.
 
 CRITICAL IMAGE RULES:
 - NEVER output Base64 directly.
@@ -312,9 +384,13 @@ ${heroVideo || "None"}
 STOCK IMAGES:
 ${imageURLs.join("\n") || "None"}
 
+WEBSITE TOPIC:
+${topicLock}
+
 USER PROMPT:
 ${prompt}
 `.trim();
+    }
 
     // ---------------- STEP 5: GEMINI INPUT ----------------
     const imageParts = images
@@ -347,7 +423,7 @@ ${prompt}
         text = text.replace(/```html/gi, "").replace(/```/g, "");
 
         // Safety: If the model restarts the document, strip the redundant headers
-        if (fullHtml.length > 100) {
+        if (!isRefinement && fullHtml.length > 100) {
             text = text.replace(/<!DOCTYPE html>/gi, "")
                        .replace(/<html[^>]*>/gi, "")
                        .replace(/<head>/gi, "")
@@ -363,16 +439,24 @@ ${prompt}
     }
 
     // ---------------- SAFETY NET + HYDRATION ----------------
-    let finalHtml = fullHtml.replaceAll(
-      /<img([^>]*?)data-user-image="(\d+)"([^>]*)>/g,
-      '<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-user-image="$2" style="width:100%;height:auto;display:block;border-radius:12px;object-fit:cover;box-shadow:0 8px 24px rgba(0,0,0,0.2);transition:all 0.3s ease-in-out;">'
-    );
+    let finalHtml = fullHtml;
 
-    images.forEach((img, index) => {
-      finalHtml = finalHtml.replaceAll(`data-user-image="${index}"`, `src="${img}"`);
-    });
+    if (isRefinement && targetSection) {
+      // Patch the existing HTML with the new section content
+      const oldFullHtml = projectData.pages?.[pageName]?.html || "";
+      finalHtml = replaceSection(oldFullHtml, targetSection, fullHtml);
+    } else {
+      // Standard full generation hydration
+      finalHtml = finalHtml.replaceAll(
+        /<img([^>]*?)data-user-image="(\d+)"([^>]*)>/g,
+        '<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-user-image="$2" style="width:100%;height:auto;display:block;border-radius:12px;object-fit:cover;box-shadow:0 8px 24px rgba(0,0,0,0.2);transition:all 0.3s ease-in-out;">'
+      );
 
-    finalHtml += `
+      images.forEach((img, index) => {
+        finalHtml = finalHtml.replaceAll(`data-user-image="${index}"`, `src="${img}"`);
+      });
+
+      finalHtml += `
 <script>
 (function(){
   const imgs = document.querySelectorAll("img[data-user-image]");
@@ -387,12 +471,14 @@ ${prompt}
 })();
 </script>
 `;
+    }
 
     /* ================== ADDED: SAVE TO FIRESTORE PER PAGE ================== */
     if (projectId) {
       const projectRef = db.collection("projects").doc(projectId);
       await projectRef.set(
         {
+          topicLock,
           pages: {
             [pageName]: { html: finalHtml, updatedAt: admin.firestore.FieldValue.serverTimestamp() }
           }
