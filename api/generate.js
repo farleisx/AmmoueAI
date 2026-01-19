@@ -265,7 +265,6 @@ Return ONLY the query text.
 
     // ---------------- ROBUST FALLBACK ----------------
     if (!imageURLs.length) {
-      // Try 3 generic keyword sets
       const genericQueries = [
         "website hero",
         "business background",
@@ -290,7 +289,6 @@ Return ONLY the query text.
       }
     }
 
-    // Final absolute fallback
     if (!imageURLs.length) {
       imageURLs = ["https://via.placeholder.com/1200x600?text=No+Image+Found"];
     }
@@ -403,46 +401,48 @@ ${prompt}
 
     const parts = [...imageParts, { text: systemInstruction }];
 
-    // ---------------- STEP 6: STREAM ----------------
+    // ---------------- STEP 6: GENERATE & MANUAL STREAM ----------------
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
     res.flushHeaders?.();
 
-    const stream = await model.generateContentStream({
+    // Changed: use generateContent instead of generateContentStream
+    const result = await model.generateContent({
       contents: [{ role: "user", parts }],
     });
+    
+    let fullText = result.response.text();
+    
+    // Clean markdown hallucinations
+    fullText = fullText.replace(/```html/gi, "").replace(/```javascript/gi, "").replace(/```jsx/gi, "").replace(/```/g, "");
 
-    let fullHtml = "";
+    // Safety for document restarts (mimicking the logic from the old stream)
+    if (!isRefinement && fullText.length > 100 && framework === "vanilla") {
+        fullText = fullText.replace(/<!DOCTYPE html>/gi, "")
+                           .replace(/<html[^>]*>/gi, "")
+                           .replace(/<head>/gi, "")
+                           .replace(/<\/head>/gi, "")
+                           .replace(/<body[^>]*>/gi, "")
+                           .replace(/<\/body>/gi, "")
+                           .replace(/<\/html>/gi, "");
+    }
 
-    for await (const chunk of stream.stream ?? []) {
-      let text = chunk.text?.();
-      if (text) {
-        // Clean markdown hallucinations
-        text = text.replace(/```html/gi, "").replace(/```javascript/gi, "").replace(/```jsx/gi, "").replace(/```/g, "");
-
-        // Safety for document restarts
-        if (!isRefinement && fullHtml.length > 100 && framework === "vanilla") {
-            text = text.replace(/<!DOCTYPE html>/gi, "")
-                       .replace(/<html[^>]*>/gi, "")
-                       .replace(/<head>/gi, "")
-                       .replace(/<\/head>/gi, "")
-                       .replace(/<body[^>]*>/gi, "")
-                       .replace(/<\/body>/gi, "")
-                       .replace(/<\/html>/gi, "");
-        }
-
-        fullHtml += text;
-        res.write(`data: ${JSON.stringify({ text })}\n\n`);
-      }
+    // Manual stream: splitting the full text into chunks to simulate a stream for the frontend
+    const chunkSize = 100;
+    for (let i = 0; i < fullText.length; i += chunkSize) {
+      const textChunk = fullText.slice(i, i + chunkSize);
+      res.write(`data: ${JSON.stringify({ text: textChunk })}\n\n`);
+      // Optional: slight delay to make the UI look "natural"
+      await new Promise(resolve => setTimeout(resolve, 10)); 
     }
 
     // ---------------- SAFETY NET + HYDRATION ----------------
-    let finalHtml = fullHtml;
+    let finalHtml = fullText;
 
     if (isRefinement && targetSection) {
       const oldFullHtml = projectData.pages?.[pageName]?.html || "";
-      finalHtml = replaceSection(oldFullHtml, targetSection, fullHtml);
+      finalHtml = replaceSection(oldFullHtml, targetSection, fullText);
     } else if (framework === "vanilla") {
       finalHtml = finalHtml.replaceAll(
         /<img([^>]*?)data-user-image="(\d+)"([^>]*)>/g,
@@ -470,13 +470,13 @@ ${prompt}
 `;
     }
 
-    /* ================== ADDED: SAVE TO FIRESTORE PER PAGE ================== */
+    /* ================== SAVE TO FIRESTORE ================== */
     if (projectId) {
       const projectRef = db.collection("projects").doc(projectId);
       await projectRef.set(
         {
           topicLock,
-          framework, // Store the framework used for this project
+          framework, 
           pages: {
             [pageName]: { 
                 html: finalHtml, 
@@ -487,7 +487,6 @@ ${prompt}
         { merge: true }
       );
     }
-    /* ================= END ADDED ================= */
 
     // ---------------- FINAL STREAM END ----------------
     res.write(`data: ${JSON.stringify({ done: true, remaining: rate.remaining })}\n\n`);
