@@ -73,7 +73,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
 const GOOGLE_CX = process.env.GOOGLE_CX;
 const GOOGLE_SEARCH_KEY = process.env.GOOGLE_SEARCH_KEY;
-const API_MODEL = "gemini-2.5-flash"; // Adjusted to current stable
+const API_MODEL = "gemini-2.0-flash"; // Adjusted to current stable
 
 // ---------------- HELPERS ----------------
 function extractKeywords(text = "") {
@@ -265,6 +265,7 @@ Return ONLY the query text.
 
     // ---------------- ROBUST FALLBACK ----------------
     if (!imageURLs.length) {
+      // Try 3 generic keyword sets
       const genericQueries = [
         "website hero",
         "business background",
@@ -289,6 +290,7 @@ Return ONLY the query text.
       }
     }
 
+    // Final absolute fallback
     if (!imageURLs.length) {
       imageURLs = ["https://via.placeholder.com/1200x600?text=No+Image+Found"];
     }
@@ -401,23 +403,23 @@ ${prompt}
 
     const parts = [...imageParts, { text: systemInstruction }];
 
-    // ---------------- STEP 6: GENERATE & MANUAL STREAM ----------------
+    // ---------------- STEP 6: MANUAL STREAM (Fixing SDK Parse Error) ----------------
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
     res.flushHeaders?.();
 
-    // Changed: use generateContent instead of generateContentStream
+    // Use non-streaming method to bypass SDK stream parser bug
     const result = await model.generateContent({
       contents: [{ role: "user", parts }],
     });
-    
-    let fullText = result.response.text();
-    
+
+    let fullText = result.response.text() || "";
+
     // Clean markdown hallucinations
     fullText = fullText.replace(/```html/gi, "").replace(/```javascript/gi, "").replace(/```jsx/gi, "").replace(/```/g, "");
 
-    // Safety for document restarts (mimicking the logic from the old stream)
+    // Safety for document restarts
     if (!isRefinement && fullText.length > 100 && framework === "vanilla") {
         fullText = fullText.replace(/<!DOCTYPE html>/gi, "")
                            .replace(/<html[^>]*>/gi, "")
@@ -428,13 +430,13 @@ ${prompt}
                            .replace(/<\/html>/gi, "");
     }
 
-    // Manual stream: splitting the full text into chunks to simulate a stream for the frontend
-    const chunkSize = 100;
+    // Manual stream chunks to frontend
+    const chunkSize = 150;
     for (let i = 0; i < fullText.length; i += chunkSize) {
-      const textChunk = fullText.slice(i, i + chunkSize);
-      res.write(`data: ${JSON.stringify({ text: textChunk })}\n\n`);
-      // Optional: slight delay to make the UI look "natural"
-      await new Promise(resolve => setTimeout(resolve, 10)); 
+      const text = fullText.slice(i, i + chunkSize);
+      res.write(`data: ${JSON.stringify({ text })}\n\n`);
+      // Simulating slight latency for smooth UI flow
+      await new Promise(r => setTimeout(r, 5));
     }
 
     // ---------------- SAFETY NET + HYDRATION ----------------
