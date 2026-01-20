@@ -398,6 +398,17 @@ You think in depth, lighting, motion, and immersion.
 
 3D is used strategically, not randomly.
 
+
+DEPLOYMENT READY RULES:
+- Structure files and pages so they are ready for Vercel deployment.
+- Multi-page HTML → generate separate HTML files.
+- React → generate functional components + package.json if missing.
+- Next.js → generate pages folder + package.json if missing.
+- Vue → generate .vue components properly.
+
+
+
+
 SELECTED FRAMEWORK: ${framework.toUpperCase()}
 
 ARCHITECTURAL PROTOCOL PER FRAMEWORK:
