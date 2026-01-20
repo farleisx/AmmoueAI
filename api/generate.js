@@ -187,11 +187,14 @@ export default async function handler(req, res) {
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: API_MODEL });
 
-    /* ================== TOPIC LOCK & PROJECT DATA ================== */
+    /* ================== TOPIC LOCK & PROJECT DATA (UPDATED PATH) ================== */
+    // Match the path used in deploy.js: artifacts/ammoueai/users/{uid}/projects/{projectId}
+    const projectDocPath = `artifacts/ammoueai/users/${uid}/projects/${projectId}`;
     let projectData = {};
     let topicLock = "";
+    
     if (projectId) {
-      const snap = await db.collection("projects").doc(projectId).get();
+      const snap = await db.doc(projectDocPath).get();
       projectData = snap.exists ? snap.data() : {};
       topicLock = projectData.topicLock || "";
     }
@@ -312,7 +315,7 @@ Return ONLY the query text.
     let systemInstruction = "";
 
     if (isRefinement && targetSection) {
-      const existingHtml = projectData.pages?.[pageName]?.html || "";
+      const existingHtml = projectData.pages?.[pageName]?.content || ""; // Changed .html to .content
       const sectionHtml = extractSectionHtml(existingHtml, targetSection);
 
       systemInstruction = `
@@ -451,51 +454,49 @@ ${prompt}
     }
 
     // ---------------- SAFETY NET + HYDRATION ----------------
-    let finalHtml = fullText;
+    let finalOutputText = fullText;
 
     if (isRefinement && targetSection) {
-      const oldFullHtml = projectData.pages?.[pageName]?.html || "";
-      finalHtml = replaceSection(oldFullHtml, targetSection, fullText);
-    } else if (framework === "vanilla") {
-      finalHtml = finalHtml.replaceAll(
-        /<img([^>]*?)data-user-image="(\d+)"([^>]*)>/g,
-        '<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-user-image="$2" style="width:100%;height:auto;display:block;border-radius:12px;object-fit:cover;box-shadow:0 8px 24px rgba(0,0,0,0.2);transition:all 0.3s ease-in-out;">'
-      );
+      const oldFullHtml = projectData.pages?.[pageName]?.content || "";
+      finalOutputText = replaceSection(oldFullHtml, targetSection, fullText);
+    } 
 
-      images.forEach((img, index) => {
-        finalHtml = finalHtml.replaceAll(`data-user-image="${index}"`, `src="${img}"`);
-      });
-
-      finalHtml += `
-<script>
-(function(){
-  const imgs = document.querySelectorAll("img[data-user-image]");
-  imgs.forEach(img => {
-    if (!img.complete) {
-      img.style.background = "#f2f2f2";
-      img.onload = () => { img.style.opacity = 1; };
-      img.style.transition = "opacity 0.6s ease-in-out";
-      img.style.opacity = 0;
-    }
-  });
-})();
-</script>
-`;
-    }
-
-    /* ================== SAVE TO FIRESTORE ================== */
+    /* ================== SAVE TO FIRESTORE (UPDATED FOR MULTI-FILE) ================== */
     if (projectId) {
-      const projectRef = db.collection("projects").doc(projectId);
-      await projectRef.set(
+      // Split the text by [NEW_PAGE: filename] tags
+      const pageBlocks = finalOutputText.split(/\[NEW_PAGE:\s*(.*?)\s*\]/g).filter(Boolean);
+      const pagesUpdate = {};
+
+      // pageBlocks looks like: ["package.json", "{code}", "landing", "<html>..."]
+      for (let i = 0; i < pageBlocks.length; i += 2) {
+        const fileName = pageBlocks[i].trim();
+        let fileContent = pageBlocks[i + 1] || "";
+
+        // Apply Image Hydration to non-JSON files
+        if (!fileName.endsWith(".json")) {
+            // Placeholder Styling
+            fileContent = fileContent.replaceAll(
+              /<img([^>]*?)data-user-image="(\d+)"([^>]*)>/g,
+              '<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-user-image="$2" style="width:100%;height:auto;display:block;border-radius:12px;object-fit:cover;box-shadow:0 8px 24px rgba(0,0,0,0.2);transition:all 0.3s ease-in-out;">'
+            );
+            // Inject Actual User Images
+            images.forEach((img, index) => {
+               fileContent = fileContent.replaceAll(`data-user-image="${index}"`, `src="${img}"`);
+            });
+        }
+
+        pagesUpdate[fileName] = {
+          content: fileContent.trim(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        };
+      }
+
+      // Save to the path used by deploy.js
+      await db.doc(projectDocPath).set(
         {
           topicLock,
-          framework, 
-          pages: {
-            [pageName]: { 
-                html: finalHtml, 
-                updatedAt: admin.firestore.FieldValue.serverTimestamp() 
-            }
-          }
+          framework,
+          pages: pagesUpdate
         },
         { merge: true }
       );
