@@ -58,7 +58,7 @@
         ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
 
-        #limit-modal, #confirm-modal { backdrop-filter: blur(12px); background: rgba(0,0,0,0.7); }
+        #limit-modal, #confirm-modal, #zip-modal { backdrop-filter: blur(12px); background: rgba(0,0,0,0.7); }
         
         .btn-luxury { 
             background: linear-gradient(135deg, #F1C40F, #D4AF37); 
@@ -71,6 +71,20 @@
         }
         .btn-luxury:hover { transform: translateY(-1px); box-shadow: 0 12px 35px rgba(212, 175, 55, 0.4); }
         .btn-luxury:active { transform: translateY(1px) scale(0.98); }
+        
+        /* LUXURY HOVER EFFECT FOR GEN BTN */
+        #gen-btn { transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        #gen-btn:hover {
+            transform: scale(1.1) rotate(5deg);
+            box-shadow: 0 0 25px var(--gold), 0 0 50px rgba(212, 175, 55, 0.3);
+        }
+        #gen-btn:hover i {
+            animation: rotateWand 1.5s linear infinite;
+        }
+        @keyframes rotateWand {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
         
         .nav-glass { background: rgba(10, 10, 11, 0.8); backdrop-filter: blur(10px); border-bottom: 1px solid var(--soft-gold); }
 
@@ -116,6 +130,19 @@
         <button onclick="toggleMobileView('preview')" id="tab-preview-btn" class="flex-1 py-3 text-[10px] font-black tracking-widest text-gray-500 border-b-2 border-transparent">PREVIEW</button>
     </div>
 
+    <div id="zip-modal" class="hidden fixed inset-0 z-[110] flex items-center justify-center p-4">
+        <div class="bg-[#111113] border border-white/10 rounded-3xl max-w-md w-full p-8 shadow-2xl">
+            <h3 class="text-xl font-black text-white mb-2 tracking-tight">EXPORT ARCHIVE</h3>
+            <p class="text-gray-500 text-[10px] uppercase font-bold tracking-widest mb-6">Reviewing internal file structure...</p>
+            <div id="zip-file-list" class="bg-black/40 rounded-2xl p-4 border border-white/5 mb-8 max-h-48 overflow-y-auto space-y-2">
+                </div>
+            <div class="flex gap-4">
+                <button onclick="document.getElementById('zip-modal').classList.add('hidden')" class="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-4 rounded-2xl transition text-xs tracking-widest">CANCEL</button>
+                <button id="zip-confirm-btn" class="flex-1 bg-[#D4AF37] text-black font-black py-4 rounded-2xl transition text-xs tracking-widest">DOWNLOAD ZIP</button>
+            </div>
+        </div>
+    </div>
+
     <div id="limit-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4">
         <div class="bg-[#111113] border border-yellow-900/30 rounded-3xl max-w-sm w-full p-8 text-center shadow-[0_0_50px_rgba(0,0,0,0.5)]">
             <div class="w-20 h-20 bg-yellow-500/10 text-[#D4AF37] rounded-full flex items-center justify-center mx-auto mb-6 text-3xl border border-yellow-500/20">
@@ -132,8 +159,8 @@
 
     <div id="confirm-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4">
         <div class="bg-[#111113] border border-white/5 rounded-3xl max-w-sm w-full p-8 shadow-2xl">
-            <h3 class="text-xl font-black text-white mb-3 tracking-tight italic">FINAL REVIEW</h3>
-            <p class="text-gray-400 text-sm mb-6 leading-relaxed">Ready to broadcast this creation to the world? Once confirmed, the site will be live immediately.</p>
+            <h3 class="text-xl font-black text-white mb-3 tracking-tight italic" id="deploy-modal-title">FINAL REVIEW</h3>
+            <p class="text-gray-400 text-sm mb-6 leading-relaxed" id="deploy-modal-desc">Ready to broadcast this creation to the world? Once confirmed, the site will be live immediately.</p>
             <div class="bg-black/40 p-4 rounded-2xl border border-white/5 mb-8">
                 <p class="text-[9px] text-gray-500 uppercase font-black tracking-widest mb-1">Public Identifier</p>
                 <p id="confirm-slug-display" class="text-[#D4AF37] font-mono text-sm font-bold"></p>
@@ -185,10 +212,7 @@
         <aside id="main-editor-aside" class="w-[400px] border-r border-white/5 p-6 flex flex-col gap-6 bg-[#0a0a0b]">
             <div id="page-navigator" class="flex items-center gap-2 overflow-x-auto pb-2 border-b border-white/5 no-scrollbar">
                 <div id="pages-container" class="flex gap-2"></div>
-                <button id="add-page-btn" class="p-2 text-gray-500 hover:text-[#D4AF37] transition-all" title="Add Page">
-                    <i class="fa-solid fa-plus-circle text-lg"></i>
-                </button>
-            </div>
+                </div>
 
             <div class="flex justify-between items-center">
                 <button id="new-project-btn" class="bg-white/5 hover:bg-white/10 text-[10px] font-black px-4 py-2 rounded-lg transition uppercase tracking-widest border border-white/10">
@@ -320,7 +344,39 @@
         const usageBadge = document.getElementById('usage-badge');
 
         const pagesContainer = document.getElementById('pages-container');
-        const addPageBtn = document.getElementById('add-page-btn');
+
+        /* ---------------- ZIP DOWNLOAD WITH CONFIRMATION ---------------- */
+        const zipModal = document.getElementById('zip-modal');
+        const zipFileList = document.getElementById('zip-file-list');
+        const zipConfirmBtn = document.getElementById('zip-confirm-btn');
+
+        downloadBtn.onclick = () => {
+            if (!currentHtml && Object.keys(projectPages).length === 1 && projectPages['landing'] === "") {
+                return alert("Generate content first.");
+            }
+            // Populate manifest
+            zipFileList.innerHTML = Object.keys(projectPages).map(name => `
+                <div class="flex items-center justify-between text-[11px] font-mono text-gray-400 bg-white/5 p-2 rounded-lg">
+                    <span><i class="fa-solid fa-file-code text-[#D4AF37] mr-2"></i>${name}.html</span>
+                    <span class="text-[8px] opacity-50 uppercase">Ready</span>
+                </div>
+            `).join('');
+            zipModal.classList.remove('hidden');
+        };
+
+        zipConfirmBtn.onclick = async () => {
+            const zip = new JSZip();
+            const slug = document.getElementById('slug-input').value || 'ammoue-project';
+            for (const [pageName, pageData] of Object.entries(projectPages)) {
+                zip.file(`${pageName}.html`, pageData || "");
+            }
+            const content = await zip.generateAsync({type:"blob"});
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(content);
+            link.download = `${slug}.zip`;
+            link.click();
+            zipModal.classList.add('hidden');
+        };
 
         /* ---------------- NEURAL GHOSTWRITER EFFECT ---------------- */
         const aiPrompts = [
@@ -526,21 +582,6 @@
             setTimeout(() => copyBtn.innerHTML = originalText, 2000);
         };
 
-        /* ---------------- DOWNLOAD ZIP ---------------- */
-        downloadBtn.onclick = async () => {
-            if (!currentHtml) return alert("Generate content first.");
-            const zip = new JSZip();
-            const slug = document.getElementById('slug-input').value || 'ammoue-project';
-            for (const [pageName, pageData] of Object.entries(projectPages)) {
-                zip.file(`${pageName}.html`, pageData || "");
-            }
-            const content = await zip.generateAsync({type:"blob"});
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(content);
-            link.download = `${slug}.zip`;
-            link.click();
-        };
-
         /* ---------------- IMAGE PREVIEW ---------------- */
         imgInput.onchange = async (e) => {
             const files = Array.from(e.target.files);
@@ -578,14 +619,6 @@
             updateFrame(currentHtml, false);
             renderPageTabs();
             logs.innerHTML += `<div class="log-entry text-gray-500">> Neural context shifted to page: ${name}</div>`;
-        };
-
-        addPageBtn.onclick = () => {
-            const newPage = prompt("Identify the new page (e.g., pricing, gallery):");
-            if (newPage && !projectPages[newPage]) {
-                projectPages[newPage.toLowerCase()] = "";
-                window.switchPage(newPage.toLowerCase());
-            }
         };
 
         /* ---------------- PROJECT HISTORY LOADING ---------------- */
@@ -768,11 +801,23 @@
             frameTimeout = setTimeout(() => updateFrame(html, true), 120);
         }
 
-        /* ---------------- PUBLISH LOGIC ---------------- */
+        /* ---------------- PUBLISH & REDEPLOY LOGIC ---------------- */
         publishBtn.onclick = () => {
-            if (activeLiveUrl) { window.open(activeLiveUrl, '_blank'); return; }
             const slug = document.getElementById('slug-input').value;
             if (!slug) return alert("Select an identity for this project.");
+            
+            if (activeLiveUrl) {
+                // Redeploy State
+                document.getElementById("deploy-modal-title").innerText = "REDEPLOY CHANGES";
+                document.getElementById("deploy-modal-desc").innerText = "Update your live broadcast with the latest architectural changes? This will replace the current version.";
+                confirmDeployBtn.innerText = "REDEPLOY";
+            } else {
+                // Initial Publish State
+                document.getElementById("deploy-modal-title").innerText = "FINAL REVIEW";
+                document.getElementById("deploy-modal-desc").innerText = "Ready to broadcast this creation to the world? Once confirmed, the site will be live immediately.";
+                confirmDeployBtn.innerText = "PUBLISH";
+            }
+
             const domain = document.getElementById("custom-domain-input")?.value?.trim();
             document.getElementById("confirm-slug-display").innerText = domain ? `https://${domain}` : `https://${slug}.vercel.app`;
             confirmModal.classList.remove('hidden');
@@ -783,7 +828,7 @@
         confirmDeployBtn.onclick = async () => {
             confirmModal.classList.add('hidden');
             const slug = document.getElementById('slug-input').value;
-            publishBtn.innerText = "BROADCASTING...";
+            publishBtn.innerText = activeLiveUrl ? "REDEPLOYING..." : "BROADCASTING...";
             publishBtn.disabled = true;
             try {
                 const token = await auth.currentUser.getIdToken();
@@ -829,7 +874,7 @@
                     publishBtn.classList.replace('bg-emerald-600', 'bg-emerald-500');
                 }
             } catch (e) {
-                publishBtn.innerText = "PUBLISH";
+                publishBtn.innerText = activeLiveUrl ? "LIVE" : "PUBLISH";
                 publishBtn.disabled = false;
             }
         };
