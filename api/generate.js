@@ -422,7 +422,7 @@ Generate a complete website based on the user prompt. If the user implies a mult
 (e.g., "a landing page and a dashboard" or "add a login page"), you must generate them sequentially.
 
 GENERAL ARCHITECTURAL PROTOCOL:
-1. BEFORE starting the code for ANY page, output this exact tag: [NEW_PAGE: page_name]
+1. BEFORE starting the code for ANY page, output this exact tag: [NEW_PAGE: page_name] (THIS ALSO OUTPUTS TO PACKAGE.JSON OR ANY INDEPENDENCIES)
 2. The first page must always be: [NEW_PAGE: landing]
 3. Use lowercase snake_case for page names.
 4. All internal links must point to the appropriate extension/route for ${framework}.
