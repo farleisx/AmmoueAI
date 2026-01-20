@@ -80,7 +80,6 @@
         .preset-chip { font-size: 9px; font-weight: 800; padding: 4px 10px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); color: #71717a; transition: all 0.3s; cursor: pointer; text-transform: uppercase; }
         .preset-chip:hover { border-color: var(--gold); color: white; background: rgba(212,175,55,0.05); }
         
-        /* FIX: Invisible Select Styling */
         select.preset-chip {
             appearance: none;
             background-color: #161618 !important;
@@ -91,11 +90,7 @@
             background-position: right 8px center;
             background-size: 12px;
         }
-        select.preset-chip option {
-            background: #1c1c1f;
-            color: white;
-            padding: 10px;
-        }
+        select.preset-chip option { background: #1c1c1f; color: white; padding: 10px; }
 
         button { cursor: pointer; }
         a, [contenteditable] { cursor: text; }
@@ -103,14 +98,14 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* Mobile Layout Support */
         @media (max-width: 1024px) {
             main { flex-direction: column; }
-            aside { width: 100% !important; height: auto !important; max-height: 50vh; overflow-y: auto; }
-            #preview-wrapper { height: 50vh !important; }
-            .nav-glass { padding: 0.75rem; }
-            #publish-controls input { width: 80px; }
+            aside { width: 100% !important; height: auto !important; flex: 1; overflow-y: auto; padding-bottom: 80px; }
+            #preview-wrapper { height: calc(100vh - 120px) !important; }
             #mobile-tab-nav { display: flex !important; }
+            .nav-glass { padding: 0.5rem 1rem; }
+            #publish-controls input { width: 70px; }
+            #prompt-container { min-height: 250px !important; }
         }
     </style>
 </head>
@@ -228,7 +223,7 @@
                     </div>
                 </div>
 
-                <div class="flex-1 flex flex-col bg-[#161618] border border-white/5 rounded-3xl p-5 focus-within:border-[#D4AF37]/30 transition-all duration-500 shadow-inner overflow-hidden relative">
+                <div id="prompt-container" class="flex-1 flex flex-col bg-[#161618] border border-white/5 rounded-3xl p-5 focus-within:border-[#D4AF37]/30 transition-all duration-500 shadow-inner overflow-hidden relative min-h-[300px]">
                     <div class="flex flex-wrap gap-2 mb-3">
                         <button class="preset-chip" onclick="document.getElementById('user-prompt').value='Create a professional SaaS landing page for a Fintech startup with glassmorphism effects and pricing cards.'">SaaS</button>
                         <button class="preset-chip" onclick="document.getElementById('user-prompt').value='Minimalist creative portfolio for a photographer using an elegant grid layout.'">Portfolio</button>
@@ -256,6 +251,7 @@
                         <span class="text-[9px] font-black text-red-500 tracking-widest uppercase">Listening</span>
                     </div>
                     <div id="img-tray" class="flex flex-wrap gap-2 mb-4 empty:hidden"></div>
+                    
                     <textarea id="user-prompt" class="flex-1 w-full bg-transparent border-none outline-none text-sm text-gray-300 resize-none placeholder:text-gray-700 leading-relaxed" placeholder="Define your digital masterpiece..."></textarea>
                     
                     <div class="flex justify-between items-center mt-4 pt-4 border-t border-white/5">
@@ -277,7 +273,7 @@
             </div>
         </aside>
 
-        <section id="main-preview-section" class="flex-1 flex items-center justify-center p-4 md:p-10 bg-[#0f0f10] relative">
+        <section id="main-preview-section" class="hidden lg:flex flex-1 items-center justify-center p-4 md:p-10 bg-[#0f0f10] relative">
             <div id="preview-wrapper" class="w-full h-full flex items-center justify-center relative">
                 <iframe id="preview-frame" class="shadow-[0_40px_100px_rgba(0,0,0,0.6)] w-full h-full rounded-sm"></iframe>
                 <textarea id="code-view" class="hidden" readonly></textarea>
@@ -304,7 +300,6 @@
         let activeLiveUrl = null;
         let frameTimeout;
 
-        // Multi-page state management
         let currentPage = "landing";
         let projectPages = { "landing": "" };
 
@@ -327,6 +322,45 @@
         const pagesContainer = document.getElementById('pages-container');
         const addPageBtn = document.getElementById('add-page-btn');
 
+        /* ---------------- NEURAL GHOSTWRITER EFFECT ---------------- */
+        const aiPrompts = [
+            "Luxury E-commerce for a Watch Brand...",
+            "Minimalist Cyberpunk Portfolio for a Dev...",
+            "Fintech Dashboard with Glassmorphism...",
+            "AI SaaS Landing Page with 3D Gradients...",
+            "High-end Architectural Firm Showcase...",
+            "Futuristic Travel Booking Platform..."
+        ];
+        let currentPromptIdx = 0;
+        let charIdx = 0;
+        let isDeleting = false;
+        const promptInput = document.getElementById('user-prompt');
+
+        function typeEffect() {
+            if (document.activeElement === promptInput || promptInput.value !== "") {
+                setTimeout(typeEffect, 1000);
+                return;
+            }
+            const fullText = aiPrompts[currentPromptIdx];
+            if (!isDeleting) {
+                promptInput.placeholder = fullText.substring(0, charIdx++);
+                if (charIdx > fullText.length) {
+                    isDeleting = true;
+                    setTimeout(typeEffect, 2000);
+                    return;
+                }
+            } else {
+                promptInput.placeholder = fullText.substring(0, charIdx--);
+                if (charIdx < 0) {
+                    isDeleting = false;
+                    currentPromptIdx = (currentPromptIdx + 1) % aiPrompts.length;
+                    charIdx = 0;
+                }
+            }
+            setTimeout(typeEffect, isDeleting ? 50 : 100);
+        }
+        typeEffect();
+
         /* ---------------- MOBILE UI TOGGLE ---------------- */
         window.toggleMobileView = (view) => {
             const editor = document.getElementById('main-editor-aside');
@@ -342,6 +376,7 @@
             } else {
                 editor.classList.add('hidden');
                 preview.classList.remove('hidden');
+                preview.classList.add('flex');
                 previewBtn.className = "flex-1 py-3 text-[10px] font-black tracking-widest text-[#D4AF37] border-b-2 border-[#D4AF37]";
                 editorBtn.className = "flex-1 py-3 text-[10px] font-black tracking-widest text-gray-500 border-b-2 border-transparent";
             }
