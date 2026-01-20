@@ -158,7 +158,7 @@
     </div>
 
     <div id="confirm-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4">
-        <div class="bg-[#111113] border border-white/5 rounded-3xl max-w-sm w-full p-8 shadow-2xl">
+        <div class="bg-[#111113] border border-white/5 rounded-3xl max-w-md w-full p-8 shadow-2xl">
             <h3 class="text-xl font-black text-white mb-3 tracking-tight italic" id="deploy-modal-title">FINAL REVIEW</h3>
             <p class="text-gray-400 text-sm mb-6 leading-relaxed" id="deploy-modal-desc">Ready to broadcast this creation to the world? Once confirmed, the site will be live immediately.</p>
             <div class="bg-black/40 p-4 rounded-2xl border border-white/5 mb-8">
@@ -166,9 +166,12 @@
                 <p id="confirm-slug-display" class="text-[#D4AF37] font-mono text-sm font-bold"></p>
                 <p id="custom-domain-status" class="text-[8px] text-gray-500 mt-2 uppercase tracking-widest"></p>
             </div>
-            <div class="flex gap-4">
-                <button id="cancel-deploy-btn" class="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-4 rounded-2xl transition text-xs tracking-widest">CANCEL</button>
-                <button id="confirm-deploy-btn" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-black font-black py-4 rounded-2xl transition text-xs tracking-widest">PUBLISH</button>
+            <div class="flex flex-col gap-3">
+                <div class="flex gap-3">
+                    <button id="cancel-deploy-btn" class="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-4 rounded-2xl transition text-xs tracking-widest">CANCEL</button>
+                    <button id="view-live-btn" class="hidden flex-1 bg-white/10 hover:bg-white/20 text-[#D4AF37] font-bold py-4 rounded-2xl transition text-xs tracking-widest">VIEW LIVE</button>
+                </div>
+                <button id="confirm-deploy-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-black font-black py-4 rounded-2xl transition text-xs tracking-widest uppercase">Confirm & Publish</button>
             </div>
         </div>
     </div>
@@ -212,7 +215,7 @@
         <aside id="main-editor-aside" class="w-[400px] border-r border-white/5 p-6 flex flex-col gap-6 bg-[#0a0a0b]">
             <div id="page-navigator" class="flex items-center gap-2 overflow-x-auto pb-2 border-b border-white/5 no-scrollbar">
                 <div id="pages-container" class="flex gap-2"></div>
-                </div>
+            </div>
 
             <div class="flex justify-between items-center">
                 <button id="new-project-btn" class="bg-white/5 hover:bg-white/10 text-[10px] font-black px-4 py-2 rounded-lg transition uppercase tracking-widest border border-white/10">
@@ -341,6 +344,7 @@
         const confirmModal = document.getElementById('confirm-modal');
         const confirmDeployBtn = document.getElementById('confirm-deploy-btn');
         const cancelDeployBtn = document.getElementById('cancel-deploy-btn');
+        const viewLiveBtn = document.getElementById('view-live-btn');
         const usageBadge = document.getElementById('usage-badge');
 
         const pagesContainer = document.getElementById('pages-container');
@@ -354,7 +358,6 @@
             if (!currentHtml && Object.keys(projectPages).length === 1 && projectPages['landing'] === "") {
                 return alert("Generate content first.");
             }
-            // Populate manifest
             zipFileList.innerHTML = Object.keys(projectPages).map(name => `
                 <div class="flex items-center justify-between text-[11px] font-mono text-gray-400 bg-white/5 p-2 rounded-lg">
                     <span><i class="fa-solid fa-file-code text-[#D4AF37] mr-2"></i>${name}.html</span>
@@ -807,15 +810,16 @@
             if (!slug) return alert("Select an identity for this project.");
             
             if (activeLiveUrl) {
-                // Redeploy State
                 document.getElementById("deploy-modal-title").innerText = "REDEPLOY CHANGES";
-                document.getElementById("deploy-modal-desc").innerText = "Update your live broadcast with the latest architectural changes? This will replace the current version.";
-                confirmDeployBtn.innerText = "REDEPLOY";
+                document.getElementById("deploy-modal-desc").innerText = "Update your live broadcast with the latest architectural changes? You can also view the current version first.";
+                confirmDeployBtn.innerText = "REDEPLOY VERSION";
+                viewLiveBtn.classList.remove('hidden');
+                viewLiveBtn.onclick = () => window.open(activeLiveUrl, '_blank');
             } else {
-                // Initial Publish State
                 document.getElementById("deploy-modal-title").innerText = "FINAL REVIEW";
                 document.getElementById("deploy-modal-desc").innerText = "Ready to broadcast this creation to the world? Once confirmed, the site will be live immediately.";
                 confirmDeployBtn.innerText = "PUBLISH";
+                viewLiveBtn.classList.add('hidden');
             }
 
             const domain = document.getElementById("custom-domain-input")?.value?.trim();
