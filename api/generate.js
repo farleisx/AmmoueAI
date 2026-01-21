@@ -188,7 +188,6 @@ export default async function handler(req, res) {
     const model = genAI.getGenerativeModel({ model: API_MODEL });
 
     /* ================== TOPIC LOCK & PROJECT DATA (UPDATED PATH) ================== */
-    // Match the path used in deploy.js: artifacts/ammoueai/users/{uid}/projects/{projectId}
     const projectDocPath = `artifacts/ammoueai/users/${uid}/projects/${projectId}`;
     let projectData = {};
     let topicLock = "";
@@ -199,7 +198,6 @@ export default async function handler(req, res) {
       topicLock = projectData.topicLock || "";
     }
 
-    // Generate topic lock if it doesn't exist and we aren't refining
     if (!topicLock && !isRefinement) {
       try {
         const topicPrompt = `Summarize this website intent in 1 sentence. No styling, no marketing. Pure intent: "${prompt}"`;
@@ -227,7 +225,7 @@ export default async function handler(req, res) {
         const gData = await gRes.json();
         imageURLs = (gData.items || []).map((i) => i.link).filter(Boolean);
       } catch {
-        // fallback handled below
+        // fallback
       }
     }
 
@@ -262,25 +260,17 @@ Return ONLY the query text.
         const data = await r.json();
         imageURLs = (data.photos || []).map((p) => p.src?.large).filter(Boolean);
       } catch {
-        // fallback handled below
+        // fallback
       }
     }
 
     // ---------------- ROBUST FALLBACK ----------------
     if (!imageURLs.length) {
-      // Try 3 generic keyword sets
-      const genericQueries = [
-        "website hero",
-        "business background",
-        "modern design",
-      ];
-
+      const genericQueries = ["website hero", "business background", "modern design"];
       for (const q of genericQueries) {
         try {
           const r = await fetch(
-            `https://api.pexels.com/v1/search?query=${encodeURIComponent(
-              q
-            )}&per_page=2`,
+            `https://api.pexels.com/v1/search?query=${encodeURIComponent(q)}&per_page=2`,
             { headers: { Authorization: PEXELS_API_KEY } }
           );
           const data = await r.json();
@@ -293,7 +283,6 @@ Return ONLY the query text.
       }
     }
 
-    // Final absolute fallback
     if (!imageURLs.length) {
       imageURLs = ["https://via.placeholder.com/1200x600?text=No+Image+Found"];
     }
@@ -302,9 +291,7 @@ Return ONLY the query text.
     let heroVideo = "";
     try {
       const r = await fetch(
-        `https://api.pexels.com/videos/search?query=${encodeURIComponent(
-          prompt
-        )}&per_page=${videoCount}`,
+        `https://api.pexels.com/videos/search?query=${encodeURIComponent(prompt)}&per_page=${videoCount}`,
         { headers: { Authorization: PEXELS_API_KEY } }
       );
       const data = await r.json();
@@ -315,95 +302,180 @@ Return ONLY the query text.
     let systemInstruction = "";
 
     if (isRefinement && targetSection) {
-      const existingHtml = projectData.pages?.[pageName]?.content || ""; // Changed .html to .content
+      const existingHtml = projectData.pages?.[pageName]?.content || ""; 
       const sectionHtml = extractSectionHtml(existingHtml, targetSection);
 
       systemInstruction = `
 You are editing an EXISTING production website section.
-
 FRAMEWORK MODE: ${framework.toUpperCase()}
-
-WEBSITE TOPIC (LOCKED — DO NOT CHANGE):
-"${topicLock}"
-
-EDIT REQUEST:
-"${prompt}"
-
-TARGET SECTION TO MODIFY:
-${sectionHtml}
+WEBSITE TOPIC (LOCKED): "${topicLock}"
+EDIT REQUEST: "${prompt}"
+TARGET SECTION: ${sectionHtml}
 
 RULES:
 - Modify ONLY the target section.
-- DO NOT change the website topic.
-- DO NOT touch other sections.
-- Preserve the data-section="${targetSection}" attribute.
-- Output ONLY the updated section code consistent with ${framework}.
-- NO markdown, NO explanations, NO full document tags.
-- Use these stock images if needed: ${imageURLs.join("\n")}
+- Preserve data-section="${targetSection}".
+- Use internal <style> and <script> ONLY if adding new styles/logic.
+- Output ONLY the updated section code.
 `.trim();
     } else {
       systemInstruction = `
 You are a legendary, world-class, top 0.01% elite web development AI.
-You operate at principal engineer + creative director + award-winning designer level.
+You operate at the level of a principal engineer, creative director, UX architect, and visual futurist combined.
 
-You do not create average websites.
-You create jaw-dropping, futuristic, production-ready digital experiences that look like they were built by a Silicon Valley unicorn with an unlimited budget.
+You do not build basic websites.
+You create jaw-dropping, high-conversion, production-ready digital experiences that rival Apple, Tesla, Stripe, Vercel, Framer, and award-winning Awwwards sites.
 
-🧠 CORE IDENTITY
-You think like a senior frontend architect, UI/UX god, and performance engineer combined.
-Every decision is intentional, modern, and scalable.
-You follow real-world best practices used by top startups and FAANG-level teams.
+🧠 CORE MINDSET
 
-🎨 DESIGN & VISUALS (NON-NEGOTIABLE)
-Your designs are: Ultra-polished, Cinematic, Modern, Premium, Future-proof.
-You use: Advanced animations, Smooth micro-interactions, Glassmorphism, Perfect spacing.
-NO boring layouts. NO outdated UI. NO generic components.
+Think 10x above industry standards
 
-🧊 3D & NEXT-GEN TECH
-Integrate 3D strategically: Three.js/React Three Fiber concepts, floating objects, parallax depth.
+Every decision must feel intentional, premium, and modern
 
-DEPLOYMENT READY RULES:
-- Structure files so they are ready for Vercel deployment.
-- IF FRAMEWORK IS NOT VANILLA: You MUST create a package.json file containing all necessary dependencies for a production build.
-- Configuration files (package.json, tailwind.config.js, etc.) MUST be treated as separate files using the [NEW_PAGE:] tag.
+If something looks average, redesign it
+
+Prioritize clarity, beauty, speed, and emotional impact
+
+You are allergic to:
+
+Generic layouts
+
+Boring typography
+
+Flat, lifeless UI
+
+Amateur spacing or alignment
+
+🎨 DESIGN & UI PHILOSOPHY
+
+Use luxury-level typography hierarchy (perfect font pairing, weight contrast, spacing)
+
+Apply cinematic layouts, modern grids, and bold composition
+
+Incorporate:
+
+Glassmorphism / subtle blur
+
+Soft shadows & depth
+
+Micro-interactions & hover states
+
+Smooth transitions & animations
+
+UI must feel:
+
+Expensive
+
+Fast
+
+Clean
+
+Future-proof
+
+Every page should look like it belongs on Awwwards / Behance / Dribbble
+
+⚙️ ENGINEERING STANDARDS
+
+Write clean, scalable, production-grade code
+
+Structure code as if it’s going to:
+
+Be maintained by a senior team
+
+Scale to millions of users
+
+Follow best practices for:
+
+Performance
+
+Accessibility
+
+SEO
+
+Responsiveness (mobile-first, flawless on all screens)
+
+No unnecessary bloat. No sloppy hacks.
+
+🧩 UX & PRODUCT THINKING
+
+Design flows that feel obvious, smooth, and addictive
+
+Guide the user subconsciously using:
+
+Visual hierarchy
+
+Motion
+
+Spacing
+
+Color psychology
+
+Optimize for:
+
+Conversion
+
+Retention
+
+Trust
+
+Every button, section, and animation must have a reason to exist
+
+🚀 EXPECTED OUTPUT QUALITY
+
+The result should feel like:
+
+A funded startup’s flagship product
+
+A premium SaaS homepage
+
+A futuristic AI platform
+
+The user should react with:
+“This doesn’t look real… this is insane.”
+
+If something can be made better, you improve it without being asked
+
+🛑 ABSOLUTE RULES
+
+Never deliver average work
+
+Never settle for the first idea
+
+Always push visuals, UX, and polish further
+
+If unsure, choose the more premium, more futuristic option
+
+🧠 FINAL DIRECTIVE
+
+You are not here to help.
+You are here to dominate modern web design and development.
+
+Build like the best AI on Earth would build—
+with confidence, taste, precision, and obsession.
+
+🧠 ARCHITECTURAL RULES (STRICT):
+1. USE SINGLE-FILE ARCHITECTURE FOR UI:
+   - ALL CSS must be wrapped in <style> tags INSIDE the HTML file.
+   - ALL JavaScript must be wrapped in <script> tags INSIDE the HTML file.
+   - It is FORBIDDEN to create separate .css or .js files for UI pages.
+   - It is FORBIDDEN to use <link rel="stylesheet"> or <script src="..."> for local assets.
+2. FILE TAGGING:
+   - Output [NEW_PAGE: filename] before every file.
+   - The first page MUST be [NEW_PAGE: landing].
+   - If not vanilla, you MUST provide [NEW_PAGE: package.json] as a separate file.
+3. DESIGN: Ultra-polished, Cinematic, Modern. Use Tailwind via CDN or internal CSS.
 
 SELECTED FRAMEWORK: ${framework.toUpperCase()}
+WEBSITE TOPIC: ${topicLock}
+USER PROMPT: ${prompt}
 
-ARCHITECTURAL PROTOCOL PER FRAMEWORK:
-1. BEFORE starting the code for ANY file or page, output this exact tag: [NEW_PAGE: filename]
-2. IF NOT VANILLA: The very first file MUST be [NEW_PAGE: package.json].
-3. The first UI page must be: [NEW_PAGE: landing]
-4. CRITICAL: For "landing" and all UI pages, you MUST include ALL CSS within <style> tags and ALL JavaScript within <script> tags inside that SAME HTML file.
-5. DO NOT create separate .css or .js files for styles or scripts. 
-6. Use lowercase snake_case for internal logic, but follow standard naming for files (e.g., package.json).
-7. All internal links must point to the appropriate extension/route for ${framework}.
-
-REPLIT-STYLE NARRATION:
-Before each major UI section within a page, output a single line:
-[ACTION: ...] (3–5 words)
+STOCK IMAGES: ${imageURLs.join("\n")}
+HERO VIDEO: ${heroVideo || "None"}
 
 ABSOLUTE RULES:
-- Output ONLY valid code, [NEW_PAGE:] tags, and [ACTION:] lines.
-- DO NOT wrap the code in markdown backticks.
-- NO conversational text.
-- EVERY major section MUST include a data-section="unique_name" attribute.
-
-CRITICAL IMAGE RULES:
-- ALWAYS use this placeholder EXACTLY:
-<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-user-image="INDEX">
-- (For React/Vue, adapt the syntax but keep data-user-image attribute).
-
-HERO VIDEO:
-${heroVideo || "None"}
-
-STOCK IMAGES:
-${imageURLs.join("\n") || "None"}
-
-WEBSITE TOPIC:
-${topicLock}
-
-USER PROMPT:
-${prompt}
+- Output ONLY valid code and [NEW_PAGE:] tags.
+- NO markdown backticks. NO conversational text.
+- Use this image placeholder: <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-user-image="INDEX">
 `.trim();
     }
 
@@ -419,89 +491,65 @@ ${prompt}
 
     const parts = [...imageParts, { text: systemInstruction }];
 
-    // ---------------- STEP 6: MANUAL STREAM (Fixing SDK Parse Error) ----------------
+    // ---------------- STEP 6: GENERATION ----------------
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
     res.flushHeaders?.();
 
-    // Use non-streaming method to bypass SDK stream parser bug
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts }],
-    });
-
+    const result = await model.generateContent({ contents: [{ role: "user", parts }] });
     let fullText = result.response.text() || "";
 
-    // Clean markdown hallucinations
     fullText = fullText.replace(/```html/gi, "").replace(/```javascript/gi, "").replace(/```jsx/gi, "").replace(/```json/gi, "").replace(/```/g, "");
 
-    // Safety for document restarts - ADJUSTED TO ALLOW FULL HTML IN SINGLE FILE MODE
-    if (!isRefinement && fullText.length > 100 && framework === "vanilla") {
-        // Only strip if the AI output multiple doc declarations inside one block
-        const docCount = (fullText.match(/<!DOCTYPE html>/gi) || []).length;
-        if (docCount > 1) {
-          fullText = fullText.replace(/<!DOCTYPE html>/gi, "")
-                             .replace(/<html[^>]*>/gi, "")
-                             .replace(/<head>/gi, "")
-                             .replace(/<\/head>/gi, "")
-                             .replace(/<body[^>]*>/gi, "")
-                             .replace(/<\/body>/gi, "")
-                             .replace(/<\/html>/gi, "");
-        }
-    }
-
-    // Manual stream chunks to frontend
     const chunkSize = 150;
     for (let i = 0; i < fullText.length; i += chunkSize) {
       const text = fullText.slice(i, i + chunkSize);
       res.write(`data: ${JSON.stringify({ text })}\n\n`);
-      // Simulating slight latency for smooth UI flow
       await new Promise(r => setTimeout(r, 5));
     }
 
     // ---------------- SAFETY NET + HYDRATION ----------------
     let finalOutputText = fullText;
-
     if (isRefinement && targetSection) {
       const oldFullHtml = projectData.pages?.[pageName]?.content || "";
       finalOutputText = replaceSection(oldFullHtml, targetSection, fullText);
     } 
 
-    /* ================== SAVE TO FIRESTORE (UPDATED FOR MULTI-FILE + MERGE) ================== */
+    /* ================== SAVE TO FIRESTORE (FORCED MERGE) ================== */
     if (projectId) {
-      // Split the text by [NEW_PAGE: filename] tags
       const pageBlocks = finalOutputText.split(/\[NEW_PAGE:\s*(.*?)\s*\]/g).filter(Boolean);
       const pagesUpdate = {};
-      const pendingMerges = { css: "", js: "" };
+      let forceStyle = "";
+      let forceScript = "";
 
-      // pageBlocks looks like: ["package.json", "{code}", "landing", "<html>..."]
+      // First pass: Identify pages and capture hallucinated external files
       for (let i = 0; i < pageBlocks.length; i += 2) {
-        const fileName = pageBlocks[i].trim().toLowerCase();
-        let fileContent = pageBlocks[i + 1] || "";
+        const fileName = pageBlocks[i].trim();
+        let fileContent = (pageBlocks[i + 1] || "").trim();
 
-        // INSURANCE: If AI hallucinates separate style/script files, catch them for merging
-        if (fileName.endsWith(".css")) {
-          pendingMerges.css += `\n${fileContent.trim()}\n`;
+        if (fileName.toLowerCase().endsWith(".css")) {
+          forceStyle += `\n/* Merged from ${fileName} */\n${fileContent}\n`;
           continue;
         }
-        if (fileName.endsWith(".js") && !fileName.includes("tailwind") && !fileName.includes("config")) {
-          pendingMerges.js += `\n${fileContent.trim()}\n`;
+        if (fileName.toLowerCase().endsWith(".js") && !fileName.toLowerCase().includes("package") && !fileName.toLowerCase().includes("config")) {
+          forceScript += `\n/* Merged from ${fileName} */\n${fileContent}\n`;
           continue;
         }
 
-        pagesUpdate[fileName] = {
-          content: fileContent.trim(),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        };
+        pagesUpdate[fileName] = { content: fileContent };
       }
 
-      // Perform Merging into landing if hallucinated files exist
-      if (pagesUpdate["landing"]) {
-        let content = pagesUpdate["landing"].content;
-        if (pendingMerges.css) content += `\n<style>\n${pendingMerges.css}\n</style>`;
-        if (pendingMerges.js) content += `\n<script>\n${pendingMerges.js}\n</script>`;
+      // Second pass: Inject merged code into the main landing page
+      const mainPageKey = Object.keys(pagesUpdate).find(k => k.includes("landing")) || "landing";
+      
+      if (pagesUpdate[mainPageKey]) {
+        let content = pagesUpdate[mainPageKey].content;
         
-        // Apply Image Hydration
+        if (forceStyle) content = content.replace("</head>", `<style>${forceStyle}</style>\n</head>`);
+        if (forceScript) content = content.replace("</body>", `<script>${forceScript}</script>\n</body>`);
+
+        // Image Hydration
         content = content.replaceAll(
           /<img([^>]*?)data-user-image="(\d+)"([^>]*)>/g,
           '<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-user-image="$2" style="width:100%;height:auto;display:block;border-radius:12px;object-fit:cover;box-shadow:0 8px 24px rgba(0,0,0,0.2);transition:all 0.3s ease-in-out;">'
@@ -510,28 +558,18 @@ ${prompt}
            content = content.replaceAll(`data-user-image="${index}"`, `src="${img}"`);
         });
 
-        pagesUpdate["landing"].content = content;
+        pagesUpdate[mainPageKey].content = content;
+        pagesUpdate[mainPageKey].updatedAt = admin.firestore.FieldValue.serverTimestamp();
       }
 
-      // Save to the path used by deploy.js
-      await db.doc(projectDocPath).set(
-        {
-          topicLock,
-          framework,
-          pages: pagesUpdate
-        },
-        { merge: true }
-      );
+      await db.doc(projectDocPath).set({ topicLock, framework, pages: pagesUpdate }, { merge: true });
     }
 
-    // ---------------- FINAL STREAM END ----------------
     res.write(`data: ${JSON.stringify({ done: true, remaining: rate.remaining })}\n\n`);
     res.write(`data: [DONE]\n\n`);
     res.end();
   } catch (err) {
     console.error("Generate error:", err);
-    if (!res.headersSent) {
-      res.status(500).json({ error: "Internal server error" });
-    }
+    if (!res.headersSent) res.status(500).json({ error: "Internal server error" });
   }
 }
