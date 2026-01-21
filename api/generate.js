@@ -373,8 +373,10 @@ ARCHITECTURAL PROTOCOL PER FRAMEWORK:
 1. BEFORE starting the code for ANY file or page, output this exact tag: [NEW_PAGE: filename]
 2. IF NOT VANILLA: The very first file MUST be [NEW_PAGE: package.json].
 3. The first UI page must be: [NEW_PAGE: landing]
-4. Use lowercase snake_case for internal logic, but follow standard naming for files (e.g., package.json).
-5. All internal links must point to the appropriate extension/route for ${framework}.
+4. CRITICAL: For "landing" and all UI pages, you MUST include ALL CSS within <style> tags and ALL JavaScript within <script> tags inside that SAME HTML file.
+5. DO NOT create separate .css or .js files for styles or scripts. 
+6. Use lowercase snake_case for internal logic, but follow standard naming for files (e.g., package.json).
+7. All internal links must point to the appropriate extension/route for ${framework}.
 
 REPLIT-STYLE NARRATION:
 Before each major UI section within a page, output a single line:
@@ -433,15 +435,19 @@ ${prompt}
     // Clean markdown hallucinations
     fullText = fullText.replace(/```html/gi, "").replace(/```javascript/gi, "").replace(/```jsx/gi, "").replace(/```json/gi, "").replace(/```/g, "");
 
-    // Safety for document restarts
+    // Safety for document restarts - ADJUSTED TO ALLOW FULL HTML IN SINGLE FILE MODE
     if (!isRefinement && fullText.length > 100 && framework === "vanilla") {
-        fullText = fullText.replace(/<!DOCTYPE html>/gi, "")
-                           .replace(/<html[^>]*>/gi, "")
-                           .replace(/<head>/gi, "")
-                           .replace(/<\/head>/gi, "")
-                           .replace(/<body[^>]*>/gi, "")
-                           .replace(/<\/body>/gi, "")
-                           .replace(/<\/html>/gi, "");
+        // Only strip if the AI output multiple doc declarations inside one block
+        const docCount = (fullText.match(/<!DOCTYPE html>/gi) || []).length;
+        if (docCount > 1) {
+          fullText = fullText.replace(/<!DOCTYPE html>/gi, "")
+                             .replace(/<html[^>]*>/gi, "")
+                             .replace(/<head>/gi, "")
+                             .replace(/<\/head>/gi, "")
+                             .replace(/<body[^>]*>/gi, "")
+                             .replace(/<\/body>/gi, "")
+                             .replace(/<\/html>/gi, "");
+        }
     }
 
     // Manual stream chunks to frontend
@@ -461,34 +467,50 @@ ${prompt}
       finalOutputText = replaceSection(oldFullHtml, targetSection, fullText);
     } 
 
-    /* ================== SAVE TO FIRESTORE (UPDATED FOR MULTI-FILE) ================== */
+    /* ================== SAVE TO FIRESTORE (UPDATED FOR MULTI-FILE + MERGE) ================== */
     if (projectId) {
       // Split the text by [NEW_PAGE: filename] tags
       const pageBlocks = finalOutputText.split(/\[NEW_PAGE:\s*(.*?)\s*\]/g).filter(Boolean);
       const pagesUpdate = {};
+      const pendingMerges = { css: "", js: "" };
 
       // pageBlocks looks like: ["package.json", "{code}", "landing", "<html>..."]
       for (let i = 0; i < pageBlocks.length; i += 2) {
-        const fileName = pageBlocks[i].trim();
+        const fileName = pageBlocks[i].trim().toLowerCase();
         let fileContent = pageBlocks[i + 1] || "";
 
-        // Apply Image Hydration to non-JSON files
-        if (!fileName.endsWith(".json")) {
-            // Placeholder Styling
-            fileContent = fileContent.replaceAll(
-              /<img([^>]*?)data-user-image="(\d+)"([^>]*)>/g,
-              '<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-user-image="$2" style="width:100%;height:auto;display:block;border-radius:12px;object-fit:cover;box-shadow:0 8px 24px rgba(0,0,0,0.2);transition:all 0.3s ease-in-out;">'
-            );
-            // Inject Actual User Images
-            images.forEach((img, index) => {
-               fileContent = fileContent.replaceAll(`data-user-image="${index}"`, `src="${img}"`);
-            });
+        // INSURANCE: If AI hallucinates separate style/script files, catch them for merging
+        if (fileName.endsWith(".css")) {
+          pendingMerges.css += `\n${fileContent.trim()}\n`;
+          continue;
+        }
+        if (fileName.endsWith(".js") && !fileName.includes("tailwind") && !fileName.includes("config")) {
+          pendingMerges.js += `\n${fileContent.trim()}\n`;
+          continue;
         }
 
         pagesUpdate[fileName] = {
           content: fileContent.trim(),
           updatedAt: admin.firestore.FieldValue.serverTimestamp()
         };
+      }
+
+      // Perform Merging into landing if hallucinated files exist
+      if (pagesUpdate["landing"]) {
+        let content = pagesUpdate["landing"].content;
+        if (pendingMerges.css) content += `\n<style>\n${pendingMerges.css}\n</style>`;
+        if (pendingMerges.js) content += `\n<script>\n${pendingMerges.js}\n</script>`;
+        
+        // Apply Image Hydration
+        content = content.replaceAll(
+          /<img([^>]*?)data-user-image="(\d+)"([^>]*)>/g,
+          '<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-user-image="$2" style="width:100%;height:auto;display:block;border-radius:12px;object-fit:cover;box-shadow:0 8px 24px rgba(0,0,0,0.2);transition:all 0.3s ease-in-out;">'
+        );
+        images.forEach((img, index) => {
+           content = content.replaceAll(`data-user-image="${index}"`, `src="${img}"`);
+        });
+
+        pagesUpdate["landing"].content = content;
       }
 
       // Save to the path used by deploy.js
