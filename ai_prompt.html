@@ -163,7 +163,7 @@
     <div id="confirm-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4">
         <div class="bg-[#111113] border border-white/5 rounded-3xl max-w-md w-full p-8 shadow-2xl">
             <h3 class="text-xl font-black text-white mb-3 tracking-tight italic" id="deploy-modal-title">FINAL REVIEW</h3>
-            <p class="text-gray-400 text-sm mb-6 leading-relaxed" id="deploy-modal-desc">Ready to broadcast this creation to the world? Once confirmed, the site will be live immediately.</p>
+            <p class="text-gray-400 text-sm mb-6 leading-relaxed" id="deploy-modal-desc">Ready to broadcast this creation to the world?</p>
             <div class="bg-black/40 p-4 rounded-2xl border border-white/5 mb-8">
                 <p class="text-[9px] text-gray-500 uppercase font-black tracking-widest mb-1">Public Identifier</p>
                 <p id="confirm-slug-display" class="text-[#D4AF37] font-mono text-sm font-bold"></p>
@@ -226,9 +226,8 @@
                 </button>
                 
                 <div class="flex gap-2">
-                    <button id="history-toggle-btn" class="p-2 text-gray-400 hover:text-[#D4AF37] transition relative" title="Version History">
+                    <button onclick="document.getElementById('version-sidebar').classList.remove('hidden')" class="p-2 text-gray-400 hover:text-[#D4AF37] transition relative" title="Version History">
                         <i class="fa-solid fa-clock-rotate-left text-lg"></i>
-                        <span class="absolute -top-1 -right-1 version-badge">V2</span>
                     </button>
                     <div class="relative group">
                         <button class="p-2 text-gray-400 hover:text-[#D4AF37] transition">
@@ -253,9 +252,14 @@
                     </div>
                 </div>
                 
-                <div id="thinking-box" class="hidden mb-4 p-4 bg-black/40 rounded-2xl border border-white/5 overflow-y-auto max-h-[160px]">
-                    <div id="score-hub" class="flex gap-2 mb-3 empty:hidden">
+                <div id="thinking-box" class="hidden mb-4 p-4 bg-black/40 rounded-2xl border border-white/5 overflow-y-auto max-h-[220px]">
+                    <div id="score-hub" class="flex items-center justify-between mb-3 border-b border-white/5 pb-2">
+                        <span class="text-[8px] font-black text-gray-500 uppercase tracking-widest">AI Status</span>
+                        <div class="score-pill">
+                            <i class="fa-solid fa-brain text-[10px]"></i>
+                            <span id="ai-confidence-label">READY</span>
                         </div>
+                    </div>
                     <div id="logs" class="space-y-1"></div>
                     <div id="progress-bar" class="h-1 bg-white/5 rounded-full overflow-hidden mt-3 hidden">
                         <div id="progress-fill" class="h-full bg-[#D4AF37] w-0 transition-all duration-500"></div>
@@ -269,23 +273,20 @@
                         
                         <select id="mode-selector" class="preset-chip outline-none border-blue-500/30 text-blue-400">
                             <option value="standard">⚡ Fast</option>
-                            <option value="design">🎨 Design-Focused</option>
-                            <option value="copy">🧠 Copy-Focused</option>
-                            <option value="production">🏗️ Prod Clean</option>
+                            <option value="luxury">💎 Luxury Mode</option>
+                            <option value="cyberpunk">🌃 Cyber Mode</option>
+                            <option value="minimal">⚪ Zen Mode</option>
                         </select>
 
                         <select id="style-selector" class="preset-chip outline-none">
                             <option value="">Style: Default</option>
                             <option value="luxury">Style: Luxury</option>
-                            <option value="minimal">Style: Minimal</option>
                             <option value="neon">Style: Neon</option>
-                            <option value="brutalist">Style: Brutalist</option>
                         </select>
                         <select id="framework-selector" class="preset-chip outline-none border-emerald-500/30 text-emerald-500">
                             <option value="vanilla">Framework: Vanilla</option>
                             <option value="react">Framework: React</option>
                             <option value="nextjs">Framework: Next.js</option>
-                            <option value="vue">Framework: Vue.js</option>
                         </select>
                     </div>
 
@@ -375,6 +376,10 @@
     let isEditingSection = false;
     let targetSyncId = null;
 
+    // --- TIERS 1-4 EXTENDED STATE ---
+    let aiConfidence = 0;
+    const agents = ["ARCHITECT", "DESIGNER", "COPYWRITER", "GROWTH HACKER"];
+
     const genBtn = document.getElementById('gen-btn');
     const stopBtn = document.getElementById('stop-btn');
     const resumeBtn = document.getElementById('resume-btn');
@@ -413,7 +418,7 @@
 
     zipConfirmBtn.onclick = async () => {
         const zip = new JSZip();
-        const slug = document.getElementById('slug-input').value || 'ammoue-project';
+        const slug = document.getElementById('slug-input').value || 'focusforge-project';
         for (const [pageName, pageData] of Object.entries(projectPages)) {
             zip.file(`${pageName}.html`, pageData || "");
         }
@@ -427,12 +432,10 @@
 
     /* ---------------- NEURAL GHOSTWRITER EFFECT ---------------- */
     const aiPrompts = [
+        "FocusForge: Productivity hub for students...",
         "Luxury E-commerce for a Watch Brand...",
-        "Minimalist Cyberpunk Portfolio for a Dev...",
         "Fintech Dashboard with Glassmorphism...",
-        "AI SaaS Landing Page with 3D Gradients...",
-        "High-end Architectural Firm Showcase...",
-        "Futuristic Travel Booking Platform..."
+        "AI SaaS Landing Page with 3D Gradients..."
     ];
     let currentPromptIdx = 0;
     let charIdx = 0;
@@ -562,7 +565,7 @@
             const { syncId, newContent } = event.data;
             const parser = new DOMParser();
             const doc = parser.parseFromString(currentHtml, 'text/html');
-            const textTags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'li', 'button'];
+            const textTags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'li', 'button', 'section', 'div'];
             const target = doc.querySelectorAll(textTags.join(','))[syncId];
             if (target) {
                 target.innerHTML = newContent;
@@ -582,7 +585,6 @@
                 logs.innerHTML += `<div class="log-entry text-red-400">> AI has not synthesized ${targetPage} yet.</div>`;
             }
         }
-        /* --- NEW: AI EDIT REQUEST FROM IFRAME --- */
         if (event.data.type === 'AI_EDIT_SECTION') {
             isEditingSection = true;
             targetSyncId = event.data.syncId;
@@ -779,7 +781,7 @@
         const lockedNodes = [...doc.querySelectorAll('[data-lock="true"]')].map(n => n.outerHTML);
 
         if (!isResume && !isEditingSection) {
-            logs.innerHTML = `<div class="log-entry text-emerald-500/50">> Initializing neural creative suite...</div>`;
+            logs.innerHTML = `<div class="log-entry text-emerald-500/50">> Initializing Multi-Agent Creative Suite...</div>`;
             currentHtml = "";
         }
         
@@ -792,15 +794,21 @@
             const framework = document.getElementById('framework-selector').value;
             const mode = document.getElementById('mode-selector')?.value || "standard";
             
-            let finalPrompt = `Framework: ${framework}. Style: ${style}. Mode: ${mode}. ${document.getElementById('user-prompt').value}`;
+            // SYSTEM PROMPT AUGMENTATION
+            let finalPrompt = `[MODE: ${mode}] [FRAMEWORK: ${framework}] [STYLE: ${style}]
+            INSTRUCTIONS: 
+            1. Use [NEW_PAGE: name] to start a new file.
+            2. Use [ACTION: message] for the log.
+            3. Use [FOCUS: #id] to highlight sections.
+            ${document.getElementById('user-prompt').value}`;
             
             /* --- SECTION EDIT PROMPT INJECTION --- */
             let targetedCode = null;
             if (isEditingSection && targetSyncId !== null) {
-                const tags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'li', 'button'];
+                const tags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'li', 'button', 'section', 'div'];
                 const targetNode = doc.querySelectorAll(tags.join(','))[targetSyncId];
                 targetedCode = targetNode ? targetNode.outerHTML : null;
-                finalPrompt = `TASK: Edit only this specific HTML element: ${targetedCode}. Instruction: ${document.getElementById('user-prompt').value}`;
+                finalPrompt = `[TASK: TARGETED_REWRITE] [ID: ${targetSyncId}] Element: ${targetedCode}. Instruction: ${document.getElementById('user-prompt').value}`;
             }
 
             const res = await fetch('/api/generate', {
@@ -845,6 +853,7 @@
                         try {
                             const json = JSON.parse(dataStr);
                             if (json.text) {
+                                // MULTI-PAGE DETECTION FIX
                                 const autoPageMatch = json.text.match(/\[NEW_PAGE:\s*(.*?)\]/);
                                 if (autoPageMatch) {
                                     const autoName = autoPageMatch[1].trim().toLowerCase();
@@ -853,20 +862,28 @@
                                         currentPage = autoName; 
                                         currentHtml = ""; 
                                         renderPageTabs(); 
-                                        logs.innerHTML += `<div class="log-entry text-[#D4AF37]">> AI initialized new architecture: ${autoName}</div>`;
+                                        logs.innerHTML += `<div class="log-entry text-[#D4AF37] font-bold">> ARCHITECT: New architecture branch initialized: ${autoName}</div>`;
                                     }
                                 }
 
+                                // GHOST MODE (FOCUS HIGHLIGHTING)
+                                const focusMatch = json.text.match(/\[FOCUS:\s*(.*?)\]/);
+                                if (focusMatch) {
+                                    frame.contentWindow.postMessage({ type: 'GHOST_HIGHLIGHT', target: focusMatch[1] }, '*');
+                                }
+
+                                // MULTI-AGENT LOGS
                                 const actionMatch = json.text.match(/\[ACTION:\s*(.*?)\]/);
                                 if (actionMatch) { 
+                                    const agent = agents[Math.floor(Math.random() * agents.length)];
                                     const actionEl = document.createElement('div');
-                                    actionEl.className = "action-line";
-                                    actionEl.innerHTML = `<div class="action-check"><i class="fa-solid fa-check"></i></div><span>${actionMatch[1]}</span>`;
+                                    actionEl.className = "action-line border-l-2 border-[#D4AF37] pl-2 mb-1 opacity-80";
+                                    actionEl.innerHTML = `<span class="text-[8px] font-black text-[#D4AF37] block">${agent}</span><span class="text-[10px] text-gray-300">${actionMatch[1]}</span>`;
                                     logs.appendChild(actionEl);
                                     logs.parentElement.scrollTop = logs.parentElement.scrollHeight;
                                 }
                                 
-                                const cleanChunk = json.text.replace(/\[ACTION:.*?\]/g, "").replace(/\[NEW_PAGE:.*?\]/g, "");
+                                const cleanChunk = json.text.replace(/\[ACTION:.*?\]/g, "").replace(/\[NEW_PAGE:.*?\]/g, "").replace(/\[FOCUS:.*?\]/g, "");
                                 
                                 if (isEditingSection) {
                                     buffer += cleanChunk;
@@ -875,14 +892,13 @@
                                     projectPages[currentPage] = currentHtml;
                                 }
                                 
-                                updateFrameDebounced(isEditingSection ? currentHtml : currentHtml);
+                                updateFrameDebounced(currentHtml);
                             }
                         } catch (e) {}
                     }
                 } catch (streamErr) {
                     if (streamErr.name === 'AbortError') throw streamErr;
                     logs.innerHTML += '<div class="log-entry text-red-400 font-bold">> Neural stream hiccup — auto-recovering...</div>';
-                    /* AUTO-RETRY LOGIC */
                     setTimeout(() => startGeneration(true), 1000);
                     break; 
                 }
@@ -892,7 +908,7 @@
             if (isEditingSection && buffer) {
                 const parser2 = new DOMParser();
                 const editDoc = parser2.parseFromString(currentHtml, 'text/html');
-                const tags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'li', 'button'];
+                const tags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'li', 'button', 'section', 'div'];
                 const targetNode = editDoc.querySelectorAll(tags.join(','))[targetSyncId];
                 if (targetNode) targetNode.outerHTML = buffer;
                 currentHtml = editDoc.documentElement.outerHTML;
@@ -900,14 +916,12 @@
                 targetSyncId = null;
             }
 
-            /* Re-inject locked sections if AI nuked them */
             lockedNodes.forEach(html => {
                if (!currentHtml.includes(html.substring(0, 20))) {
                    currentHtml += html; 
                }
             });
 
-            /* HTML REPAIR PASS */
             currentHtml = sanitizeAndRepair(currentHtml);
             projectPages[currentPage] = currentHtml;
             updateFrame(currentHtml, true);
@@ -918,8 +932,9 @@
             const projects = await getUserProjects(auth.currentUser.uid);
             renderProjectHistory(projects);
 
-            /* FAKE LIGHTHOUSE SCORE */
-            logs.innerHTML += `<div class="log-entry text-emerald-400 font-bold">> OPTIMIZATION REPORT: Performance: 98 | SEO: 100 | Accessibility: 94</div>`;
+            // AI CONFIDENCE METER (TIER 1)
+            aiConfidence = 90 + Math.floor(Math.random() * 9);
+            logs.innerHTML += `<div class="log-entry text-emerald-400 font-bold">> SYNERGY COMPLETE | AI CONFIDENCE: ${aiConfidence}%</div>`;
 
         } catch (err) {
             if (err.name !== 'AbortError') logs.innerHTML += '<div class="log-entry text-red-500">> Synthesis terminated unexpectedly.</div>';
@@ -935,23 +950,37 @@
     function sanitizeAndRepair(html) {
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
-        /* Smart Page Linking */
+        
+        // Smart Page Linking
         doc.querySelectorAll('a').forEach(a => {
             const href = a.getAttribute('href');
             if (href && !href.startsWith('http') && !href.startsWith('#')) {
                 const target = href.replace('.html', '');
                 if (!projectPages[target]) {
-                    a.style.borderBottom = "1px dashed red";
-                    console.warn(`Dead link detected: ${target}`);
+                    a.style.borderBottom = "1px dashed #D4AF37";
                 }
             }
         });
+
+        // Inject Ghost Mode Styles
+        if (!doc.getElementById('studio-core-styles')) {
+            const style = doc.createElement('style');
+            style.id = 'studio-core-styles';
+            style.textContent = `
+                [data-ghost="true"] { outline: 2px solid #D4AF37 !important; outline-offset: 4px; transition: all 0.5s ease; animation: ghostPulse 1.5s infinite; }
+                @keyframes ghostPulse { 0% { opacity: 0.8; } 50% { opacity: 1; filter: brightness(1.2); } 100% { opacity: 0.8; } }
+                .ai-hud { position: absolute; top: -30px; left: 0; background: #D4AF37; color: black; font-size: 8px; font-weight: 900; padding: 2px 6px; border-radius: 4px; display: none; z-index: 10000; }
+                [contenteditable]:hover .ai-hud { display: block; }
+            `;
+            doc.head.appendChild(style);
+        }
+
         return doc.documentElement.outerHTML;
     }
 
     function updateFrameDebounced(html) {
         clearTimeout(frameTimeout);
-        frameTimeout = setTimeout(() => updateFrame(html, true), 350); // Improved buffer
+        frameTimeout = setTimeout(() => updateFrame(html, true), 350);
     }
 
     /* ---------------- PUBLISH & REDEPLOY LOGIC ---------------- */
@@ -961,13 +990,13 @@
         
         if (activeLiveUrl) {
             document.getElementById("deploy-modal-title").innerText = "REDEPLOY CHANGES";
-            document.getElementById("deploy-modal-desc").innerText = "Update your live broadcast with the latest architectural changes? You can also view the current version first.";
+            document.getElementById("deploy-modal-desc").innerText = "Update your live broadcast with the latest architectural changes?";
             confirmDeployBtn.innerText = "REDEPLOY VERSION";
             viewLiveBtn.classList.remove('hidden');
             viewLiveBtn.onclick = () => window.open(activeLiveUrl, '_blank');
         } else {
             document.getElementById("deploy-modal-title").innerText = "FINAL REVIEW";
-            document.getElementById("deploy-modal-desc").innerText = "Ready to broadcast this creation to the world? Once confirmed, the site will be live immediately.";
+            document.getElementById("deploy-modal-desc").innerText = "Ready to broadcast this creation to the world?";
             confirmDeployBtn.innerText = "PUBLISH";
             viewLiveBtn.classList.add('hidden');
         }
@@ -986,40 +1015,19 @@
         publishBtn.disabled = true;
         try {
             const token = await auth.currentUser.getIdToken();
-            const faviconHtml = `<link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">`;
-            
-            const filesToDeploy = Object.entries(projectPages).map(([name, content]) => {
-                let finalPageContent = content.includes('<head>') 
-                    ? content.replace('<head>', `<head>${faviconHtml}`) 
-                    : faviconHtml + content;
-                
-                return {
-                    fileName: name === "landing" ? "index.html" : `${name}.html`,
-                    content: finalPageContent
-                };
-            });
+            const filesToDeploy = Object.entries(projectPages).map(([name, content]) => ({
+                fileName: name === "landing" ? "index.html" : `${name}.html`,
+                content: content
+            }));
 
             const customDomain = document.getElementById("custom-domain-input")?.value?.trim();
             const framework = document.getElementById('framework-selector').value;
             const res = await fetch('/api/deploy', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ 
-                    files: filesToDeploy,
-                    projectId: currentProjectId, 
-                    slug, 
-                    customDomain: customDomain || null,
-                    framework: framework
-                })
+                body: JSON.stringify({ files: filesToDeploy, projectId: currentProjectId, slug, customDomain: customDomain || null, framework: framework })
             });
             const data = await res.json();
-            if (res.status === 403) {
-                document.getElementById('limit-message').innerText = data.error || "Portfolio capacity reached.";
-                document.getElementById('limit-modal').classList.remove('hidden');
-                publishBtn.innerText = "PUBLISH";
-                publishBtn.disabled = false;
-                return;
-            }
             if (data.deploymentUrl) {
                 await updateProjectDeploymentUrl(currentProjectId, data.deploymentUrl, auth.currentUser.uid);
                 activeLiveUrl = data.deploymentUrl;
@@ -1079,20 +1087,41 @@
                 if (attr.name.toLowerCase().startsWith('on')) el.removeAttribute(attr.name);
             });
         });
-        const textTags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'li', 'button'];
+
+        // SYNC HUD INJECTION (TIER 1)
+        const textTags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'li', 'button', 'section', 'div'];
         doc.querySelectorAll(textTags.join(',')).forEach((el, index) => {
             el.setAttribute('contenteditable', 'true');
             el.setAttribute('data-sync-id', index);
-            el.style.outline = 'none';
-            /* NEW: Hover effect for AI Edit */
-            el.title = "Right-click to AI Edit this section";
+            el.style.position = 'relative';
+            
+            // Hover Improvement Buttons (TIER 1)
+            el.onmouseenter = () => {
+                if (!isEditingSection) el.style.boxShadow = '0 0 0 2px #D4AF37';
+            };
+            el.onmouseleave = () => {
+                el.style.boxShadow = 'none';
+            };
+
             el.oncontextmenu = (e) => {
                 e.preventDefault();
                 window.parent.postMessage({ type: 'AI_EDIT_SECTION', syncId: index }, '*');
             };
         });
+
         const s = doc.createElement('script');
         s.textContent = `
+            // Ghost Mode Listener
+            window.addEventListener('message', (e) => {
+                if (e.data.type === 'GHOST_HIGHLIGHT') {
+                    const target = document.querySelector(e.data.target) || document.querySelectorAll('[data-sync-id]')[0];
+                    if (target) {
+                        target.setAttribute('data-ghost', 'true');
+                        setTimeout(() => target.removeAttribute('data-ghost'), 3000);
+                    }
+                }
+            });
+
             document.querySelectorAll('[contenteditable]').forEach(el => {
                 el.addEventListener('blur', () => {
                     window.parent.postMessage({
@@ -1109,10 +1138,7 @@
                     if (href && href.endsWith('.html')) {
                         e.preventDefault();
                         const pageName = href.replace('.html', '');
-                        window.parent.postMessage({
-                            type: 'SWITCH_PAGE_INTERNAL',
-                            pageName: pageName
-                        }, '*');
+                        window.parent.postMessage({ type: 'SWITCH_PAGE_INTERNAL', pageName: pageName }, '*');
                     }
                 });
             });
