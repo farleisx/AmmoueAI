@@ -73,7 +73,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
 const GOOGLE_CX = process.env.GOOGLE_CX;
 const GOOGLE_SEARCH_KEY = process.env.GOOGLE_SEARCH_KEY;
-const API_MODEL = "gemini-2.5-flash"; // Adjusted to current stable
+const API_MODEL = "gemini-2.0-flash"; 
 
 // ---------------- HELPERS ----------------
 function extractKeywords(text = "") {
@@ -173,12 +173,12 @@ export default async function handler(req, res) {
       imageCount = 8,
       videoCount = 2,
       projectId,
-      pageName = "landing", // new: multi-page support
-      targetSection = null, // new: for refinement
-      isRefinement = false, // new: mode toggle
-      framework = "vanilla", // new: framework support
-      mode = "standard", // new: generation mode support
-      style = "default" // new: style support
+      pageName = "landing", 
+      targetSection = null, 
+      isRefinement = false, 
+      framework = "vanilla", 
+      mode = "standard", 
+      style = "default" 
     } = req.body;
 
     if (!prompt) {
@@ -333,24 +333,18 @@ You build real products — not demos, not mockups, not toy apps.
 
 Every output is production-ready, optimized, scalable, and deployable. Excuses are not accepted.
 
-🧠 CORE MANDSET: Think 10x above industry standards.
-
 🧠 ARCHITECTURAL RULES (STRICT):
 1. COMPLETE ENCAPSULATION:
    - Every file MUST be a 100% standalone, valid document.
    - For HTML: Every page MUST start with <!DOCTYPE html> and include opening <html>, <head>, and <body> tags.
-   - Every page MUST end with closing </body></html> tags before the next [NEW_PAGE:] tag starts.
-   - NEVER let tags from one page bleed into the next.
+   - Every page MUST end with closing </body></html> tags. 
 2. CODE PURITY (NO ACTION LINES):
-   - Output ONLY functional, production-ready code.
-   - DO NOT include "action lines," placeholders like [Add button here], or meta-comments inside the HTML.
-   - All descriptive text must be written as actual website copy (headlines, paragraphs) within the UI where the text sections are.
+   - Output ONLY functional code. NO placeholders like [Add button here]. 
+   - Descriptions must be actual website copy within headlines or paragraphs.
 3. USE SINGLE-FILE ARCHITECTURE FOR UI:
-   - ALL CSS must be wrapped in <style> tags INSIDE the HTML file.
-   - ALL JavaScript must be wrapped in <script> tags INSIDE the HTML file.
+   - ALL CSS in <style> tags, ALL JS in <script> tags INSIDE the HTML file.
 4. FILE TAGGING:
    - Output [NEW_PAGE: filename] before every file.
-   - The first page MUST be [NEW_PAGE: landing].
 
 🎨 DESIGN: Ultra-polished, Cinematic, Modern. Use Tailwind via CDN or internal CSS.
 
@@ -363,7 +357,8 @@ HERO VIDEO: ${heroVideo || "None"}
 
 ABSOLUTE RULES:
 - Output ONLY valid code and [NEW_PAGE:] tags.
-- NO markdown backticks (\`\`\`). NO conversational text.
+- NO markdown backticks (\`\`\`). 
+- PRIORITIZE COMPLETION: Ensure every document is fully closed with </html>.
 - Use this image placeholder: <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-user-image="INDEX">
 `.trim();
     }
@@ -405,7 +400,7 @@ ABSOLUTE RULES:
       finalOutputText = replaceSection(oldFullHtml, targetSection, fullText);
     } 
 
-    /* ================== SAVE TO FIRESTORE (FORCED MERGE) ================== */
+    /* ================== SAVE TO FIRESTORE (WITH AUTO-CLOSE SAFETY) ================== */
     if (projectId) {
       const pageBlocks = finalOutputText.split(/\[NEW_PAGE:\s*(.*?)\s*\]/g).filter(Boolean);
       const pagesUpdate = {};
@@ -415,6 +410,21 @@ ABSOLUTE RULES:
       for (let i = 0; i < pageBlocks.length; i += 2) {
         const fileName = pageBlocks[i].trim();
         let fileContent = (pageBlocks[i + 1] || "").trim();
+
+        // --- AUTO-CLOSE SAFETY NET ---
+        // If file starts with HTML but doesn't end with it, the AI was cut off.
+        if (fileContent.includes("<!DOCTYPE html>") && !fileContent.toLowerCase().includes("</html>")) {
+            // Close Script if open
+            if (fileContent.toLowerCase().includes("<script") && !fileContent.toLowerCase().includes("</script>")) {
+                fileContent += "\n</script>";
+            }
+            // Close Body if open
+            if (fileContent.toLowerCase().includes("<body") && !fileContent.toLowerCase().includes("</body>")) {
+                fileContent += "\n</body>";
+            }
+            // Close HTML
+            fileContent += "\n</html>";
+        }
 
         if (fileName.toLowerCase().endsWith(".css")) {
           forceStyle += `\n/* Merged from ${fileName} */\n${fileContent}\n`;
@@ -433,8 +443,8 @@ ABSOLUTE RULES:
       if (pagesUpdate[mainPageKey]) {
         let content = pagesUpdate[mainPageKey].content;
         
-        if (forceStyle) content = content.replace("</head>", `<style>${forceStyle}</style>\n</head>`);
-        if (forceScript) content = content.replace("</body>", `<script>${forceScript}</script>\n</body>`);
+        if (forceStyle && content.includes("</head>")) content = content.replace("</head>", `<style>${forceStyle}</style>\n</head>`);
+        if (forceScript && content.includes("</body>")) content = content.replace("</body>", `<script>${forceScript}</script>\n</body>`);
 
         content = content.replaceAll(
           /<img([^>]*?)data-user-image="(\d+)"([^>]*)>/g,
