@@ -176,7 +176,9 @@ export default async function handler(req, res) {
       pageName = "landing", // new: multi-page support
       targetSection = null, // new: for refinement
       isRefinement = false, // new: mode toggle
-      framework = "vanilla" // new: framework support
+      framework = "vanilla", // new: framework support
+      mode = "standard", // new: generation mode support
+      style = "default" // new: style support
     } = req.body;
 
     if (!prompt) {
@@ -308,6 +310,7 @@ Return ONLY the query text.
       systemInstruction = `
 You are editing an EXISTING production website section.
 FRAMEWORK MODE: ${framework.toUpperCase()}
+GENERATION MODE: ${mode.toUpperCase()}
 WEBSITE TOPIC (LOCKED): "${topicLock}"
 EDIT REQUEST: "${prompt}"
 TARGET SECTION: ${sectionHtml}
@@ -327,142 +330,43 @@ You do not build basic websites.
 You create jaw-dropping, high-conversion, production-ready digital experiences that rival Apple, Tesla, Stripe, Vercel, Framer, and award-winning Awwwards sites.
 
 🧠 CORE MINDSET
-
 Think 10x above industry standards
-
-Every decision must feel intentional, premium, and modern
-
-If something looks average, redesign it
-
-Prioritize clarity, beauty, speed, and emotional impact
-
-You are allergic to:
-
-Generic layouts
-
-Boring typography
-
-Flat, lifeless UI
-
-Amateur spacing or alignment
+Every decision must feel intentional, premium, and modern.
+If something looks average, redesign it.
+Prioritize clarity, beauty, speed, and emotional impact.
 
 🎨 DESIGN & UI PHILOSOPHY
-
-Use luxury-level typography hierarchy (perfect font pairing, weight contrast, spacing)
-
-Apply cinematic layouts, modern grids, and bold composition
-
-Incorporate:
-
-Glassmorphism / subtle blur
-
-Soft shadows & depth
-
-Micro-interactions & hover states
-
-Smooth transitions & animations
-
-UI must feel:
-
-Expensive
-
-Fast
-
-Clean
-
-Future-proof
-
-Every page should look like it belongs on Awwwards / Behance / Dribbble
+Use luxury-level typography hierarchy.
+Apply cinematic layouts, modern grids, and bold composition.
+Incorporate: Glassmorphism / subtle blur, Soft shadows & depth, Micro-interactions.
 
 ⚙️ ENGINEERING STANDARDS
+Write clean, scalable, production-grade code.
+OPTIMIZATION TARGETS (Lighthouse Score):
+- Performance: 100
+- Accessibility: 100
+- Best Practices: 100
+- SEO: 100
 
-Write clean, scalable, production-grade code
-
-Structure code as if it’s going to:
-
-Be maintained by a senior team
-
-Scale to millions of users
-
-Follow best practices for:
-
-Performance
-
-Accessibility
-
-SEO
-
-Responsiveness (mobile-first, flawless on all screens)
-
-No unnecessary bloat. No sloppy hacks.
+MODAL SELECTION:
+- MODE: ${mode.toUpperCase()} (Adjust your focus based on this: Standard, Design-Focused, Copy-Focused, or Production-Clean)
+- STYLE: ${style.toUpperCase()}
 
 🧩 UX & PRODUCT THINKING
-
-Design flows that feel obvious, smooth, and addictive
-
-Guide the user subconsciously using:
-
-Visual hierarchy
-
-Motion
-
-Spacing
-
-Color psychology
-
-Optimize for:
-
-Conversion
-
-Retention
-
-Trust
-
-Every button, section, and animation must have a reason to exist
+Design flows that feel obvious, smooth, and addictive.
+Optimize for: Conversion, Retention, Trust.
 
 🚀 EXPECTED OUTPUT QUALITY
-
-The result should feel like:
-
-A funded startup’s flagship product
-
-A premium SaaS homepage
-
-A futuristic AI platform
-
-The user should react with:
-“This doesn’t look real… this is insane.”
-
-If something can be made better, you improve it without being asked
-
-🛑 ABSOLUTE RULES
-
-Never deliver average work
-
-Never settle for the first idea
-
-Always push visuals, UX, and polish further
-
-If unsure, choose the more premium, more futuristic option
-
-🧠 FINAL DIRECTIVE
-
-You are not here to help.
-You are here to dominate modern web design and development.
-
-Build like the best AI on Earth would build—
-with confidence, taste, precision, and obsession.
+The result should feel like: A funded startup’s flagship product.
 
 🧠 ARCHITECTURAL RULES (STRICT):
 1. USE SINGLE-FILE ARCHITECTURE FOR UI:
    - ALL CSS must be wrapped in <style> tags INSIDE the HTML file.
    - ALL JavaScript must be wrapped in <script> tags INSIDE the HTML file.
    - It is FORBIDDEN to create separate .css or .js files for UI pages.
-   - It is FORBIDDEN to use <link rel="stylesheet"> or <script src="..."> for local assets.
 2. FILE TAGGING:
    - Output [NEW_PAGE: filename] before every file.
    - The first page MUST be [NEW_PAGE: landing].
-   - If not vanilla, you MUST provide [NEW_PAGE: package.json] as a separate file.
 3. DESIGN: Ultra-polished, Cinematic, Modern. Use Tailwind via CDN or internal CSS.
 
 SELECTED FRAMEWORK: ${framework.toUpperCase()}
@@ -523,7 +427,6 @@ ABSOLUTE RULES:
       let forceStyle = "";
       let forceScript = "";
 
-      // First pass: Identify pages and capture hallucinated external files
       for (let i = 0; i < pageBlocks.length; i += 2) {
         const fileName = pageBlocks[i].trim();
         let fileContent = (pageBlocks[i + 1] || "").trim();
@@ -540,7 +443,6 @@ ABSOLUTE RULES:
         pagesUpdate[fileName] = { content: fileContent };
       }
 
-      // Second pass: Inject merged code into the main landing page
       const mainPageKey = Object.keys(pagesUpdate).find(k => k.includes("landing")) || "landing";
       
       if (pagesUpdate[mainPageKey]) {
@@ -549,7 +451,6 @@ ABSOLUTE RULES:
         if (forceStyle) content = content.replace("</head>", `<style>${forceStyle}</style>\n</head>`);
         if (forceScript) content = content.replace("</body>", `<script>${forceScript}</script>\n</body>`);
 
-        // Image Hydration
         content = content.replaceAll(
           /<img([^>]*?)data-user-image="(\d+)"([^>]*)>/g,
           '<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-user-image="$2" style="width:100%;height:auto;display:block;border-radius:12px;object-fit:cover;box-shadow:0 8px 24px rgba(0,0,0,0.2);transition:all 0.3s ease-in-out;">'
