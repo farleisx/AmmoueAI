@@ -77,7 +77,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
 const GOOGLE_CX = process.env.GOOGLE_CX;
 const GOOGLE_SEARCH_KEY = process.env.GOOGLE_SEARCH_KEY;
-const API_MODEL = "gemini-2.0-flash"; 
+const API_MODEL = "gemini-2.5-flash"; 
 
 /* ================== STACK INTELLIGENCE LAYER ================== */
 const STACK_PRESETS = {
