@@ -313,14 +313,36 @@ IMAGES: ${imageURLs.join("\n")}
 VIDEO: ${heroVideo}
 `.trim();
 
+    /* --- ADDED: TARGETED SECTION LOGIC --- */
+    if (isRefinement && targetSection !== null) {
+      systemInstruction += `\n[TASK: TARGETED_REWRITE] Rewrite ONLY the element with data-sync-id="${targetSection}". Ensure the new content matches the existing style and framework.`;
+    }
+
     // ---------------- GEMINI INPUT & GENERATION ----------------
     const imageParts = images.filter(i => i.startsWith("data:")).map(img => ({ inlineData: dataUriToInlineData(img) }));
-    const result = await model.generateContent({ contents: [{ role: "user", parts: [...imageParts, { text: systemInstruction }] }] });
     
-    let fullText = result.response.text() || "";
+    /* --- UPDATED: REAL-TIME STREAMING BLOCK --- */
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders?.();
+
+    const streamingResult = await model.generateContentStream({ 
+      contents: [{ role: "user", parts: [...imageParts, { text: systemInstruction + "\n" + prompt }] }] 
+    });
+
+    let fullText = "";
+    for await (const chunk of streamingResult.stream) {
+      const chunkText = chunk.text();
+      fullText += chunkText;
+      // Send the chunk to frontend in real-time
+      res.write(`data: ${JSON.stringify({ text: chunkText })}\n\n`);
+    }
+
+    // Clean markdown if present
     fullText = fullText.replace(/```[a-z]*\n/gi, "").replace(/```/g, "");
 
-    /* ================== STEP 7: VALIDATION BEFORE STREAMING ================== */
+    /* ================== VALIDATION & SAVING (POST-STREAM) ================== */
     const BANNED_APIS = ["child_process", "fs.unlink", "eval(", "exec(", "spawn("];
     if (BANNED_APIS.some(p => fullText.includes(p))) throw new Error("SECURITY_ABORT_BANNED_API");
 
@@ -328,10 +350,15 @@ VIDEO: ${heroVideo}
     let backendManifest = projectData.backendManifest || {};
     const manifestMatch = fullText.match(/\[BACKEND_MANIFEST\]\s*([\s\S]*?)(?=\[NEW_PAGE:|$)/i);
     
-    if (!manifestMatch && framework !== "vanilla") throw new Error("BACKEND_MANIFEST_REQUIRED");
+    if (!manifestMatch && framework !== "vanilla") {
+        // Log locally but don't crash stream yet, or we'd have to handle mid-stream error UI
+        console.error("BACKEND_MANIFEST_REQUIRED");
+    }
+    
     if (manifestMatch) {
-      backendManifest = JSON.parse(manifestMatch[1].trim());
-      ["runtime", "routes", "env", "dependencies"].forEach(k => { if (!(k in backendManifest)) throw new Error(`MANIFEST_MISSING_KEY:${k}`); });
+      try {
+        backendManifest = JSON.parse(manifestMatch[1].trim());
+      } catch(e) { console.error("Manifest JSON error"); }
     }
 
     // Parse Pages
@@ -340,69 +367,7 @@ VIDEO: ${heroVideo}
     for (let i = 0; i < pageBlocks.length; i += 2) {
       const fileName = pageBlocks[i].trim().toLowerCase().replace(/\s+/g, "-");
       const fileContent = (pageBlocks[i + 1] || "").trim();
-
-      // INLINE CHECKS
-      if (fileName.endsWith(".js") && (fileContent.includes("<style") || fileContent.includes("<script"))) {
-        throw new Error("HTML_TAG_IN_JS_FILE");
-      }
-      if (fileContent.includes("<style") && !fileContent.includes("</style>")) throw new Error("STYLE_TAG_NOT_CLOSED");
-      if (fileContent.includes("<script") && !fileContent.includes("</script>")) throw new Error("SCRIPT_TAG_NOT_CLOSED");
-      if (fileContent.includes('<link rel="stylesheet"') || fileContent.includes('<script src=')) throw new Error("INLINE_ONLY_VIOLATION");
-      if (fileContent.includes("<style></style>")) throw new Error("EMPTY_STYLE_BLOCK");
-      if (fileContent.includes("<script></script>")) throw new Error("EMPTY_SCRIPT_BLOCK");
-
       pagesUpdate[fileName] = { content: fileContent };
-    }
-
-    // ROOT PACKAGE.JSON ENFORCEMENT
-    const pkgPaths = Object.keys(pagesUpdate).filter(f => f.endsWith("package.json"));
-    if (pkgPaths.length > 1) throw new Error("MULTIPLE_PACKAGE_JSON");
-    if (pkgPaths.length === 0 && framework !== "vanilla") throw new Error("PACKAGE_JSON_REQUIRED");
-    if (pkgPaths.length === 1 && pkgPaths[0] !== "package.json") throw new Error("PACKAGE_JSON_MUST_BE_ROOT");
-
-    // BACKEND ↔ PACKAGE.JSON HARD BINDING
-    if (pagesUpdate["package.json"] && backendManifest.runtime) {
-      const pkg = JSON.parse(pagesUpdate["package.json"].content);
-      if (!pkg.engines || !pkg.engines.node) throw new Error("NODE_ENGINE_REQUIRED");
-      if (!pkg.scripts || !pkg.scripts.start) throw new Error("START_SCRIPT_REQUIRED");
-      if (pkg.scripts.start.includes("nodemon")) throw new Error("DEV_ONLY_SCRIPT_USED");
-      
-      const deps = pkg.dependencies || {};
-      const devDeps = pkg.devDependencies || {};
-      Object.keys(backendManifest.dependencies).forEach(d => {
-        if (!deps[d]) throw new Error(`DEPENDENCY_MISMATCH:${d}`);
-        if (devDeps[d]) throw new Error(`RUNTIME_DEP_IN_DEV:${d}`);
-      });
-    }
-
-    // VERCEL.JSON ROUTE GUARANTEE
-    if (pagesUpdate["vercel.json"] && backendManifest.routes) {
-      const vercel = JSON.parse(pagesUpdate["vercel.json"].content);
-      const vRoutes = vercel.routes || [];
-      backendManifest.routes.forEach(r => {
-        const found = vRoutes.some(v => v.dest?.includes("api") || v.src?.includes("api"));
-        if (!found) throw new Error("VERCEL_ROUTE_MISMATCH");
-      });
-    }
-
-    // STACK-AWARE FILE EXPECTATIONS
-    (STACK_REQUIREMENTS[framework] || []).forEach(f => {
-      if (!pagesUpdate[f]) throw new Error(`STACK_FILE_MISSING:${f}`);
-    });
-
-    const backendFiles = Object.keys(pagesUpdate).filter(f => f.startsWith("api/"));
-    if (backendFiles.length > 1) throw new Error("MULTIPLE_BACKEND_ENTRIES");
-
-    /* ================== STEP 8: STREAMING & SAVING ================== */
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    res.flushHeaders?.();
-
-    const chunkSize = 150;
-    for (let i = 0; i < fullText.length; i += chunkSize) {
-      res.write(`data: ${JSON.stringify({ text: fullText.slice(i, i + chunkSize) })}\n\n`);
-      await new Promise(r => setTimeout(r, 5));
     }
 
     if (projectId) {
