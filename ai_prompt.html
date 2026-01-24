@@ -277,7 +277,7 @@
 
             try {
                 const idToken = await auth.currentUser.getIdToken();
-                const response = await fetch('/api/handler', {
+                const response = await fetch('/api/generate', {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${idToken}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
