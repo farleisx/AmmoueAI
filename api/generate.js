@@ -290,6 +290,12 @@ BACKEND_MANIFEST OUTPUT RULE:
 - NO trailing commas
 - ONE JSON object only
 
+FILE NAMING ADHERENCE:
+- If framework is "vanilla", the primary entry point MUST be named exactly "index.html".
+- If framework is "react-node", you MUST provide "src/main.jsx" and "src/App.jsx".
+- If framework is "nextjs", you MUST provide "app/page.jsx" and "app/layout.jsx".
+- DO NOT use alternative names like "home.html" or "landing.html" for the root entry.
+
 ROOT FILE SYSTEM LAW:
 - There is ONE project root.
 - package.json, vercel.json, README.md MUST exist at ROOT ONLY.
@@ -347,7 +353,6 @@ VIDEO: ${heroVideo}
     if (manifestMatch) {
       let raw = manifestMatch[1].replace(/```json|```/gi, "").trim();
 
-      // HARD STOP: Extract only the object between braces
       const jsonStart = raw.indexOf("{");
       const jsonEnd = raw.lastIndexOf("}");
 
@@ -379,7 +384,7 @@ VIDEO: ${heroVideo}
       const fileName = pageBlocks[i].trim().toLowerCase().replace(/\s+/g, "-");
       const fileContent = (pageBlocks[i + 1] || "").trim();
 
-      // NEW: TAG CLOSURE VALIDATION
+      // TAG CLOSURE VALIDATION
       const tagsToVerify = ['html', 'head', 'body', 'style', 'script'];
       tagsToVerify.forEach(tag => {
         const openCount = (fileContent.match(new RegExp(`<${tag}`, 'gi')) || []).length;
