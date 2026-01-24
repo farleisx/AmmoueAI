@@ -10,172 +10,96 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap');
         
-        :root {
-            --bg-sidebar: #050505;
-            --bg-canvas: #0c0c0c;
-            --sidebar-border: rgba(255, 255, 255, 0.08);
-            --input-bg: #111111;
-            --accent: #6366f1;
-            --text-main: #ffffff;
-        }
+        :root { --bg-sidebar: #050505; --bg-canvas: #0c0c0c; --sidebar-border: rgba(255, 255, 255, 0.08); --input-bg: #111111; --accent: #6366f1; --text-main: #ffffff; }
+        .light-mode { --bg-sidebar: #ffffff; --bg-canvas: #f3f4f6; --sidebar-border: rgba(0, 0, 0, 0.08); --input-bg: #f9f9fb; --accent: #4f46e5; --text-main: #111111; }
 
-        .light-mode {
-            --bg-sidebar: #ffffff;
-            --bg-canvas: #f3f4f6;
-            --sidebar-border: rgba(0, 0, 0, 0.08);
-            --input-bg: #f9f9fb;
-            --accent: #4f46e5;
-            --text-main: #111111;
-        }
-
-        body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            background-color: var(--bg-canvas);
-            color: var(--text-main);
-            transition: all 0.3s ease;
-            cursor: none;
-        }
-
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--bg-canvas); color: var(--text-main); transition: all 0.3s ease; cursor: none; }
         .sidebar { width: 440px; background-color: var(--bg-sidebar); border-right: 1px solid var(--sidebar-border); position: relative; z-index: 50; }
         
-        #thoughtStream {
-            position: absolute; inset: 0; background: rgba(5,5,5,0.9);
-            backdrop-filter: blur(10px); display: none; flex-direction: column;
-            justify-content: center; padding: 40px; z-index: 100;
-        }
+        #customCursor { width: 20px; height: 20px; background: white; border-radius: 50%; position: fixed; pointer-events: none; z-index: 9999; mix-blend-mode: difference; transition: transform 0.1s ease-out; box-shadow: 0 0 20px var(--accent); }
+        #deployAnimation { position: fixed; inset: 0; background: black; z-index: 200; display: none; align-items: center; justify-content: center; flex-direction: column; }
+        .modal-overlay { background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); display: none; position: fixed; inset: 0; z-index: 1000; align-items: center; justify-content: center; }
 
-        .thought-line {
-            font-family: 'Fira Code', monospace; font-size: 11px;
-            color: var(--accent); margin-bottom: 8px; opacity: 0;
-            transform: translateX(-10px); animation: slideIn 0.3s forwards;
-        }
+        /* Project Browser Sidebar */
+        #projectBrowser { position: fixed; left: -400px; top: 0; bottom: 0; width: 350px; background: var(--bg-sidebar); border-right: 1px solid var(--sidebar-border); z-index: 1001; transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1); padding: 2rem; overflow-y: auto; }
+        #projectBrowser.open { left: 0; }
 
-        @keyframes slideIn { to { opacity: 1; transform: translateX(0); } }
-
-        #customCursor {
-            width: 20px; height: 20px; background: white; border-radius: 50%;
-            position: fixed; pointer-events: none; z-index: 9999;
-            mix-blend-mode: difference; transition: transform 0.1s ease-out;
-            box-shadow: 0 0 20px var(--accent);
-        }
-
-        #deployAnimation {
-            position: fixed; inset: 0; background: black; z-index: 200;
-            display: none; align-items: center; justify-content: center;
-            flex-direction: column; text-align: center;
-        }
-
-        .world-map { width: 600px; opacity: 0.2; filter: invert(1); }
-
-        .insanity-track {
-            background: linear-gradient(90deg, #6366f1, #ec4899, #f59e0b);
-            height: 4px; border-radius: 2px; appearance: none;
-        }
-
-        .modal-overlay {
-            background: rgba(0,0,0,0.8); backdrop-filter: blur(8px);
-            display: none; position: fixed; inset: 0;
-            z-index: 100; align-items: center; justify-content: center;
-        }
-
-        .floating-pill {
-            background: rgba(15, 15, 15, 0.7); backdrop-filter: blur(15px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
-        }
+        /* Action Logs Styling */
+        .action-line { font-family: 'Fira Code', monospace; font-size: 11px; color: #888; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+        .action-line i { color: var(--accent); font-size: 8px; }
 
         .preview-container { transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); margin: 0 auto; }
         .view-pc { width: 100%; height: 100%; }
         .view-tablet { width: 768px; height: 90%; }
         .view-phone { width: 375px; height: 85%; }
-
-        #previewFrame { transition: filter 0.5s ease; width: 100%; height: 100%; }
-        .is-refining #previewFrame { filter: blur(4px) grayscale(0.5); }
+        
+        #previewFrame { width: 100%; height: 100%; border: none; }
+        .is-refining #previewFrame { filter: blur(4px); }
     </style>
 </head>
 <body class="h-screen flex overflow-hidden">
 
     <div id="customCursor"></div>
 
-    <div id="deployAnimation">
-        <div class="relative">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/e/ec/World_map_blank_without_borders.svg" class="world-map">
-            <div id="nodeContainer"></div>
-        </div>
-        <h2 class="text-2xl font-black mt-8 tracking-tighter uppercase">Propagating to Global Edge</h2>
-        <div class="mt-8 w-64 h-1 bg-white/10 rounded-full overflow-hidden">
-            <div id="deployProgress" class="h-full bg-indigo-500 w-0 transition-all duration-500"></div>
+    <div id="upgradeModal" class="modal-overlay">
+        <div class="bg-[var(--bg-sidebar)] border border-yellow-500/30 p-8 rounded-3xl w-full max-w-sm text-center">
+            <i class="fa-solid fa-crown text-yellow-500 text-4xl mb-4"></i>
+            <h2 class="text-xl font-bold mb-2">Plan Limit Reached</h2>
+            <p class="text-sm text-neutral-400 mb-6">Your current plan does not allow more generations today. Upgrade to Pro for unlimited builds.</p>
+            <button onclick="window.location.href='/upgrade'" class="w-full py-3 bg-indigo-600 rounded-xl font-bold">Upgrade Now</button>
+            <button onclick="closeModal('upgradeModal')" class="mt-4 text-xs text-neutral-500">Maybe later</button>
         </div>
     </div>
 
-    <div id="deployModal" class="modal-overlay">
-        <div class="bg-[var(--bg-sidebar)] border border-[var(--sidebar-border)] p-8 rounded-3xl w-full max-w-md shadow-2xl">
-            <div class="flex items-center gap-3 mb-6">
-                <div class="w-10 h-10 bg-indigo-600/20 rounded-xl flex items-center justify-center text-indigo-500">
-                    <i class="fa-solid fa-rocket"></i>
-                </div>
-                <div>
-                    <h2 class="text-xl font-bold">Deploy to Vercel</h2>
-                    <p class="text-xs text-neutral-500">Configure your production parameters.</p>
-                </div>
-            </div>
-            
-            <div class="space-y-4">
-                <div>
-                    <label class="text-[10px] font-bold uppercase tracking-widest text-neutral-500 block mb-2">Project Name (Slug)</label>
-                    <input id="deploySlug" type="text" placeholder="my-awesome-site" class="w-full bg-black/20 border border-[var(--sidebar-border)] rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 transition">
-                </div>
-                <div>
-                    <label class="text-[10px] font-bold uppercase tracking-widest text-neutral-500 block mb-2">Custom Domain (Pro)</label>
-                    <input id="deployDomain" type="text" placeholder="www.example.com" class="w-full bg-black/20 border border-[var(--sidebar-border)] rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 transition">
-                </div>
-            </div>
-
-            <div class="flex gap-3 mt-8">
-                <button onclick="closeDeployModal()" class="flex-1 py-3 rounded-xl text-xs font-bold border border-[var(--sidebar-border)] hover:bg-white/5 transition">Cancel</button>
-                <button id="confirmDeployBtn" onclick="executeDeployment()" class="flex-1 py-3 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow-xl hover:bg-indigo-500 transition">Go Live</button>
-            </div>
+    <div id="projectBrowser">
+        <div class="flex justify-between items-center mb-8">
+            <h2 class="font-bold text-xl">Projects</h2>
+            <button onclick="toggleProjects()" class="text-neutral-500"><i class="fa-solid fa-xmark"></i></button>
         </div>
+        <div id="projectList" class="space-y-4"></div>
     </div>
 
     <aside class="sidebar flex flex-col h-full overflow-hidden">
-        <div id="thoughtStream"></div>
-
         <div class="p-6 border-b border-[var(--sidebar-border)] flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center font-bold text-white shadow-lg">A</div>
+                <button onclick="window.location.href='/dashboard'" class="text-neutral-500 hover:text-white" title="Dashboard"><i class="fa-solid fa-house-user"></i></button>
                 <h1 class="font-extrabold tracking-tighter text-xl">AmmoueAI</h1>
             </div>
-            <button onclick="toggleTheme()" class="p-2 hover:bg-white/5 rounded-lg transition"><i class="fa-solid fa-circle-half-stroke text-neutral-400"></i></button>
-        </div>
-
-        <div class="flex-1 overflow-y-auto p-8 relative">
-            <h3 class="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500 mb-8 flex justify-between">
-                Timeline <span class="text-indigo-500">History Mode</span>
-            </h3>
-            <div class="ml-4 border-l-2 border-white/5 space-y-8 pb-4" id="historyTimeline"></div>
-        </div>
-
-        <div class="px-8 mb-4">
-            <div class="flex justify-between text-[9px] font-black uppercase text-neutral-600 mb-2">
-                <span>Safe</span>
-                <span>Insanity</span>
+            <div class="flex gap-3">
+                <button onclick="createNewProject()" class="p-2 bg-indigo-600/20 text-indigo-400 rounded-lg" title="New Project"><i class="fa-solid fa-plus"></i></button>
+                <button onclick="toggleProjects()" class="p-2 hover:bg-white/5 rounded-lg transition" title="View Projects"><i class="fa-solid fa-folder-tree"></i></button>
+                <button onclick="toggleTheme()" class="p-2 hover:bg-white/5 rounded-lg transition"><i class="fa-solid fa-circle-half-stroke"></i></button>
             </div>
-            <input type="range" id="insanitySlider" class="w-full insanity-track" min="0" max="100" value="20">
         </div>
 
-        <div class="p-6 pt-0">
+        <div class="flex-1 overflow-y-auto p-8 relative" id="logContainer">
+            <h3 class="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500 mb-6 flex justify-between">
+                Live Action Logs <span id="logStatus" class="text-green-500">Ready</span>
+            </h3>
+            <div id="liveLogs" class="space-y-2">
+                <div class="action-line"><i class="fa-solid fa-circle"></i> System initialized. Awaiting input...</div>
+            </div>
+        </div>
+
+        <div class="p-6 pt-0 border-t border-[var(--sidebar-border)]">
+            <div class="mb-4">
+                <label class="text-[9px] font-black uppercase text-neutral-500 mb-2 block">Project Name</label>
+                <input id="projectNameDisplay" type="text" value="Untitled Alpha" class="bg-transparent border-none font-bold text-sm w-full outline-none text-indigo-400" onchange="updateProjectName(this.value)">
+            </div>
+            
             <div class="bg-[var(--input-bg)] rounded-3xl p-5 border border-[var(--sidebar-border)]">
-                <textarea id="mainInput" class="bg-transparent border-none outline-none text-sm w-full h-40 resize-none" placeholder="Describe your vision..."></textarea>
+                <textarea id="mainInput" class="bg-transparent border-none outline-none text-sm w-full h-32 resize-none" placeholder="Build something insane..."></textarea>
+                
                 <div class="flex items-center justify-between mt-4">
-                    <button id="voiceBtn" onclick="toggleVoice()" class="text-neutral-500 hover:text-white transition"><i class="fa-solid fa-microphone"></i></button>
-                    <button id="generateBtn" onclick="triggerBuild()" class="bg-white text-black px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition hover:scale-105">Generate</button>
+                    <div class="flex gap-3">
+                        <label for="imgUpload" class="cursor-pointer text-neutral-500 hover:text-white"><i class="fa-solid fa-image"></i></label>
+                        <input type="file" id="imgUpload" hidden accept="image/*" onchange="handleImage(this)">
+                        <button onclick="toggleVoice()" class="text-neutral-500 hover:text-white"><i class="fa-solid fa-microphone"></i></button>
+                    </div>
+                    <button id="generateBtn" onclick="triggerBuild()" class="bg-white text-black px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition hover:bg-indigo-500 hover:text-white">Generate</button>
                 </div>
             </div>
-            <div class="flex gap-2 mt-4">
-                <button class="flex-1 py-2 text-[9px] font-bold uppercase bg-white/5 border border-white/10 rounded-lg text-neutral-400 hover:text-white" onclick="triggerImprove()">✨ Auto-Improve</button>
-                <button class="flex-1 py-2 text-[9px] font-bold uppercase bg-white/5 border border-white/10 rounded-lg text-neutral-400 hover:text-white" onclick="manualSave()">💾 Save Project</button>
-            </div>
+            <input type="range" id="insanitySlider" class="w-full mt-4 insanity-track" min="0" max="100" value="20">
         </div>
     </aside>
 
@@ -184,217 +108,182 @@
             <div class="flex gap-6 items-center">
                 <div class="flex items-center gap-2">
                     <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <span id="statusText" class="text-[10px] font-bold uppercase text-neutral-400">Stable Engine v2.5</span>
+                    <span class="text-[10px] font-bold uppercase text-neutral-400">Stable Engine v2.5</span>
                 </div>
-                <div class="flex items-center gap-1 bg-white/5 p-1 rounded-lg border border-white/5">
-                    <button onclick="setDevice('pc')" class="p-1.5 px-3 rounded-md text-xs hover:bg-white/5 transition" title="Desktop"><i class="fa-solid fa-desktop text-neutral-500"></i></button>
-                    <button onclick="setDevice('tablet')" class="p-1.5 px-3 rounded-md text-xs hover:bg-white/5 transition" title="Tablet"><i class="fa-solid fa-tablet-screen-button text-neutral-500"></i></button>
-                    <button onclick="setDevice('phone')" class="p-1.5 px-3 rounded-md text-xs hover:bg-white/5 transition" title="Mobile"><i class="fa-solid fa-mobile-screen text-neutral-500"></i></button>
+                <div class="flex items-center gap-1 bg-white/5 p-1 rounded-lg">
+                    <button onclick="setDevice('pc')" class="p-1.5 px-3 rounded-md text-xs hover:bg-white/5"><i class="fa-solid fa-desktop"></i></button>
+                    <button onclick="setDevice('tablet')" class="p-1.5 px-3 rounded-md text-xs hover:bg-white/5"><i class="fa-solid fa-tablet-screen-button"></i></button>
+                    <button onclick="setDevice('phone')" class="p-1.5 px-3 rounded-md text-xs hover:bg-white/5"><i class="fa-solid fa-mobile-screen"></i></button>
                 </div>
             </div>
 
             <div class="flex items-center gap-3">
-                <button onclick="openExternalPreview()" class="btn-glass px-4 py-2 rounded-lg text-xs font-bold text-neutral-300 hover:text-white transition flex items-center gap-2">
-                    <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i> Open Full
+                <button onclick="openExternalPreview()" class="px-4 py-2 rounded-lg text-xs font-bold text-neutral-300 hover:text-white transition flex items-center gap-2">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Full
                 </button>
-                <button id="deployBtn" onclick="openDeployModal()" class="bg-indigo-600 px-6 py-2 rounded-lg text-xs font-black text-white hover:scale-105 transition active:scale-95 shadow-lg shadow-indigo-600/30">
-                    DEPLOY SITE
-                </button>
+                <button id="deployBtn" onclick="openDeployModal()" class="bg-indigo-600 px-6 py-2 rounded-lg text-xs font-black text-white hover:scale-105 transition">DEPLOY</button>
             </div>
         </header>
 
-        <div class="absolute top-24 left-1/2 -translate-x-1/2 z-30">
+        <div class="absolute top-20 left-1/2 -translate-x-1/2 z-30">
             <div class="floating-pill p-1 rounded-full flex items-center gap-1">
-                <button class="px-6 py-2 rounded-full text-xs font-bold bg-indigo-600 text-white shadow-lg" id="pillPreview">Preview</button>
-                <button class="px-6 py-2 rounded-full text-xs font-bold text-neutral-500 hover:text-white transition" id="pillCode">Code</button>
-                <button class="px-6 py-2 rounded-full text-xs font-bold text-neutral-500 hover:text-white transition" id="pillLogs">Logs</button>
+                <button class="px-6 py-2 rounded-full text-xs font-bold bg-indigo-600 text-white" id="pillPreview">Preview</button>
+                <button class="px-6 py-2 rounded-full text-xs font-bold text-neutral-500" id="pillCode">Code</button>
             </div>
         </div>
 
-        <div class="flex-1 p-12 pt-24 overflow-hidden flex flex-col items-center">
+        <div class="flex-1 p-12 pt-20 overflow-hidden flex flex-col items-center">
             <div id="previewContainer" class="preview-container view-pc bg-white rounded-3xl shadow-2xl overflow-hidden relative">
-                <iframe id="previewFrame" srcdoc="<body style='background:#000; color:#444; height:100vh; display:flex; align-items:center; justify-content:center; font-family:sans-serif;'><h1>Initialize System</h1></body>" class="border-none"></iframe>
+                <iframe id="previewFrame" srcdoc="<body style='background:#000; display:flex; align-items:center; justify-content:center; color:#444;'><h1>Ready to Build</h1></body>"></iframe>
             </div>
         </div>
     </main>
 
     <script type="module">
-        import { auth, db, getUserPlan, autoSaveProject, getUserProjects, incrementCounter } from "./fire_prompt.js";
+        import { auth, db, getUserPlan, autoSaveProject, getUserProjects } from "./fire_prompt.js";
         import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 
         let CURRENT_PROJECT_ID = null;
         let CURRENT_USER_ID = null;
-        let CURRENT_PAGES_MAP = {};
-        let CURRENT_FRAMEWORK = "vanilla";
+        let IS_GENERATING = false;
+        let ATTACHED_IMAGE = null;
 
-        // CURSOR PHYSICS
-        const cursor = document.getElementById('customCursor');
-        document.addEventListener('mousemove', (e) => {
-            cursor.style.left = e.clientX + 'px';
-            cursor.style.top = e.clientY + 'px';
-            if (e.target.closest('button, a, input, textarea')) {
-                cursor.style.transform = 'scale(2.5)';
-            } else { cursor.style.transform = 'scale(1)'; }
+        // AUTH GUARD
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                CURRENT_USER_ID = user.uid;
+                loadProjectList();
+            } else { window.location.href = "/login"; }
         });
 
-        // RESPONSIVE DEVICE TOGGLES
-        window.setDevice = (type) => {
-            const container = document.getElementById('previewContainer');
-            container.classList.remove('view-pc', 'view-tablet', 'view-phone');
-            container.classList.add(`view-${type}`);
+        window.toggleProjects = () => document.getElementById('projectBrowser').classList.toggle('open');
+        
+        window.createNewProject = () => {
+            CURRENT_PROJECT_ID = null;
+            document.getElementById('projectNameDisplay').value = "New Cosmic Build";
+            document.getElementById('previewFrame').srcdoc = "<body></body>";
+            addLog("Initialized clean workspace.");
         };
 
-        // NEW TAB PREVIEW
-        window.openExternalPreview = () => {
-            const win = window.open('about:blank', '_blank');
-            win.document.write(document.getElementById('previewFrame').srcdoc);
-            win.document.close();
+        window.addLog = (msg) => {
+            const logBox = document.getElementById('liveLogs');
+            const el = document.createElement('div');
+            el.className = "action-line animate-pulse";
+            el.innerHTML = `<i class="fa-solid fa-caret-right"></i> ${msg}`;
+            logBox.prepend(el);
+            if(logBox.children.length > 15) logBox.lastChild.remove();
         };
 
-        // THOUGHT STREAM
-        async function runThoughtStream() {
-            const stream = document.getElementById('thoughtStream');
-            const lines = ["▸ Initializing AI core...", "▸ Interpreting semantic context...", "▸ Injecting visual intelligence...", "▸ Securing artifacts..."];
-            stream.style.display = 'flex';
-            stream.innerHTML = "";
-            for(let line of lines) {
-                const el = document.createElement('div');
-                el.className = "thought-line";
-                el.innerText = line;
-                stream.appendChild(el);
-                await new Promise(r => setTimeout(r, 500));
+        window.handleImage = (input) => {
+            if(input.files[0]) {
+                ATTACHED_IMAGE = input.files[0];
+                addLog(`Attached image: ${ATTACHED_IMAGE.name}`);
             }
-            setTimeout(() => stream.style.display = 'none', 1000);
-        }
+        };
 
-        // GENERATION ENGINE
         window.triggerBuild = async () => {
+            if(IS_GENERATING) return;
             const prompt = document.getElementById('mainInput').value;
             if (!prompt) return;
 
-            await runThoughtStream();
+            // SAFEGUARD: PLAN CHECK
+            const plan = await getUserPlan(CURRENT_USER_ID);
+            if (plan.generationsLeft <= 0) {
+                document.getElementById('upgradeModal').style.display = 'flex';
+                return;
+            }
+
+            IS_GENERATING = true;
+            document.getElementById('generateBtn').disabled = true;
             document.body.classList.add('is-refining');
+            addLog("Connecting to Genesis Engine...");
 
             try {
                 const idToken = await auth.currentUser.getIdToken();
-                const response = await fetch('/api/generate', {
+                const response = await fetch('/api/generate.js', {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${idToken}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         prompt, 
-                        projectId: CURRENT_PROJECT_ID, 
-                        framework: CURRENT_FRAMEWORK,
+                        projectId: CURRENT_PROJECT_ID,
+                        projectName: document.getElementById('projectNameDisplay').value,
                         insanity: document.getElementById('insanitySlider').value 
                     })
                 });
 
+                if (!response.ok) throw new Error("Stream Interrupted");
+
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
                 let fullText = "";
+
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
-                    fullText += decoder.decode(value);
+                    const chunk = decoder.decode(value);
+                    fullText += chunk;
+                    
+                    // REAL-TIME ACTION PARSING (Mocking logic like replit/cursor)
+                    if(chunk.includes("header")) addLog("Architecting Navigation...");
+                    if(chunk.includes("footer")) addLog("Assembling Footer system...");
+                    if(chunk.includes("grid")) addLog("Calculating Responsive Grid...");
                 }
-                
-                const pages = parsePages(fullText);
-                CURRENT_PAGES_MAP = pages;
-                document.getElementById('previewFrame').srcdoc = pages["index.html"] || pages["landing"] || Object.values(pages)[0];
-                
-                const newId = await autoSaveProject(pages, prompt, CURRENT_PROJECT_ID, CURRENT_USER_ID);
-                if (newId) CURRENT_PROJECT_ID = newId;
-                loadHistory();
 
-            } catch (err) { console.error("Build failed:", err); } finally {
+                const pages = { "index.html": fullText }; // Simplified for vanilla
+                document.getElementById('previewFrame').srcdoc = fullText;
+                
+                CURRENT_PROJECT_ID = await autoSaveProject(pages, prompt, CURRENT_PROJECT_ID, CURRENT_USER_ID);
+                addLog("Project Synced to Cloud.");
+                loadProjectList();
+
+            } catch (err) {
+                addLog(`Error: ${err.message}`);
+            } finally {
+                IS_GENERATING = false;
+                document.getElementById('generateBtn').disabled = false;
                 document.body.classList.remove('is-refining');
             }
         };
 
-        function parsePages(text) {
-            const blocks = text.split(/\[NEW_PAGE:\s*(.*?)\s*\]/g).filter(Boolean);
-            const pages = {};
-            for (let i = 0; i < blocks.length; i += 2) {
-                if(blocks[i] && blocks[i+1]) pages[blocks[i].trim()] = blocks[i+1].trim();
-            }
-            return pages;
-        }
-
-        // DEPLOYMENT MODULE
-        window.executeDeployment = async () => {
-            const slug = document.getElementById('deploySlug').value;
-            const domain = document.getElementById('deployDomain').value;
-            
-            document.getElementById('deployModal').style.display = 'none';
-            document.getElementById('deployAnimation').style.display = 'flex';
-            
-            const progress = document.getElementById('deployProgress');
-            for(let i=0; i<=100; i+=2) {
-                progress.style.width = i + '%';
-                await new Promise(r => setTimeout(r, 60));
-            }
-
-            try {
-                const idToken = await auth.currentUser.getIdToken();
-                const res = await fetch('/api/deploy', {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${idToken}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        projectId: CURRENT_PROJECT_ID, 
-                        slug, 
-                        customDomain: domain,
-                        framework: CURRENT_FRAMEWORK 
-                    })
-                });
-                const data = await res.json();
-                if(res.ok) window.open(data.deploymentUrl, '_blank');
-                else alert(data.error);
-            } catch (err) { alert("Deployment failed."); } finally {
-                document.getElementById('deployAnimation').style.display = 'none';
-            }
-        };
-
-        // AUTH & INITIALIZATION
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                CURRENT_USER_ID = user.uid;
-                loadHistory();
-            } else { window.location.href = "/login"; }
-        });
-
-        async function loadHistory() {
+        async function loadProjectList() {
             const projects = await getUserProjects(CURRENT_USER_ID);
-            const timeline = document.getElementById('historyTimeline');
-            timeline.innerHTML = "";
+            const list = document.getElementById('projectList');
+            list.innerHTML = "";
             projects.forEach(p => {
                 const item = document.createElement('div');
-                item.className = "history-item relative pl-6 opacity-60 hover:opacity-100 transition cursor-pointer group";
+                item.className = "p-4 bg-white/5 rounded-xl cursor-pointer hover:bg-indigo-600/20 transition group";
                 item.innerHTML = `
-                    <p class="text-[10px] font-mono text-indigo-400">BUILD #${p.id.slice(-4)}</p>
-                    <p class="text-xs text-neutral-400 truncate">${p.prompt.slice(0,35)}...</p>
+                    <div class="flex justify-between items-start">
+                        <p class="font-bold text-sm">${p.name || 'Untitled'}</p>
+                        <i class="fa-solid fa-chevron-right text-[10px] opacity-0 group-hover:opacity-100 transition"></i>
+                    </div>
+                    <p class="text-[10px] text-neutral-500 mt-1">${new Date(p.updatedAt).toLocaleDateString()}</p>
                 `;
                 item.onclick = () => {
                     CURRENT_PROJECT_ID = p.id;
-                    CURRENT_PAGES_MAP = p.pages || {};
+                    document.getElementById('projectNameDisplay').value = p.name || 'Untitled';
                     document.getElementById('previewFrame').srcdoc = p.pages?.["index.html"] || p.htmlContent;
-                    document.getElementById('mainInput').value = p.prompt;
+                    toggleProjects();
+                    addLog(`Loaded ${p.name}`);
                 };
-                timeline.appendChild(item);
+                list.appendChild(item);
             });
         }
 
-        // INTERFACE ACTIONS
-        window.openDeployModal = () => document.getElementById('deployModal').style.display = 'flex';
-        window.closeDeployModal = () => document.getElementById('deployModal').style.display = 'none';
+        window.updateProjectName = (val) => addLog(`Project renamed to: ${val}`);
+        window.setDevice = (type) => {
+            const cont = document.getElementById('previewContainer');
+            cont.className = `preview-container view-${type} bg-white rounded-3xl shadow-2xl overflow-hidden relative`;
+        };
         window.toggleTheme = () => document.body.classList.toggle('light-mode');
-        window.manualSave = async () => {
-             const prompt = document.getElementById('mainInput').value;
-             await autoSaveProject(CURRENT_PAGES_MAP, prompt, CURRENT_PROJECT_ID, CURRENT_USER_ID);
-             alert("Snapshot Saved Successfully.");
-        };
-        window.triggerImprove = () => {
-            document.getElementById('mainInput').value = "Perform a self-critique and redesign this UI to maximize premium aesthetic and UX clarity.";
-            window.triggerBuild();
-        };
+        window.closeModal = (id) => document.getElementById(id).style.display = 'none';
+        
+        // PHYSICS CURSOR
+        const cursor = document.getElementById('customCursor');
+        document.addEventListener('mousemove', (e) => {
+            cursor.style.left = e.clientX + 'px';
+            cursor.style.top = e.clientY + 'px';
+        });
     </script>
 </body>
 </html>
