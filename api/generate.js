@@ -282,6 +282,14 @@ You are an elite principal engineer at Vercel, operating at the absolute pinnacl
 DEPLOYMENT TARGET: VERCEL (STRICT)
 CORE STACK: ${JSON.stringify(activeStack)}
 
+BACKEND_MANIFEST OUTPUT RULE:
+- Output MUST be STRICT JSON ONLY
+- NO comments
+- NO markdown
+- NO explanations
+- NO trailing commas
+- ONE JSON object only
+
 ROOT FILE SYSTEM LAW:
 - There is ONE project root.
 - package.json, vercel.json, README.md MUST exist at ROOT ONLY.
@@ -328,14 +336,40 @@ VIDEO: ${heroVideo}
     const BANNED_APIS = ["child_process", "fs.unlink", "eval(", "exec(", "spawn("];
     if (BANNED_APIS.some(p => fullText.includes(p))) throw new Error("SECURITY_ABORT_BANNED_API");
 
-    // Extract Manifest
+    // Hardened Manifest Extraction
     let backendManifest = projectData.backendManifest || {};
-    const manifestMatch = fullText.match(/\[BACKEND_MANIFEST\]\s*([\s\S]*?)(?=\[NEW_PAGE:|$)/i);
-    
-    if (!manifestMatch && framework !== "vanilla") throw new Error("BACKEND_MANIFEST_REQUIRED");
+    const manifestMatch = fullText.match(/\[BACKEND_MANIFEST\]([\s\S]*?)(?=\n\[NEW_PAGE:|$)/i);
+
+    if (!manifestMatch && framework !== "vanilla") {
+      throw new Error("BACKEND_MANIFEST_REQUIRED");
+    }
+
     if (manifestMatch) {
-      backendManifest = JSON.parse(manifestMatch[1].trim());
-      ["runtime", "routes", "env", "dependencies"].forEach(k => { if (!(k in backendManifest)) throw new Error(`MANIFEST_MISSING_KEY:${k}`); });
+      let raw = manifestMatch[1].replace(/```json|```/gi, "").trim();
+
+      // HARD STOP: Extract only the object between braces
+      const jsonStart = raw.indexOf("{");
+      const jsonEnd = raw.lastIndexOf("}");
+
+      if (jsonStart === -1 || jsonEnd === -1) {
+        throw new Error("INVALID_BACKEND_MANIFEST_FORMAT");
+      }
+
+      raw = raw.slice(jsonStart, jsonEnd + 1);
+
+      try {
+        backendManifest = JSON.parse(raw);
+      } catch (e) {
+        console.error("MANIFEST RAW OUTPUT:\n", raw);
+        throw new Error("BACKEND_MANIFEST_JSON_PARSE_FAILED");
+      }
+
+      const REQUIRED_KEYS = ["runtime", "routes", "env", "dependencies"];
+      for (const key of REQUIRED_KEYS) {
+        if (!(key in backendManifest)) {
+          throw new Error(`MANIFEST_MISSING_KEY:${key}`);
+        }
+      }
     }
 
     // Parse Pages
