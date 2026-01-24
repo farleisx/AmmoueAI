@@ -1,3 +1,4 @@
+// api/domain.js
 import fetch from "node-fetch";
 import admin from "firebase-admin";
 import { getApps, initializeApp } from "firebase-admin/app";
