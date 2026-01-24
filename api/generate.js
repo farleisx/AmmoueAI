@@ -1,3 +1,4 @@
+// api/generate.js
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import fetch from "node-fetch";
 import admin from "firebase-admin";
