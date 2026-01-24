@@ -405,15 +405,22 @@ VIDEO: ${heroVideo}
       pagesUpdate[fileName] = { content: fileContent };
     }
 
-    /* ================== FALLBACK AUTO-MAPPER (FIX FOR STACK_FILE_MISSING) ================== */
+    /* ================== HARDENED FALLBACK AUTO-MAPPER ================== */
     if (framework === "vanilla" && !pagesUpdate["index.html"]) {
-      const alias = Object.keys(pagesUpdate).find(k => k.endsWith(".html"));
-      if (alias) {
-        pagesUpdate["index.html"] = pagesUpdate[alias];
-        delete pagesUpdate[alias];
+      // Find any file that is explicitly .html, or contains <html> tag, or is named landing/home
+      const fallbackKey = Object.keys(pagesUpdate).find(k => 
+        k.endsWith(".html") || 
+        k.includes("landing") || 
+        k.includes("home") || 
+        pagesUpdate[k].content.includes("<html")
+      );
+      
+      if (fallbackKey) {
+        pagesUpdate["index.html"] = pagesUpdate[fallbackKey];
+        if (fallbackKey !== "index.html") delete pagesUpdate[fallbackKey];
       }
     }
-    /* ====================================================================================== */
+    /* =================================================================== */
 
     // ROOT PACKAGE.JSON ENFORCEMENT
     const pkgPaths = Object.keys(pagesUpdate).filter(f => f.endsWith("package.json"));
@@ -448,7 +455,10 @@ VIDEO: ${heroVideo}
 
     // STACK-AWARE FILE EXPECTATIONS
     (STACK_REQUIREMENTS[framework] || []).forEach(f => {
-      if (!pagesUpdate[f]) throw new Error(`STACK_FILE_MISSING:${f}`);
+      if (!pagesUpdate[f]) {
+        console.error("CRITICAL: Stack file missing. Generated files:", Object.keys(pagesUpdate));
+        throw new Error(`STACK_FILE_MISSING:${f}`);
+      }
     });
 
     const backendFiles = Object.keys(pagesUpdate).filter(f => f.startsWith("api/"));
