@@ -40,7 +40,7 @@
         body { font-family: 'Inter', sans-serif; background: var(--midnight); color: var(--platinum); position: relative; }
         body > * { position: relative; z-index: 1; }
         
-        #preview-frame { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); background: white; border: none; }
+        #preview-frame, #mirror-frame { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); background: white; border: none; }
         .mobile-view { width: 375px !important; height: 667px !important; border: 12px solid #27272a !important; border-radius: 40px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
         
         #code-view { height: 100%; width: 100%; border: none; font-family: 'Fira Code', monospace; font-size: 13px; outline: none; resize: none; color: var(--gold); background: #0f0f10; padding: 2rem; }
@@ -80,7 +80,6 @@
         .preset-chip { font-size: 9px; font-weight: 800; padding: 4px 10px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); color: #71717a; transition: all 0.3s; cursor: pointer; text-transform: uppercase; }
         .preset-chip:hover { border-color: var(--gold); color: white; background: rgba(212,175,55,0.05); }
         
-        /* FIX: Invisible Select Styling */
         select.preset-chip {
             appearance: none;
             background-color: #161618 !important;
@@ -91,30 +90,43 @@
             background-position: right 8px center;
             background-size: 12px;
         }
-        select.preset-chip option {
-            background: #1c1c1f;
-            color: white;
-            padding: 10px;
+
+        /* NEW: Responsive Mirror Grid */
+        .mirror-grid {
+            display: grid !important;
+            grid-template-columns: 1fr 375px;
+            gap: 20px;
+            width: 95% !important;
+            height: 90% !important;
         }
 
-        button { cursor: pointer; }
-        a, [contenteditable] { cursor: text; }
+        /* NEW: Context Menu */
+        #context-menu {
+            position: fixed;
+            z-index: 1000;
+            background: #111113;
+            border: 1px solid var(--soft-gold);
+            border-radius: 12px;
+            padding: 6px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
 
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-        /* Mobile Layout Support */
         @media (max-width: 1024px) {
             main { flex-direction: column; }
             aside { width: 100% !important; height: auto !important; max-height: 50vh; overflow-y: auto; }
             #preview-wrapper { height: 50vh !important; }
-            .nav-glass { padding: 0.75rem; }
-            #publish-controls input { width: 80px; }
             #mobile-tab-nav { display: flex !important; }
         }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden">
+
+    <div id="context-menu" class="hidden flex flex-col gap-1 w-40">
+        <button onclick="window.runAutoFix()" class="text-[9px] font-bold text-emerald-400 hover:bg-white/5 p-2 rounded text-left uppercase tracking-tighter"><i class="fa-solid fa-wand-magic-sparkles mr-2"></i> Auto-Fix AI</button>
+        <button onclick="window.startVibeCheck('Minimalist')" class="text-[9px] font-bold text-gray-400 hover:bg-white/5 p-2 rounded text-left uppercase tracking-tighter">Minimalist Vibe</button>
+        <button onclick="window.startVibeCheck('Luxury Gold')" class="text-[9px] font-bold text-gray-400 hover:bg-white/5 p-2 rounded text-left uppercase tracking-tighter">Luxury Vibe</button>
+        <button onclick="document.getElementById('context-menu').classList.add('hidden')" class="text-[8px] text-gray-600 p-2 text-center uppercase">Close</button>
+    </div>
 
     <div id="mobile-tab-nav" class="hidden lg:hidden flex border-b border-white/5 bg-[#0a0a0b] z-[60]">
         <button onclick="toggleMobileView('editor')" id="tab-editor-btn" class="flex-1 py-3 text-[10px] font-black tracking-widest text-[#D4AF37] border-b-2 border-[#D4AF37]">EDITOR</button>
@@ -168,7 +180,8 @@
             <div class="hidden sm:flex items-center gap-1 bg-black/40 rounded-xl p-1 border border-white/5">
                 <button id="set-desktop" class="p-2 text-[#D4AF37] hover:bg-white/5 rounded-lg transition"><i class="fa-solid fa-desktop text-xs"></i></button>
                 <button id="set-mobile" class="p-2 text-gray-500 hover:bg-white/5 rounded-lg transition"><i class="fa-solid fa-mobile-screen text-xs"></i></button>
-                <button id="open-new-tab" class="p-2 text-gray-500 hover:bg-white/5 rounded-lg transition ml-1" title="Open in New Tab"><i class="fa-solid fa-external-link text-xs"></i></button>
+                <button onclick="window.toggleMirrorMode()" class="p-2 text-gray-500 hover:text-[#D4AF37] transition" title="Mirror Mode"><i class="fa-solid fa-columns text-xs"></i></button>
+                <button onclick="window.toggleWireframe()" class="p-2 text-gray-500 hover:text-[#D4AF37] transition" title="Wireframe Mode"><i class="fa-solid fa-border-none text-xs"></i></button>
             </div>
 
             <div id="publish-controls" class="flex items-center gap-2 bg-black/40 p-1.5 rounded-xl border border-white/5">
@@ -214,9 +227,7 @@
                 <div class="flex justify-between items-end mb-4">
                     <h2 class="text-[9px] font-black text-[#D4AF37] uppercase tracking-[0.3em] opacity-70">Creative Directive</h2>
                     <div class="flex flex-col items-end">
-                        <div id="usage-badge" class="text-[9px] font-black px-2 py-1 bg-white/5 rounded border border-white/10 text-gray-500 uppercase tracking-widest">
-                            Credits: --/--
-                        </div>
+                        <div id="usage-badge" class="text-[9px] font-black px-2 py-1 bg-white/5 rounded border border-white/10 text-gray-500 uppercase tracking-widest">Credits: --/--</div>
                         <div id="reset-timer" class="text-[8px] text-gray-400 mt-1"></div>
                     </div>
                 </div>
@@ -228,68 +239,65 @@
                     </div>
                 </div>
 
-                <div class="flex-1 flex flex-col bg-[#161618] border border-white/5 rounded-3xl p-5 focus-within:border-[#D4AF37]/30 transition-all duration-500 shadow-inner overflow-hidden relative">
+                <div class="flex-1 flex flex-col bg-[#161618] border border-white/5 rounded-3xl p-5 shadow-inner overflow-hidden relative">
                     <div class="flex flex-wrap gap-2 mb-3">
-                        <button class="preset-chip" onclick="document.getElementById('user-prompt').value='Create a professional SaaS landing page for a Fintech startup with glassmorphism effects and pricing cards.'">SaaS</button>
-                        <button class="preset-chip" onclick="document.getElementById('user-prompt').value='Minimalist creative portfolio for a photographer using an elegant grid layout.'">Portfolio</button>
-                        <button class="preset-chip" onclick="document.getElementById('user-prompt').value='E-commerce store front for a luxury watch brand with dark theme.'">Store</button>
+                        <button class="preset-chip" onclick="document.getElementById('user-prompt').value='SaaS landing page with glassmorphism'">SaaS</button>
                         <select id="style-selector" class="preset-chip outline-none">
-                            <option value="">Style: Default</option>
-                            <option value="luxury">Style: Luxury</option>
-                            <option value="minimal">Style: Minimal</option>
-                            <option value="neon">Style: Neon</option>
-                            <option value="brutalist">Style: Brutalist</option>
+                            <option value="luxury">Luxury</option>
+                            <option value="minimal">Minimal</option>
+                            <option value="neon">Neon</option>
                         </select>
                         <select id="framework-selector" class="preset-chip outline-none border-emerald-500/30 text-emerald-500">
-                            <option value="vanilla">Framework: Vanilla</option>
-                            <option value="react">Framework: React</option>
-                            <option value="nextjs">Framework: Next.js</option>
-                            <option value="vue">Framework: Vue.js</option>
+                            <option value="vanilla">Vanilla</option>
+                            <option value="tailwind">Tailwind</option>
                         </select>
                     </div>
 
                     <div id="voice-indicator" class="hidden absolute top-4 right-4 flex items-center gap-2">
-                        <span class="flex h-2 w-2 relative">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
-                        </span>
-                        <span class="text-[9px] font-black text-red-500 tracking-widest uppercase">Listening</span>
+                        <span class="animate-ping h-2 w-2 rounded-full bg-red-600"></span>
+                        <span class="text-[9px] font-black text-red-500 uppercase">Listening</span>
                     </div>
+                    
                     <div id="img-tray" class="flex flex-wrap gap-2 mb-4 empty:hidden"></div>
-                    <textarea id="user-prompt" class="flex-1 w-full bg-transparent border-none outline-none text-sm text-gray-300 resize-none placeholder:text-gray-700 leading-relaxed" placeholder="Define your digital masterpiece..."></textarea>
+                    <textarea id="user-prompt" class="flex-1 w-full bg-transparent border-none outline-none text-sm text-gray-300 resize-none leading-relaxed" placeholder="Define your masterpiece..."></textarea>
                     
                     <div class="flex justify-between items-center mt-4 pt-4 border-t border-white/5">
                         <div class="flex items-center gap-2">
-                            <label class="cursor-pointer text-gray-600 hover:text-[#D4AF37] transition-all p-2">
+                            <label class="cursor-pointer text-gray-600 hover:text-[#D4AF37] p-2">
                                 <i class="fa-solid fa-paperclip text-lg"></i>
                                 <input type="file" id="img-input" class="hidden" accept="image/*" multiple>
                             </label>
-                            <button id="voice-btn" class="text-gray-600 hover:text-[#D4AF37] transition-all p-2" title="Voice Command">
-                                <i class="fa-solid fa-microphone text-lg" id="mic-icon"></i>
-                            </button>
+                            <button id="voice-btn" class="text-gray-600 hover:text-[#D4AF37] p-2"><i class="fa-solid fa-microphone text-lg" id="mic-icon"></i></button>
                         </div>
-                        <button id="gen-btn" class="bg-[#D4AF37] hover:bg-[#F1C40F] text-black w-12 h-12 rounded-2xl flex items-center justify-center transition-all active:scale-90 shadow-xl shadow-yellow-900/10">
+                        <button id="gen-btn" class="bg-[#D4AF37] hover:bg-[#F1C40F] text-black w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-xl">
                             <span id="gen-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
                         </button>
                     </div>
                 </div>
-                <button id="resume-btn" class="hidden mt-3 w-full border border-[#D4AF37]/30 text-[#D4AF37] text-[10px] font-black py-2 rounded-lg hover:bg-[#D4AF37] hover:text-black transition-all uppercase tracking-widest">Resume Generation</button>
+                <button id="resume-btn" class="hidden mt-3 w-full border border-[#D4AF37]/30 text-[#D4AF37] text-[10px] font-black py-2 rounded-lg uppercase tracking-widest">Resume</button>
             </div>
         </aside>
 
-        <section id="main-preview-section" class="flex-1 flex items-center justify-center p-4 md:p-10 bg-[#0f0f10] relative">
-            <div id="preview-wrapper" class="w-full h-full flex items-center justify-center relative">
-                <iframe id="preview-frame" class="shadow-[0_40px_100px_rgba(0,0,0,0.6)] w-full h-full rounded-sm"></iframe>
-                <textarea id="code-view" class="hidden" readonly></textarea>
+        <section id="main-preview-section" class="flex-1 flex flex-col items-center justify-center p-4 bg-[#0f0f10] relative">
+            <div id="preview-container" class="w-full h-full flex items-center justify-center relative">
+                <iframe id="preview-frame" class="w-full h-full shadow-2xl"></iframe>
+                <iframe id="mirror-frame" class="hidden mobile-view"></iframe> <textarea id="code-view" class="hidden" readonly></textarea>
                 
-                <button id="copy-code-btn" class="hidden absolute top-6 right-6 bg-black/60 hover:bg-[#D4AF37] hover:text-black text-white px-5 py-2 rounded-xl text-[10px] font-black tracking-widest transition-all border border-white/10 backdrop-blur-md">
-                    <i class="fa-solid fa-copy mr-2"></i> SOURCE COPIED
+                <button id="copy-code-btn" class="hidden absolute top-6 right-6 bg-black/60 hover:bg-[#D4AF37] text-white px-5 py-2 rounded-xl text-[10px] font-black border border-white/10">
+                    <i class="fa-solid fa-copy mr-2"></i> COPY SOURCE
                 </button>
             </div>
-            
-            <button id="stop-btn" class="hidden absolute bottom-12 bg-red-950/40 border border-red-500/50 hover:bg-red-500 text-white px-8 py-3 rounded-2xl font-black text-xs tracking-[0.2em] shadow-2xl z-50 transition-all">
-                <i class="fa-solid fa-circle-stop mr-2"></i> ABORT
-            </button>
+
+            <div id="logic-toolbar" class="flex items-center gap-6 mt-6 bg-black/40 px-6 py-3 rounded-2xl border border-white/5 backdrop-blur-md">
+                <div class="flex items-center gap-3 border-r border-white/10 pr-6">
+                    <button onclick="window.timeTravel('undo')" class="text-gray-500 hover:text-white transition"><i class="fa-solid fa-rotate-left"></i></button>
+                    <span class="text-[9px] font-black text-gray-600 uppercase tracking-widest">Snapshot History</span>
+                    <button onclick="window.timeTravel('redo')" class="text-gray-500 hover:text-white transition"><i class="fa-solid fa-rotate-right"></i></button>
+                </div>
+                <button id="stop-btn" class="hidden bg-red-950/40 border border-red-500/50 hover:bg-red-500 text-white px-6 py-2 rounded-xl font-black text-[10px] transition-all">
+                    <i class="fa-solid fa-circle-stop mr-2"></i> ABORT AGENT
+                </button>
+            </div>
         </section>
     </main>
 
@@ -307,6 +315,12 @@
         // Multi-page state management
         let currentPage = "landing";
         let projectPages = { "landing": "" };
+        let isWireframe = false; 
+        
+        // NEW: Versioning & Mirror State
+        let historyStack = [];
+        let historyIndex = -1;
+        let isMirrorMode = false;
 
         const genBtn = document.getElementById('gen-btn');
         const stopBtn = document.getElementById('stop-btn');
@@ -315,6 +329,7 @@
         const imgTray = document.getElementById('img-tray');
         const logs = document.getElementById('logs');
         const frame = document.getElementById('preview-frame');
+        const mirrorFrame = document.getElementById('mirror-frame'); // New: Secondary frame for mirror
         const codeView = document.getElementById('code-view');
         const copyBtn = document.getElementById('copy-code-btn');
         const downloadBtn = document.getElementById('download-btn');
@@ -431,6 +446,9 @@
                     currentHtml = doc.documentElement.outerHTML;
                     projectPages[currentPage] = currentHtml;
                     codeView.value = currentHtml;
+                    // Mirror Sync
+                    if (isMirrorMode) updateFrame(currentHtml, false, true);
+                    
                     if (currentProjectId && auth.currentUser) {
                         autoSaveProject(projectPages, document.getElementById('user-prompt').value, currentProjectId, auth.currentUser.uid, logs.innerHTML, currentPage);
                     }
@@ -442,6 +460,16 @@
                     window.switchPage(targetPage);
                 } else {
                     logs.innerHTML += `<div class="log-entry text-red-400">> AI has not synthesized ${targetPage} yet.</div>`;
+                }
+            }
+            if (event.data.type === 'ELEMENT_CLICKED') {
+                const menu = document.getElementById('context-menu');
+                if (menu) {
+                    menu.style.left = `${event.data.x}px`;
+                    menu.style.top = `${event.data.y}px`;
+                    menu.classList.remove('hidden');
+                    menu.dataset.targetId = event.data.syncId;
+                    menu.dataset.tagName = event.data.tagName;
                 }
             }
         });
@@ -605,7 +633,7 @@
         genBtn.onclick = async () => startGeneration();
         resumeBtn.onclick = async () => startGeneration(true);
 
-        async function startGeneration(isResume = false) {
+        async function startGeneration(isResume = false, customDirective = null) {
             if (!auth.currentUser) return signInWithPopup(auth, new GoogleAuthProvider());
             const usage = await refreshUsage();
             if (usage && usage.dailyCount >= (usage.plan === "pro" ? 10 : 5)) {
@@ -624,7 +652,7 @@
             resumeBtn.classList.add('hidden');
             stopBtn.classList.remove('hidden');
             
-            if (!isResume) {
+            if (!isResume && !customDirective) {
                 logs.innerHTML = `<div class="log-entry text-emerald-500/50">> Initializing neural creative suite...</div>`;
                 currentHtml = "";
             }
@@ -636,7 +664,14 @@
                 const token = await auth.currentUser.getIdToken();
                 const style = document.getElementById('style-selector').value;
                 const framework = document.getElementById('framework-selector').value;
-                const finalPrompt = `Framework Directive: ${framework}. Style Directive: ${style}. ${document.getElementById('user-prompt').value}`;
+                
+                // ASSET VAULT PROTOCOL & DUAL-DEVICE SCOPING
+                const finalPrompt = customDirective || `Framework Directive: ${framework}. Style Directive: ${style}. 
+                Asset Vault Protocol: Use high-quality Unsplash image URLs (https://images.unsplash.com/photo-...) relevant to the business niche. No placeholders.
+                Output Requirements: Return ONLY raw HTML/CSS/JS code. 
+                Do NOT use markdown code blocks (e.g., no \`\`\`html). 
+                CSS Scoping: Ensure all styles are scoped using the ${framework} methodology or specific IDs. 
+                ${document.getElementById('user-prompt').value}`;
 
                 const res = await fetch('/api/generate', {
                     method: 'POST',
@@ -644,20 +679,17 @@
                     body: JSON.stringify({ 
                         prompt: finalPrompt, 
                         images: attachedImages, 
-                        partialCode: isResume ? currentHtml : null,
+                        partialCode: (isResume || customDirective) ? currentHtml : null,
                         pageName: currentPage,
                         framework: framework
                     }),
                     signal: abortCtrl.signal
                 });
 
-                if (res.status === 429) {
-                     document.getElementById('limit-modal').classList.remove('hidden');
-                     throw new Error("Limit reached");
-                }
-
                 const reader = res.body.getReader();
                 const decoder = new TextDecoder();
+
+                if (customDirective) currentHtml = ""; 
 
                 while (true) {
                     try {
@@ -676,23 +708,15 @@
                             try {
                                 const json = JSON.parse(dataStr);
                                 if (json.text) {
-                                    const autoPageMatch = json.text.match(/\[NEW_PAGE:\s*(.*?)\]/);
-                                    if (autoPageMatch) {
-                                        const autoName = autoPageMatch[1].trim().toLowerCase();
-                                        if (!projectPages[autoName]) {
-                                            projectPages[autoName] = ""; 
-                                            currentPage = autoName; 
-                                            currentHtml = ""; 
-                                            renderPageTabs(); 
-                                            logs.innerHTML += `<div class="log-entry text-[#D4AF37]">> AI initialized new architecture: ${autoName}</div>`;
-                                        }
-                                    }
-
                                     const actionMatch = json.text.match(/\[ACTION:\s*(.*?)\]/);
                                     if (actionMatch) { 
+                                        const actionText = actionMatch[1];
+                                        // GHOST CURSOR SYNC
+                                        frame.contentWindow.postMessage({ type: 'MOVE_GHOST', action: actionText }, '*');
+                                        
                                         const actionEl = document.createElement('div');
                                         actionEl.className = "action-line";
-                                        actionEl.innerHTML = `<div class="action-check"><i class="fa-solid fa-check"></i></div><span>${actionMatch[1]}</span>`;
+                                        actionEl.innerHTML = `<div class="action-check"><i class="fa-solid fa-check"></i></div><span>${actionText}</span>`;
                                         logs.appendChild(actionEl);
                                         logs.parentElement.scrollTop = logs.parentElement.scrollHeight;
                                     }
@@ -700,25 +724,34 @@
                                     const cleanChunk = json.text.replace(/\[ACTION:.*?\]/g, "").replace(/\[NEW_PAGE:.*?\]/g, "");
                                     currentHtml += cleanChunk;
                                     projectPages[currentPage] = currentHtml;
+                                    
+                                    localStorage.setItem('ammoue_autosave_buffer', JSON.stringify({
+                                        id: currentProjectId,
+                                        pages: projectPages,
+                                        current: currentPage,
+                                        prompt: document.getElementById('user-prompt').value
+                                    }));
+
                                     updateFrameDebounced(currentHtml);
                                 }
                             } catch (e) {}
                         }
                     } catch (streamErr) {
                         if (streamErr.name === 'AbortError') throw streamErr;
-                        logs.innerHTML += '<div class="log-entry text-red-400 font-bold">> NEURAL LINK INTERRUPTED.</div>';
-                        resumeBtn.classList.remove('hidden');
                         break; 
                     }
                 }
                 
-                const currentActionLogs = logs.innerHTML;
-                currentProjectId = await autoSaveProject(projectPages, document.getElementById('user-prompt').value, currentProjectId, auth.currentUser.uid, currentActionLogs, currentPage);
+                // SNAPSHOT FOR TIME TRAVEL
+                historyStack.push({ pages: { ...projectPages }, html: currentHtml });
+                historyIndex = historyStack.length - 1;
+
+                currentProjectId = await autoSaveProject(projectPages, document.getElementById('user-prompt').value, currentProjectId, auth.currentUser.uid, logs.innerHTML, currentPage);
+                localStorage.removeItem('ammoue_autosave_buffer');
                 await refreshUsage();
-                const projects = await getUserProjects(auth.currentUser.uid);
-                renderProjectHistory(projects);
+                renderProjectHistory(await getUserProjects(auth.currentUser.uid));
             } catch (err) {
-                if (err.name !== 'AbortError') logs.innerHTML += '<div class="log-entry text-red-500">> Synthesis terminated unexpectedly.</div>';
+                if (err.name !== 'AbortError') logs.innerHTML += '<div class="log-entry text-red-500">> Synthesis terminated.</div>';
             } finally {
                 pf.style.width = "100%";
                 setTimeout(() => pb.classList.add('hidden'), 600);
@@ -727,6 +760,45 @@
                 document.getElementById('gen-icon').innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i>';
             }
         }
+
+        /* ---------------- ADVANCED AI TOOLS ---------------- */
+        window.startVibeCheck = (vibe) => {
+            startGeneration(false, `VIBE SHIFT: Restyle to ${vibe}. Preserve content/structure. Return raw HTML.`);
+        };
+
+        window.runAutoFix = () => {
+            startGeneration(false, `AUTO-FIX: Fix syntax, Tailwind, a11y, and mobile responsiveness for: ${currentHtml}`);
+        };
+
+        window.toggleWireframe = () => {
+            isWireframe = !isWireframe;
+            updateFrame(currentHtml);
+        };
+
+        window.toggleMirrorMode = () => {
+            isMirrorMode = !isMirrorMode;
+            const container = document.getElementById('preview-container');
+            if (isMirrorMode) {
+                container.classList.add('mirror-grid'); // Assumes CSS for grid split
+                mirrorFrame.classList.remove('hidden');
+                updateFrame(currentHtml, false, true);
+            } else {
+                container.classList.remove('mirror-grid');
+                mirrorFrame.classList.add('hidden');
+            }
+        };
+
+        window.timeTravel = (direction) => {
+            if (direction === 'undo' && historyIndex > 0) historyIndex--;
+            else if (direction === 'redo' && historyIndex < historyStack.length - 1) historyIndex++;
+            else return;
+
+            const snapshot = historyStack[historyIndex];
+            projectPages = snapshot.pages;
+            currentHtml = snapshot.html;
+            updateFrame(currentHtml);
+            renderPageTabs();
+        };
 
         function updateFrameDebounced(html) {
             clearTimeout(frameTimeout);
@@ -737,9 +809,7 @@
         publishBtn.onclick = () => {
             if (activeLiveUrl) { window.open(activeLiveUrl, '_blank'); return; }
             const slug = document.getElementById('slug-input').value;
-            if (!slug) return alert("Select an identity for this project.");
-            const domain = document.getElementById("custom-domain-input")?.value?.trim();
-            document.getElementById("confirm-slug-display").innerText = domain ? `https://${domain}` : `https://${slug}.vercel.app`;
+            if (!slug) return alert("Select an identity.");
             confirmModal.classList.remove('hidden');
         };
 
@@ -747,51 +817,26 @@
 
         confirmDeployBtn.onclick = async () => {
             confirmModal.classList.add('hidden');
-            const slug = document.getElementById('slug-input').value;
             publishBtn.innerText = "BROADCASTING...";
             publishBtn.disabled = true;
             try {
                 const token = await auth.currentUser.getIdToken();
-                const faviconHtml = `<link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">`;
-                
-                const filesToDeploy = Object.entries(projectPages).map(([name, content]) => {
-                    let finalPageContent = content.includes('<head>') 
-                        ? content.replace('<head>', `<head>${faviconHtml}`) 
-                        : faviconHtml + content;
-                    
-                    return {
-                        fileName: name === "landing" ? "index.html" : `${name}.html`,
-                        content: finalPageContent
-                    };
-                });
+                const filesToDeploy = Object.entries(projectPages).map(([name, content]) => ({
+                    fileName: name === "landing" ? "index.html" : `${name}.html`,
+                    content: content
+                }));
 
-                const customDomain = document.getElementById("custom-domain-input")?.value?.trim();
-                const framework = document.getElementById('framework-selector').value;
                 const res = await fetch('/api/deploy', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ 
-                        files: filesToDeploy,
-                        projectId: currentProjectId, 
-                        slug, 
-                        customDomain: customDomain || null,
-                        framework: framework
-                    })
+                    body: JSON.stringify({ files: filesToDeploy, projectId: currentProjectId, slug: document.getElementById('slug-input').value })
                 });
                 const data = await res.json();
-                if (res.status === 403) {
-                    document.getElementById('limit-message').innerText = data.error || "Portfolio capacity reached.";
-                    document.getElementById('limit-modal').classList.remove('hidden');
-                    publishBtn.innerText = "PUBLISH";
-                    publishBtn.disabled = false;
-                    return;
-                }
                 if (data.deploymentUrl) {
                     await updateProjectDeploymentUrl(currentProjectId, data.deploymentUrl, auth.currentUser.uid);
                     activeLiveUrl = data.deploymentUrl;
                     publishBtn.innerText = "LIVE";
                     publishBtn.disabled = false;
-                    publishBtn.classList.replace('bg-emerald-600', 'bg-emerald-500');
                 }
             } catch (e) {
                 publishBtn.innerText = "PUBLISH";
@@ -800,101 +845,75 @@
         };
 
         /* ---------------- VIEWPORT HELPERS ---------------- */
-        document.getElementById('set-desktop').onclick = () => {
-            frame.className = "shadow-[0_40px_100px_rgba(0,0,0,0.6)] w-full h-full rounded-sm";
-            document.getElementById('set-desktop').classList.add('text-[#D4AF37]');
-            document.getElementById('set-mobile').classList.replace('text-[#D4AF37]', 'text-gray-500');
-        };
-        document.getElementById('set-mobile').onclick = () => {
-            frame.className = "mobile-view";
-            document.getElementById('set-mobile').classList.add('text-[#D4AF37]');
-            document.getElementById('set-desktop').classList.replace('text-[#D4AF37]', 'text-gray-500');
-        };
-        document.getElementById('open-new-tab').onclick = () => {
-            const w = window.open('about:blank');
-            w.document.write(currentHtml);
-            w.document.close();
-        };
+        document.getElementById('set-desktop').onclick = () => { frame.className = "w-full h-full"; };
+        document.getElementById('set-mobile').onclick = () => { frame.className = "mobile-view"; };
 
         /* ---------------- NEW PROJECT BUTTON ---------------- */
         document.getElementById('new-project-btn').onclick = () => {
             currentProjectId = null;
             currentHtml = "";
-            activeLiveUrl = null;
-            attachedImages = [];
-            imgTray.innerHTML = "";
-            logs.innerHTML = '<div class="log-entry text-emerald-500/50">> Workspace reset. Ready for new directive.</div>';
-            document.getElementById('user-prompt').value = "";
-            document.getElementById('thinking-box').classList.add('hidden');
-            frame.srcdoc = "";
-            codeView.value = "";
-            currentPage = "landing";
             projectPages = { "landing": "" };
+            historyStack = [];
             renderPageTabs();
-            generateCoolName();
-            publishBtn.innerText = "PUBLISH";
-            publishBtn.classList.replace('bg-emerald-500', 'bg-emerald-600');
+            updateFrame("");
+            localStorage.removeItem('ammoue_autosave_buffer');
         };
 
-        function updateFrame(h, resetLive = false) {
+        function updateFrame(h, resetLive = false, isMirror = false) {
+            const targetFrame = isMirror ? mirrorFrame : frame;
             const parser = new DOMParser();
-            const sanitizedHtml = h.replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gim, "");
-            const doc = parser.parseFromString(sanitizedHtml, 'text/html');
-            doc.querySelectorAll('*').forEach(el => {
-                [...el.attributes].forEach(attr => {
-                    if (attr.name.toLowerCase().startsWith('on')) el.removeAttribute(attr.name);
-                });
-            });
+            const doc = parser.parseFromString(h, 'text/html');
+            
+            if (isWireframe) {
+                const style = doc.createElement('style');
+                style.textContent = `* { background: white !important; color: #ccc !important; } img { opacity: 0.1; }`;
+                doc.head.appendChild(style);
+            }
+
             const textTags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'li', 'button'];
             doc.querySelectorAll(textTags.join(',')).forEach((el, index) => {
                 el.setAttribute('contenteditable', 'true');
                 el.setAttribute('data-sync-id', index);
-                el.style.outline = 'none';
             });
+
             const s = doc.createElement('script');
             s.textContent = `
+                // GHOST CURSOR COMPONENT
+                const ghost = document.createElement('div');
+                ghost.id = 'ghost-cursor';
+                ghost.style = "position:absolute; width:20px; height:20px; background:rgba(212,175,55,0.5); border-radius:50%; pointer-events:none; z-index:9999; transition: all 0.5s ease;";
+                document.body.appendChild(ghost);
+
+                window.addEventListener('message', (e) => {
+                    if (e.data.type === 'MOVE_GHOST') {
+                        const targets = document.querySelectorAll('section, div, header');
+                        const randomEl = targets[Math.floor(Math.random()*targets.length)];
+                        if (randomEl) {
+                            const rect = randomEl.getBoundingClientRect();
+                            ghost.style.left = rect.left + 'px';
+                            ghost.style.top = rect.top + 'px';
+                        }
+                    }
+                });
+
                 document.querySelectorAll('[contenteditable]').forEach(el => {
                     el.addEventListener('blur', () => {
-                        window.parent.postMessage({
-                            type: 'SYNC_TEXT',
-                            syncId: el.getAttribute('data-sync-id'),
-                            newContent: el.innerHTML
-                        }, '*');
+                        window.parent.postMessage({ type: 'SYNC_TEXT', syncId: el.getAttribute('data-sync-id'), newContent: el.innerHTML }, '*');
                     });
                 });
 
-                document.querySelectorAll('a').forEach(link => {
-                    link.addEventListener('click', (e) => {
-                        const href = link.getAttribute('href');
-                        if (href && href.endsWith('.html')) {
-                            e.preventDefault();
-                            const pageName = href.replace('.html', '');
-                            window.parent.postMessage({
-                                type: 'SWITCH_PAGE_INTERNAL',
-                                pageName: pageName
-                            }, '*');
-                        }
-                    });
+                document.addEventListener('click', (e) => {
+                    window.parent.postMessage({ type: 'ELEMENT_CLICKED', tagName: e.target.tagName, syncId: e.target.getAttribute('data-sync-id'), x: e.clientX, y: e.clientY }, '*');
                 });
             `;
             doc.body.appendChild(s);
-            frame.srcdoc = doc.documentElement.outerHTML;
-            codeView.value = h;
-            if (resetLive) {
-                activeLiveUrl = null;
-                publishBtn.innerText = "PUBLISH";
-                publishBtn.classList.replace('bg-emerald-500', 'bg-emerald-600');
-            }
+            targetFrame.srcdoc = doc.documentElement.outerHTML;
+            if (!isMirror) codeView.value = h;
         }
 
         onAuthStateChanged(auth, async u => {
             if (u) {
                 document.getElementById('user-ui').classList.remove('hidden');
-                document.getElementById('login-btn').classList.add('hidden');
-                document.getElementById('user-avatar').src = u.photoURL;
-                const plan = await getUserPlan(u.uid);
-                if (plan === "pro") document.getElementById("custom-domain-input").classList.remove("hidden");
-                await refreshUsage();
                 const projects = await getUserProjects(u.uid);
                 renderProjectHistory(projects);
                 if (projects.length) loadProject(projects[0]);
