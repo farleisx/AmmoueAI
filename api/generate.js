@@ -405,6 +405,16 @@ VIDEO: ${heroVideo}
       pagesUpdate[fileName] = { content: fileContent };
     }
 
+    /* ================== FALLBACK AUTO-MAPPER (FIX FOR STACK_FILE_MISSING) ================== */
+    if (framework === "vanilla" && !pagesUpdate["index.html"]) {
+      const alias = Object.keys(pagesUpdate).find(k => k.endsWith(".html"));
+      if (alias) {
+        pagesUpdate["index.html"] = pagesUpdate[alias];
+        delete pagesUpdate[alias];
+      }
+    }
+    /* ====================================================================================== */
+
     // ROOT PACKAGE.JSON ENFORCEMENT
     const pkgPaths = Object.keys(pagesUpdate).filter(f => f.endsWith("package.json"));
     if (pkgPaths.length > 1) throw new Error("MULTIPLE_PACKAGE_JSON");
