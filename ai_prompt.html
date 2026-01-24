@@ -1,4 +1,3 @@
-<!-- ai_prompt.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,6 +7,7 @@
     <link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/bold-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         /* Luxury Color Palette: Midnight Gold & Deep Emerald */
@@ -61,6 +61,7 @@
 
         #limit-modal, #confirm-modal { backdrop-filter: blur(12px); background: rgba(0,0,0,0.7); }
         
+        /* 1C: Button Depth Upgrade */
         .btn-luxury { 
             background: linear-gradient(135deg, #F1C40F, #D4AF37); 
             color: black; 
@@ -81,46 +82,14 @@
         .preset-chip { font-size: 9px; font-weight: 800; padding: 4px 10px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); color: #71717a; transition: all 0.3s; cursor: pointer; text-transform: uppercase; }
         .preset-chip:hover { border-color: var(--gold); color: white; background: rgba(212,175,55,0.05); }
         
-        /* FIX: Invisible Select Styling */
-        select.preset-chip {
-            appearance: none;
-            background-color: #161618 !important;
-            color: #E5E7EB;
-            padding-right: 24px;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23D4AF37'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 8px center;
-            background-size: 12px;
-        }
-        select.preset-chip option {
-            background: #1c1c1f;
-            color: white;
-            padding: 10px;
-        }
-
         button { cursor: pointer; }
         a, [contenteditable] { cursor: text; }
 
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-        /* Mobile Layout Support */
-        @media (max-width: 1024px) {
-            main { flex-direction: column; }
-            aside { width: 100% !important; height: auto !important; max-height: 50vh; overflow-y: auto; }
-            #preview-wrapper { height: 50vh !important; }
-            .nav-glass { padding: 0.75rem; }
-            #publish-controls input { width: 80px; }
-            #mobile-tab-nav { display: flex !important; }
-        }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden">
-
-    <div id="mobile-tab-nav" class="hidden lg:hidden flex border-b border-white/5 bg-[#0a0a0b] z-[60]">
-        <button onclick="toggleMobileView('editor')" id="tab-editor-btn" class="flex-1 py-3 text-[10px] font-black tracking-widest text-[#D4AF37] border-b-2 border-[#D4AF37]">EDITOR</button>
-        <button onclick="toggleMobileView('preview')" id="tab-preview-btn" class="flex-1 py-3 text-[10px] font-black tracking-widest text-gray-500 border-b-2 border-transparent">PREVIEW</button>
-    </div>
 
     <div id="limit-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4">
         <div class="bg-[#111113] border border-yellow-900/30 rounded-3xl max-w-sm w-full p-8 text-center shadow-[0_0_50px_rgba(0,0,0,0.5)]">
@@ -159,36 +128,36 @@
             </a>
             <span class="text-white font-black italic tracking-tighter text-2xl uppercase">Ammoue<span class="text-[#D4AF37]">AI</span></span>
             
-            <div class="hidden md:flex bg-black/40 rounded-xl p-1 gap-1 ml-4 border border-white/5">
+            <div class="flex bg-black/40 rounded-xl p-1 gap-1 ml-4 border border-white/5">
                 <button id="toggle-preview" class="px-4 py-1.5 text-[10px] font-black rounded-lg bg-[#D4AF37] text-black transition">PREVIEW</button>
                 <button id="toggle-code" class="px-4 py-1.5 text-[10px] font-black rounded-lg text-gray-400 hover:text-white transition">CODE</button>
             </div>
         </div>
 
-        <div class="flex items-center gap-2 md:gap-4">
-            <div class="hidden sm:flex items-center gap-1 bg-black/40 rounded-xl p-1 border border-white/5">
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-1 bg-black/40 rounded-xl p-1 border border-white/5">
                 <button id="set-desktop" class="p-2 text-[#D4AF37] hover:bg-white/5 rounded-lg transition"><i class="fa-solid fa-desktop text-xs"></i></button>
                 <button id="set-mobile" class="p-2 text-gray-500 hover:bg-white/5 rounded-lg transition"><i class="fa-solid fa-mobile-screen text-xs"></i></button>
                 <button id="open-new-tab" class="p-2 text-gray-500 hover:bg-white/5 rounded-lg transition ml-1" title="Open in New Tab"><i class="fa-solid fa-external-link text-xs"></i></button>
             </div>
 
             <div id="publish-controls" class="flex items-center gap-2 bg-black/40 p-1.5 rounded-xl border border-white/5">
-                <input id="slug-input" type="text" placeholder="Identity..." class="bg-transparent border-none outline-none text-xs text-white px-2 md:px-3 w-20 md:w-36 placeholder:text-gray-700 font-medium">
+                <input id="slug-input" type="text" placeholder="Identity..." class="bg-transparent border-none outline-none text-xs text-white px-3 w-36 placeholder:text-gray-700 font-medium">
                 <input id="custom-domain-input" type="text" placeholder="Custom domain (Pro)" class="bg-transparent border-none outline-none text-[10px] text-gray-400 px-3 w-44 placeholder:text-gray-700 font-medium hidden" />
-                <button id="publish-btn" class="bg-emerald-600 hover:bg-emerald-500 text-black text-[10px] font-black px-3 md:px-5 py-2 rounded-lg transition uppercase tracking-widest shadow-lg shadow-emerald-900/20">Publish</button>
-                <button id="download-btn" class="text-gray-500 hover:text-white px-2 md:px-3 py-2 transition" title="Export (.zip)"><i class="fa-solid fa-file-zipper"></i></button>
+                <button id="publish-btn" class="bg-emerald-600 hover:bg-emerald-500 text-black text-[10px] font-black px-5 py-2 rounded-lg transition uppercase tracking-widest shadow-lg shadow-emerald-900/20">Publish</button>
+                <button id="download-btn" class="text-gray-500 hover:text-white px-3 py-2 transition" title="Export (.zip)"><i class="fa-solid fa-file-zipper"></i></button>
             </div>
             
-            <div id="user-ui" class="hidden flex items-center gap-2 md:gap-4 border-l border-white/5 pl-2 md:pl-4">
-                <img id="user-avatar" class="w-6 h-6 md:w-8 md:h-8 rounded-full border border-[#D4AF37]/50 p-0.5">
-                <button id="logout-btn" class="text-[9px] md:text-[10px] text-gray-500 hover:text-white uppercase font-black tracking-widest">Exit</button>
+            <div id="user-ui" class="hidden flex items-center gap-4 border-l border-white/5 pl-4">
+                <img id="user-avatar" class="w-8 h-8 rounded-full border border-[#D4AF37]/50 p-0.5">
+                <button id="logout-btn" class="text-[10px] text-gray-500 hover:text-white uppercase font-black tracking-widest">Exit</button>
             </div>
-            <button id="login-btn" class="btn-luxury text-[10px] px-4 md:px-6 py-2.5 rounded-xl">SIGN IN</button>
+            <button id="login-btn" class="btn-luxury text-[10px] px-6 py-2.5 rounded-xl">SIGN IN</button>
         </div>
     </nav>
 
     <main class="flex-1 flex overflow-hidden">
-        <aside id="main-editor-aside" class="w-[400px] border-r border-white/5 p-6 flex flex-col gap-6 bg-[#0a0a0b]">
+        <aside class="w-[400px] border-r border-white/5 p-6 flex flex-col gap-6 bg-[#0a0a0b]">
             <div id="page-navigator" class="flex items-center gap-2 overflow-x-auto pb-2 border-b border-white/5 no-scrollbar">
                 <div id="pages-container" class="flex gap-2"></div>
                 <button id="add-page-btn" class="p-2 text-gray-500 hover:text-[#D4AF37] transition-all" title="Add Page">
@@ -204,7 +173,7 @@
                     <button class="p-2 text-gray-400 hover:text-[#D4AF37] transition">
                         <i class="fa-solid fa-folder-tree text-lg"></i>
                     </button>
-                    <div id="history-menu" class="hidden group-hover:block absolute right-0 lg:left-0 top-10 w-64 bg-[#111113] border border-white/10 rounded-2xl shadow-2xl z-[60] p-4 max-h-[400px] overflow-y-auto">
+                    <div id="history-menu" class="hidden group-hover:block absolute left-0 top-10 w-64 bg-[#111113] border border-white/10 rounded-2xl shadow-2xl z-[60] p-4 max-h-[400px] overflow-y-auto">
                         <h2 class="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-3">Project Archive</h2>
                         <div id="history-list" class="space-y-2"></div>
                     </div>
@@ -234,18 +203,12 @@
                         <button class="preset-chip" onclick="document.getElementById('user-prompt').value='Create a professional SaaS landing page for a Fintech startup with glassmorphism effects and pricing cards.'">SaaS</button>
                         <button class="preset-chip" onclick="document.getElementById('user-prompt').value='Minimalist creative portfolio for a photographer using an elegant grid layout.'">Portfolio</button>
                         <button class="preset-chip" onclick="document.getElementById('user-prompt').value='E-commerce store front for a luxury watch brand with dark theme.'">Store</button>
-                        <select id="style-selector" class="preset-chip outline-none">
-                            <option value="">Style: Default</option>
-                            <option value="luxury">Style: Luxury</option>
-                            <option value="minimal">Style: Minimal</option>
-                            <option value="neon">Style: Neon</option>
-                            <option value="brutalist">Style: Brutalist</option>
-                        </select>
-                        <select id="framework-selector" class="preset-chip outline-none border-emerald-500/30 text-emerald-500">
-                            <option value="vanilla">Framework: Vanilla</option>
-                            <option value="react">Framework: React</option>
-                            <option value="nextjs">Framework: Next.js</option>
-                            <option value="vue">Framework: Vue.js</option>
+                        <select id="style-selector" class="preset-chip bg-transparent outline-none">
+                            <option value="">Default Style</option>
+                            <option value="luxury">Luxury</option>
+                            <option value="minimal">Minimal</option>
+                            <option value="neon">Neon</option>
+                            <option value="brutalist">Brutalist</option>
                         </select>
                     </div>
 
@@ -278,7 +241,7 @@
             </div>
         </aside>
 
-        <section id="main-preview-section" class="flex-1 flex items-center justify-center p-4 md:p-10 bg-[#0f0f10] relative">
+        <section class="flex-1 flex items-center justify-center p-10 bg-[#0f0f10] relative">
             <div id="preview-wrapper" class="w-full h-full flex items-center justify-center relative">
                 <iframe id="preview-frame" class="shadow-[0_40px_100px_rgba(0,0,0,0.6)] w-full h-full rounded-sm"></iframe>
                 <textarea id="code-view" class="hidden" readonly></textarea>
@@ -327,26 +290,6 @@
 
         const pagesContainer = document.getElementById('pages-container');
         const addPageBtn = document.getElementById('add-page-btn');
-
-        /* ---------------- MOBILE UI TOGGLE ---------------- */
-        window.toggleMobileView = (view) => {
-            const editor = document.getElementById('main-editor-aside');
-            const preview = document.getElementById('main-preview-section');
-            const editorBtn = document.getElementById('tab-editor-btn');
-            const previewBtn = document.getElementById('tab-preview-btn');
-
-            if (view === 'editor') {
-                editor.classList.remove('hidden');
-                preview.classList.add('hidden');
-                editorBtn.className = "flex-1 py-3 text-[10px] font-black tracking-widest text-[#D4AF37] border-b-2 border-[#D4AF37]";
-                previewBtn.className = "flex-1 py-3 text-[10px] font-black tracking-widest text-gray-500 border-b-2 border-transparent";
-            } else {
-                editor.classList.add('hidden');
-                preview.classList.remove('hidden');
-                previewBtn.className = "flex-1 py-3 text-[10px] font-black tracking-widest text-[#D4AF37] border-b-2 border-[#D4AF37]";
-                editorBtn.className = "flex-1 py-3 text-[10px] font-black tracking-widest text-gray-500 border-b-2 border-transparent";
-            }
-        };
 
         /* ---------------- USAGE TRACKING ---------------- */
         let resetInterval = null;
@@ -636,8 +579,7 @@
             try {
                 const token = await auth.currentUser.getIdToken();
                 const style = document.getElementById('style-selector').value;
-                const framework = document.getElementById('framework-selector').value;
-                const finalPrompt = `Framework Directive: ${framework}. Style Directive: ${style}. ${document.getElementById('user-prompt').value}`;
+                const finalPrompt = style ? `Style Directive: ${style}. ${document.getElementById('user-prompt').value}` : document.getElementById('user-prompt').value;
 
                 const res = await fetch('/api/generate', {
                     method: 'POST',
@@ -646,8 +588,7 @@
                         prompt: finalPrompt, 
                         images: attachedImages, 
                         partialCode: isResume ? currentHtml : null,
-                        pageName: currentPage,
-                        framework: framework
+                        pageName: currentPage 
                     }),
                     signal: abortCtrl.signal
                 });
@@ -677,6 +618,7 @@
                             try {
                                 const json = JSON.parse(dataStr);
                                 if (json.text) {
+                                    // AUTOMATED MULTI-PAGE DETECTION
                                     const autoPageMatch = json.text.match(/\[NEW_PAGE:\s*(.*?)\]/);
                                     if (autoPageMatch) {
                                         const autoName = autoPageMatch[1].trim().toLowerCase();
@@ -754,30 +696,12 @@
             try {
                 const token = await auth.currentUser.getIdToken();
                 const faviconHtml = `<link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">`;
-                
-                const filesToDeploy = Object.entries(projectPages).map(([name, content]) => {
-                    let finalPageContent = content.includes('<head>') 
-                        ? content.replace('<head>', `<head>${faviconHtml}`) 
-                        : faviconHtml + content;
-                    
-                    return {
-                        fileName: name === "landing" ? "index.html" : `${name}.html`,
-                        content: finalPageContent
-                    };
-                });
-
+                const finalContent = currentHtml.includes('<head>') ? currentHtml.replace('<head>', `<head>${faviconHtml}`) : faviconHtml + currentHtml;
                 const customDomain = document.getElementById("custom-domain-input")?.value?.trim();
-                const framework = document.getElementById('framework-selector').value;
                 const res = await fetch('/api/deploy', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ 
-                        files: filesToDeploy,
-                        projectId: currentProjectId, 
-                        slug, 
-                        customDomain: customDomain || null,
-                        framework: framework
-                    })
+                    body: JSON.stringify({ htmlContent: finalContent, projectId: currentProjectId, slug, customDomain: customDomain || null })
                 });
                 const data = await res.json();
                 if (res.status === 403) {
