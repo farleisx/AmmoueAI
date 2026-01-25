@@ -11,7 +11,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
 const GOOGLE_CX = process.env.GOOGLE_CX;
 const GOOGLE_SEARCH_KEY = process.env.GOOGLE_SEARCH_KEY;
-const API_MODEL = "gemini-2.5-flash"; // Updated to latest stable flash
+const API_MODEL = "gemini-2.5-flash"; 
 
 const SERVICE_ACCOUNT = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 const PROJECT_ID = SERVICE_ACCOUNT.project_id;
@@ -109,6 +109,27 @@ async function enforceDailyLimit(uid) {
   return { allowed: true, plan, remaining: limit - newCount };
 }
 
+// ---------------- CODE VALIDATION FALLBACK ----------------
+function validateCodeCompleteness(code) {
+  const tags = ["<html", "<head", "<body", "<script", "<style"];
+  const closingTags = ["</html>", "</head>", "</body>", "</script>", "</style>"];
+  
+  let issues = [];
+  tags.forEach((tag, index) => {
+    const openingCount = (code.match(new RegExp(tag, "gi")) || []).length;
+    const closingCount = (code.match(new RegExp(closingTags[index], "gi")) || []).length;
+    if (openingCount > closingCount) {
+        issues.push(`Unclosed ${tag} tag.`);
+    }
+  });
+
+  if ((code.includes("export default") || code.includes("import")) && !code.trim().endsWith("}") && !code.trim().endsWith(";") && !code.trim().endsWith(">")) {
+    issues.push("Truncated component structure.");
+  }
+
+  return issues;
+}
+
 // ---------------- HELPERS ----------------
 function dataUriToInlineData(dataUri) {
   if (!dataUri?.startsWith("data:")) return null;
@@ -145,11 +166,10 @@ export default async function handler(req) {
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const activeStack = STACK_PRESETS[framework] || STACK_PRESETS.vanilla;
-    const systemInstruction = `Role: Senior Software Engineer. Stack: ${JSON.stringify(activeStack)}. Output structure: [BACKEND_MANIFEST] block followed by [NEW_PAGE: filename] blocks for code.`;
+    const systemInstruction = `Role: Senior Software Engineer. Stack: ${JSON.stringify(activeStack)}. Output: [BACKEND_MANIFEST] then [NEW_PAGE: filename] blocks. Ensure all tags are closed.`;
     
     const model = genAI.getGenerativeModel({ model: API_MODEL, systemInstruction });
 
-    // Fetch Image Assets
     let imageURLs = [];
     try {
       const pRes = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(pexelsQuery || prompt)}&per_page=6`, {
@@ -159,11 +179,9 @@ export default async function handler(req) {
       imageURLs = (pData.photos || []).map(p => p.src.large);
     } catch (e) { imageURLs = ["https://via.placeholder.com/1200"]; }
 
-    // Prepare Stream
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
-        // 1. HEARTBEAT: Send initial chunk immediately to prevent 504 Timeout
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ status: "initializing", heartbeat: true })}\n\n`));
 
         try {
@@ -179,7 +197,24 @@ export default async function handler(req) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunkText })}\n\n`));
           }
 
-          // 2. POST-PROCESSING & DB SAVE
+          // --- RECOVERY LOOP (MAX 3 TRIES) ---
+          let repairAttempts = 0;
+          let currentIssues = validateCodeCompleteness(fullContent);
+
+          while (currentIssues.length > 0 && repairAttempts < 3) {
+            repairAttempts++;
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ status: "fixing", attempt: repairAttempts, issues: currentIssues })}\n\n`));
+            
+            const repairResult = await model.generateContent(`The previous code was incomplete or ruined: ${currentIssues.join(" ")}. Provide ONLY the exact missing code or closing tags to fix it perfectly.`);
+            const repairText = repairResult.response.text();
+            
+            fullContent += "\n" + repairText;
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: repairText, healed: true })}\n\n`));
+            
+            // Re-validate for the next loop
+            currentIssues = validateCodeCompleteness(fullContent);
+          }
+
           if (projectId) {
             const sanitized = sanitizeOutput(fullContent).replace(/```[a-z]*\n/gi, "").replace(/```/g, "");
             const pageBlocks = sanitized.split(/\[NEW_PAGE:\s*(.*?)\s*\]/g).filter(Boolean);
@@ -211,11 +246,7 @@ export default async function handler(req) {
     });
 
     return new Response(stream, { 
-      headers: { 
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        "Connection": "keep-alive"
-      } 
+      headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" } 
     });
 
   } catch (err) {
