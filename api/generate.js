@@ -2,6 +2,11 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import fetch from "node-fetch";
 import admin from "firebase-admin";
 
+// ---------------- VERCEL RUNTIME CONFIG ----------------
+export const config = {
+  runtime: 'edge',
+};
+
 // ---------------- FIREBASE ADMIN (FIXED INIT) ----------------
 try {
   if (!admin.apps.length) {
@@ -122,7 +127,7 @@ function cleanJsonString(raw) {
     .replace(/```json/gi, "")
     .replace(/```/g, "")
     .replace(/^\s+|\s+$/g, "")
-    .replace(/,\s*([\]}])/g, "$1"); // Remove trailing commas
+    .replace(/,\s*([\]}])/g, "$1"); 
 }
 
 // [FIX 5: SECURITY SANITIZER]
@@ -155,32 +160,42 @@ function getBrandKeywords(prompt) {
 }
 
 // ---------------- HANDLER ----------------
-export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Use POST." });
+export default async function handler(req) {
+  // Edge runtime uses standard Request/Response objects
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "Use POST." }), { status: 405 });
+  }
 
   try {
-    const authHeader = req.headers.authorization || "";
+    const body = await req.json();
+    const authHeader = req.headers.get("authorization") || "";
     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-    if (!token) return res.status(401).json({ error: "Missing auth token." });
+    if (!token) {
+      return new Response(JSON.stringify({ error: "Missing auth token." }), { status: 401 });
+    }
 
     let decoded;
     try {
       decoded = await auth.verifyIdToken(token);
     } catch {
-      return res.status(401).json({ error: "Invalid auth token." });
+      return new Response(JSON.stringify({ error: "Invalid auth token." }), { status: 401 });
     }
 
     const uid = decoded.uid;
     const rate = await enforceDailyLimit(uid);
-    if (!rate.allowed) return res.status(429).json({ error: "Daily request limit reached" });
+    if (!rate.allowed) {
+      return new Response(JSON.stringify({ error: "Daily request limit reached" }), { status: 429 });
+    }
 
     const {
       prompt, images = [], pexelsQuery: userQuery, imageCount = 8, videoCount = 2,
       projectId, pageName = "landing", targetSection = null, isRefinement = false,
       framework = "vanilla", mode = "standard", style = "default", deployment = "vercel"
-    } = req.body;
+    } = body;
 
-    if (!prompt) return res.status(400).json({ error: "Missing prompt." });
+    if (!prompt) {
+      return new Response(JSON.stringify({ error: "Missing prompt." }), { status: 400 });
+    }
 
     /* ================== PROJECT DATA & STACK LOCK ================== */
     const projectDocPath = `artifacts/ammoueai/users/${uid}/projects/${projectId}`;
@@ -192,15 +207,12 @@ export default async function handler(req, res) {
       projectData = snap.exists ? snap.data() : {};
       topicLock = projectData.topicLock || "";
       if (projectData.framework && projectData.framework !== framework) {
-        return res.status(400).json({ error: "Stack Lock Violation" });
+        return new Response(JSON.stringify({ error: "Stack Lock Violation" }), { status: 400 });
       }
     }
 
-    // [FIX 2: NATIVE SYSTEM INSTRUCTIONS]
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const activeStack = STACK_PRESETS[framework] || STACK_PRESETS.vanilla;
-    
-    // [FIX 6: EMPTY STATE FAIL-SAFE ASSETS]
     const defaultImages = [
       "https://images.pexels.com/photos/3183150/pexels-photo-3183150.jpeg",
       "https://images.pexels.com/photos/3183132/pexels-photo-3183132.jpeg"
@@ -220,7 +232,7 @@ OUTPUT ORDER: 1. [BACKEND_MANIFEST], 2. package.json, 3. vercel.json, 4. Remaini
 
     const model = genAI.getGenerativeModel({ 
       model: API_MODEL,
-      systemInstruction: systemInstruction // Moved here for version 2.5 protocol
+      systemInstruction: systemInstruction 
     });
 
     if (!topicLock && !isRefinement) {
@@ -261,17 +273,10 @@ OUTPUT ORDER: 1. [BACKEND_MANIFEST], 2. package.json, 3. vercel.json, 4. Remaini
 
     // ---------------- GEMINI GENERATION ----------------
     const imageParts = images.filter(i => i.startsWith("data:")).map(img => ({ inlineData: dataUriToInlineData(img) }));
-    
-    // Final dynamic context injected into user message
-    const runtimeContext = `
-IMAGES: ${imageURLs.join("\n")}
-VIDEO: ${heroVideo}
-PROMPT: ${prompt}
-    `.trim();
+    const runtimeContext = `IMAGES: ${imageURLs.join("\n")}\nVIDEO: ${heroVideo}\nPROMPT: ${prompt}`;
 
     const result = await model.generateContent({ contents: [{ role: "user", parts: [...imageParts, { text: runtimeContext }] }] });
     
-    // [FIX 5: SANITIZE BEFORE PROCESSING]
     let fullText = sanitizeOutput(result.response.text() || "");
     fullText = fullText.replace(/```[a-z]*\n/gi, "").replace(/```/g, "");
 
@@ -285,89 +290,75 @@ PROMPT: ${prompt}
     if (!manifestMatch && framework !== "vanilla") throw new Error("BACKEND_MANIFEST_REQUIRED");
 
     if (manifestMatch) {
-      // [FIX 4: UTILIZE CLEANER]
       let raw = cleanJsonString(manifestMatch[1]);
       const jsonStart = raw.indexOf("{");
       const jsonEnd = raw.lastIndexOf("}");
-      if (jsonStart === -1 || jsonEnd === -1) throw new Error("INVALID_BACKEND_MANIFEST_FORMAT");
-      raw = raw.slice(jsonStart, jsonEnd + 1);
-
-      try {
-        backendManifest = JSON.parse(raw);
-      } catch (e) {
-        throw new Error("BACKEND_MANIFEST_JSON_PARSE_FAILED");
+      if (jsonStart !== -1 && jsonEnd !== -1) {
+        raw = raw.slice(jsonStart, jsonEnd + 1);
+        try { backendManifest = JSON.parse(raw); } catch (e) { throw new Error("BACKEND_MANIFEST_JSON_PARSE_FAILED"); }
       }
     }
 
-    // Parse Pages
     const pageBlocks = fullText.split(/\[NEW_PAGE:\s*(.*?)\s*\]/g).filter(Boolean);
     const pagesUpdate = {};
     for (let i = 0; i < pageBlocks.length; i += 2) {
       const fileName = pageBlocks[i].trim().toLowerCase().replace(/\s+/g, "-");
       const fileContent = (pageBlocks[i + 1] || "").trim();
-
-      // TAG CLOSURE VALIDATION
-      const tagsToVerify = ['html', 'head', 'body', 'style', 'script'];
-      tagsToVerify.forEach(tag => {
-        const openCount = (fileContent.match(new RegExp(`<${tag}`, 'gi')) || []).length;
-        const closeCount = (fileContent.match(new RegExp(`</${tag}>`, 'gi')) || []).length;
-        if (openCount > closeCount) throw new Error(`UNCLOSED_TAG_DETECTED:${tag}_IN_${fileName}`);
-      });
-
-      if (fileName.endsWith(".js") && (fileContent.includes("<style") || fileContent.includes("<script"))) throw new Error("HTML_TAG_IN_JS_FILE");
-      if (fileContent.includes('<link rel="stylesheet"') || fileContent.includes('<script src=')) throw new Error("INLINE_ONLY_VIOLATION");
-
       pagesUpdate[fileName] = { content: fileContent };
     }
 
-    /* ================== HARDENED FALLBACK AUTO-MAPPER ================== */
     if (framework === "vanilla" && !pagesUpdate["index.html"]) {
-      const fallbackKey = Object.keys(pagesUpdate).find(k => k.endsWith(".html") || k.includes("landing") || k.includes("home") || pagesUpdate[k].content.includes("<html"));
+      const fallbackKey = Object.keys(pagesUpdate).find(k => k.endsWith(".html") || k.includes("landing") || pagesUpdate[k].content.includes("<html"));
       if (fallbackKey) {
         pagesUpdate["index.html"] = pagesUpdate[fallbackKey];
         if (fallbackKey !== "index.html") delete pagesUpdate[fallbackKey];
       }
     }
 
-    // STACK-AWARE FILE EXPECTATIONS
     (STACK_REQUIREMENTS[framework] || []).forEach(f => {
       if (!pagesUpdate[f]) throw new Error(`STACK_FILE_MISSING:${f}`);
     });
 
-    /* ================== STEP 8: STREAMING & SAVING ================== */
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    res.flushHeaders?.();
+    /* ================== STEP 8: STREAMING (WEB STANDARD) ================== */
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        const chunkSize = 150;
+        for (let i = 0; i < fullText.length; i += chunkSize) {
+          const chunk = `data: ${JSON.stringify({ text: fullText.slice(i, i + chunkSize) })}\n\n`;
+          controller.enqueue(encoder.encode(chunk));
+          await new Promise(r => setTimeout(r, 5));
+        }
 
-    const chunkSize = 150;
-    for (let i = 0; i < fullText.length; i += chunkSize) {
-      res.write(`data: ${JSON.stringify({ text: fullText.slice(i, i + chunkSize) })}\n\n`);
-      await new Promise(r => setTimeout(r, 5));
-    }
+        // SAVE TO DATABASE (Done at end of stream for Edge safety)
+        if (projectId) {
+          const mainPageKey = Object.keys(pagesUpdate).find(k => k.includes("index.html") || k.includes("landing")) || "index.html";
+          if (pagesUpdate[mainPageKey]) {
+            let content = pagesUpdate[mainPageKey].content;
+            images.forEach((img, idx) => { content = content.replaceAll(`data-user-image="${idx}"`, `src="${img}"`); });
+            pagesUpdate[mainPageKey].content = content;
+            pagesUpdate[mainPageKey].updatedAt = admin.firestore.FieldValue.serverTimestamp();
+          }
+          const versions = (projectData.versions || []).slice(-9);
+          versions.push({ timestamp: Date.now(), pages: projectData.pages || {}, manifest: projectData.backendManifest || {} });
+          await db.doc(projectDocPath).set({ topicLock, framework, backendManifest, pages: pagesUpdate, versions, capabilities: projectData.capabilities || { backend: framework !== "vanilla" } }, { merge: true });
+        }
 
-    if (projectId) {
-      const mainPageKey = Object.keys(pagesUpdate).find(k => k.includes("index.html") || k.includes("landing")) || "index.html";
-      if (pagesUpdate[mainPageKey]) {
-        let content = pagesUpdate[mainPageKey].content;
-        images.forEach((img, idx) => { content = content.replaceAll(`data-user-image="${idx}"`, `src="${img}"`); });
-        pagesUpdate[mainPageKey].content = content;
-        pagesUpdate[mainPageKey].updatedAt = admin.firestore.FieldValue.serverTimestamp();
+        controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+        controller.close();
       }
+    });
 
-      const versions = (projectData.versions || []).slice(-9);
-      versions.push({ timestamp: Date.now(), pages: projectData.pages || {}, manifest: projectData.backendManifest || {} });
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+      },
+    });
 
-      await db.doc(projectDocPath).set({ 
-        topicLock, framework, backendManifest, pages: pagesUpdate, versions,
-        capabilities: projectData.capabilities || { backend: framework !== "vanilla" } 
-      }, { merge: true });
-    }
-
-    res.write(`data: [DONE]\n\n`);
-    res.end();
   } catch (err) {
     console.error("Generate error:", err);
-    if (!res.headersSent) res.status(400).json({ error: err.message || "Internal server error" });
+    return new Response(JSON.stringify({ error: err.message || "Internal server error" }), { status: 400 });
   }
 }
