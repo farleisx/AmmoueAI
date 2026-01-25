@@ -1,83 +1,81 @@
+// api/generate.js
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+// ---------------- VERCEL RUNTIME CONFIG ----------------
 export const config = {
   runtime: 'edge',
 };
 
-// ---------------- CONFIG & ASSET DEFAULTS ----------------
+// ---------------- CONFIG ----------------
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
 const GOOGLE_CX = process.env.GOOGLE_CX;
 const GOOGLE_SEARCH_KEY = process.env.GOOGLE_SEARCH_KEY;
-const API_MODEL = "gemini-2.5-flash";
+const API_MODEL = "gemini-2.5-flash"; // Updated to latest stable flash
 
 const SERVICE_ACCOUNT = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 const PROJECT_ID = SERVICE_ACCOUNT.project_id;
 
 const LIMITS = { free: 5, pro: 10 };
 
-// ---------------- EDGE-COMPATIBLE GOOGLE AUTH (JWT) ----------------
-// This replaces firebase-admin for the Edge Runtime
+// ---------------- STACK PRESETS ----------------
+const STACK_PRESETS = {
+  "vanilla": {
+    frontend: "HTML5, Tailwind CSS, Vanilla JS",
+    backend: "None",
+    structure: "Root-level index.html",
+    requiredFiles: ["package.json", "vercel.json", "README.md", "index.html"]
+  },
+  "react-node": {
+    frontend: "React (Vite), Tailwind CSS",
+    backend: "Node.js (Express Serverless)",
+    database: "MongoDB/Firestore",
+    auth: "Firebase Auth/JWT",
+    requiredFiles: ["package.json", "vercel.json", "src/main.jsx", "src/App.jsx", "api/index.js", "README.md"]
+  }
+};
+
+// ---------------- EDGE AUTH (WEB CRYPTO) ----------------
 async function getAccessToken() {
   const iat = Math.floor(Date.now() / 1000);
   const exp = iat + 3600;
-  
   const header = { alg: "RS256", typ: "JWT" };
   const payload = {
     iss: SERVICE_ACCOUNT.client_email,
     sub: SERVICE_ACCOUNT.client_email,
     aud: "https://firestore.googleapis.com/google.firestore.v1.Firestore",
-    iat,
-    exp,
+    iat, exp,
     scope: "https://www.googleapis.com/auth/datastore"
   };
 
-  const encodedHeader = btoa(JSON.stringify(header)).replace(/=/g, "");
-  const encodedPayload = btoa(JSON.stringify(payload)).replace(/=/g, "");
-  const unsignedToken = `${encodedHeader}.${encodedPayload}`;
+  const b64 = (obj) => btoa(JSON.stringify(obj)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const unsignedToken = `${b64(header)}.${b64(payload)}`;
 
-  // Convert PEM private key to CryptoKey
-  const pemHeader = "-----BEGIN PRIVATE KEY-----";
-  const pemFooter = "-----END PRIVATE KEY-----";
   const pemContents = SERVICE_ACCOUNT.private_key
-    .replace(pemHeader, "")
-    .replace(pemFooter, "")
+    .replace(/-----BEGIN PRIVATE KEY-----/g, "")
+    .replace(/-----END PRIVATE KEY-----/g, "")
     .replace(/\s/g, "");
   
   const binaryDer = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
   const cryptoKey = await crypto.subtle.importKey(
-    "pkcs8",
-    binaryDer,
+    "pkcs8", binaryDer,
     { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"]
+    false, ["sign"]
   );
 
-  const signature = await crypto.subtle.sign(
-    "RSASSA-PKCS1-v1_5",
-    cryptoKey,
-    new TextEncoder().encode(unsignedToken)
-  );
-
-  const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=/g, "");
+  const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", cryptoKey, new TextEncoder().encode(unsignedToken));
+  const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature))).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
 
   return `${unsignedToken}.${encodedSignature}`;
 }
 
-// ---------------- FIRESTORE REST HELPER ----------------
+// ---------------- FIRESTORE REST ----------------
 async function fetchFirestore(path, method = "GET", body = null) {
   const token = await getAccessToken();
   const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/${path}`;
-  
   const res = await fetch(url, {
     method,
-    headers: { 
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}` 
-    },
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
     body: body ? JSON.stringify(body) : null
   });
   return res.json();
@@ -87,7 +85,6 @@ async function enforceDailyLimit(uid) {
   const path = `users/${uid}`;
   const doc = await fetchFirestore(path);
   const fields = doc.fields || {};
-  
   const now = Date.now();
   const plan = fields.plan?.stringValue === "pro" ? "pro" : "free";
   const limit = LIMITS[plan];
@@ -109,7 +106,6 @@ async function enforceDailyLimit(uid) {
       dailyResetAt: { integerValue: resetAt.toString() }
     }
   });
-
   return { allowed: true, plan, remaining: limit - newCount };
 }
 
@@ -128,33 +124,32 @@ function sanitizeOutput(text) {
   return sanitized;
 }
 
-// ---------------- HANDLER ----------------
+// ---------------- MAIN HANDLER ----------------
 export default async function handler(req) {
-  if (req.method !== "POST") return new Response("Use POST", { status: 405 });
+  if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
 
   try {
     const body = await req.json();
     const authHeader = req.headers.get("authorization") || "";
     const userToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
     
-    if (!userToken) return new Response("Unauthorized", { status: 401 });
+    if (!userToken) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
 
-    // Extract UID from User JWT (Frontend Token)
     const payload = JSON.parse(atob(userToken.split('.')[1]));
     const uid = payload.user_id || payload.sub;
 
     const rate = await enforceDailyLimit(uid);
-    if (!rate.allowed) return new Response(JSON.stringify({ error: "Limit reached" }), { status: 429 });
+    if (!rate.allowed) return new Response(JSON.stringify({ error: "Daily limit reached" }), { status: 429 });
 
     const { prompt, images = [], pexelsQuery, projectId, framework = "vanilla" } = body;
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ 
-      model: API_MODEL, 
-      systemInstruction: `You are an elite engineer for ${framework}. Output [BACKEND_MANIFEST] then [NEW_PAGE: filename] blocks.`
-    });
+    const activeStack = STACK_PRESETS[framework] || STACK_PRESETS.vanilla;
+    const systemInstruction = `Role: Senior Software Engineer. Stack: ${JSON.stringify(activeStack)}. Output structure: [BACKEND_MANIFEST] block followed by [NEW_PAGE: filename] blocks for code.`;
+    
+    const model = genAI.getGenerativeModel({ model: API_MODEL, systemInstruction });
 
-    // Asset Fetching
+    // Fetch Image Assets
     let imageURLs = [];
     try {
       const pRes = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(pexelsQuery || prompt)}&per_page=6`, {
@@ -164,35 +159,66 @@ export default async function handler(req) {
       imageURLs = (pData.photos || []).map(p => p.src.large);
     } catch (e) { imageURLs = ["https://via.placeholder.com/1200"]; }
 
-    const imageParts = images.filter(i => i.startsWith("data:")).map(img => ({ inlineData: dataUriToInlineData(img) }));
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [...imageParts, { text: `PROMPT: ${prompt}\nIMAGES: ${imageURLs.join("\n")}` }] }]
-    });
-
-    let fullText = sanitizeOutput(result.response.text() || "");
-    fullText = fullText.replace(/```[a-z]*\n/gi, "").replace(/```/g, "");
-
-    // Stream Setup
+    // Prepare Stream
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
-        const chunkSize = 200;
-        for (let i = 0; i < fullText.length; i += chunkSize) {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: fullText.slice(i, i + chunkSize) })}\n\n`));
-          await new Promise(r => setTimeout(r, 5));
-        }
+        // 1. HEARTBEAT: Send initial chunk immediately to prevent 504 Timeout
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ status: "initializing", heartbeat: true })}\n\n`));
 
-        // Logic to parse pages and save to Firestore using fetchFirestore goes here...
-        
-        controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
-        controller.close();
+        try {
+          const imageParts = images.filter(i => i.startsWith("data:")).map(img => ({ inlineData: dataUriToInlineData(img) }));
+          const result = await model.generateContentStream({
+            contents: [{ role: "user", parts: [...imageParts, { text: `PROMPT: ${prompt}\nASSETS: ${imageURLs.join("\n")}` }] }]
+          });
+
+          let fullContent = "";
+          for await (const chunk of result.stream) {
+            const chunkText = chunk.text();
+            fullContent += chunkText;
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunkText })}\n\n`));
+          }
+
+          // 2. POST-PROCESSING & DB SAVE
+          if (projectId) {
+            const sanitized = sanitizeOutput(fullContent).replace(/```[a-z]*\n/gi, "").replace(/```/g, "");
+            const pageBlocks = sanitized.split(/\[NEW_PAGE:\s*(.*?)\s*\]/g).filter(Boolean);
+            const pagesUpdate = {};
+            for (let i = 0; i < pageBlocks.length; i += 2) {
+              if (pageBlocks[i+1]) pagesUpdate[pageBlocks[i].trim()] = { content: pageBlocks[i+1].trim() };
+            }
+
+            const projectPath = `artifacts/ammoueai/users/${uid}/projects/${projectId}`;
+            await fetchFirestore(projectPath, "PATCH", {
+              fields: {
+                pages: { mapValue: { fields: Object.keys(pagesUpdate).reduce((acc, key) => {
+                  acc[key] = { mapValue: { fields: { content: { stringValue: pagesUpdate[key].content } } } };
+                  return acc;
+                }, {}) } },
+                framework: { stringValue: framework },
+                lastUpdated: { integerValue: Date.now().toString() }
+              }
+            });
+          }
+
+          controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+        } catch (err) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: err.message })}\n\n`));
+        } finally {
+          controller.close();
+        }
       }
     });
 
-    return new Response(stream, { headers: { "Content-Type": "text/event-stream" } });
+    return new Response(stream, { 
+      headers: { 
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive"
+      } 
+    });
 
   } catch (err) {
-    console.error(err);
     return new Response(JSON.stringify({ error: err.message }), { status: 500 });
   }
 }
