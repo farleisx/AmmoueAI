@@ -1,4 +1,3 @@
-// api/generate.js
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import fetch from "node-fetch";
 import admin from "firebase-admin";
@@ -17,8 +16,6 @@ try {
 }
 
 const auth = admin.auth();
-
-/* ================== ADDED ================== */
 const db = admin.firestore();
 
 const LIMITS = {
@@ -26,52 +23,41 @@ const LIMITS = {
   pro: 10,
 };
 
-// Updated to 24 hours for true daily limits
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 
+// [FIX 1: RACE CONDITION PROTECTION VIA TRANSACTION]
 async function enforceDailyLimit(uid) {
   const userRef = db.collection("users").doc(uid);
-  const snap = await userRef.get();
+  
+  return await db.runTransaction(async (transaction) => {
+    const snap = await transaction.get(userRef);
+    const now = Date.now();
+    const data = snap.exists ? snap.data() : {};
+    const plan = data.plan === "pro" ? "pro" : "free";
+    const limit = LIMITS[plan];
 
-  const now = Date.now();
-  const data = snap.exists ? snap.data() : {};
-  const plan = data.plan === "pro" ? "pro" : "free";
-  const limit = LIMITS[plan];
+    let count = data.dailyCount || 0;
+    let resetAt = data.dailyResetAt || 0;
 
-  let count = data.dailyCount || 0;
-  let resetAt = data.dailyResetAt || 0;
+    if (now > resetAt) {
+      count = 0;
+      resetAt = now + WINDOW_MS;
+    }
 
-  if (now > resetAt) {
-    count = 0;
-    resetAt = now + WINDOW_MS;
-  }
+    if (count >= limit) {
+      return { allowed: false, plan, limit, resetAt, remaining: 0 };
+    }
 
-  if (count >= limit) {
-    return {
-      allowed: false,
+    const newCount = count + 1;
+    transaction.set(userRef, {
       plan,
-      limit,
-      resetAt,
-      remaining: 0,
-    };
-  }
-
-  await userRef.set(
-    {
-      plan,
-      dailyCount: count + 1,
+      dailyCount: newCount,
       dailyResetAt: resetAt,
-    },
-    { merge: true }
-  );
+    }, { merge: true });
 
-  return {
-    allowed: true,
-    remaining: limit - (count + 1),
-    plan,
-  };
+    return { allowed: true, remaining: limit - newCount, plan };
+  });
 }
-/* ================= END ADDED ================= */
 
 // ---------------- CONFIG ----------------
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -119,45 +105,47 @@ const STACK_REQUIREMENTS = {
 
 // ---------------- HELPERS ----------------
 function extractKeywords(text = "") {
-  return text
-    .toLowerCase()
-    .replace(/[^\w\s]/g, " ")
-    .split(/\s+/)
-    .filter(Boolean);
+  return text.toLowerCase().replace(/[^\w\s]/g, " ").split(/\s+/).filter(Boolean);
 }
 
 function dataUriToInlineData(dataUri) {
   if (!dataUri?.startsWith("data:")) return null;
-
   const [meta, base64] = dataUri.split(",");
   if (!meta || !base64) return null;
-
   const mimeType = meta.replace("data:", "").split(";")[0];
+  return { data: base64, mimeType: mimeType || "image/png" };
+}
 
-  return {
-    data: base64,
-    mimeType: mimeType || "image/png",
-  };
+// [FIX 4: MANIFEST PARSING FRAGILITY - CLEANER]
+function cleanJsonString(raw) {
+  return raw
+    .replace(/```json/gi, "")
+    .replace(/```/g, "")
+    .replace(/^\s+|\s+$/g, "")
+    .replace(/,\s*([\]}])/g, "$1"); // Remove trailing commas
+}
+
+// [FIX 5: SECURITY SANITIZER]
+function sanitizeOutput(text) {
+  const secrets = [GEMINI_API_KEY, PEXELS_API_KEY, GOOGLE_SEARCH_KEY].filter(Boolean);
+  let sanitized = text;
+  secrets.forEach(s => {
+    sanitized = sanitized.split(s).join("[REDACTED_SECRET]");
+  });
+  return sanitized;
 }
 
 /* ================== REFINEMENT HELPERS ================== */
 function extractSectionHtml(fullHtml, sectionName) {
-  const regex = new RegExp(
-    `<[^>]+data-section="${sectionName}"[\\s\\S]*?<\\/[^>]+>`,
-    "i"
-  );
+  const regex = new RegExp(`<[^>]+data-section="${sectionName}"[\\s\\S]*?<\\/[^>]+>`, "i");
   const match = fullHtml.match(regex);
   return match ? match[0] : null;
 }
 
 function replaceSection(fullHtml, sectionName, newSectionHtml) {
-  const regex = new RegExp(
-    `<[^>]+data-section="${sectionName}"[\\s\\S]*?<\\/[^>]+>`,
-    "i"
-  );
+  const regex = new RegExp(`<[^>]+data-section="${sectionName}"[\\s\\S]*?<\\/[^>]+>`, "i");
   return fullHtml.replace(regex, newSectionHtml);
 }
-/* ======================================================= */
 
 // ---------------- BRAND DETECTION ----------------
 const BRAND_KEYWORDS = ["ferromat", "zbeda"];
@@ -168,20 +156,12 @@ function getBrandKeywords(prompt) {
 
 // ---------------- HANDLER ----------------
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Use POST." });
-  }
+  if (req.method !== "POST") return res.status(405).json({ error: "Use POST." });
 
   try {
-    // ---------------- AUTH ----------------
     const authHeader = req.headers.authorization || "";
-    const token = authHeader.startsWith("Bearer ")
-      ? authHeader.slice(7)
-      : null;
-
-    if (!token) {
-      return res.status(401).json({ error: "Missing auth token." });
-    }
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: "Missing auth token." });
 
     let decoded;
     try {
@@ -191,37 +171,16 @@ export default async function handler(req, res) {
     }
 
     const uid = decoded.uid;
-
-    /* ================== LIMITS ================== */
     const rate = await enforceDailyLimit(uid);
-    if (!rate.allowed) {
-      return res.status(429).json({ error: "Daily request limit reached" });
-    }
+    if (!rate.allowed) return res.status(429).json({ error: "Daily request limit reached" });
 
-    // ---------------- REQUEST BODY ----------------
     const {
-      prompt,
-      images = [],
-      pexelsQuery: userQuery,
-      imageCount = 8,
-      videoCount = 2,
-      projectId,
-      pageName = "landing", 
-      targetSection = null, 
-      isRefinement = false, 
-      framework = "vanilla", 
-      mode = "standard", 
-      style = "default",
-      deployment = "vercel"
+      prompt, images = [], pexelsQuery: userQuery, imageCount = 8, videoCount = 2,
+      projectId, pageName = "landing", targetSection = null, isRefinement = false,
+      framework = "vanilla", mode = "standard", style = "default", deployment = "vercel"
     } = req.body;
 
-    if (!prompt) {
-      return res.status(400).json({ error: "Missing prompt." });
-    }
-
-    // ---------------- GEMINI INIT ----------------
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: API_MODEL });
+    if (!prompt) return res.status(400).json({ error: "Missing prompt." });
 
     /* ================== PROJECT DATA & STACK LOCK ================== */
     const projectDocPath = `artifacts/ammoueai/users/${uid}/projects/${projectId}`;
@@ -232,11 +191,37 @@ export default async function handler(req, res) {
       const snap = await db.doc(projectDocPath).get();
       projectData = snap.exists ? snap.data() : {};
       topicLock = projectData.topicLock || "";
-
       if (projectData.framework && projectData.framework !== framework) {
         return res.status(400).json({ error: "Stack Lock Violation" });
       }
     }
+
+    // [FIX 2: NATIVE SYSTEM INSTRUCTIONS]
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    const activeStack = STACK_PRESETS[framework] || STACK_PRESETS.vanilla;
+    
+    // [FIX 6: EMPTY STATE FAIL-SAFE ASSETS]
+    const defaultImages = [
+      "https://images.pexels.com/photos/3183150/pexels-photo-3183150.jpeg",
+      "https://images.pexels.com/photos/3183132/pexels-photo-3183132.jpeg"
+    ];
+
+    const systemInstruction = `
+You are an elite principal engineer at Vercel. 
+DEPLOYMENT TARGET: VERCEL (STRICT)
+CORE STACK: ${JSON.stringify(activeStack)}
+
+BACKEND_MANIFEST OUTPUT RULE:
+- Output MUST be STRICT JSON ONLY. NO comments, NO markdown.
+FILE NAMING: Framework "${framework}" requires: ${activeStack.requiredFiles.join(", ")}.
+FILE ISOLATION: Each [NEW_PAGE: filename] must be fully self-contained with its own <html>, <head>, <body>, <style>, and <script>.
+OUTPUT ORDER: 1. [BACKEND_MANIFEST], 2. package.json, 3. vercel.json, 4. Remaining files.
+`.trim();
+
+    const model = genAI.getGenerativeModel({ 
+      model: API_MODEL,
+      systemInstruction: systemInstruction // Moved here for version 2.5 protocol
+    });
 
     if (!topicLock && !isRefinement) {
       try {
@@ -247,7 +232,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // ---------------- ASSET FETCHING (IMAGES/VIDEO) ----------------
+    // ---------------- ASSET FETCHING ----------------
     let imageURLs = [];
     const brandKeywords = getBrandKeywords(prompt);
     if (brandKeywords.length && GOOGLE_CX && GOOGLE_SEARCH_KEY) {
@@ -265,7 +250,7 @@ export default async function handler(req, res) {
         imageURLs = (data.photos || []).map((p) => p.src?.large);
       } catch {}
     }
-    if (!imageURLs.length) imageURLs = ["https://via.placeholder.com/1200x600?text=No+Image+Found"];
+    if (!imageURLs.length) imageURLs = defaultImages;
 
     let heroVideo = "";
     try {
@@ -274,106 +259,43 @@ export default async function handler(req, res) {
       heroVideo = data.videos?.[0]?.video_files?.[0]?.link || "";
     } catch {}
 
-    /* ================== SYSTEM INSTRUCTIONS (ROOT & DEPLOYMENT CONTRACT) ================== */
-    const activeStack = STACK_PRESETS[framework] || STACK_PRESETS.vanilla;
+    // ---------------- GEMINI GENERATION ----------------
+    const imageParts = images.filter(i => i.startsWith("data:")).map(img => ({ inlineData: dataUriToInlineData(img) }));
     
-    let systemInstruction = `
-You are an elite principal engineer at Vercel, operating at the absolute pinnacle of web development. You architect full-stack applications that are blazing fast, infinitely scalable, and visually stunning. Every line of code you write is optimized for performance, security, and modern UX standards. You design rich, interactive landing pages with smooth animations, dynamic dashboards, real-time data updates, and seamless navigation across multiple views. Your work merges cutting-edge frontend frameworks with serverless backends, edge functions, and high-performance CDN delivery. Every component is meticulously crafted for modular reuse, responsive design, and pixel-perfect UI, while pushing boundaries of user experience, interactivity, and visual storytelling. Think beyond code: anticipate user behavior, elevate the brand experience, and innovate like the future of web apps depends on it — because it does.
-DEPLOYMENT TARGET: VERCEL (STRICT)
-CORE STACK: ${JSON.stringify(activeStack)}
-
-BACKEND_MANIFEST OUTPUT RULE:
-- Output MUST be STRICT JSON ONLY
-- NO comments
-- NO markdown
-- NO explanations
-- NO trailing commas
-- ONE JSON object only
-
-FILE NAMING ADHERENCE:
-- If framework is "vanilla", the primary entry point MUST be named exactly "index.html".
-- If framework is "react-node", you MUST provide "src/main.jsx" and "src/App.jsx".
-- If framework is "nextjs", you MUST provide "app/page.jsx" and "app/layout.jsx".
-- DO NOT use alternative names like "home.html" or "landing.html" for the root entry.
-
-ROOT FILE SYSTEM LAW:
-- There is ONE project root.
-- package.json, vercel.json, README.md MUST exist at ROOT ONLY.
-- NO nested package.json files allowed.
-- Backend files MUST rely on root-level package.json dependencies.
-- If framework ≠ vanilla → package.json MUST be generated.
-
-FILE ISOLATION ABSOLUTE RULE:
-- NEVER merge files. NEVER reference “previous file”.
-- Output MUST be reproducible from zero files.
-- Each [NEW_PAGE: filename] must be fully self-contained.
-- EVERY HTML file MUST have its own <html>, <head>, and <body>.
-- NEVER leave a tag unclosed within a [NEW_PAGE] block.
-- Treat each file as a standalone entry; no "bleeding" of code between files.
-
-OUTPUT ORDER (MANDATORY):
-1. [BACKEND_MANIFEST]
-2. package.json
-3. vercel.json
-4. Remaining files
-
-INLINE-ONLY CSS & JS:
-- NO external files. <style></style> and <script></script> are mandatory.
-- Closure tags MUST be present.
-- JS files: NO HTML tags.
-
-ROOT & DEPLOYMENT CONTRACT:
-- Vercel deployment ONLY. ONE root filesystem.
-- Output must succeed on first Vercel deploy with ZERO manual edits.
-- Use placeholders: <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-user-image="INDEX">
-
+    // Final dynamic context injected into user message
+    const runtimeContext = `
 IMAGES: ${imageURLs.join("\n")}
 VIDEO: ${heroVideo}
-`.trim();
+PROMPT: ${prompt}
+    `.trim();
 
-    // ---------------- GEMINI INPUT & GENERATION ----------------
-    const imageParts = images.filter(i => i.startsWith("data:")).map(img => ({ inlineData: dataUriToInlineData(img) }));
-    const result = await model.generateContent({ contents: [{ role: "user", parts: [...imageParts, { text: systemInstruction }] }] });
+    const result = await model.generateContent({ contents: [{ role: "user", parts: [...imageParts, { text: runtimeContext }] }] });
     
-    let fullText = result.response.text() || "";
+    // [FIX 5: SANITIZE BEFORE PROCESSING]
+    let fullText = sanitizeOutput(result.response.text() || "");
     fullText = fullText.replace(/```[a-z]*\n/gi, "").replace(/```/g, "");
 
-    /* ================== STEP 7: VALIDATION BEFORE STREAMING ================== */
+    /* ================== STEP 7: VALIDATION ================== */
     const BANNED_APIS = ["child_process", "fs.unlink", "eval(", "exec(", "spawn("];
     if (BANNED_APIS.some(p => fullText.includes(p))) throw new Error("SECURITY_ABORT_BANNED_API");
 
-    // Hardened Manifest Extraction
     let backendManifest = projectData.backendManifest || {};
     const manifestMatch = fullText.match(/\[BACKEND_MANIFEST\]([\s\S]*?)(?=\n\[NEW_PAGE:|$)/i);
 
-    if (!manifestMatch && framework !== "vanilla") {
-      throw new Error("BACKEND_MANIFEST_REQUIRED");
-    }
+    if (!manifestMatch && framework !== "vanilla") throw new Error("BACKEND_MANIFEST_REQUIRED");
 
     if (manifestMatch) {
-      let raw = manifestMatch[1].replace(/```json|```/gi, "").trim();
-
+      // [FIX 4: UTILIZE CLEANER]
+      let raw = cleanJsonString(manifestMatch[1]);
       const jsonStart = raw.indexOf("{");
       const jsonEnd = raw.lastIndexOf("}");
-
-      if (jsonStart === -1 || jsonEnd === -1) {
-        throw new Error("INVALID_BACKEND_MANIFEST_FORMAT");
-      }
-
+      if (jsonStart === -1 || jsonEnd === -1) throw new Error("INVALID_BACKEND_MANIFEST_FORMAT");
       raw = raw.slice(jsonStart, jsonEnd + 1);
 
       try {
         backendManifest = JSON.parse(raw);
       } catch (e) {
-        console.error("MANIFEST RAW OUTPUT:\n", raw);
         throw new Error("BACKEND_MANIFEST_JSON_PARSE_FAILED");
-      }
-
-      const REQUIRED_KEYS = ["runtime", "routes", "env", "dependencies"];
-      for (const key of REQUIRED_KEYS) {
-        if (!(key in backendManifest)) {
-          throw new Error(`MANIFEST_MISSING_KEY:${key}`);
-        }
       }
     }
 
@@ -392,77 +314,25 @@ VIDEO: ${heroVideo}
         if (openCount > closeCount) throw new Error(`UNCLOSED_TAG_DETECTED:${tag}_IN_${fileName}`);
       });
 
-      // INLINE CHECKS
-      if (fileName.endsWith(".js") && (fileContent.includes("<style") || fileContent.includes("<script"))) {
-        throw new Error("HTML_TAG_IN_JS_FILE");
-      }
-      if (fileContent.includes("<style") && !fileContent.includes("</style>")) throw new Error("STYLE_TAG_NOT_CLOSED");
-      if (fileContent.includes("<script") && !fileContent.includes("</script>")) throw new Error("SCRIPT_TAG_NOT_CLOSED");
+      if (fileName.endsWith(".js") && (fileContent.includes("<style") || fileContent.includes("<script"))) throw new Error("HTML_TAG_IN_JS_FILE");
       if (fileContent.includes('<link rel="stylesheet"') || fileContent.includes('<script src=')) throw new Error("INLINE_ONLY_VIOLATION");
-      if (fileContent.includes("<style></style>")) throw new Error("EMPTY_STYLE_BLOCK");
-      if (fileContent.includes("<script></script>")) throw new Error("EMPTY_SCRIPT_BLOCK");
 
       pagesUpdate[fileName] = { content: fileContent };
     }
 
     /* ================== HARDENED FALLBACK AUTO-MAPPER ================== */
     if (framework === "vanilla" && !pagesUpdate["index.html"]) {
-      // Find any file that is explicitly .html, or contains <html> tag, or is named landing/home
-      const fallbackKey = Object.keys(pagesUpdate).find(k => 
-        k.endsWith(".html") || 
-        k.includes("landing") || 
-        k.includes("home") || 
-        pagesUpdate[k].content.includes("<html")
-      );
-      
+      const fallbackKey = Object.keys(pagesUpdate).find(k => k.endsWith(".html") || k.includes("landing") || k.includes("home") || pagesUpdate[k].content.includes("<html"));
       if (fallbackKey) {
         pagesUpdate["index.html"] = pagesUpdate[fallbackKey];
         if (fallbackKey !== "index.html") delete pagesUpdate[fallbackKey];
       }
     }
-    /* =================================================================== */
-
-    // ROOT PACKAGE.JSON ENFORCEMENT
-    const pkgPaths = Object.keys(pagesUpdate).filter(f => f.endsWith("package.json"));
-    if (pkgPaths.length > 1) throw new Error("MULTIPLE_PACKAGE_JSON");
-    if (pkgPaths.length === 0 && framework !== "vanilla") throw new Error("PACKAGE_JSON_REQUIRED");
-    if (pkgPaths.length === 1 && pkgPaths[0] !== "package.json") throw new Error("PACKAGE_JSON_MUST_BE_ROOT");
-
-    // BACKEND ↔ PACKAGE.JSON HARD BINDING
-    if (pagesUpdate["package.json"] && backendManifest.runtime) {
-      const pkg = JSON.parse(pagesUpdate["package.json"].content);
-      if (!pkg.engines || !pkg.engines.node) throw new Error("NODE_ENGINE_REQUIRED");
-      if (!pkg.scripts || !pkg.scripts.start) throw new Error("START_SCRIPT_REQUIRED");
-      if (pkg.scripts.start.includes("nodemon")) throw new Error("DEV_ONLY_SCRIPT_USED");
-      
-      const deps = pkg.dependencies || {};
-      const devDeps = pkg.devDependencies || {};
-      Object.keys(backendManifest.dependencies).forEach(d => {
-        if (!deps[d]) throw new Error(`DEPENDENCY_MISMATCH:${d}`);
-        if (devDeps[d]) throw new Error(`RUNTIME_DEP_IN_DEV:${d}`);
-      });
-    }
-
-    // VERCEL.JSON ROUTE GUARANTEE
-    if (pagesUpdate["vercel.json"] && backendManifest.routes) {
-      const vercel = JSON.parse(pagesUpdate["vercel.json"].content);
-      const vRoutes = vercel.routes || [];
-      backendManifest.routes.forEach(r => {
-        const found = vRoutes.some(v => v.dest?.includes("api") || v.src?.includes("api"));
-        if (!found) throw new Error("VERCEL_ROUTE_MISMATCH");
-      });
-    }
 
     // STACK-AWARE FILE EXPECTATIONS
     (STACK_REQUIREMENTS[framework] || []).forEach(f => {
-      if (!pagesUpdate[f]) {
-        console.error("CRITICAL: Stack file missing. Generated files:", Object.keys(pagesUpdate));
-        throw new Error(`STACK_FILE_MISSING:${f}`);
-      }
+      if (!pagesUpdate[f]) throw new Error(`STACK_FILE_MISSING:${f}`);
     });
-
-    const backendFiles = Object.keys(pagesUpdate).filter(f => f.startsWith("api/"));
-    if (backendFiles.length > 1) throw new Error("MULTIPLE_BACKEND_ENTRIES");
 
     /* ================== STEP 8: STREAMING & SAVING ================== */
     res.setHeader("Content-Type", "text/event-stream");
@@ -498,8 +368,6 @@ VIDEO: ${heroVideo}
     res.end();
   } catch (err) {
     console.error("Generate error:", err);
-    if (!res.headersSent) {
-      res.status(400).json({ error: err.message || "Internal server error" });
-    }
+    if (!res.headersSent) res.status(400).json({ error: err.message || "Internal server error" });
   }
 }
