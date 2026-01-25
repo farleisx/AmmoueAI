@@ -779,40 +779,72 @@
 
         cancelDeployBtn.onclick = () => confirmModal.classList.add('hidden');
 
+        // 🔥 RECURSIVE HEALING LOGIC IMPLEMENTED HERE
         confirmDeployBtn.onclick = async () => {
             confirmModal.classList.add('hidden');
             const slug = document.getElementById('slug-input').value;
-            publishBtn.innerText = "BROADCASTING...";
-            publishBtn.disabled = true;
-            try {
-                const token = await auth.currentUser.getIdToken();
-                const faviconHtml = `<link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">`;
-                const finalContent = currentHtml.includes('<head>') ? currentHtml.replace('<head>', `<head>${faviconHtml}`) : faviconHtml + currentHtml;
-                const customDomain = document.getElementById("custom-domain-input")?.value?.trim();
-                const res = await fetch('/api/deploy', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ htmlContent: finalContent, projectId: currentProjectId, slug, customDomain: customDomain || null })
-                });
-                const data = await res.json();
-                if (res.status === 403) {
-                    document.getElementById('limit-message').innerText = data.error || "Portfolio capacity reached.";
-                    document.getElementById('limit-modal').classList.remove('hidden');
+
+            async function performDeployment(attempt = 1) {
+                publishBtn.innerText = attempt > 1 ? `HEALING (ATTEMPT ${attempt})...` : "BROADCASTING...";
+                publishBtn.disabled = true;
+
+                try {
+                    const token = await auth.currentUser.getIdToken();
+                    const faviconHtml = `<link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">`;
+                    const finalContent = currentHtml.includes('<head>') ? currentHtml.replace('<head>', `<head>${faviconHtml}`) : faviconHtml + currentHtml;
+                    const customDomain = document.getElementById("custom-domain-input")?.value?.trim();
+                    
+                    const res = await fetch('/api/deploy', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify({ 
+                            htmlContent: finalContent, 
+                            projectId: currentProjectId, 
+                            slug, 
+                            customDomain: customDomain || null,
+                            attempt: attempt 
+                        })
+                    });
+
+                    const data = await res.json();
+
+                    // --- HANDLE HEALING SIGNAL ---
+                    if (res.status === 422 && data.error === "CORRUPT_FILES_DETECTED" && attempt <= 3) {
+                        logs.innerHTML += `<div class="log-entry text-amber-400 font-bold">> 🛠️ DEPLOY AUDIT FAILED: ${data.details}</div>`;
+                        logs.innerHTML += `<div class="log-entry text-amber-500">> Initiating automated repair sequence...</div>`;
+                        
+                        document.getElementById('user-prompt').value = `FIX ERROR: ${data.details}. Ensure all tags are closed and the framework structure is valid.`;
+                        
+                        await startGeneration(true); 
+                        return performDeployment(attempt + 1);
+                    }
+
+                    if (res.status === 403) {
+                        document.getElementById('limit-message').innerText = data.error || "Portfolio capacity reached.";
+                        document.getElementById('limit-modal').classList.remove('hidden');
+                        publishBtn.innerText = "PUBLISH";
+                        publishBtn.disabled = false;
+                        return;
+                    }
+
+                    if (data.deploymentUrl) {
+                        await updateProjectDeploymentUrl(currentProjectId, data.deploymentUrl, auth.currentUser.uid);
+                        activeLiveUrl = data.deploymentUrl;
+                        publishBtn.innerText = "LIVE";
+                        publishBtn.disabled = false;
+                        publishBtn.classList.replace('bg-emerald-600', 'bg-emerald-500');
+                        logs.innerHTML += `<div class="log-entry text-emerald-400">> 🚀 BROADCAST SUCCESSFUL: ${data.deploymentUrl}</div>`;
+                    } else if (data.error) {
+                         throw new Error(data.error);
+                    }
+                } catch (e) {
                     publishBtn.innerText = "PUBLISH";
                     publishBtn.disabled = false;
-                    return;
+                    logs.innerHTML += `<div class="log-entry text-red-500">> DEPLOYMENT CRITICAL ERROR: ${e.message}</div>`;
                 }
-                if (data.deploymentUrl) {
-                    await updateProjectDeploymentUrl(currentProjectId, data.deploymentUrl, auth.currentUser.uid);
-                    activeLiveUrl = data.deploymentUrl;
-                    publishBtn.innerText = "LIVE";
-                    publishBtn.disabled = false;
-                    publishBtn.classList.replace('bg-emerald-600', 'bg-emerald-500');
-                }
-            } catch (e) {
-                publishBtn.innerText = "PUBLISH";
-                publishBtn.disabled = false;
             }
+
+            await performDeployment(1);
         };
 
         /* ---------------- VIEWPORT HELPERS ---------------- */
