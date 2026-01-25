@@ -161,7 +161,6 @@ function getBrandKeywords(prompt) {
 
 // ---------------- HANDLER ----------------
 export default async function handler(req) {
-  // Edge runtime uses standard Request/Response objects
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Use POST." }), { status: 405 });
   }
@@ -330,7 +329,6 @@ OUTPUT ORDER: 1. [BACKEND_MANIFEST], 2. package.json, 3. vercel.json, 4. Remaini
           await new Promise(r => setTimeout(r, 5));
         }
 
-        // SAVE TO DATABASE (Done at end of stream for Edge safety)
         if (projectId) {
           const mainPageKey = Object.keys(pagesUpdate).find(k => k.includes("index.html") || k.includes("landing")) || "index.html";
           if (pagesUpdate[mainPageKey]) {
