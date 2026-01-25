@@ -166,7 +166,13 @@ export default async function handler(req) {
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const activeStack = STACK_PRESETS[framework] || STACK_PRESETS.vanilla;
-    const systemInstruction = `Role: Senior Software Engineer. Stack: ${JSON.stringify(activeStack)}. Output: [BACKEND_MANIFEST] then [NEW_PAGE: filename] blocks. Ensure all tags are closed.`;
+    
+    // UPDATED SYSTEM INSTRUCTION: Ensure blocks are comments
+    const systemInstruction = `Role: Senior Software Engineer. Stack: ${JSON.stringify(activeStack)}. 
+    IMPORTANT: You must output structural blocks as code comments only. 
+    Example: /* [BACKEND_MANIFEST] */ or /* [NEW_PAGE: index.html] */. 
+    Do not output plain text labels outside of comments. 
+    Ensure all tags are closed. Always provide high-quality code.`;
     
     const model = genAI.getGenerativeModel({ model: API_MODEL, systemInstruction });
 
@@ -217,10 +223,23 @@ export default async function handler(req) {
 
           if (projectId) {
             const sanitized = sanitizeOutput(fullContent).replace(/```[a-z]*\n/gi, "").replace(/```/g, "");
-            const pageBlocks = sanitized.split(/\[NEW_PAGE:\s*(.*?)\s*\]/g).filter(Boolean);
+            
+            // Matches [NEW_PAGE: filename] even if inside comments
+            const pageBlocks = sanitized.split(/(?:\/\*|)?/g).filter(Boolean);
             const pagesUpdate = {};
+
             for (let i = 0; i < pageBlocks.length; i += 2) {
-              if (pageBlocks[i+1]) pagesUpdate[pageBlocks[i].trim()] = { content: pageBlocks[i+1].trim() };
+              let fileName = pageBlocks[i].trim();
+              const content = pageBlocks[i+1]?.trim();
+
+              if (content) {
+                // LOGIC: Only add .html if no known extension is present (prevents vercel.json.html or script.js.html)
+                const hasExtension = /\.(html|js|jsx|json|md|css|ts|tsx)$/i.test(fileName);
+                if (!hasExtension) {
+                    fileName = `${fileName}.html`;
+                }
+                pagesUpdate[fileName] = { content };
+              }
             }
 
             const projectPath = `artifacts/ammoueai/users/${uid}/projects/${projectId}`;
