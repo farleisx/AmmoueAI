@@ -167,109 +167,28 @@ export default async function handler(req) {
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const activeStack = STACK_PRESETS[framework] || STACK_PRESETS.vanilla;
     
-    // UPDATED SYSTEM INSTRUCTION: Ensure blocks are comments
-    const systemInstruction = `Role: You are a Senior Software Engineer + Principal Full-Stack Architect. You write production-ready code for modern web apps. You do not produce templates or placeholders.
+    const systemInstruction = `Role: You are a Senior Software Engineer + Principal Full-Stack Architect.
+Stack: ${JSON.stringify(activeStack)}.
 
-Your code must always follow these rules:
+FILE GENERATION RULES:
+1. You must output EVERY file required for the project (including package.json, vercel.json, etc).
+2. Use specific comment delimiters to mark the start of each file.
+3. CRITICAL: Use the correct comment syntax for the file type so it is NOT visible as plain text.
+   - For HTML: - For JS/JSX/TS/CSS: /* [NEW_PAGE: filename.js] */
+   - For JSON: Use a JS-style comment /* [NEW_PAGE: filename.json] */ (even if it's invalid JSON, our parser will strip it).
 
-1️⃣ GENERAL RULES
+GENERAL RULES:
+- Output full, complete, production-ready code. No pseudo-code.
+- All components must be responsive and modular.
+- Use Tailwind CSS for styling.
 
-Always output full, complete, working code (HTML, CSS, JS, React, Next.js, Tailwind, Node.js, whatever is requested).
-
-Never output pseudo-code.
-
-All components must be reusable, modular, and scalable.
-
-Use semantic HTML5, modern JS, and React/Next.js best practices.
-
-Use functional components in React with hooks.
-
-Code must be fully responsive and mobile-first.
-
-Use clean folder structure:
-
-/components
-/pages
-/styles
-/utils
-
-
-Include comments only when necessary — explain non-obvious logic.
-
-Always follow industry coding standards (ESLint rules, Prettier formatting).
-
-2️⃣ FRONTEND SPECIFICATIONS
-
-React + Next.js preferred if not specified.
-
-Use Tailwind CSS for styling unless told otherwise.
-
-Design components to be fully reusable: buttons, cards, forms, modals.
-
-Include dynamic behavior using hooks and clean state management.
-
-Include API placeholders for future backend integration.
-
-3️⃣ BACKEND READINESS
-
-Code must be API-first ready: REST or GraphQL endpoints.
-
-Forms and actions must be structured to send clean JSON payloads.
-
-Include placeholder functions for DB integration or serverless functions.
-
-If Next.js is used, utilize app router / server components when appropriate.
-
-4️⃣ QUALITY & SCALABILITY
-
-Avoid repetitive or copy-paste code. Use loops, maps, and reusable functions.
-
-Separate UI, logic, and data clearly.
-
-Always think in components and modular architecture.
-
-Prioritize performance and SEO-friendly markup.
-
-Code must be future-proof — easy to refactor and expand.
-
-5️⃣ OUTPUT EXPECTATION
-
-When asked to generate a website/app:
-
-Produce complete project structure with all necessary files.
-
-Include package.json and dependency instructions if needed.
-
-Include a working landing page, sample components, and placeholders for dynamic content.
-
-Always assume the user can copy-paste and run it without errors.
-
-6️⃣ STYLE / BRANDING (Optional)
-
-If branding or UI is described, translate it into:
-
-Color scheme
-
-Typography
-
-Spacing system
-
-Component variants
-
-Avoid cheap or generic design; aim for modern, premium feel.
-    
-    
-    Stack: ${JSON.stringify(activeStack)}. 
-    IMPORTANT: You must output structural blocks as code comments only. 
-    Example: /* [BACKEND_MANIFEST] */ or /* [NEW_PAGE: index.html] */. 
-    Do not output plain text labels outside of comments. 
-    Ensure all tags are closed. Always provide high-quality code.`;
+Assume the user will copy-paste the entire output into a system that splits files based on these delimiters. Always provide high-quality, modern UI.`;
     
     const model = genAI.getGenerativeModel({ model: API_MODEL, systemInstruction });
 
     let imageURLs = [];
     try {
-      const pRes = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(pexelsQuery || prompt)}&per_page=6`, {
+      const pRes = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(pexelsQuery || prompt.substring(0, 50))}&per_page=6`, {
         headers: { Authorization: PEXELS_API_KEY }
       });
       const pData = await pRes.json();
@@ -294,7 +213,6 @@ Avoid cheap or generic design; aim for modern, premium feel.
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunkText })}\n\n`));
           }
 
-          // --- RECOVERY LOOP (MAX 3 TRIES) ---
           let repairAttempts = 0;
           let currentIssues = validateCodeCompleteness(fullContent);
 
@@ -302,44 +220,43 @@ Avoid cheap or generic design; aim for modern, premium feel.
             repairAttempts++;
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ status: "fixing", attempt: repairAttempts, issues: currentIssues })}\n\n`));
             
-            const repairResult = await model.generateContent(`The previous code was incomplete or ruined: ${currentIssues.join(" ")}. Provide ONLY the exact missing code or closing tags to fix it perfectly.`);
+            const repairResult = await model.generateContent(`The code was incomplete: ${currentIssues.join(" ")}. Provide ONLY the exact missing code.`);
             const repairText = repairResult.response.text();
             
             fullContent += "\n" + repairText;
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: repairText, healed: true })}\n\n`));
-            
-            // Re-validate for the next loop
             currentIssues = validateCodeCompleteness(fullContent);
           }
 
           if (projectId) {
-            const sanitized = sanitizeOutput(fullContent).replace(/```[a-z]*\n/gi, "").replace(/```/g, "");
+            const sanitized = sanitizeOutput(fullContent);
             
-            // Matches [NEW_PAGE: filename] even if inside comments
-            const pageBlocks = sanitized.split(/(?:\/\*|)?/g).filter(Boolean);
+            // Regex handles both and /* [NEW_PAGE: file] */
+            const fileParts = sanitized.split(/(?:|\*\/)/i);
             const pagesUpdate = {};
 
-            for (let i = 0; i < pageBlocks.length; i += 2) {
-              let fileName = pageBlocks[i].trim();
-              const content = pageBlocks[i+1]?.trim();
+            for (let i = 1; i < fileParts.length; i += 2) {
+              let fileName = fileParts[i].trim();
+              let content = fileParts[i+1]?.trim();
 
               if (content) {
-                // LOGIC: Only add .html if no known extension is present (prevents vercel.json.html or script.js.html)
+                content = content.replace(/^```[a-z]*\n/gi, "").replace(/```$/g, "");
+                
                 const hasExtension = /\.(html|js|jsx|json|md|css|ts|tsx)$/i.test(fileName);
-                if (!hasExtension) {
-                    fileName = `${fileName}.html`;
-                }
-                pagesUpdate[fileName] = { content };
+                if (!hasExtension) fileName = `${fileName}.html`;
+                
+                pagesUpdate[fileName] = { 
+                  mapValue: { 
+                    fields: { content: { stringValue: content } } 
+                  } 
+                };
               }
             }
 
             const projectPath = `artifacts/ammoueai/users/${uid}/projects/${projectId}`;
             await fetchFirestore(projectPath, "PATCH", {
               fields: {
-                pages: { mapValue: { fields: Object.keys(pagesUpdate).reduce((acc, key) => {
-                  acc[key] = { mapValue: { fields: { content: { stringValue: pagesUpdate[key].content } } } };
-                  return acc;
-                }, {}) } },
+                pages: { mapValue: { fields: pagesUpdate } },
                 framework: { stringValue: framework },
                 lastUpdated: { integerValue: Date.now().toString() }
               }
