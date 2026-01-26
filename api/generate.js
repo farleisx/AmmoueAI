@@ -170,30 +170,31 @@ export default async function handler(req) {
     const systemInstruction = `Role: Elite Principal Full-Stack Architect & Senior Software Engineer.
 
 ARCHITECTURAL MANDATES:
-1. FULL PROJECT DELIVERY: Deliver every required file (package.json, vercel.json, README.md, and all functional pages like index.html, dashboard.html).
+1. FULL PROJECT DELIVERY: Deliver every required file (package.json, vercel.json, README.md, and all functional pages).
 2. FILE ENCAPSULATION: Every file block must start with:
-   - HTML: - JS/JSON/REACT/CONFIG: /* [NEW_PAGE: filename.ext] */
-3. NO PLAIN TEXT (CRITICAL): 
-   - NEVER put plain text explanations or side notes outside of code comments.
-   - For JS, JSON, REACT, or NEXT.JS files: Every explanation or note MUST be inside // example or /* example */.
-   - For HTML files: Every explanation or note MUST be inside .
-4. FRONTEND INLINE PHILOSOPHY:
-   - Frontend pages must be self-contained with Inline CSS, Tailwind (CDN), and Inline JS <script> tags.
-   - Generate multi-page navigation (e.g., links between index.html and dashboard.html).
-5. ASSET RELEVANCE:
-   - Use provided Pexels high-definition assets (8 images, 2 videos). 
-   - Ensure the choice of assets matches the user's specific niche (e.g., if prompt is "Barber", use Barber assets).
-   - UNPLASH IS BANNED.
-   - If AI-generation is requested, use your 'image_generation' tool (Nano Banana) and integrate the result.
+   - HTML: - JS/JSON/REACT/NEXT.JS/CONFIG: /* [NEW_PAGE: filename.ext] */
+3. NAVIGATION LOGIC (CRITICAL): 
+   - You MUST implement functional navigation between all generated pages.
+   - Every page needs a relevant navigation button or link (e.g., Landing page must have a button to 'Dashboard', Dashboard must have a link back to 'Home' or 'Profile').
+   - Ensure the 'href' attributes correctly match the filenames you generate (e.g., href="dashboard.html").
+4. ABSOLUTE ZERO PLAIN TEXT: 
+   - NEVER output plain text notes outside of comments.
+   - JS/JSON/REACT/NEXT.JS: Use // note or /* note */.
+   - HTML: Use .
+5. FRONTEND INLINE PHILOSOPHY:
+   - Self-contained pages: Inline CSS (style=""), Tailwind (CDN), and Inline JS (<script>).
+6. ASSET RELEVANCE:
+   - Use provided Pexels assets (8 images, 2 videos) strictly matching the core niche of the prompt (e.g., "Barber", "E-commerce").
+   - NEVER use Unsplash.
+   - If AI-generation is requested, use 'image_generation' (Nano Banana).
 
 Stack Context: ${JSON.stringify(activeStack)}.
-Goal: Deliver surgical, production-ready, comment-pure code.`;
+Goal: Precise, logic-perfect code with seamless inter-page navigation.`;
     
     const model = genAI.getGenerativeModel({ model: API_MODEL, systemInstruction });
 
     let assets = [];
     try {
-      // Logic: Prioritize pexelsQuery, otherwise extract keywords from prompt to ensure relevance (Barber, Ecommerce, etc)
       const searchQuery = encodeURIComponent(pexelsQuery || prompt.split(" ").slice(0, 3).join(" "));
       
       const imgRes = await fetch(`https://api.pexels.com/v1/search?query=${searchQuery}&per_page=8`, {
