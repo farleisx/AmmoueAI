@@ -1,5 +1,5 @@
 // api/generate.js
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerative AI } from "@google/generative-ai";
 
 // ---------------- VERCEL RUNTIME CONFIG ----------------
 export const config = {
@@ -167,45 +167,48 @@ export default async function handler(req) {
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const activeStack = STACK_PRESETS[framework] || STACK_PRESETS.vanilla;
     
-    const systemInstruction = `Role: You are an Elite Principal Full-Stack Architect & Senior Software Engineer. You don't just write code; you build high-performance, conversion-optimized digital experiences. 
+    const systemInstruction = `Role: Elite Principal Full-Stack Architect & Senior Software Engineer.
 
 ARCHITECTURAL MANDATES:
-1. MASTER FILE OUTPUT: Deliver an exhaustive project structure including package.json, vercel.json, README.md, and all functional pages (Dashboards, Landing, Auth, etc.).
-2. STRUCTURAL TAGGING: Encapsulate every file block using strict delimiters:
-   - HTML: - JS/JSON/CONFIG: /* [NEW_PAGE: filename.ext] */
-3. FRONTEND INLINE PHILOSOPHY:
-   - Unless explicitly requested otherwise, all HTML pages must be absolute self-contained units.
-   - Inject CSS via style attributes, global Tailwind via CDN, and all logic within internal <script> tags.
-   - Create fully functional multi-page navigation (e.g., index.html linking to dashboard.html).
-4. ASSET INTEGRITY:
-   - Utilize provided Pexels high-definition assets (8 images, 2 videos). 
-   - CRITICAL: Use of Unsplash is strictly prohibited.
-   - NANO BANANA INTEGRATION: If a user demands custom imagery (e.g., "generate a logo" or "create an AI image"), invoke your 'image_generation' capability immediately and weave the result into the UI.
-5. COMMENTING PROTOCOL:
-   - ZERO plain text side notes. All metadata or developer commentary must be hidden in file-specific tags:
-   - HTML: | JS/CSS: // Note or /* Note */
+1. FULL PROJECT DELIVERY: Deliver every required file (package.json, vercel.json, README.md, and all functional pages like index.html, dashboard.html).
+2. FILE ENCAPSULATION: Every file block must start with:
+   - HTML: - JS/JSON/REACT/CONFIG: /* [NEW_PAGE: filename.ext] */
+3. NO PLAIN TEXT (CRITICAL): 
+   - NEVER put plain text explanations or side notes outside of code comments.
+   - For JS, JSON, REACT, or NEXT.JS files: Every explanation or note MUST be inside // example or /* example */.
+   - For HTML files: Every explanation or note MUST be inside .
+4. FRONTEND INLINE PHILOSOPHY:
+   - Frontend pages must be self-contained with Inline CSS, Tailwind (CDN), and Inline JS <script> tags.
+   - Generate multi-page navigation (e.g., links between index.html and dashboard.html).
+5. ASSET RELEVANCE:
+   - Use provided Pexels high-definition assets (8 images, 2 videos). 
+   - Ensure the choice of assets matches the user's specific niche (e.g., if prompt is "Barber", use Barber assets).
+   - UNPLASH IS BANNED.
+   - If AI-generation is requested, use your 'image_generation' tool (Nano Banana) and integrate the result.
 
 Stack Context: ${JSON.stringify(activeStack)}.
-Goal: Execute with surgical precision. Deliver premium, responsive, and production-ready code blocks only.`;
+Goal: Deliver surgical, production-ready, comment-pure code.`;
     
     const model = genAI.getGenerativeModel({ model: API_MODEL, systemInstruction });
 
     let assets = [];
     try {
-      const query = encodeURIComponent(pexelsQuery || prompt.substring(0, 50));
-      const imgRes = await fetch(`https://api.pexels.com/v1/search?query=${query}&per_page=8`, {
+      // Logic: Prioritize pexelsQuery, otherwise extract keywords from prompt to ensure relevance (Barber, Ecommerce, etc)
+      const searchQuery = encodeURIComponent(pexelsQuery || prompt.split(" ").slice(0, 3).join(" "));
+      
+      const imgRes = await fetch(`https://api.pexels.com/v1/search?query=${searchQuery}&per_page=8`, {
         headers: { Authorization: PEXELS_API_KEY }
       });
       const imgData = await imgRes.json();
-      const images = (imgData.photos || []).map(p => `IMAGE: ${p.src.large}`);
+      const imagesList = (imgData.photos || []).map(p => `IMAGE: ${p.src.large}`);
 
-      const vidRes = await fetch(`https://api.pexels.com/videos/search?query=${query}&per_page=2`, {
+      const vidRes = await fetch(`https://api.pexels.com/videos/search?query=${searchQuery}&per_page=2`, {
         headers: { Authorization: PEXELS_API_KEY }
       });
       const vidData = await vidRes.json();
-      const videos = (vidData.videos || []).map(v => `VIDEO: ${v.video_files[0].link}`);
+      const videosList = (vidData.videos || []).map(v => `VIDEO: ${v.video_files[0].link}`);
       
-      assets = [...images, ...videos];
+      assets = [...imagesList, ...videosList];
     } catch (e) { assets = ["IMAGE: https://via.placeholder.com/1200"]; }
 
     const encoder = new TextEncoder();
