@@ -317,642 +317,151 @@
     </main>
 
     <script type="module">
-        import { auth, getUserPlan, autoSaveProject, updateProjectDeploymentUrl, getUserProjects, getUsage } from "./fire_prompt.js";
-        import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+     import { auth, getUserPlan, autoSaveProject, getUserProjects, getUsage } from "./fire_prompt.js";
+import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 
-        let currentHtml = "";
-        let currentProjectId = null;
-        let attachedImages = [];
-        let abortCtrl = null;
-        let activeLiveUrl = null;
-        let frameTimeout;
+// Import all 4 modules
+import { GenerationEngine } from "./generation-engine.js";
+import { DeploymentManager } from "./deployment-manager.js";
+import { FrameBridge } from "./frame-bridge.js";
+import * as UI from "./ui-manager.js";
 
-        // Multi-page state management
-        let currentPage = "landing";
-        let projectPages = { "landing": "" };
+/* --- STATE --- */
+let projectState = {
+    pages: { "landing": "" },
+    currentPage: "landing",
+    currentHtml: "",
+    id: null,
+    activeLiveUrl: null,
+    attachedImages: []
+};
 
-        const genBtn = document.getElementById('gen-btn');
-        const stopBtn = document.getElementById('stop-btn');
-        const resumeBtn = document.getElementById('resume-btn');
-        const imgInput = document.getElementById('img-input');
-        const imgTray = document.getElementById('img-tray');
-        const logs = document.getElementById('logs');
-        const frame = document.getElementById('preview-frame');
-        const codeView = document.getElementById('code-view');
-        const copyBtn = document.getElementById('copy-code-btn');
-        const downloadBtn = document.getElementById('download-btn');
-        const publishBtn = document.getElementById('publish-btn');
-        const confirmModal = document.getElementById('confirm-modal');
-        const confirmDeployBtn = document.getElementById('confirm-deploy-btn');
-        const cancelDeployBtn = document.getElementById('cancel-deploy-btn');
-        const usageBadge = document.getElementById('usage-badge');
-        const pagesContainer = document.getElementById('pages-container');
+/* --- UI ELEMENTS OBJECT --- */
+const elements = {
+    prompt: document.getElementById('user-prompt'),
+    logs: document.getElementById('logs'),
+    publishBtn: document.getElementById('publish-btn'),
+    genBtn: document.getElementById('gen-btn'),
+    slugInput: document.getElementById('slug-input'),
+    historyList: document.getElementById('history-list'),
+    imgTray: document.getElementById('img-tray'),
+    pagesContainer: document.getElementById('pages-container')
+};
 
-        // NEW UI ELEMENTS
-        const aiSuggestionBtn = document.getElementById('ai-suggestion-btn');
-        const suggestionModal = document.getElementById('suggestion-modal');
-        const confirmSuggestionBtn = document.getElementById('confirm-suggestion-btn');
-        const exportModal = document.getElementById('export-modal');
-        const fileManifestList = document.getElementById('file-manifest-list');
-        const finalDownloadBtn = document.getElementById('final-download-btn');
-        const liveChoiceModal = document.getElementById('live-choice-modal');
-        const viewLiveAction = document.getElementById('view-live-action');
-        const redeployAction = document.getElementById('redeploy-action');
+/* --- INITIALIZE MODULES --- */
 
-        /* ---------------- USAGE TRACKING ---------------- */
-        let resetInterval = null;
-        function startResetCountdown(dailyResetAt) {
-            if (resetInterval) clearInterval(resetInterval);
-            function updateTimer() {
-                const now = Date.now();
-                let diff = dailyResetAt - now;
-                if (diff <= 0) {
-                    document.getElementById("reset-timer").innerText = "Limit reset!";
-                    clearInterval(resetInterval);
-                    return;
-                }
-                const hours = Math.floor(diff / 1000 / 3600);
-                const minutes = Math.floor((diff / 1000 / 60) % 60);
-                const seconds = Math.floor((diff / 1000) % 60);
-                document.getElementById("reset-timer").innerText = `Resets in ${hours}h ${minutes}m ${seconds}s`;
-            }
-            updateTimer();
-            resetInterval = setInterval(updateTimer, 1000);
-        }
-
-        async function refreshUsage() {
-            if (!auth.currentUser) return;
-            const usage = await getUsage(auth.currentUser.uid);
-            if (usage) {
-                const limit = usage.plan === "pro" ? 10 : 5;
-                usageBadge.innerText = `Credits: ${usage.dailyCount || 0}/${limit}`;
-                if (usage.dailyCount >= limit) {
-                    usageBadge.classList.replace('text-gray-500', 'text-red-500');
-                } else {
-                    usageBadge.classList.replace('text-red-500', 'text-[#D4AF37]');
-                }
-                if (usage.dailyResetAt) startResetCountdown(usage.dailyResetAt);
-                return usage;
-            }
-        }
-
-        /* ---------------- VOICE COMMAND LOGIC ---------------- */
-        const voiceBtn = document.getElementById('voice-btn');
-        const micIcon = document.getElementById('mic-icon');
-        const voiceIndicator = document.getElementById('voice-indicator');
-        const userPrompt = document.getElementById('user-prompt');
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-        if (SpeechRecognition) {
-            const recognition = new SpeechRecognition();
-            recognition.continuous = false;
-            recognition.interimResults = true;
-            recognition.lang = 'en-US';
-            let isListening = false;
-            voiceBtn.onclick = () => { if (!isListening) { recognition.start(); } else { recognition.stop(); } };
-            recognition.onstart = () => {
-                isListening = true;
-                micIcon.classList.replace('fa-microphone', 'fa-stop-circle');
-                micIcon.classList.add('text-red-500');
-                voiceIndicator.classList.remove('hidden');
-            };
-            recognition.onresult = (event) => {
-                let transcript = Array.from(event.results).map(result => result[0]).map(result => result.transcript).join('');
-                userPrompt.value = transcript;
-            };
-            recognition.onerror = () => { stopListening(); };
-            recognition.onend = () => { stopListening(); };
-            function stopListening() {
-                isListening = false;
-                micIcon.classList.replace('fa-stop-circle', 'fa-microphone');
-                micIcon.classList.remove('text-red-500');
-                voiceIndicator.classList.add('hidden');
-            }
-        } else { voiceBtn.classList.add('hidden'); }
-
-        /* ---------------- VISUAL SYNC & ROUTING LOGIC ---------------- */
-        window.addEventListener('message', (event) => {
-            if (event.data.type === 'SYNC_TEXT') {
-                const { syncId, newContent } = event.data;
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(currentHtml, 'text/html');
-                const textTags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'li', 'button'];
-                const target = doc.querySelectorAll(textTags.join(','))[syncId];
-                if (target) {
-                    target.innerHTML = newContent;
-                    currentHtml = doc.documentElement.outerHTML;
-                    projectPages[currentPage] = currentHtml;
-                    codeView.value = currentHtml;
-                    if (currentProjectId && auth.currentUser) {
-                        autoSaveProject(projectPages, document.getElementById('user-prompt').value, currentProjectId, auth.currentUser.uid, logs.innerHTML, currentPage);
-                    }
-                }
-            }
-            if (event.data.type === 'SWITCH_PAGE_INTERNAL') {
-                const targetPage = event.data.pageName;
-                if (projectPages[targetPage]) {
-                    window.switchPage(targetPage);
-                } else {
-                    logs.innerHTML += `<div class="log-entry text-red-400">> AI has not synthesized ${targetPage} yet.</div>`;
-                }
-            }
-        });
-
-        /* ---------------- STOP GENERATION ---------------- */
-        stopBtn.onclick = () => {
-            if (abortCtrl) {
-                abortCtrl.abort();
-                logs.innerHTML += '<div class="log-entry text-red-500 font-bold">> ABORTED BY USER.</div>';
-                stopBtn.classList.add('hidden');
-            }
-        };
-
-        /* ---------------- AUTO-GENERATE NAME ---------------- */
-        function generateCoolName() {
-            const adjs = ["prestige", "elara", "vanta", "aurum", "velvet", "onyx", "luxe", "monarch", "ethereal", "ivory"];
-            const nouns = ["studio", "folio", "estate", "manor", "vault", "atlas", "domain", "crest", "sphere", "pillar"];
-            const adj = adjs[Math.floor(Math.random() * adjs.length)];
-            const noun = nouns[Math.floor(Math.random() * nouns.length)];
-            const num = Math.floor(Math.random() * 99);
-            document.getElementById('slug-input').value = `${adj}-${noun}-${num}`;
-        }
-        generateCoolName();
-
-        /* ---------------- VIEW TOGGLES ---------------- */
-        const btnPreview = document.getElementById('toggle-preview');
-        const btnCode = document.getElementById('toggle-code');
-        btnPreview.onclick = () => {
-            frame.classList.remove('hidden');
-            codeView.classList.add('hidden');
-            copyBtn.classList.add('hidden');
-            btnPreview.className = "px-4 py-1.5 text-[10px] font-black rounded-lg bg-[#D4AF37] text-black transition";
-            btnCode.className = "px-4 py-1.5 text-[10px] font-black rounded-lg text-gray-400 hover:text-white transition";
-        };
-        btnCode.onclick = () => {
-            codeView.classList.remove('hidden');
-            frame.classList.add('hidden');
-            copyBtn.classList.remove('hidden');
-            btnCode.className = "px-4 py-1.5 text-[10px] font-black rounded-lg bg-[#D4AF37] text-black transition";
-            btnPreview.className = "px-4 py-1.5 text-[10px] font-black rounded-lg text-gray-400 hover:text-white transition";
-            codeView.value = currentHtml;
-        };
-        copyBtn.onclick = () => {
-            navigator.clipboard.writeText(currentHtml);
-            const originalText = copyBtn.innerHTML;
-            copyBtn.innerHTML = '<i class="fa-solid fa-check mr-2"></i> SOURCE COPIED';
-            setTimeout(() => copyBtn.innerHTML = originalText, 2000);
-        };
-
-        /* ---------------- DOWNLOAD ZIP (WITH MANIFEST) ---------------- */
-        downloadBtn.onclick = () => {
-            if (!currentHtml) return alert("Generate content first.");
-            fileManifestList.innerHTML = Object.keys(projectPages).map(name => `
-                <div class="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/5">
-                    <i class="fa-solid fa-file-code text-gold"></i>
-                    <span class="text-xs text-white font-mono">${name}.html</span>
-                </div>
-            `).join('');
-            exportModal.classList.remove('hidden');
-        };
-
-        finalDownloadBtn.onclick = async () => {
-            exportModal.classList.add('hidden');
-            const zip = new JSZip();
-            const slug = document.getElementById('slug-input').value || 'ammoue-project';
-            for (const [pageName, pageData] of Object.entries(projectPages)) {
-                zip.file(`${pageName}.html`, pageData || "");
-            }
-            const content = await zip.generateAsync({type:"blob"});
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(content);
-            link.download = `${slug}.zip`;
-            link.click();
-        };
-
-        /* ---------------- IMAGE PREVIEW ---------------- */
-        imgInput.onchange = async (e) => {
-            const files = Array.from(e.target.files);
-            for (const file of files) {
-                if (attachedImages.length >= 4) break;
-                attachedImages.push(await toBase64(file));
-            }
-            renderImages();
-            imgInput.value = "";
-        };
-        function toBase64(file) { return new Promise(r => { const reader = new FileReader(); reader.readAsDataURL(file); reader.onload = () => r(reader.result); }); }
-        function renderImages() {
-            imgTray.innerHTML = attachedImages.map((src, i) => `
-                <div class="img-bubble">
-                    <img src="${src}">
-                    <div class="remove-img" onclick="removeImg(${i})"><i class="fa-solid fa-xmark"></i></div>
-                </div>
-            `).join('');
-        }
-        window.removeImg = (i) => { attachedImages.splice(i, 1); renderImages(); };
-
-        /* ---------------- PAGE MANAGEMENT ---------------- */
-        function renderPageTabs() {
-            pagesContainer.innerHTML = Object.keys(projectPages).map(name => `
-                <button onclick="window.switchPage('${name}')" class="px-3 py-1 text-[9px] font-black rounded-lg transition-all uppercase tracking-tighter ${currentPage === name ? 'bg-[#D4AF37] text-black' : 'bg-white/5 text-gray-500 hover:text-white'}">
-                    ${name}
-                </button>
-            `).join('');
-        }
-
-        window.switchPage = (name) => {
-            projectPages[currentPage] = currentHtml;
-            currentPage = name;
-            currentHtml = projectPages[name] || "";
-            updateFrame(currentHtml, false);
-            renderPageTabs();
-            logs.innerHTML += `<div class="log-entry text-gray-500">> Neural context shifted to page: ${name}</div>`;
-        };
-
-        /* ---------------- PROJECT HISTORY LOADING ---------------- */
-        function renderProjectHistory(projects) {
-            const list = document.getElementById("history-list");
-            list.innerHTML = "";
-            projects.forEach(p => {
-                const item = document.createElement("div");
-                item.className = "history-item p-4 rounded-2xl bg-white/5 hover:bg-[#D4AF37]/10 transition cursor-pointer";
-                item.innerHTML = `
-                    <div class="text-xs font-semibold text-white truncate">${p.title || p.prompt || "Untitled Project"}</div>
-                    <div class="text-[9px] uppercase tracking-widest mt-1 ${p.deploymentUrl ? "text-emerald-400" : "text-gray-500"}">${p.deploymentUrl ? "LIVE" : "DRAFT"}</div>
-                `;
-                item.onclick = () => loadProject(p);
-                list.appendChild(item);
-            });
-        }
-
-        function loadProject(project) {
-            frame.className = "shadow-[0_40px_100px_rgba(0,0,0,0.6)] w-full h-full rounded-sm";
-            document.getElementById('set-desktop').classList.add('text-[#D4AF37]');
-            document.getElementById('set-mobile').classList.replace('text-[#D4AF37]', 'text-gray-500');
-            currentProjectId = project.id;
-            if (project.pages) {
-                projectPages = project.pages;
-                currentPage = Object.keys(projectPages)[0] || "landing";
-            } else {
-                projectPages = { "landing": project.htmlContent || "" };
-                currentPage = "landing";
-            }
-            currentHtml = projectPages[currentPage] || "";
-            activeLiveUrl = project.deploymentUrl || null;
-            document.getElementById("user-prompt").value = project.prompt || "";
-            renderPageTabs();
-            updateFrame(currentHtml, false);
-            if (activeLiveUrl) {
-                publishBtn.innerText = "LIVE";
-                publishBtn.classList.replace("bg-emerald-600", "bg-emerald-500");
-            } else {
-                publishBtn.innerText = "PUBLISH";
-                publishBtn.classList.replace("bg-emerald-500", "bg-emerald-600");
-            }
-            if (project.actionLogs) {
-                document.getElementById('thinking-box').classList.remove('hidden');
-                logs.innerHTML = project.actionLogs;
-            } else {
-                logs.innerHTML = `<div class="log-entry text-[#D4AF37]">> Loaded project from Studio Archives</div>`;
-            }
-        }
-
-        /* ---------------- GENERATE ---------------- */
-        genBtn.onclick = async () => startGeneration();
-        resumeBtn.onclick = async () => startGeneration(true);
-
-        // SUGGESTION LOGIC
-        aiSuggestionBtn.onclick = () => suggestionModal.classList.remove('hidden');
-        confirmSuggestionBtn.onclick = () => {
-            suggestionModal.classList.add('hidden');
-            document.getElementById('user-prompt').value = "Analyze the current design and suggest a logical improvement or a new relevant page to add. Implement it now.";
-            startGeneration();
-        };
-
-        async function startGeneration(isResume = false) {
-            if (!auth.currentUser) return signInWithPopup(auth, new GoogleAuthProvider());
-            const usage = await refreshUsage();
-            if (usage && usage.dailyCount >= (usage.plan === "pro" ? 10 : 5)) {
-                document.getElementById('limit-modal').classList.remove('hidden');
-                return;
-            }
-
-            let progress = 0;
-            const pb = document.getElementById('progress-bar');
-            const pf = document.getElementById('progress-fill');
-            pb.classList.remove('hidden');
-            pf.style.width = "0%";
-
-            abortCtrl = new AbortController();
-            document.getElementById('thinking-box').classList.remove('hidden');
-            resumeBtn.classList.add('hidden');
-            stopBtn.classList.remove('hidden');
-            
-            if (!isResume) {
-                logs.innerHTML = `<div class="log-entry text-emerald-500/50">> Initializing neural creative suite...</div>`;
-                currentHtml = "";
-            }
-            
-            genBtn.disabled = true;
-            document.getElementById('gen-icon').innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
-
-            try {
-                const token = await auth.currentUser.getIdToken();
-                const style = document.getElementById('style-selector').value;
-                const finalPrompt = style ? `Style Directive: ${style}. ${document.getElementById('user-prompt').value}` : document.getElementById('user-prompt').value;
-
-                const res = await fetch('/api/generate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ 
-                        prompt: finalPrompt, 
-                        images: attachedImages, 
-                        partialCode: isResume ? currentHtml : null,
-                        pageName: currentPage 
-                    }),
-                    signal: abortCtrl.signal
-                });
-
-                if (res.status === 429) {
-                     document.getElementById('limit-modal').classList.remove('hidden');
-                     throw new Error("Limit reached");
-                }
-
-                const reader = res.body.getReader();
-                const decoder = new TextDecoder();
-
-                while (true) {
-                    try {
-                        const { value, done } = await reader.read();
-                        if (done) break;
-                        const chunk = decoder.decode(value);
-
-                        progress += Math.random() * 2;
-                        pf.style.width = Math.min(progress, 95) + "%";
-
-                        const lines = chunk.split('\n');
-                        for (const line of lines) {
-                            if (!line.startsWith('data: ')) continue;
-                            const dataStr = line.slice(6).trim();
-                            if (dataStr === '[DONE]') break;
-                            try {
-                                const json = JSON.parse(dataStr);
-                                if (json.text) {
-                                    const autoPageMatch = json.text.match(/\[NEW_PAGE:\s*(.*?)\]/);
-                                    if (autoPageMatch) {
-                                        const autoName = autoPageMatch[1].trim().toLowerCase();
-                                        if (!projectPages[autoName]) {
-                                            projectPages[autoName] = ""; 
-                                            currentPage = autoName; 
-                                            currentHtml = ""; 
-                                            renderPageTabs(); 
-                                            logs.innerHTML += `<div class="log-entry text-[#D4AF37]">> AI initialized new architecture: ${autoName}</div>`;
-                                        }
-                                    }
-
-                                    const actionMatch = json.text.match(/\[ACTION:\s*(.*?)\]/);
-                                    if (actionMatch) { 
-                                        const actionEl = document.createElement('div');
-                                        actionEl.className = "action-line";
-                                        actionEl.innerHTML = `<div class="action-check"><i class="fa-solid fa-check"></i></div><span>${actionMatch[1]}</span>`;
-                                        logs.appendChild(actionEl);
-                                        logs.parentElement.scrollTop = logs.parentElement.scrollHeight;
-                                    }
-                                    
-                                    const cleanChunk = json.text.replace(/\[ACTION:.*?\]/g, "").replace(/\[NEW_PAGE:.*?\]/g, "");
-                                    currentHtml += cleanChunk;
-                                    projectPages[currentPage] = currentHtml;
-                                    updateFrameDebounced(currentHtml);
-                                }
-                            } catch (e) {}
-                        }
-                    } catch (streamErr) {
-                        if (streamErr.name === 'AbortError') throw streamErr;
-                        logs.innerHTML += '<div class="log-entry text-red-400 font-bold">> NEURAL LINK INTERRUPTED.</div>';
-                        resumeBtn.classList.remove('hidden');
-                        break; 
-                    }
-                }
-                
-                const currentActionLogs = logs.innerHTML;
-                currentProjectId = await autoSaveProject(projectPages, document.getElementById('user-prompt').value, currentProjectId, auth.currentUser.uid, currentActionLogs, currentPage);
-                await refreshUsage();
-                const projects = await getUserProjects(auth.currentUser.uid);
-                renderProjectHistory(projects);
-            } catch (err) {
-                if (err.name !== 'AbortError') logs.innerHTML += '<div class="log-entry text-red-500">> Synthesis terminated unexpectedly.</div>';
-            } finally {
-                pf.style.width = "100%";
-                setTimeout(() => pb.classList.add('hidden'), 600);
-                genBtn.disabled = false;
-                stopBtn.classList.add('hidden');
-                document.getElementById('gen-icon').innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i>';
-            }
-        }
-
-        function updateFrameDebounced(html) {
-            clearTimeout(frameTimeout);
-            frameTimeout = setTimeout(() => updateFrame(html, true), 120);
-        }
-
-        /* ---------------- PUBLISH & LIVE LOGIC ---------------- */
-        publishBtn.onclick = () => {
-            if (activeLiveUrl) { 
-                liveChoiceModal.classList.remove('hidden');
-                return; 
-            }
-            const slug = document.getElementById('slug-input').value;
-            if (!slug) return alert("Select an identity for this project.");
-            const domain = document.getElementById("custom-domain-input")?.value?.trim();
-            document.getElementById("confirm-slug-display").innerText = domain ? `https://${domain}` : `https://${slug}.vercel.app`;
-            confirmModal.classList.remove('hidden');
-        };
-
-        viewLiveAction.onclick = () => {
-            liveChoiceModal.classList.add('hidden');
-            window.open(activeLiveUrl, '_blank');
-        };
-
-        redeployAction.onclick = () => {
-            liveChoiceModal.classList.add('hidden');
-            confirmModal.classList.remove('hidden');
-        };
-
-        cancelDeployBtn.onclick = () => confirmModal.classList.add('hidden');
-
-        // 🔥 RECURSIVE HEALING LOGIC IMPLEMENTED HERE
-        confirmDeployBtn.onclick = async () => {
-            confirmModal.classList.add('hidden');
-            const slug = document.getElementById('slug-input').value;
-
-            async function performDeployment(attempt = 1) {
-                publishBtn.innerText = attempt > 1 ? `HEALING (ATTEMPT ${attempt})...` : "BROADCASTING...";
-                publishBtn.disabled = true;
-
-                try {
-                    const token = await auth.currentUser.getIdToken();
-                    const faviconHtml = `<link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">`;
-                    const finalContent = currentHtml.includes('<head>') ? currentHtml.replace('<head>', `<head>${faviconHtml}`) : faviconHtml + currentHtml;
-                    const customDomain = document.getElementById("custom-domain-input")?.value?.trim();
-                    
-                    const res = await fetch('/api/deploy', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                        body: JSON.stringify({ 
-                            htmlContent: finalContent, 
-                            projectId: currentProjectId, 
-                            slug, 
-                            customDomain: customDomain || null,
-                            attempt: attempt 
-                        })
-                    });
-
-                    const data = await res.json();
-
-                    // --- HANDLE HEALING SIGNAL ---
-                    if (res.status === 422 && data.error === "CORRUPT_FILES_DETECTED" && attempt <= 3) {
-                        logs.innerHTML += `<div class="log-entry text-amber-400 font-bold">> 🛠️ DEPLOY AUDIT FAILED: ${data.details}</div>`;
-                        logs.innerHTML += `<div class="log-entry text-amber-500">> Initiating automated repair sequence...</div>`;
-                        
-                        document.getElementById('user-prompt').value = `FIX ERROR: ${data.details}. Ensure all tags are closed and the framework structure is valid.`;
-                        
-                        await startGeneration(true); 
-                        return performDeployment(attempt + 1);
-                    }
-
-                    if (res.status === 403) {
-                        document.getElementById('limit-message').innerText = data.error || "Portfolio capacity reached.";
-                        document.getElementById('limit-modal').classList.remove('hidden');
-                        publishBtn.innerText = "PUBLISH";
-                        publishBtn.disabled = false;
-                        return;
-                    }
-
-                    if (data.deploymentUrl) {
-                        await updateProjectDeploymentUrl(currentProjectId, data.deploymentUrl, auth.currentUser.uid);
-                        activeLiveUrl = data.deploymentUrl;
-                        publishBtn.innerText = "LIVE";
-                        publishBtn.disabled = false;
-                        publishBtn.classList.replace('bg-emerald-600', 'bg-emerald-500');
-                        logs.innerHTML += `<div class="log-entry text-emerald-400">> 🚀 BROADCAST SUCCESSFUL: ${data.deploymentUrl}</div>`;
-                    } else if (data.error) {
-                         throw new Error(data.error);
-                    }
-                } catch (e) {
-                    publishBtn.innerText = "PUBLISH";
-                    publishBtn.disabled = false;
-                    logs.innerHTML += `<div class="log-entry text-red-500">> DEPLOYMENT CRITICAL ERROR: ${e.message}</div>`;
-                }
-            }
-
-            await performDeployment(1);
-        };
-
-        /* ---------------- VIEWPORT HELPERS ---------------- */
-        document.getElementById('set-desktop').onclick = () => {
-            frame.className = "shadow-[0_40px_100px_rgba(0,0,0,0.6)] w-full h-full rounded-sm";
-            document.getElementById('set-desktop').classList.add('text-[#D4AF37]');
-            document.getElementById('set-mobile').classList.replace('text-[#D4AF37]', 'text-gray-500');
-        };
-        document.getElementById('set-mobile').onclick = () => {
-            frame.className = "mobile-view";
-            document.getElementById('set-mobile').classList.add('text-[#D4AF37]');
-            document.getElementById('set-desktop').classList.replace('text-[#D4AF37]', 'text-gray-500');
-        };
-        document.getElementById('open-new-tab').onclick = () => {
-            const w = window.open('about:blank');
-            w.document.write(currentHtml);
-            w.document.close();
-        };
-
-        /* ---------------- NEW PROJECT BUTTON ---------------- */
-        document.getElementById('new-project-btn').onclick = () => {
-            currentProjectId = null;
-            currentHtml = "";
-            activeLiveUrl = null;
-            attachedImages = [];
-            imgTray.innerHTML = "";
-            logs.innerHTML = '<div class="log-entry text-emerald-500/50">> Workspace reset. Ready for new directive.</div>';
-            document.getElementById('user-prompt').value = "";
-            document.getElementById('thinking-box').classList.add('hidden');
-            frame.srcdoc = "";
-            codeView.value = "";
-            currentPage = "landing";
-            projectPages = { "landing": "" };
-            renderPageTabs();
-            generateCoolName();
-            publishBtn.innerText = "PUBLISH";
-            publishBtn.classList.replace('bg-emerald-500', 'bg-emerald-600');
-        };
-
-        function updateFrame(h, resetLive = false) {
+const bridge = new FrameBridge({
+    frame: document.getElementById('preview-frame'),
+    codeView: document.getElementById('code-view'),
+    callbacks: {
+        onSyncText: (syncId, newContent) => {
+            // Logic to update state from iframe edits
             const parser = new DOMParser();
-            const sanitizedHtml = h.replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gim, "");
-            const doc = parser.parseFromString(sanitizedHtml, 'text/html');
-            doc.querySelectorAll('*').forEach(el => {
-                [...el.attributes].forEach(attr => {
-                    if (attr.name.toLowerCase().startsWith('on')) el.removeAttribute(attr.name);
-                });
-            });
-            const textTags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'li', 'button'];
-            doc.querySelectorAll(textTags.join(',')).forEach((el, index) => {
-                el.setAttribute('contenteditable', 'true');
-                el.setAttribute('data-sync-id', index);
-                el.style.outline = 'none';
-            });
-            const s = doc.createElement('script');
-            s.textContent = `
-                document.querySelectorAll('[contenteditable]').forEach(el => {
-                    el.addEventListener('blur', () => {
-                        window.parent.postMessage({
-                            type: 'SYNC_TEXT',
-                            syncId: el.getAttribute('data-sync-id'),
-                            newContent: el.innerHTML
-                        }, '*');
-                    });
-                });
-
-                document.querySelectorAll('a').forEach(link => {
-                    link.addEventListener('click', (e) => {
-                        const href = link.getAttribute('href');
-                        if (href && href.endsWith('.html')) {
-                            e.preventDefault();
-                            const pageName = href.replace('.html', '');
-                            window.parent.postMessage({
-                                type: 'SWITCH_PAGE_INTERNAL',
-                                pageName: pageName
-                            }, '*');
-                        }
-                    });
-                });
-            `;
-            doc.body.appendChild(s);
-            frame.srcdoc = doc.documentElement.outerHTML;
-            codeView.value = h;
-            if (resetLive) {
-                activeLiveUrl = null;
-                publishBtn.innerText = "PUBLISH";
-                publishBtn.classList.replace('bg-emerald-500', 'bg-emerald-600');
+            const doc = parser.parseFromString(projectState.currentHtml, 'text/html');
+            const target = doc.querySelectorAll('p, h1, h2, h3, h4, h5, h6, span, a, li, button')[syncId];
+            if (target) {
+                target.innerHTML = newContent;
+                projectState.currentHtml = doc.documentElement.outerHTML;
+                projectState.pages[projectState.currentPage] = projectState.currentHtml;
+                autoSaveProject(projectState.pages, elements.prompt.value, projectState.id, auth.currentUser.uid, elements.logs.innerHTML, projectState.currentPage);
             }
-        }
+        },
+        onSwitchPage: (name) => switchPage(name)
+    }
+});
 
-        onAuthStateChanged(auth, async u => {
-            if (u) {
-                document.getElementById('user-ui').classList.remove('hidden');
-                document.getElementById('login-btn').classList.add('hidden');
-                document.getElementById('user-avatar').src = u.photoURL;
-                const plan = await getUserPlan(u.uid);
-                if (plan === "pro") document.getElementById("custom-domain-input").classList.remove("hidden");
-                await refreshUsage();
-                const projects = await getUserProjects(u.uid);
-                renderProjectHistory(projects);
-                if (projects.length) loadProject(projects[0]);
+const engine = new GenerationEngine({
+    ui: { 
+        genBtn: elements.genBtn, 
+        logs: elements.logs, 
+        progressBar: document.getElementById('progress-bar'), 
+        progressFill: document.getElementById('progress-fill'), 
+        thinkingBox: document.getElementById('thinking-box') 
+    },
+    callbacks: {
+        onNewPage: (name) => {
+            if (!projectState.pages[name]) {
+                projectState.pages[name] = "";
+                projectState.currentPage = name;
                 renderPageTabs();
-            } else {
-                window.location.href = "/login";
             }
+        },
+        onAction: (text) => { /* logic to append logs */ },
+        onCodeUpdate: (html) => {
+            projectState.currentHtml = html;
+            projectState.pages[projectState.currentPage] = html;
+            bridge.update(html);
+        }
+    }
+});
+
+const deployer = new DeploymentManager({
+    ui: { publishBtn: elements.publishBtn, logs: elements.logs },
+    callbacks: {
+        getProjectState: () => projectState,
+        onSuccess: (url) => {
+            projectState.activeLiveUrl = url;
+            elements.publishBtn.innerText = "LIVE";
+            elements.publishBtn.classList.replace('bg-emerald-600', 'bg-emerald-500');
+        }
+    }
+});
+
+/* --- ORCHESTRATION FUNCTIONS --- */
+
+function switchPage(name) {
+    projectState.pages[projectState.currentPage] = projectState.currentHtml;
+    projectState.currentPage = name;
+    projectState.currentHtml = projectState.pages[name] || "";
+    bridge.update(projectState.currentHtml);
+    renderPageTabs();
+}
+
+function renderPageTabs() {
+    elements.pagesContainer.innerHTML = Object.keys(projectState.pages).map(name => `
+        <button onclick="window.switchPage('${name}')" class="px-3 py-1 text-[9px] font-black rounded-lg uppercase ${projectState.currentPage === name ? 'bg-[#D4AF37] text-black' : 'bg-white/5 text-gray-500'}">
+            ${name}
+        </button>
+    `).join('');
+}
+window.switchPage = switchPage; // Exposed for HTML onclick
+
+/* --- AUTH & LOAD --- */
+
+onAuthStateChanged(auth, async user => {
+    if (user) {
+        UI.generateCoolName(elements.slugInput);
+        const projects = await getUserProjects(user.uid);
+        UI.renderProjectHistory(elements.historyList, projects, (proj) => {
+            projectState.id = proj.id;
+            projectState.pages = proj.pages || { "landing": proj.htmlContent };
+            projectState.currentHtml = projectState.pages["landing"];
+            bridge.update(projectState.currentHtml);
+            renderPageTabs();
         });
-        document.getElementById('logout-btn').onclick = () => signOut(auth);
-        renderPageTabs();
+    } else {
+        window.location.href = "/login";
+    }
+});
+
+/* --- FINAL EVENT WIRE-UP --- */
+
+elements.genBtn.onclick = () => engine.start({
+    prompt: elements.prompt.value,
+    auth,
+    projectState,
+    attachedImages: projectState.attachedImages
+});
+
+document.getElementById('confirm-deploy-btn').onclick = () => deployer.deploy({
+    html: projectState.currentHtml,
+    projectId: projectState.id,
+    slug: elements.slugInput.value,
+    auth,
+    engine
+});
+
+document.getElementById('logout-btn').onclick = () => signOut(auth);
     </script>
 </body>
 </html>
