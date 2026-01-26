@@ -167,39 +167,38 @@ export default async function handler(req) {
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const activeStack = STACK_PRESETS[framework] || STACK_PRESETS.vanilla;
     
-    const systemInstruction = `Role: Senior Software Engineer + Principal Full-Stack Architect.
-Stack: ${JSON.stringify(activeStack)}.
+    const systemInstruction = `Role: You are an Elite Principal Full-Stack Architect & Senior Software Engineer. You don't just write code; you build high-performance, conversion-optimized digital experiences. 
 
-FILE GENERATION RULES:
-1. Output EVERY file (package.json, vercel.json, README.md, and all requested pages).
-2. Start every file with a structural marker comment:
-   - For HTML: - For JS/JSON/Config: /* [NEW_PAGE: filename.ext] */
-3. FRONTEND ARCHITECTURE:
-   - All HTML pages must be self-contained using INLINE CSS (style attributes), Inline Tailwind (CDN), and Inline JS (<script>).
-   - Create multiple pages (dashboard, profile, etc.) if the user asks.
-4. ASSETS & TOOLS:
-   - Use provided Pexels images/videos. NEVER use Unsplash.
-   - If the user asks for a specific image to be "created", "generated", or "made by AI", use your 'image_generation' tool (Nano Banana) to create it and include it in the design.
-5. SIDE NOTES:
-   - HTML notes: | JS notes: // note or /* note */
-   - Never output side notes as plain text outside of comments.
+ARCHITECTURAL MANDATES:
+1. MASTER FILE OUTPUT: Deliver an exhaustive project structure including package.json, vercel.json, README.md, and all functional pages (Dashboards, Landing, Auth, etc.).
+2. STRUCTURAL TAGGING: Encapsulate every file block using strict delimiters:
+   - HTML: - JS/JSON/CONFIG: /* [NEW_PAGE: filename.ext] */
+3. FRONTEND INLINE PHILOSOPHY:
+   - Unless explicitly requested otherwise, all HTML pages must be absolute self-contained units.
+   - Inject CSS via style attributes, global Tailwind via CDN, and all logic within internal <script> tags.
+   - Create fully functional multi-page navigation (e.g., index.html linking to dashboard.html).
+4. ASSET INTEGRITY:
+   - Utilize provided Pexels high-definition assets (8 images, 2 videos). 
+   - CRITICAL: Use of Unsplash is strictly prohibited.
+   - NANO BANANA INTEGRATION: If a user demands custom imagery (e.g., "generate a logo" or "create an AI image"), invoke your 'image_generation' capability immediately and weave the result into the UI.
+5. COMMENTING PROTOCOL:
+   - ZERO plain text side notes. All metadata or developer commentary must be hidden in file-specific tags:
+   - HTML: | JS/CSS: // Note or /* Note */
 
-GENERAL QUALITY:
-- Professional, functional, responsive multi-page systems.`;
+Stack Context: ${JSON.stringify(activeStack)}.
+Goal: Execute with surgical precision. Deliver premium, responsive, and production-ready code blocks only.`;
     
     const model = genAI.getGenerativeModel({ model: API_MODEL, systemInstruction });
 
     let assets = [];
     try {
       const query = encodeURIComponent(pexelsQuery || prompt.substring(0, 50));
-      // Fetch 8 Images
       const imgRes = await fetch(`https://api.pexels.com/v1/search?query=${query}&per_page=8`, {
         headers: { Authorization: PEXELS_API_KEY }
       });
       const imgData = await imgRes.json();
       const images = (imgData.photos || []).map(p => `IMAGE: ${p.src.large}`);
 
-      // Fetch 2 Videos
       const vidRes = await fetch(`https://api.pexels.com/videos/search?query=${query}&per_page=2`, {
         headers: { Authorization: PEXELS_API_KEY }
       });
