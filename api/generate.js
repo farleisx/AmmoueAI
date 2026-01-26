@@ -1,5 +1,5 @@
 // api/generate.js
-import { GoogleGenerative AI } from "@google/generative-ai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // ---------------- VERCEL RUNTIME CONFIG ----------------
 export const config = {
@@ -172,28 +172,27 @@ export default async function handler(req) {
 ARCHITECTURAL MANDATES:
 1. FULL PROJECT DELIVERY: Deliver every required file (package.json, vercel.json, README.md, and all functional pages like index.html, dashboard.html).
 2. FILE ENCAPSULATION: Every file block must start with:
-   - HTML: - JS/JSON/REACT/CONFIG: /* [NEW_PAGE: filename.ext] */
-3. NO PLAIN TEXT (CRITICAL): 
-   - NEVER put plain text explanations or side notes outside of code comments.
-   - For JS, JSON, REACT, or NEXT.JS files: Every explanation or note MUST be inside // example or /* example */.
-   - For HTML files: Every explanation or note MUST be inside .
+   - HTML: - JS/JSON/REACT/NEXT.JS/CONFIG: /* [NEW_PAGE: filename.ext] */
+3. ABSOLUTE ZERO PLAIN TEXT (STRICT): 
+   - You are FORBIDDEN from outputting plain text outside of code-valid comments.
+   - In JS, JSON, REACT, or NEXT.JS files: All notes MUST be like // example or /* example */.
+   - In HTML files: All notes MUST be like .
 4. FRONTEND INLINE PHILOSOPHY:
-   - Frontend pages must be self-contained with Inline CSS, Tailwind (CDN), and Inline JS <script> tags.
-   - Generate multi-page navigation (e.g., links between index.html and dashboard.html).
+   - Pages must be self-contained units using Inline CSS, Tailwind (CDN), and Inline JS <script> tags.
+   - Implement full navigation logic between generated files.
 5. ASSET RELEVANCE:
    - Use provided Pexels high-definition assets (8 images, 2 videos). 
-   - Ensure the choice of assets matches the user's specific niche (e.g., if prompt is "Barber", use Barber assets).
-   - UNPLASH IS BANNED.
-   - If AI-generation is requested, use your 'image_generation' tool (Nano Banana) and integrate the result.
+   - Ensure assets strictly match the core subject of the user prompt (e.g., if "Barber", use Barber assets).
+   - NEVER use Unsplash.
+   - If user asks for an AI image, trigger 'image_generation' (Nano Banana) and embed it.
 
 Stack Context: ${JSON.stringify(activeStack)}.
-Goal: Deliver surgical, production-ready, comment-pure code.`;
+Goal: Precise, logic-perfect, comment-wrapped code only.`;
     
     const model = genAI.getGenerativeModel({ model: API_MODEL, systemInstruction });
 
     let assets = [];
     try {
-      // Logic: Prioritize pexelsQuery, otherwise extract keywords from prompt to ensure relevance (Barber, Ecommerce, etc)
       const searchQuery = encodeURIComponent(pexelsQuery || prompt.split(" ").slice(0, 3).join(" "));
       
       const imgRes = await fetch(`https://api.pexels.com/v1/search?query=${searchQuery}&per_page=8`, {
