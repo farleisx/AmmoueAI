@@ -317,16 +317,16 @@
     </main>
 
     <script type="module">
-     import { auth, getUserPlan, autoSaveProject, getUserProjects, getUsage } from "./fire_prompt.js";
+import { auth, getUserProjects, autoSaveProject } from "./fire_prompt.js";
 import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 
-// Import all 4 modules
+// Import all 4 specialized modules
 import { GenerationEngine } from "./generation-engine.js";
 import { DeploymentManager } from "./deployment-manager.js";
 import { FrameBridge } from "./frame-bridge.js";
 import * as UI from "./ui-manager.js";
 
-/* --- STATE --- */
+/* ---------------- STATE MANAGEMENT ---------------- */
 let projectState = {
     pages: { "landing": "" },
     currentPage: "landing",
@@ -336,8 +336,8 @@ let projectState = {
     attachedImages: []
 };
 
-/* --- UI ELEMENTS OBJECT --- */
-const elements = {
+/* ---------------- UI ELEMENTS ---------------- */
+const els = {
     prompt: document.getElementById('user-prompt'),
     logs: document.getElementById('logs'),
     publishBtn: document.getElementById('publish-btn'),
@@ -345,35 +345,42 @@ const elements = {
     slugInput: document.getElementById('slug-input'),
     historyList: document.getElementById('history-list'),
     imgTray: document.getElementById('img-tray'),
-    pagesContainer: document.getElementById('pages-container')
+    pagesContainer: document.getElementById('pages-container'),
+    previewFrame: document.getElementById('preview-frame'),
+    codeView: document.getElementById('code-view'),
+    userUi: document.getElementById('user-ui'),
+    loginBtn: document.getElementById('login-btn'),
+    userAvatar: document.getElementById('user-avatar')
 };
 
-/* --- INITIALIZE MODULES --- */
+/* ---------------- INITIALIZE MODULES ---------------- */
 
+// 1. Handle Iframe Syncing & Visual Injections
 const bridge = new FrameBridge({
-    frame: document.getElementById('preview-frame'),
-    codeView: document.getElementById('code-view'),
+    frame: els.previewFrame,
+    codeView: els.codeView,
     callbacks: {
         onSyncText: (syncId, newContent) => {
-            // Logic to update state from iframe edits
             const parser = new DOMParser();
             const doc = parser.parseFromString(projectState.currentHtml, 'text/html');
-            const target = doc.querySelectorAll('p, h1, h2, h3, h4, h5, h6, span, a, li, button')[syncId];
+            const textTags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'li', 'button'];
+            const target = doc.querySelectorAll(textTags.join(','))[syncId];
             if (target) {
                 target.innerHTML = newContent;
                 projectState.currentHtml = doc.documentElement.outerHTML;
                 projectState.pages[projectState.currentPage] = projectState.currentHtml;
-                autoSaveProject(projectState.pages, elements.prompt.value, projectState.id, auth.currentUser.uid, elements.logs.innerHTML, projectState.currentPage);
+                autoSaveProject(projectState.pages, els.prompt.value, projectState.id, auth.currentUser.uid, els.logs.innerHTML, projectState.currentPage);
             }
         },
         onSwitchPage: (name) => switchPage(name)
     }
 });
 
+// 2. Handle AI Generation
 const engine = new GenerationEngine({
     ui: { 
-        genBtn: elements.genBtn, 
-        logs: elements.logs, 
+        genBtn: els.genBtn, 
+        logs: els.logs, 
         progressBar: document.getElementById('progress-bar'), 
         progressFill: document.getElementById('progress-fill'), 
         thinkingBox: document.getElementById('thinking-box') 
@@ -383,10 +390,16 @@ const engine = new GenerationEngine({
             if (!projectState.pages[name]) {
                 projectState.pages[name] = "";
                 projectState.currentPage = name;
-                renderPageTabs();
+                renderTabs();
             }
         },
-        onAction: (text) => { /* logic to append logs */ },
+        onAction: (text) => {
+            const line = document.createElement('div');
+            line.className = "action-line";
+            line.innerHTML = `<div class="action-check"><i class="fa-solid fa-check"></i></div><span>${text}</span>`;
+            els.logs.appendChild(line);
+            els.logs.parentElement.scrollTop = els.logs.parentElement.scrollHeight;
+        },
         onCodeUpdate: (html) => {
             projectState.currentHtml = html;
             projectState.pages[projectState.currentPage] = html;
@@ -395,73 +408,96 @@ const engine = new GenerationEngine({
     }
 });
 
+// 3. Handle Deployment & Recursive Healing
 const deployer = new DeploymentManager({
-    ui: { publishBtn: elements.publishBtn, logs: elements.logs },
+    ui: { publishBtn: els.publishBtn, logs: els.logs },
     callbacks: {
         getProjectState: () => projectState,
         onSuccess: (url) => {
             projectState.activeLiveUrl = url;
-            elements.publishBtn.innerText = "LIVE";
-            elements.publishBtn.classList.replace('bg-emerald-600', 'bg-emerald-500');
-        }
+            els.publishBtn.innerText = "LIVE";
+            els.publishBtn.classList.replace('bg-emerald-600', 'bg-emerald-500');
+        },
+        onFailure: () => { els.publishBtn.innerText = "PUBLISH"; }
     }
 });
 
-/* --- ORCHESTRATION FUNCTIONS --- */
+/* ---------------- ORCHESTRATION ---------------- */
 
 function switchPage(name) {
-    projectState.pages[projectState.currentPage] = projectState.currentHtml;
+    if (!projectState.pages[name]) return;
     projectState.currentPage = name;
-    projectState.currentHtml = projectState.pages[name] || "";
+    projectState.currentHtml = projectState.pages[name];
     bridge.update(projectState.currentHtml);
-    renderPageTabs();
+    renderTabs();
 }
 
-function renderPageTabs() {
-    elements.pagesContainer.innerHTML = Object.keys(projectState.pages).map(name => `
+function renderTabs() {
+    els.pagesContainer.innerHTML = Object.keys(projectState.pages).map(name => `
         <button onclick="window.switchPage('${name}')" class="px-3 py-1 text-[9px] font-black rounded-lg uppercase ${projectState.currentPage === name ? 'bg-[#D4AF37] text-black' : 'bg-white/5 text-gray-500'}">
             ${name}
         </button>
     `).join('');
 }
-window.switchPage = switchPage; // Exposed for HTML onclick
+window.switchPage = switchPage;
 
-/* --- AUTH & LOAD --- */
+/* ---------------- AUTH & EVENT WIRE-UP ---------------- */
 
-onAuthStateChanged(auth, async user => {
+const handleLogin = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+        await signInWithPopup(auth, provider);
+    } catch (err) {
+        console.error("Auth Error:", err);
+    }
+};
+
+onAuthStateChanged(auth, async (user) => {
     if (user) {
-        UI.generateCoolName(elements.slugInput);
+        els.loginBtn.classList.add('hidden');
+        els.userUi.classList.remove('hidden');
+        if (els.userAvatar) els.userAvatar.src = user.photoURL;
+
+        UI.generateCoolName(els.slugInput);
         const projects = await getUserProjects(user.uid);
-        UI.renderProjectHistory(elements.historyList, projects, (proj) => {
+        UI.renderProjectHistory(els.historyList, projects, (proj) => {
             projectState.id = proj.id;
             projectState.pages = proj.pages || { "landing": proj.htmlContent };
-            projectState.currentHtml = projectState.pages["landing"];
-            bridge.update(projectState.currentHtml);
-            renderPageTabs();
+            switchPage(Object.keys(projectState.pages)[0]);
         });
     } else {
-        window.location.href = "/login";
+        els.loginBtn.classList.remove('hidden');
+        els.userUi.classList.add('hidden');
     }
 });
 
-/* --- FINAL EVENT WIRE-UP --- */
+// Buttons
+els.loginBtn.onclick = handleLogin;
+document.getElementById('logout-btn').onclick = () => signOut(auth);
 
-elements.genBtn.onclick = () => engine.start({
-    prompt: elements.prompt.value,
+els.genBtn.onclick = () => engine.start({
+    prompt: els.prompt.value,
     auth,
     projectState,
     attachedImages: projectState.attachedImages
 });
 
+document.getElementById('stop-btn').onclick = () => engine.stop();
+
 document.getElementById('confirm-deploy-btn').onclick = () => deployer.deploy({
     html: projectState.currentHtml,
     projectId: projectState.id,
-    slug: elements.slugInput.value,
+    slug: els.slugInput.value,
     auth,
     engine
 });
 
-document.getElementById('logout-btn').onclick = () => signOut(auth);
+// UI Manager wiring (Missing logic imported)
+UI.initVoice(document.getElementById('voice-btn'), els.prompt, document.getElementById('voice-indicator'));
+UI.setupImageUpload(document.getElementById('img-input'), els.imgTray, projectState, UI.renderImages);
+
+document.getElementById('toggle-code').onclick = () => UI.toggleView('code', els.previewFrame, els.codeView, {code: document.getElementById('toggle-code'), preview: document.getElementById('toggle-preview')});
+document.getElementById('toggle-preview').onclick = () => UI.toggleView('preview', els.previewFrame, els.codeView, {code: document.getElementById('toggle-code'), preview: document.getElementById('toggle-preview')});
     </script>
 </body>
 </html>
