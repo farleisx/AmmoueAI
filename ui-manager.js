@@ -35,3 +35,42 @@ export function renderProjectHistory(listEl, projects, loadCallback) {
         listEl.appendChild(item);
     });
 }
+
+export function initVoice(voiceBtn, promptInput, indicator) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+    const recognition = new SpeechRecognition();
+    recognition.onresult = (e) => { promptInput.value += e.results[0][0].transcript; };
+    voiceBtn.onclick = () => recognition.start();
+}
+
+export function setupImageUpload(inputEl, trayEl, state, renderFn) {
+    inputEl.onchange = (e) => {
+        const files = Array.from(e.target.files);
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                state.attachedImages.push(ev.target.result);
+                renderFn(trayEl, state.attachedImages, (idx) => {
+                    state.attachedImages.splice(idx, 1);
+                    renderFn(trayEl, state.attachedImages, (i) => { /* recursive callback */ });
+                });
+            };
+            reader.readAsDataURL(file);
+        });
+    };
+}
+
+export function toggleView(view, frame, code, buttons) {
+    if (view === 'code') {
+        frame.classList.add('hidden');
+        code.classList.remove('hidden');
+        buttons.code.classList.add('bg-[#D4AF37]', 'text-black');
+        buttons.preview.classList.remove('bg-[#D4AF37]', 'text-black');
+    } else {
+        frame.classList.remove('hidden');
+        code.classList.add('hidden');
+        buttons.preview.classList.add('bg-[#D4AF37]', 'text-black');
+        buttons.code.classList.remove('bg-[#D4AF37]', 'text-black');
+    }
+}
