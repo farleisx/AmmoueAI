@@ -167,33 +167,47 @@ export default async function handler(req) {
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const activeStack = STACK_PRESETS[framework] || STACK_PRESETS.vanilla;
     
-    const systemInstruction = `Role: You are a Senior Software Engineer + Principal Full-Stack Architect.
+    const systemInstruction = `Role: Senior Software Engineer + Principal Full-Stack Architect.
 Stack: ${JSON.stringify(activeStack)}.
 
 FILE GENERATION RULES:
-1. You must output EVERY file required for the project (including package.json, vercel.json, etc).
-2. Use specific comment delimiters to mark the start of each file.
-3. CRITICAL: Use the correct comment syntax for the file type so it is NOT visible as plain text.
-   - For HTML: - For JS/JSX/TS/CSS: /* [NEW_PAGE: filename.js] */
-   - For JSON: Use a JS-style comment /* [NEW_PAGE: filename.json] */ (even if it's invalid JSON, our parser will strip it).
+1. Output EVERY file (package.json, vercel.json, README.md, and all requested pages).
+2. Start every file with a structural marker comment:
+   - For HTML: - For JS/JSON/Config: /* [NEW_PAGE: filename.ext] */
+3. FRONTEND ARCHITECTURE:
+   - All HTML pages must be self-contained using INLINE CSS (style attributes), Inline Tailwind (CDN), and Inline JS (<script>).
+   - Create multiple pages (dashboard, profile, etc.) if the user asks.
+4. ASSETS & TOOLS:
+   - Use provided Pexels images/videos. NEVER use Unsplash.
+   - If the user asks for a specific image to be "created", "generated", or "made by AI", use your 'image_generation' tool (Nano Banana) to create it and include it in the design.
+5. SIDE NOTES:
+   - HTML notes: | JS notes: // note or /* note */
+   - Never output side notes as plain text outside of comments.
 
-GENERAL RULES:
-- Output full, complete, production-ready code. No pseudo-code.
-- All components must be responsive and modular.
-- Use Tailwind CSS for styling.
-
-Assume the user will copy-paste the entire output into a system that splits files based on these delimiters. Always provide high-quality, modern UI.`;
+GENERAL QUALITY:
+- Professional, functional, responsive multi-page systems.`;
     
     const model = genAI.getGenerativeModel({ model: API_MODEL, systemInstruction });
 
-    let imageURLs = [];
+    let assets = [];
     try {
-      const pRes = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(pexelsQuery || prompt.substring(0, 50))}&per_page=6`, {
+      const query = encodeURIComponent(pexelsQuery || prompt.substring(0, 50));
+      // Fetch 8 Images
+      const imgRes = await fetch(`https://api.pexels.com/v1/search?query=${query}&per_page=8`, {
         headers: { Authorization: PEXELS_API_KEY }
       });
-      const pData = await pRes.json();
-      imageURLs = (pData.photos || []).map(p => p.src.large);
-    } catch (e) { imageURLs = ["https://via.placeholder.com/1200"]; }
+      const imgData = await imgRes.json();
+      const images = (imgData.photos || []).map(p => `IMAGE: ${p.src.large}`);
+
+      // Fetch 2 Videos
+      const vidRes = await fetch(`https://api.pexels.com/videos/search?query=${query}&per_page=2`, {
+        headers: { Authorization: PEXELS_API_KEY }
+      });
+      const vidData = await vidRes.json();
+      const videos = (vidData.videos || []).map(v => `VIDEO: ${v.video_files[0].link}`);
+      
+      assets = [...images, ...videos];
+    } catch (e) { assets = ["IMAGE: https://via.placeholder.com/1200"]; }
 
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
@@ -203,7 +217,7 @@ Assume the user will copy-paste the entire output into a system that splits file
         try {
           const imageParts = images.filter(i => i.startsWith("data:")).map(img => ({ inlineData: dataUriToInlineData(img) }));
           const result = await model.generateContentStream({
-            contents: [{ role: "user", parts: [...imageParts, { text: `PROMPT: ${prompt}\nASSETS: ${imageURLs.join("\n")}` }] }]
+            contents: [{ role: "user", parts: [...imageParts, { text: `PROMPT: ${prompt}\nASSETS:\n${assets.join("\n")}` }] }]
           });
 
           let fullContent = "";
@@ -230,8 +244,6 @@ Assume the user will copy-paste the entire output into a system that splits file
 
           if (projectId) {
             const sanitized = sanitizeOutput(fullContent);
-            
-            // Regex handles both and /* [NEW_PAGE: file] */
             const fileParts = sanitized.split(/(?:|\*\/)/i);
             const pagesUpdate = {};
 
@@ -241,7 +253,6 @@ Assume the user will copy-paste the entire output into a system that splits file
 
               if (content) {
                 content = content.replace(/^```[a-z]*\n/gi, "").replace(/```$/g, "");
-                
                 const hasExtension = /\.(html|js|jsx|json|md|css|ts|tsx)$/i.test(fileName);
                 if (!hasExtension) fileName = `${fileName}.html`;
                 
