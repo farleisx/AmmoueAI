@@ -72,9 +72,13 @@ async function getAccessToken() {
 // ---------------- FIRESTORE REST ----------------
 async function fetchFirestore(path, method = "GET", body = null) {
   const token = await getAccessToken();
-  const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/${path}`;
+  const isCommit = method === "COMMIT";
+  const url = isCommit 
+    ? `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents:commit`
+    : `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/${path}`;
+  
   const res = await fetch(url, {
-    method,
+    method: isCommit ? "POST" : method,
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
     body: body ? JSON.stringify(body) : null
   });
@@ -170,33 +174,25 @@ export default async function handler(req) {
     const systemInstruction = `Role: Elite Principal Full-Stack Architect & Senior Software Engineer.
 
 ARCHITECTURAL MANDATES:
-1. FULL PROJECT DELIVERY: Deliver every required file (package.json, vercel.json, README.md, and all functional pages).
-2. FILE ENCAPSULATION: Every file block must start with:
-   - HTML: - JS/JSON/REACT/NEXT.JS/CONFIG: /* [NEW_PAGE: filename.ext] */
-3. NAVIGATION LOGIC (CRITICAL): 
-   - You MUST implement functional navigation between all generated pages.
-   - Every page needs a relevant navigation button or link (e.g., Landing page must have a button to 'Dashboard', Dashboard must have a link back to 'Home' or 'Profile').
-   - Ensure the 'href' attributes correctly match the filenames you generate (e.g., href="dashboard.html").
-4. ABSOLUTE ZERO PLAIN TEXT: 
-   - NEVER output plain text notes outside of comments.
+1. FULL PROJECT DELIVERY: Deliver every required file. Each file MUST be isolated.
+2. FILE ENCAPSULATION (CRITICAL): Start every single file block with the EXACT marker below. Do not mix code from different files.
+   - For HTML: - For JS/JSON/REACT/NEXT.JS/CONFIG: /* [NEW_PAGE: filename.ext] */
+   - Ensure you CLOSE the current file logic before starting a new marker.
+3. NAVIGATION & UX: implement functional buttons/links between pages (e.g., index.html <-> dashboard.html). Use the generated filenames in href attributes.
+4. ABSOLUTE ZERO PLAIN TEXT (STRICT): 
+   - FORBIDDEN: Plain text notes outside of comments.
    - JS/JSON/REACT/NEXT.JS: Use // note or /* note */.
    - HTML: Use .
-5. FRONTEND INLINE PHILOSOPHY:
-   - Self-contained pages: Inline CSS (style=""), Tailwind (CDN), and Inline JS (<script>).
-6. ASSET RELEVANCE:
-   - Use provided Pexels assets (8 images, 2 videos) strictly matching the core niche of the prompt (e.g., "Barber", "E-commerce").
-   - NEVER use Unsplash.
-   - If AI-generation is requested, use 'image_generation' (Nano Banana).
+5. FRONTEND INLINE PHILOSOPHY: All pages are self-contained with Inline CSS, Tailwind (CDN), and Inline JS.
+6. ASSET RELEVANCE: Use the provided 8 Pexels images and 2 videos strictly matching the prompt's niche. Never use Unsplash.
 
-Stack Context: ${JSON.stringify(activeStack)}.
-Goal: Precise, logic-perfect code with seamless inter-page navigation.`;
+Stack Context: ${JSON.stringify(activeStack)}.`;
     
     const model = genAI.getGenerativeModel({ model: API_MODEL, systemInstruction });
 
     let assets = [];
     try {
       const searchQuery = encodeURIComponent(pexelsQuery || prompt.split(" ").slice(0, 3).join(" "));
-      
       const imgRes = await fetch(`https://api.pexels.com/v1/search?query=${searchQuery}&per_page=8`, {
         headers: { Authorization: PEXELS_API_KEY }
       });
@@ -236,10 +232,8 @@ Goal: Precise, logic-perfect code with seamless inter-page navigation.`;
           while (currentIssues.length > 0 && repairAttempts < 3) {
             repairAttempts++;
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ status: "fixing", attempt: repairAttempts, issues: currentIssues })}\n\n`));
-            
             const repairResult = await model.generateContent(`The code was incomplete: ${currentIssues.join(" ")}. Provide ONLY the exact missing code.`);
             const repairText = repairResult.response.text();
-            
             fullContent += "\n" + repairText;
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: repairText, healed: true })}\n\n`));
             currentIssues = validateCodeCompleteness(fullContent);
@@ -253,28 +247,36 @@ Goal: Precise, logic-perfect code with seamless inter-page navigation.`;
             for (let i = 1; i < fileParts.length; i += 2) {
               let fileName = fileParts[i].trim();
               let content = fileParts[i+1]?.trim();
-
               if (content) {
                 content = content.replace(/^```[a-z]*\n/gi, "").replace(/```$/g, "");
-                const hasExtension = /\.(html|js|jsx|json|md|css|ts|tsx)$/i.test(fileName);
-                if (!hasExtension) fileName = `${fileName}.html`;
-                
-                pagesUpdate[fileName] = { 
-                  mapValue: { 
-                    fields: { content: { stringValue: content } } 
-                  } 
-                };
+                if (!/\.(html|js|jsx|json|md|css|ts|tsx)$/i.test(fileName)) fileName = `${fileName}.html`;
+                pagesUpdate[fileName] = { stringValue: content };
               }
             }
 
-            const projectPath = `artifacts/ammoueai/users/${uid}/projects/${projectId}`;
-            await fetchFirestore(projectPath, "PATCH", {
-              fields: {
-                pages: { mapValue: { fields: pagesUpdate } },
-                framework: { stringValue: framework },
-                lastUpdated: { integerValue: Date.now().toString() }
-              }
-            });
+            const docPath = `projects/${PROJECT_ID}/databases/(default)/documents/artifacts/ammoueai/users/${uid}/projects/${projectId}`;
+            const commitBody = {
+              writes: [{
+                update: {
+                  name: `projects/${PROJECT_ID}/databases/(default)/documents/artifacts/ammoueai/users/${uid}/projects/${projectId}`,
+                  fields: {
+                    pages: {
+                      mapValue: {
+                        fields: Object.keys(pagesUpdate).reduce((acc, key) => {
+                          acc[key] = { mapValue: { fields: { content: { stringValue: pagesUpdate[key].stringValue } } } };
+                          return acc;
+                        }, {})
+                      }
+                    },
+                    framework: { stringValue: framework },
+                    lastUpdated: { integerValue: Date.now().toString() }
+                  }
+                },
+                updateMask: { fieldPaths: ["pages", "framework", "lastUpdated"] }
+              }]
+            };
+
+            await fetchFirestore(null, "COMMIT", commitBody);
           }
 
           controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
