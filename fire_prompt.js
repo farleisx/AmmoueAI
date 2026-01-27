@@ -8,6 +8,7 @@ import {
   collection,
   addDoc,
   updateDoc,
+  deleteDoc,
   serverTimestamp,
   increment,
   getDocs,
@@ -179,5 +180,27 @@ export async function getUsage(userId) {
   } catch (e) {
     console.error("Failed to fetch usage:", e);
     return { dailyCount: 0, plan: "free" };
+  }
+}
+
+/* ================= DELETE PROJECT ================= */
+
+export async function deleteProject(projectId, userId) {
+  if (!userId || !projectId) return;
+  try {
+    const projectRef = doc(
+      db,
+      "artifacts",
+      appId,
+      "users",
+      userId,
+      "projects",
+      projectId
+    );
+    await deleteDoc(projectRef);
+    return true;
+  } catch (e) {
+    console.error("Failed to delete project:", e);
+    return false;
   }
 }
