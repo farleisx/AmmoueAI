@@ -9,7 +9,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        /* Luxury Color Palette: Midnight Gold & Deep Emerald */
         :root {
             --gold: #D4AF37;
             --gold-hover: #F1C40F;
@@ -29,124 +28,77 @@
                 radial-gradient(circle at 80% 80%, rgba(16,185,129,0.06), transparent 40%);
             pointer-events: none;
             z-index: 0;
-            animation: pulseGradient 15s ease-in-out infinite alternate;
-        }
-        @keyframes pulseGradient {
-            0% { opacity: 0.5; }
-            100% { opacity: 1; }
         }
 
         body { font-family: 'Inter', sans-serif; background: var(--midnight); color: var(--platinum); position: relative; }
         body > * { position: relative; z-index: 1; }
         
-        #preview-frame { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); background: white; border: none; }
-        .mobile-view { width: 375px !important; height: 667px !important; border: 12px solid #27272a !important; border-radius: 40px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+        /* FIX: Preview Wrapper & Z-Index logic to prevent menu blocking */
+        #preview-wrapper { z-index: 10; position: relative; width: 100%; height: 100%; }
+        #preview-frame { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); background: white; border: none; width: 100%; height: 100%; }
         
         #code-view { height: 100%; width: 100%; border: none; font-family: 'Fira Code', monospace; font-size: 13px; outline: none; resize: none; color: var(--gold); background: #0f0f10; padding: 2rem; }
         
-        .log-entry { font-size: 11px; color: #71717a; margin-bottom: 4px; font-family: 'Fira Code', monospace; animation: fadeIn 0.3s ease; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-
+        .mobile-view { width: 375px !important; height: 667px !important; border: 12px solid #27272a !important; border-radius: 40px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+        
         .img-bubble { position: relative; width: 56px; height: 56px; border-radius: 12px; border: 1px solid var(--soft-gold); overflow: hidden; background: #1c1c1f; }
         .img-bubble img { width: 100%; height: 100%; object-fit: cover; }
-        .remove-img { position: absolute; top: 2px; right: 2px; background: #ef4444; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; color: white; border: 1px solid var(--midnight); }
+        .remove-img { position: absolute; top: 2px; right: 2px; background: #ef4444; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; color: white; }
         
-        .history-item { cursor: pointer; transition: all 0.3s; border-left: 3px solid transparent; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); }
-        .history-item:hover { background: rgba(212, 175, 55, 0.05); border-left-color: var(--gold); color: white; }
+        .history-item { cursor: pointer; transition: all 0.3s; border: 1px solid rgba(255,255,255,0.05); }
         
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
+        /* FIX: Ensure History Menu is on the absolute top layer */
+        #history-menu { 
+            z-index: 9999 !important; 
+            pointer-events: auto;
+            box-shadow: 0 30px 100px rgba(0,0,0,0.9);
+        }
 
-        #limit-modal, #confirm-modal, #export-modal, #suggestion-modal, #live-choice-modal { backdrop-filter: blur(12px); background: rgba(0,0,0,0.75); }
-        
         .btn-luxury { 
             background: linear-gradient(135deg, #F1C40F, #D4AF37); 
-            color: black; 
-            font-weight: 800; 
-            letter-spacing: 0.05em; 
-            transition: all 0.3s ease; 
-            box-shadow: 0 10px 30px rgba(212,175,55,0.25), inset 0 1px 0 rgba(255,255,255,0.4);
-            cursor: pointer;
-            position: relative;
-            overflow: hidden;
+            color: black; font-weight: 800; letter-spacing: 0.05em; transition: all 0.3s ease; 
+            box-shadow: 0 10px 30px rgba(212,175,55,0.25);
         }
-        .btn-luxury::after {
-            content: "";
-            position: absolute;
-            top: -50%; left: -50%; width: 200%; height: 200%;
-            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.3), transparent);
-            transform: rotate(45deg);
-            transition: 0.5s;
-            pointer-events: none;
-        }
-        .btn-luxury:hover::after { left: 100%; }
         .btn-luxury:hover { transform: translateY(-1px); box-shadow: 0 12px 35px rgba(212, 175, 55, 0.4); }
         
-        #gen-btn { animation: goldenPulse 3s infinite; }
-        @keyframes goldenPulse {
-            0% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.4); }
-            70% { box-shadow: 0 0 0 15px rgba(212, 175, 55, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0); }
-        }
-
         .nav-glass { background: rgba(10, 10, 11, 0.8); backdrop-filter: blur(10px); border-bottom: 1px solid var(--soft-gold); }
-        .action-line { display: flex; align-items: center; gap: 8px; font-size: 10px; font-weight: 700; color: var(--emerald); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; animation: fadeIn 0.4s ease; }
-        .action-check { width: 14px; height: 14px; background: rgba(16, 185, 129, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 8px; }
-        .preset-chip { font-size: 9px; font-weight: 800; padding: 4px 10px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); color: #71717a; transition: all 0.3s; cursor: pointer; text-transform: uppercase; }
-        .preset-chip:hover { border-color: var(--gold); color: white; background: rgba(212,175,55,0.05); }
-        
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-        /* Ghost Typing Polish */
-        #user-prompt::placeholder {
-            color: #3f3f46;
-            font-style: italic;
-        }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden">
 
-    <div id="limit-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4">
-        <div class="bg-[#111113] border border-yellow-900/30 rounded-3xl max-w-sm w-full p-8 text-center shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+    <div id="limit-modal" class="hidden fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+        <div class="bg-[#111113] border border-yellow-900/30 rounded-3xl max-w-sm w-full p-8 text-center shadow-2xl">
             <div class="w-20 h-20 bg-yellow-500/10 text-[#D4AF37] rounded-full flex items-center justify-center mx-auto mb-6 text-3xl border border-yellow-500/20">
                 <i class="fa-solid fa-crown"></i>
             </div>
-            <h3 class="text-2xl font-black text-white mb-3 tracking-tight">ELEVATE STATUS</h3>
-            <p id="limit-message" class="text-gray-400 text-sm mb-8 leading-relaxed">You've reached the apex of the basic plan. Unlock limitless deployments with a Pro Membership.</p>
-            <div class="flex flex-col gap-3">
-                <button onclick="window.location.href='/upgrade'" class="btn-luxury py-4 rounded-2xl">UPGRADE TO PRO</button>
-                <button onclick="document.getElementById('limit-modal').classList.add('hidden')" class="text-gray-500 hover:text-white text-xs font-bold py-2 tracking-widest uppercase">Dismiss</button>
-            </div>
+            <h3 class="text-2xl font-black text-white mb-3">ELEVATE STATUS</h3>
+            <button onclick="document.getElementById('limit-modal').classList.add('hidden')" class="btn-luxury w-full py-4 rounded-2xl">UPGRADE</button>
         </div>
     </div>
 
-    <div id="confirm-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div id="confirm-modal" class="hidden fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
         <div class="bg-[#111113] border border-white/5 rounded-3xl max-w-sm w-full p-8 shadow-2xl">
-            <h3 class="text-xl font-black text-white mb-3 tracking-tight italic">FINAL REVIEW</h3>
-            <p class="text-gray-400 text-sm mb-6 leading-relaxed">Ready to broadcast this creation to the world? Once confirmed, the site will be live immediately.</p>
-            <div class="bg-black/40 p-4 rounded-2xl border border-white/5 mb-8">
-                <p class="text-[9px] text-gray-500 uppercase font-black tracking-widest mb-1">Public Identifier</p>
-                <p id="confirm-slug-display" class="text-[#D4AF37] font-mono text-sm font-bold"></p>
-            </div>
+            <h3 class="text-xl font-black text-white mb-3 italic uppercase">Final Review</h3>
+            <p id="confirm-slug-display" class="text-[#D4AF37] font-mono text-sm mb-8"></p>
             <div class="flex gap-4">
-                <button id="cancel-deploy-btn" class="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-4 rounded-2xl transition text-xs tracking-widest">CANCEL</button>
-                <button id="confirm-deploy-btn" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-black font-black py-4 rounded-2xl transition text-xs tracking-widest">PUBLISH</button>
+                <button id="cancel-deploy-btn" class="flex-1 text-gray-500 text-xs font-black uppercase">Cancel</button>
+                <button id="confirm-deploy-btn" class="flex-1 bg-emerald-600 text-black font-black py-4 rounded-2xl text-xs">PUBLISH</button>
             </div>
         </div>
     </div>
 
-    <nav class="nav-glass px-6 py-3 flex justify-between items-center z-50">
+    <nav class="nav-glass px-6 py-3 flex justify-between items-center z-[1000]">
         <div class="flex items-center gap-6">
             <a href="/dashboard" class="text-gray-500 hover:text-[#D4AF37] transition-all">
                 <i class="fa-solid fa-house-chimney text-lg"></i>
             </a>
             <span class="text-white font-black italic tracking-tighter text-2xl uppercase">Ammoue<span class="text-[#D4AF37]">AI</span></span>
             
-            <div class="flex bg-black/40 rounded-xl p-1 gap-1 ml-4 border border-white/5">
-                <button id="toggle-preview" class="px-4 py-1.5 text-[10px] font-black rounded-lg bg-[#D4AF37] text-black transition">PREVIEW</button>
-                <button id="toggle-code" class="px-4 py-1.5 text-[10px] font-black rounded-lg text-gray-400 hover:text-white transition">CODE</button>
-                <button id="toggle-mobile" class="px-3 py-1.5 text-[10px] text-gray-400 hover:text-[#D4AF37] transition border-l border-white/10 ml-1">
+            <div class="flex bg-black/40 rounded-xl p-1 gap-1 border border-white/5">
+                <button id="toggle-preview" class="px-4 py-1.5 text-[10px] font-black rounded-lg bg-[#D4AF37] text-black">PREVIEW</button>
+                <button id="toggle-code" class="px-4 py-1.5 text-[10px] font-black rounded-lg text-gray-400">CODE</button>
+                <button id="toggle-mobile" class="px-3 py-1.5 text-[10px] text-gray-400 hover:text-[#D4AF37] border-l border-white/10 ml-1">
                     <i class="fa-solid fa-mobile-screen-button"></i>
                 </button>
             </div>
@@ -154,19 +106,18 @@
 
         <div class="flex items-center gap-4">
             <div id="publish-controls" class="flex items-center gap-2 bg-black/40 p-1.5 rounded-xl border border-white/5">
-                <input id="slug-input" type="text" placeholder="Identity..." class="bg-transparent border-none outline-none text-xs text-white px-3 w-36 placeholder:text-gray-700 font-medium">
+                <input id="slug-input" type="text" placeholder="Identity..." class="bg-transparent border-none outline-none text-xs text-white px-3 w-36 placeholder:text-gray-700">
                 <button id="publish-btn" class="bg-emerald-600 hover:bg-emerald-500 text-black text-[10px] font-black px-5 py-2 rounded-lg transition uppercase tracking-widest">Publish</button>
             </div>
-            
             <div id="user-ui" class="hidden flex items-center gap-4 border-l border-white/5 pl-4">
                 <img id="user-avatar" class="w-8 h-8 rounded-full border border-[#D4AF37]/50 p-0.5">
-                <button id="logout-btn" class="text-[10px] text-gray-500 hover:text-white uppercase font-black tracking-widest">Exit</button>
+                <button id="logout-btn" class="text-[10px] text-gray-500 hover:text-white uppercase font-black">Exit</button>
             </div>
             <button id="login-btn" class="btn-luxury text-[10px] px-6 py-2.5 rounded-xl">SIGN IN</button>
         </div>
     </nav>
 
-    <main class="flex-1 flex flex-col md:flex-row overflow-hidden">
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
         <aside class="w-full md:w-[400px] border-r border-white/5 p-6 flex flex-col gap-6 bg-[#0a0a0b] overflow-y-auto">
             <div id="page-navigator" class="flex items-center gap-2 overflow-x-auto pb-2 border-b border-white/5 no-scrollbar">
                 <div id="pages-container" class="flex gap-2"></div>
@@ -174,18 +125,14 @@
 
             <div class="flex justify-between items-center">
                 <div class="flex gap-2">
-                    <button id="new-project-btn" class="bg-white/5 hover:bg-white/10 text-[10px] font-black px-4 py-2 rounded-lg transition border border-white/10 uppercase tracking-widest">
-                        <i class="fa-solid fa-plus mr-2"></i> NEW PROJECT
-                    </button>
-                    <button id="export-btn" class="bg-white/5 hover:bg-white/10 text-[10px] font-black px-4 py-2 rounded-lg transition border border-white/10">
-                        <i class="fa-solid fa-download"></i>
-                    </button>
+                    <button id="new-project-btn" class="bg-white/5 hover:bg-white/10 text-[10px] font-black px-4 py-2 rounded-lg border border-white/10 uppercase tracking-widest">NEW PROJECT</button>
+                    <button id="export-btn" class="bg-white/5 hover:bg-white/10 text-[10px] font-black px-4 py-2 rounded-lg border border-white/10"><i class="fa-solid fa-download"></i></button>
                 </div>
                 <div class="relative group">
                     <button class="p-2 text-gray-400 hover:text-[#D4AF37] transition">
                         <i class="fa-solid fa-folder-tree text-lg"></i>
                     </button>
-                    <div id="history-menu" class="hidden group-hover:block absolute left-0 top-10 w-80 bg-[#111113] border border-white/10 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.8)] z-[100] p-4 max-h-[500px] overflow-hidden">
+                    <div id="history-menu" class="hidden group-hover:block absolute left-0 top-10 w-80 bg-[#111113] border border-white/10 rounded-2xl p-4 max-h-[500px] overflow-hidden">
                         <h2 class="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-3">Project Archive</h2>
                         <div class="relative mb-4">
                             <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-[10px]"></i>
@@ -199,32 +146,29 @@
             <div class="flex-1 flex flex-col overflow-hidden">
                 <div class="flex justify-between items-end mb-4">
                     <h2 class="text-[9px] font-black text-[#D4AF37] uppercase tracking-[0.3em] opacity-70">Creative Directive</h2>
-                    <div id="usage-badge" class="text-[9px] font-black px-2 py-1 bg-white/5 rounded border border-white/10 text-gray-500 uppercase tracking-widest">Credits: --/--</div>
+                    <div id="usage-badge" class="text-[9px] font-black px-2 py-1 bg-white/5 rounded border border-white/10 text-gray-500 uppercase">Credits: --/--</div>
                 </div>
                 
                 <div id="thinking-box" class="hidden mb-4 overflow-y-auto max-h-[120px]">
                     <div id="logs" class="space-y-1"></div>
-                    <div id="progress-bar" class="h-1 bg-white/5 rounded-full overflow-hidden mt-2 hidden">
-                        <div id="progress-fill" class="h-full bg-[#D4AF37] w-0 transition-all duration-500"></div>
-                    </div>
                 </div>
 
-                <div class="flex-1 flex flex-col bg-[#161618] border border-white/5 rounded-3xl p-5 focus-within:border-[#D4AF37]/30 transition-all duration-500 relative">
+                <div class="flex-1 flex flex-col bg-[#161618] border border-white/5 rounded-3xl p-5 relative">
                     <div id="img-tray" class="flex flex-wrap gap-2 mb-4 empty:hidden"></div>
-                    <textarea id="user-prompt" class="flex-1 w-full bg-transparent border-none outline-none text-sm text-gray-300 resize-none placeholder:text-gray-700 leading-relaxed" placeholder="Define your digital masterpiece..."></textarea>
+                    <textarea id="user-prompt" class="flex-1 w-full bg-transparent border-none outline-none text-sm text-gray-300 resize-none placeholder:text-gray-700 leading-relaxed" placeholder="Define masterpiece..."></textarea>
                     
                     <div class="flex justify-between items-center mt-4 pt-4 border-t border-white/5">
                         <div class="flex items-center gap-2">
-                            <label class="cursor-pointer text-gray-600 hover:text-[#D4AF37] transition-all p-2">
+                            <label class="cursor-pointer text-gray-600 hover:text-[#D4AF37] p-2">
                                 <i class="fa-solid fa-paperclip text-lg"></i>
                                 <input type="file" id="img-input" class="hidden" accept="image/*" multiple>
                             </label>
-                            <button id="voice-btn" class="text-gray-600 hover:text-[#D4AF37] transition-all p-2">
+                            <button id="voice-btn" class="text-gray-600 hover:text-[#D4AF37] p-2">
                                 <i class="fa-solid fa-microphone text-lg"></i>
                             </button>
                         </div>
                         <button id="gen-btn" class="bg-[#D4AF37] hover:bg-[#F1C40F] text-black w-14 h-14 rounded-2xl flex items-center justify-center active:scale-90 shadow-xl">
-                            <span id="gen-icon" class="text-lg"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+                            <i class="fa-solid fa-wand-magic-sparkles text-lg"></i>
                         </button>
                     </div>
                 </div>
@@ -232,13 +176,12 @@
         </aside>
 
         <section class="flex-1 flex items-center justify-center p-4 bg-[#0f0f10] relative">
-            <div id="preview-wrapper" class="w-full h-full flex items-center justify-center relative">
-                <iframe id="preview-frame" class="w-full h-full rounded-sm"></iframe>
+            <div id="preview-wrapper">
+                <iframe id="preview-frame" class="rounded-sm"></iframe>
                 <textarea id="code-view" class="hidden" readonly></textarea>
             </div>
-            
-            <button id="stop-btn" class="hidden absolute bottom-12 bg-red-950/40 border border-red-500/50 hover:bg-red-500 text-white px-8 py-3 rounded-2xl font-black text-xs tracking-[0.2em] shadow-2xl z-50">
-                <i class="fa-solid fa-circle-stop mr-2"></i> ABORT
+            <button id="stop-btn" class="hidden absolute bottom-12 bg-red-950/40 border border-red-500/50 hover:bg-red-500 text-white px-8 py-3 rounded-2xl font-black text-xs tracking-widest z-50">
+                ABORT
             </button>
         </section>
     </main>
@@ -247,7 +190,6 @@
         import { auth, getUserProjects, autoSaveProject, getUsage } from "./fire_prompt.js";
         import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
         
-        // Modules
         import { GenerationEngine } from "./generation-engine.js";
         import { DeploymentManager } from "./deployment-manager.js";
         import { FrameBridge } from "./frame-bridge.js";
@@ -304,13 +246,7 @@
         });
 
         const engine = new GenerationEngine({
-            ui: { 
-                genBtn: els.genBtn, 
-                logs: els.logs, 
-                progressBar: document.getElementById('progress-bar'), 
-                progressFill: document.getElementById('progress-fill'), 
-                thinkingBox: document.getElementById('thinking-box') 
-            },
+            ui: { genBtn: els.genBtn, logs: els.logs, thinkingBox: document.getElementById('thinking-box') },
             callbacks: {
                 onNewPage: (name) => {
                     if (!projectState.pages[name]) {
@@ -331,14 +267,11 @@
             ui: { publishBtn: els.publishBtn, logs: els.logs },
             callbacks: {
                 getProjectState: () => projectState,
-                onSuccess: (url) => {
-                    els.publishBtn.innerText = "LIVE";
-                    els.publishBtn.classList.replace('bg-emerald-600', 'bg-emerald-500');
-                }
+                onSuccess: (url) => { els.publishBtn.innerText = "LIVE"; }
             }
         });
 
-        /* --- CORE LOGIC --- */
+        /* --- LOGIC --- */
 
         function switchPage(name) {
             if (!projectState.pages[name]) return;
@@ -357,36 +290,28 @@
         }
         window.switchPage = switchPage;
 
-        /* --- AUTH FLOW --- */
-
-        const handleLogin = async () => {
-            const provider = new GoogleAuthProvider();
-            try {
-                await signInWithPopup(auth, provider);
-            } catch (err) { console.error("Login Failed", err); }
-        };
+        /* --- AUTH --- */
 
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 els.loginBtn.classList.add('hidden');
                 els.userUi.classList.remove('hidden');
-                if (els.userAvatar) els.userAvatar.src = user.photoURL;
+                els.userAvatar.src = user.photoURL;
                 
-                // Refresh Usage
                 const usage = await getUsage(user.uid);
                 els.usageBadge.innerText = `Credits: ${usage.dailyCount || 0}/${usage.plan === 'pro' ? 10 : 5}`;
 
                 UI.generateCoolName(els.slugInput);
                 const projects = await getUserProjects(user.uid);
                 
-                // Initialize Search Logic
-                UI.initProjectSearch(els.projectSearch, els.historyList, projects, (proj) => {
+                // Init history and search
+                UI.renderProjectHistory(els.historyList, projects, (proj) => {
                     projectState.id = proj.id;
                     projectState.pages = proj.pages || { "landing": proj.htmlContent };
                     switchPage(Object.keys(projectState.pages)[0]);
                 });
 
-                UI.renderProjectHistory(els.historyList, projects, (proj) => {
+                UI.initProjectSearch(els.projectSearch, els.historyList, projects, (proj) => {
                     projectState.id = proj.id;
                     projectState.pages = proj.pages || { "landing": proj.htmlContent };
                     switchPage(Object.keys(projectState.pages)[0]);
@@ -397,9 +322,12 @@
             }
         });
 
-        /* --- EVENT LISTENERS --- */
+        /* --- LISTENERS --- */
 
-        els.loginBtn.onclick = handleLogin;
+        els.loginBtn.onclick = async () => {
+            try { await signInWithPopup(auth, new GoogleAuthProvider()); } catch (err) { console.error(err); }
+        };
+
         document.getElementById('logout-btn').onclick = () => signOut(auth);
         
         els.genBtn.onclick = () => engine.start({
@@ -409,41 +337,14 @@
             attachedImages: projectState.attachedImages
         });
 
-        document.getElementById('stop-btn').onclick = () => engine.stop();
-
-        document.getElementById('new-project-btn').onclick = () => {
-            if (confirm("Initialize new project? Current unsaved work will be cleared.")) {
-                projectState = {
-                    pages: { "landing": "" },
-                    currentPage: "landing",
-                    currentHtml: "",
-                    id: null,
-                    attachedImages: []
-                };
-                els.prompt.value = "";
-                els.imgTray.innerHTML = "";
-                bridge.update("");
-                renderTabs();
-                UI.generateCoolName(els.slugInput);
-                engine.addLog ? engine.addLog("Ready for a new masterpiece.") : console.log("New Project Ready");
-            }
-        };
-
         document.getElementById('export-btn').onclick = () => {
             if (Object.values(projectState.pages).every(content => content === "")) {
-                UI.showNotification("Project is empty", "error");
+                UI.showNotification("Empty Project", "error");
                 return;
             }
-            UI.showExportModal(projectState, () => {
-                UI.exportProject(projectState);
-            });
+            UI.showExportModal(projectState, () => UI.exportProject(projectState));
         };
 
-        document.getElementById('toggle-mobile').onclick = () => {
-            const isMobile = UI.toggleMobileView(els.previewFrame);
-            document.getElementById('toggle-mobile').classList.toggle('text-[#D4AF37]', isMobile);
-        };
-        
         document.getElementById('publish-btn').onclick = () => {
             document.getElementById('confirm-slug-display').innerText = els.slugInput.value;
             document.getElementById('confirm-modal').classList.remove('hidden');
@@ -451,36 +352,30 @@
 
         document.getElementById('confirm-deploy-btn').onclick = () => {
             document.getElementById('confirm-modal').classList.add('hidden');
-            deployer.deploy({
-                html: projectState.currentHtml,
-                projectId: projectState.id,
-                slug: els.slugInput.value,
-                auth,
-                engine
-            });
+            deployer.deploy({ html: projectState.currentHtml, projectId: projectState.id, slug: els.slugInput.value, auth, engine });
         };
 
         document.getElementById('cancel-deploy-btn').onclick = () => document.getElementById('confirm-modal').classList.add('hidden');
 
-        // UI Manager Initializers
-        UI.initVoice(document.getElementById('voice-btn'), els.prompt, document.createElement('div')); 
-        UI.setupImageUpload(document.getElementById('img-input'), els.imgTray, projectState, UI.renderImages);
-
+        // Toggle Viewport
+        document.getElementById('toggle-mobile').onclick = () => UI.toggleMobileView(els.previewFrame);
         document.getElementById('toggle-code').onclick = () => UI.toggleView('code', els.previewFrame, els.codeView, {code: document.getElementById('toggle-code'), preview: document.getElementById('toggle-preview')}, projectState.currentHtml);
         document.getElementById('toggle-preview').onclick = () => UI.toggleView('preview', els.previewFrame, els.codeView, {code: document.getElementById('toggle-code'), preview: document.getElementById('toggle-preview')});
 
-        // Initial setup
-        renderTabs();
-
-        // Prompt Typing Effect Initializer (External Module)
+        // Initialize UI Features
+        UI.initVoice(document.getElementById('voice-btn'), els.prompt); 
+        UI.setupImageUpload(document.getElementById('img-input'), els.imgTray, projectState, UI.renderImages);
         initPromptTyping(els.prompt, [
-            "Create a luxury watch store with gold accents...",
+            "Create a luxury watch store...",
             "Build a dark-themed SaaS landing page...",
-            "Design a minimal portfolio for a photographer...",
-            "Develop a clean crypto exchange dashboard UI...",
-            "Craft a vibrant food delivery app layout..."
+            "Design a photographer portfolio...",
+            "Develop a clean crypto exchange UI..."
         ]);
 
+        // Mock Collab Badge (Updates when > 1)
+        setTimeout(() => UI.updateCollabBadge(2), 5000);
+
+        renderTabs();
     </script>
 </body>
 </html>
