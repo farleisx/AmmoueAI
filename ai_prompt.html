@@ -45,10 +45,11 @@
         .remove-img { position: absolute; top: 2px; right: 2px; background: #ef4444; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; color: white; }
         
         #history-menu { 
-            z-index: 9999 !important; 
+            z-index: 10000 !important; 
             pointer-events: auto;
-            box-shadow: 0 30px 60px rgba(0,0,0,0.5);
-            backdrop-filter: blur(20px);
+            box-shadow: 0 30px 60px rgba(0,0,0,0.8);
+            backdrop-filter: blur(24px);
+            background: rgba(15, 23, 42, 0.95);
         }
 
         .btn-luxury { 
@@ -109,7 +110,7 @@
                 <button id="toggle-preview" class="px-4 py-1.5 text-[10px] font-bold rounded-md bg-indigo-600 text-white shadow-lg">PREVIEW</button>
                 <button id="toggle-code" class="px-4 py-1.5 text-[10px] font-bold rounded-md text-slate-400 hover:text-white">CODE</button>
                 <button id="toggle-mobile" class="px-3 py-1.5 text-[10px] text-slate-500 hover:text-indigo-400 border-l border-white/5 ml-1">
-                    <i class="fa-solid fa-mobile-screen"></i>
+                    <i id="mobile-icon" class="fa-solid fa-mobile-screen"></i>
                 </button>
             </div>
         </div>
@@ -145,7 +146,7 @@
                     <button class="p-2 text-slate-500 hover:text-indigo-400 transition">
                         <i class="fa-solid fa-database text-lg"></i>
                     </button>
-                    <div id="history-menu" class="hidden group-hover:block absolute left-0 top-10 w-80 bg-slate-900 border border-white/10 rounded-2xl p-4 max-h-[500px] overflow-hidden">
+                    <div id="history-menu" class="hidden group-hover:block absolute left-0 top-10 w-80 rounded-2xl p-4 max-h-[500px] overflow-hidden">
                         <h2 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Project History</h2>
                         <div class="relative mb-4">
                             <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 text-[10px]"></i>
@@ -424,7 +425,16 @@
 
         document.getElementById('cancel-deploy-btn').onclick = () => document.getElementById('confirm-modal').classList.add('hidden');
         
-        document.getElementById('toggle-mobile').onclick = () => UI.toggleMobileView(els.previewFrame);
+        document.getElementById('toggle-mobile').onclick = () => {
+            UI.toggleMobileView(els.previewFrame);
+            const icon = document.getElementById('mobile-icon');
+            if (els.previewFrame.classList.contains('mobile-view')) {
+                icon.className = "fa-solid fa-desktop";
+            } else {
+                icon.className = "fa-solid fa-mobile-screen";
+            }
+        };
+
         document.getElementById('toggle-code').onclick = () => UI.toggleView('code', els.previewFrame, els.codeView, {code: document.getElementById('toggle-code'), preview: document.getElementById('toggle-preview')}, projectState.currentHtml);
         document.getElementById('toggle-preview').onclick = () => UI.toggleView('preview', els.previewFrame, els.codeView, {code: document.getElementById('toggle-code'), preview: document.getElementById('toggle-preview')});
 
