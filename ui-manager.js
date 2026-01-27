@@ -96,7 +96,8 @@ export function toggleMobileView(frame) {
 
 export function exportProject(projectState) {
     const zip = new JSZip();
-    const folder = zip.folder(projectState.id || "ammoue-ai-project");
+    const folderName = projectState.id || "ammoue-ai-project";
+    const folder = zip.folder(folderName);
 
     Object.entries(projectState.pages).forEach(([name, html]) => {
         const fileName = name.endsWith('.html') ? name : `${name}.html`;
@@ -123,6 +124,9 @@ export function showNotification(message, type = "success") {
     if (type === "success") {
         toast.classList.add("bg-emerald-500/10", "border-emerald-500/50", "text-emerald-400");
         toast.innerHTML = `<i class="fa-solid fa-circle-check"></i> <span class="text-xs font-black uppercase tracking-widest">${message}</span>`;
+    } else if (type === "error") {
+        toast.classList.add("bg-red-500/10", "border-red-500/50", "text-red-400");
+        toast.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> <span class="text-xs font-black uppercase tracking-widest">${message}</span>`;
     }
 
     document.body.appendChild(toast);
@@ -135,4 +139,62 @@ export function showNotification(message, type = "success") {
         toast.classList.add("translate-y-20", "opacity-0");
         setTimeout(() => toast.remove(), 500);
     }, 4000);
+}
+
+export function showExportModal(projectState, onConfirm) {
+    const modal = document.createElement("div");
+    modal.className = "fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md";
+    
+    const folderName = projectState.id || "ammoue-ai-project";
+    const filesHtml = Object.keys(projectState.pages).map(name => {
+        const fileName = name.endsWith('.html') ? name : `${name}.html`;
+        return `<div class="flex items-center gap-3 text-gray-400 text-xs py-1 border-b border-white/5">
+                    <i class="fa-solid fa-file-code text-[#D4AF37]"></i> ${fileName}
+                </div>`;
+    }).join('');
+
+    modal.innerHTML = `
+        <div class="bg-[#111113] border border-white/10 rounded-3xl max-w-md w-full p-8 shadow-2xl scale-95 opacity-0 transition-all duration-300" id="export-inner">
+            <h3 class="text-xl font-black text-white mb-2 tracking-tight">PREPARE ASSETS</h3>
+            <p class="text-gray-500 text-[10px] uppercase tracking-widest mb-6">Bundling project into luxury archive</p>
+            
+            <div class="bg-black/40 rounded-2xl p-4 border border-white/5 mb-8">
+                <div class="flex items-center gap-2 text-white text-xs font-bold mb-3">
+                    <i class="fa-solid fa-folder-open text-[#D4AF37]"></i> ${folderName}/
+                </div>
+                <div class="pl-6 space-y-1">
+                    ${filesHtml}
+                    <div class="flex items-center gap-3 text-gray-400 text-xs py-1"><i class="fa-solid fa-file-lines text-blue-400"></i> ammoue-config.json</div>
+                </div>
+            </div>
+
+            <div class="flex gap-4">
+                <button id="close-export" class="flex-1 py-4 text-gray-500 hover:text-white text-[10px] font-black tracking-[0.2em] uppercase transition">Cancel</button>
+                <button id="confirm-export" class="flex-1 btn-luxury py-4 rounded-2xl text-[10px]">DOWNLOAD ZIP</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+    const inner = document.getElementById('export-inner');
+    setTimeout(() => inner.classList.remove('scale-95', 'opacity-0'), 10);
+
+    const close = () => {
+        inner.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => modal.remove(), 300);
+    };
+
+    modal.querySelector('#close-export').onclick = close;
+    modal.querySelector('#confirm-export').onclick = () => {
+        onConfirm();
+        close();
+    };
+}
+
+export function confirmDelete(projectName, onDelete) {
+    const confirmed = confirm(`Are you sure you want to permanently delete "${projectName}"? This action cannot be undone.`);
+    if (confirmed) {
+        onDelete();
+        showNotification("Project Deleted", "error");
+    }
 }
