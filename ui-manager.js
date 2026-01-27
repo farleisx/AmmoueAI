@@ -108,7 +108,6 @@ export function initVoice(voiceBtn, promptInput) {
 // --- NOTIFICATIONS & MODALS ---
 export function showNotification(message, type = "success") {
     const toast = document.createElement("div");
-    // Higher Z-index (300) to ensure it stays above modals
     toast.className = `fixed bottom-8 right-8 px-6 py-4 rounded-2xl border backdrop-blur-xl z-[300] transition-all duration-500 transform translate-y-20 opacity-0 flex items-center gap-3 shadow-2xl`;
     
     if (type === "success") {
@@ -204,6 +203,16 @@ export function exportProject(projectState) {
         a.click();
         window.URL.revokeObjectURL(url);
         showNotification("Project Exported Successfully");
+    });
+}
+
+// --- SHARING ---
+export function copyToClipboard(text) {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+        showNotification("Link Copied to Clipboard");
+    }).catch(err => {
+        console.error('Failed to copy: ', err);
     });
 }
 
