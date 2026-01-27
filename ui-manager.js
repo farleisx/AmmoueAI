@@ -110,5 +110,29 @@ export function exportProject(projectState) {
         a.download = `ammoue_export_${Date.now()}.zip`;
         a.click();
         window.URL.revokeObjectURL(url);
+        
+        // Show Success notification
+        showNotification("Project Exported Successfully");
     });
+}
+
+export function showNotification(message, type = "success") {
+    const toast = document.createElement("div");
+    toast.className = `fixed bottom-8 right-8 px-6 py-4 rounded-2xl border backdrop-blur-xl z-[200] transition-all duration-500 transform translate-y-20 opacity-0 flex items-center gap-3 shadow-2xl`;
+    
+    if (type === "success") {
+        toast.classList.add("bg-emerald-500/10", "border-emerald-500/50", "text-emerald-400");
+        toast.innerHTML = `<i class="fa-solid fa-circle-check"></i> <span class="text-xs font-black uppercase tracking-widest">${message}</span>`;
+    }
+
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        toast.classList.remove("translate-y-20", "opacity-0");
+    }, 100);
+
+    setTimeout(() => {
+        toast.classList.add("translate-y-20", "opacity-0");
+        setTimeout(() => toast.remove(), 500);
+    }, 4000);
 }
