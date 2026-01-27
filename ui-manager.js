@@ -1,4 +1,3 @@
-// ui-manager.js
 export function generateCoolName(inputEl) {
     const adjs = ["prestige", "elara", "vanta", "aurum", "velvet", "onyx", "luxe", "monarch", "ethereal", "ivory"];
     const nouns = ["studio", "folio", "estate", "manor", "vault", "atlas", "domain", "crest", "sphere", "pillar"];
@@ -40,29 +39,44 @@ export function initVoice(voiceBtn, promptInput, indicator) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) return;
     const recognition = new SpeechRecognition();
-    recognition.onresult = (e) => { promptInput.value += e.results[0][0].transcript; };
+    
+    recognition.onstart = () => {
+        voiceBtn.classList.add('text-emerald-500', 'animate-pulse');
+    };
+
+    recognition.onend = () => {
+        voiceBtn.classList.remove('text-emerald-500', 'animate-pulse');
+    };
+
+    recognition.onresult = (e) => { 
+        promptInput.value += (promptInput.value ? " " : "") + e.results[0][0].transcript; 
+    };
+
     voiceBtn.onclick = () => recognition.start();
 }
 
 export function setupImageUpload(inputEl, trayEl, state, renderFn) {
+    const handleRemove = (idx) => {
+        state.attachedImages.splice(idx, 1);
+        renderFn(trayEl, state.attachedImages, handleRemove);
+    };
+
     inputEl.onchange = (e) => {
         const files = Array.from(e.target.files);
         files.forEach(file => {
             const reader = new FileReader();
             reader.onload = (ev) => {
                 state.attachedImages.push(ev.target.result);
-                renderFn(trayEl, state.attachedImages, (idx) => {
-                    state.attachedImages.splice(idx, 1);
-                    renderFn(trayEl, state.attachedImages, (i) => { /* recursive callback */ });
-                });
+                renderFn(trayEl, state.attachedImages, handleRemove);
             };
             reader.readAsDataURL(file);
         });
     };
 }
 
-export function toggleView(view, frame, code, buttons) {
+export function toggleView(view, frame, code, buttons, currentHtml = "") {
     if (view === 'code') {
+        code.value = currentHtml; // Ensure the code view is updated with current content
         frame.classList.add('hidden');
         code.classList.remove('hidden');
         buttons.code.classList.add('bg-[#D4AF37]', 'text-black');
