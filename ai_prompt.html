@@ -33,7 +33,6 @@
         body { font-family: 'Inter', sans-serif; background: var(--midnight); color: var(--platinum); position: relative; }
         body > * { position: relative; z-index: 1; }
         
-        /* FIX: Preview Wrapper & Z-Index logic to prevent menu blocking */
         #preview-wrapper { z-index: 10; position: relative; width: 100%; height: 100%; }
         #preview-frame { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); background: white; border: none; width: 100%; height: 100%; }
         
@@ -45,9 +44,6 @@
         .img-bubble img { width: 100%; height: 100%; object-fit: cover; }
         .remove-img { position: absolute; top: 2px; right: 2px; background: #ef4444; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; color: white; }
         
-        .history-item { cursor: pointer; transition: all 0.3s; border: 1px solid rgba(255,255,255,0.05); }
-        
-        /* FIX: Ensure History Menu is on the absolute top layer */
         #history-menu { 
             z-index: 9999 !important; 
             pointer-events: auto;
@@ -108,6 +104,9 @@
             <div id="publish-controls" class="flex items-center gap-2 bg-black/40 p-1.5 rounded-xl border border-white/5">
                 <input id="slug-input" type="text" placeholder="Identity..." class="bg-transparent border-none outline-none text-xs text-white px-3 w-36 placeholder:text-gray-700">
                 <button id="publish-btn" class="bg-emerald-600 hover:bg-emerald-500 text-black text-[10px] font-black px-5 py-2 rounded-lg transition uppercase tracking-widest">Publish</button>
+                <button id="share-link-btn" class="hidden text-gray-500 hover:text-[#D4AF37] px-2 transition-all">
+                    <i class="fa-solid fa-share-nodes"></i>
+                </button>
             </div>
             <div id="user-ui" class="hidden flex items-center gap-4 border-l border-white/5 pl-4">
                 <img id="user-avatar" class="w-8 h-8 rounded-full border border-[#D4AF37]/50 p-0.5">
@@ -196,19 +195,12 @@
         import * as UI from "./ui-manager.js";
         import { initPromptTyping } from "./prompt-typing.js";
 
-        /* --- STATE --- */
-        let projectState = {
-            pages: { "landing": "" },
-            currentPage: "landing",
-            currentHtml: "",
-            id: null,
-            attachedImages: []
-        };
-
+        let projectState = { pages: { "landing": "" }, currentPage: "landing", currentHtml: "", id: null, attachedImages: [], deploymentUrl: null };
         const els = {
             prompt: document.getElementById('user-prompt'),
             logs: document.getElementById('logs'),
             publishBtn: document.getElementById('publish-btn'),
+            shareBtn: document.getElementById('share-link-btn'),
             genBtn: document.getElementById('gen-btn'),
             slugInput: document.getElementById('slug-input'),
             historyList: document.getElementById('history-list'),
@@ -222,8 +214,6 @@
             usageBadge: document.getElementById('usage-badge'),
             projectSearch: document.getElementById('project-search')
         };
-
-        /* --- INITIALIZATION --- */
 
         const bridge = new FrameBridge({
             frame: els.previewFrame,
@@ -249,17 +239,9 @@
             ui: { genBtn: els.genBtn, logs: els.logs, thinkingBox: document.getElementById('thinking-box') },
             callbacks: {
                 onNewPage: (name) => {
-                    if (!projectState.pages[name]) {
-                        projectState.pages[name] = "";
-                        projectState.currentPage = name;
-                        renderTabs();
-                    }
+                    if (!projectState.pages[name]) { projectState.pages[name] = ""; projectState.currentPage = name; renderTabs(); }
                 },
-                onCodeUpdate: (html) => {
-                    projectState.currentHtml = html;
-                    projectState.pages[projectState.currentPage] = html;
-                    bridge.update(html);
-                }
+                onCodeUpdate: (html) => { projectState.currentHtml = html; projectState.pages[projectState.currentPage] = html; bridge.update(html); }
             }
         });
 
@@ -267,11 +249,13 @@
             ui: { publishBtn: els.publishBtn, logs: els.logs },
             callbacks: {
                 getProjectState: () => projectState,
-                onSuccess: (url) => { els.publishBtn.innerText = "LIVE"; }
+                onSuccess: (url) => { 
+                    projectState.deploymentUrl = url;
+                    els.publishBtn.innerText = "LIVE"; 
+                    els.shareBtn.classList.remove('hidden');
+                }
             }
         });
-
-        /* --- LOGIC --- */
 
         function switchPage(name) {
             if (!projectState.pages[name]) return;
@@ -290,27 +274,22 @@
         }
         window.switchPage = switchPage;
 
-        /* --- AUTH --- */
-
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 els.loginBtn.classList.add('hidden');
                 els.userUi.classList.remove('hidden');
                 els.userAvatar.src = user.photoURL;
-                
                 const usage = await getUsage(user.uid);
                 els.usageBadge.innerText = `Credits: ${usage.dailyCount || 0}/${usage.plan === 'pro' ? 10 : 5}`;
-
                 UI.generateCoolName(els.slugInput);
                 const projects = await getUserProjects(user.uid);
-                
-                // Init history and search
                 UI.renderProjectHistory(els.historyList, projects, (proj) => {
                     projectState.id = proj.id;
                     projectState.pages = proj.pages || { "landing": proj.htmlContent };
+                    projectState.deploymentUrl = proj.deploymentUrl || null;
+                    if (projectState.deploymentUrl) els.shareBtn.classList.remove('hidden');
                     switchPage(Object.keys(projectState.pages)[0]);
                 });
-
                 UI.initProjectSearch(els.projectSearch, els.historyList, projects, (proj) => {
                     projectState.id = proj.id;
                     projectState.pages = proj.pages || { "landing": proj.htmlContent };
@@ -322,28 +301,16 @@
             }
         });
 
-        /* --- LISTENERS --- */
-
-        els.loginBtn.onclick = async () => {
-            try { await signInWithPopup(auth, new GoogleAuthProvider()); } catch (err) { console.error(err); }
-        };
-
+        els.loginBtn.onclick = async () => { try { await signInWithPopup(auth, new GoogleAuthProvider()); } catch (err) { console.error(err); } };
         document.getElementById('logout-btn').onclick = () => signOut(auth);
-        
-        els.genBtn.onclick = () => engine.start({
-            prompt: els.prompt.value,
-            auth,
-            projectState,
-            attachedImages: projectState.attachedImages
-        });
+        els.genBtn.onclick = () => engine.start({ prompt: els.prompt.value, auth, projectState, attachedImages: projectState.attachedImages });
 
         document.getElementById('export-btn').onclick = () => {
-            if (Object.values(projectState.pages).every(content => content === "")) {
-                UI.showNotification("Empty Project", "error");
-                return;
-            }
+            if (Object.values(projectState.pages).every(content => content === "")) { UI.showNotification("Empty Project", "error"); return; }
             UI.showExportModal(projectState, () => UI.exportProject(projectState));
         };
+
+        els.shareBtn.onclick = () => UI.copyToClipboard(projectState.deploymentUrl);
 
         document.getElementById('publish-btn').onclick = () => {
             document.getElementById('confirm-slug-display').innerText = els.slugInput.value;
@@ -356,25 +323,14 @@
         };
 
         document.getElementById('cancel-deploy-btn').onclick = () => document.getElementById('confirm-modal').classList.add('hidden');
-
-        // Toggle Viewport
         document.getElementById('toggle-mobile').onclick = () => UI.toggleMobileView(els.previewFrame);
         document.getElementById('toggle-code').onclick = () => UI.toggleView('code', els.previewFrame, els.codeView, {code: document.getElementById('toggle-code'), preview: document.getElementById('toggle-preview')}, projectState.currentHtml);
         document.getElementById('toggle-preview').onclick = () => UI.toggleView('preview', els.previewFrame, els.codeView, {code: document.getElementById('toggle-code'), preview: document.getElementById('toggle-preview')});
 
-        // Initialize UI Features
         UI.initVoice(document.getElementById('voice-btn'), els.prompt); 
         UI.setupImageUpload(document.getElementById('img-input'), els.imgTray, projectState, UI.renderImages);
-        initPromptTyping(els.prompt, [
-            "Create a luxury watch store...",
-            "Build a dark-themed SaaS landing page...",
-            "Design a photographer portfolio...",
-            "Develop a clean crypto exchange UI..."
-        ]);
-
-        // Mock Collab Badge (Updates when > 1)
+        initPromptTyping(els.prompt, ["Create a luxury store...", "Build a SaaS page...", "Design a portfolio..."]);
         setTimeout(() => UI.updateCollabBadge(2), 5000);
-
         renderTabs();
     </script>
 </body>
