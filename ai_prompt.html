@@ -79,14 +79,14 @@
             <div class="mb-6">
                 <i class="fa-solid fa-cloud-arrow-up text-4xl text-emerald-500 mb-4"></i>
                 <h3 class="text-xl font-black text-white italic uppercase tracking-widest">Final Review</h3>
-                <p class="text-[10px] text-gray-500 uppercase tracking-[0.2em] mt-2">Your masterpiece is ready for the world</p>
+                <p class="text-[10px] text-gray-500 uppercase tracking-[0.2em] mt-2">Ready to take your site live?</p>
             </div>
             <div class="bg-black/40 border border-white/5 p-4 rounded-2xl mb-8">
                 <p id="confirm-slug-display" class="text-[#D4AF37] font-mono text-sm truncate"></p>
             </div>
             <div class="flex gap-4">
                 <button id="cancel-deploy-btn" class="flex-1 text-gray-500 text-[10px] font-black uppercase tracking-widest hover:text-white transition">Cancel</button>
-                <button id="confirm-deploy-btn" class="flex-1 bg-emerald-600 text-black font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest">PUBLISH NOW</button>
+                <button id="confirm-deploy-btn" class="flex-1 bg-emerald-600 text-black font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest">PUBLISH</button>
             </div>
         </div>
     </div>
@@ -304,12 +304,14 @@
 
         async function refreshProjects(uid) {
             const projects = await getUserProjects(uid);
-            UI.renderProjectHistory(els.historyList, projects, (proj, action) => {
+            UI.renderProjectHistory(els.historyList, projects, async (proj, action) => {
                 if (action === 'delete') {
-                    UI.confirmDelete(proj.title || "this project", async () => {
-                        await deleteProject(proj.id);
+                    const confirmed = confirm(`Are you sure you want to delete "${proj.slug || 'this project'}"?`);
+                    if (confirmed) {
+                        await deleteProject(proj.id, uid);
                         refreshProjects(uid);
-                    });
+                        UI.showNotification("Project Deleted");
+                    }
                     return;
                 }
                 projectState.id = proj.id;
@@ -338,7 +340,6 @@
                 UI.generateCoolName(els.slugInput);
                 refreshProjects(user.uid);
             } else {
-                // If user is not logged in, redirect to login page
                 window.location.href = "/login";
             }
         });
@@ -399,7 +400,6 @@
         UI.setupImageUpload(document.getElementById('img-input'), els.imgTray, projectState, UI.renderImages);
         initPromptTyping(els.prompt, ["Create a luxury store...", "Build a SaaS page...", "Design a portfolio..."]);
         
-        // Final Init
         renderTabs();
     </script>
 </body>
