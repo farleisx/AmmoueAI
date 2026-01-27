@@ -10,13 +10,13 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
-            --gold: #D4AF37;
-            --gold-hover: #F1C40F;
-            --midnight: #0a0a0b;
-            --slate-luxury: #161618;
+            --accent: #6366f1;
+            --accent-hover: #818cf8;
+            --midnight: #020617;
+            --slate-luxury: #0f172a;
             --emerald: #10b981;
-            --platinum: #E5E7EB;
-            --soft-gold: rgba(212, 175, 55, 0.15);
+            --platinum: #f8fafc;
+            --glass-border: rgba(255, 255, 255, 0.08);
         }
 
         body::before {
@@ -24,130 +24,132 @@
             position: fixed;
             inset: 0;
             background: 
-                radial-gradient(circle at 20% 20%, rgba(212,175,55,0.08), transparent 40%),
-                radial-gradient(circle at 80% 80%, rgba(16,185,129,0.06), transparent 40%);
+                radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.1), transparent 35%),
+                radial-gradient(circle at 100% 100%, rgba(16, 185, 129, 0.05), transparent 35%);
             pointer-events: none;
             z-index: 0;
         }
 
-        body { font-family: 'Inter', sans-serif; background: var(--midnight); color: var(--platinum); position: relative; }
+        body { font-family: 'Inter', system-ui, sans-serif; background: var(--midnight); color: var(--platinum); position: relative; }
         body > * { position: relative; z-index: 1; }
         
         #preview-wrapper { z-index: 10; position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-        #preview-frame { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); background: white; border: none; width: 100%; height: 100%; }
+        #preview-frame { transition: all 0.4s ease; background: white; border: none; width: 100%; height: 100%; box-shadow: 0 0 40px rgba(0,0,0,0.3); }
         
-        #code-view { height: 100%; width: 100%; border: none; font-family: 'Fira Code', monospace; font-size: 13px; outline: none; resize: none; color: var(--gold); background: #0f0f10; padding: 2rem; }
+        #code-view { height: 100%; width: 100%; border: none; font-family: 'Fira Code', monospace; font-size: 13px; outline: none; resize: none; color: #94a3b8; background: #010409; padding: 2rem; }
         
-        .mobile-view { width: 375px !important; height: 667px !important; border: 12px solid #27272a !important; border-radius: 40px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+        .mobile-view { width: 375px !important; height: 667px !important; border: 16px solid #1e293b !important; border-radius: 48px; box-shadow: 0 50px 100px -20px rgba(0,0,0,0.7); }
         
-        .img-bubble { position: relative; width: 56px; height: 56px; border-radius: 12px; border: 1px solid var(--soft-gold); overflow: hidden; background: #1c1c1f; }
+        .img-bubble { position: relative; width: 56px; height: 56px; border-radius: 12px; border: 1px solid var(--glass-border); overflow: hidden; background: #1e293b; }
         .img-bubble img { width: 100%; height: 100%; object-fit: cover; }
         .remove-img { position: absolute; top: 2px; right: 2px; background: #ef4444; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; color: white; }
         
         #history-menu { 
             z-index: 9999 !important; 
             pointer-events: auto;
-            box-shadow: 0 30px 100px rgba(0,0,0,0.9);
+            box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+            backdrop-filter: blur(20px);
         }
 
         .btn-luxury { 
-            background: linear-gradient(135deg, #F1C40F, #D4AF37); 
-            color: black; font-weight: 800; letter-spacing: 0.05em; transition: all 0.3s ease; 
-            box-shadow: 0 10px 30px rgba(212,175,55,0.25);
+            background: var(--accent);
+            color: white; font-weight: 600; transition: all 0.2s ease; 
             display: flex; align-items: center; justify-content: center;
         }
-        .btn-luxury:hover { transform: translateY(-1px); box-shadow: 0 12px 35px rgba(212, 175, 55, 0.4); }
+        .btn-luxury:hover { background: var(--accent-hover); transform: translateY(-1px); }
         
-        .nav-glass { background: rgba(10, 10, 11, 0.8); backdrop-filter: blur(10px); border-bottom: 1px solid var(--soft-gold); }
+        .nav-glass { background: rgba(2, 6, 23, 0.8); backdrop-filter: blur(12px); border-bottom: 1px solid var(--glass-border); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
+
+        .panel-bg { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(10px); border: 1px solid var(--glass-border); }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden">
 
-    <div id="limit-modal" class="hidden fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-        <div class="bg-[#111113] border border-yellow-900/30 rounded-3xl max-w-sm w-full p-8 text-center shadow-2xl">
-            <div class="w-20 h-20 bg-yellow-500/10 text-[#D4AF37] rounded-full flex items-center justify-center mx-auto mb-6 text-3xl border border-yellow-500/20">
+    <div id="limit-modal" class="hidden fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+        <div class="bg-[#0f172a] border border-indigo-500/30 rounded-3xl max-w-sm w-full p-8 text-center shadow-2xl">
+            <div class="w-20 h-20 bg-indigo-500/10 text-indigo-400 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl border border-indigo-500/20">
                 <i class="fa-solid fa-crown"></i>
             </div>
-            <h3 class="text-2xl font-black text-white mb-3">ELEVATE STATUS</h3>
-            <button onclick="document.getElementById('limit-modal').classList.add('hidden')" class="btn-luxury w-full py-4 rounded-2xl">UPGRADE</button>
+            <h3 class="text-2xl font-bold text-white mb-3">UPGRADE PLAN</h3>
+            <button onclick="document.getElementById('limit-modal').classList.add('hidden')" class="btn-luxury w-full py-4 rounded-2xl">GO PRO</button>
         </div>
     </div>
 
-    <div id="confirm-modal" class="hidden fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-        <div class="bg-[#111113] border border-white/5 rounded-3xl max-w-sm w-full p-10 shadow-2xl text-center">
+    <div id="confirm-modal" class="hidden fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+        <div class="bg-[#1e293b] border border-white/10 rounded-3xl max-w-sm w-full p-10 shadow-2xl text-center">
             <div id="modal-initial-view">
                 <div class="mb-6">
-                    <i id="modal-icon" class="fa-solid fa-cloud-arrow-up text-4xl text-emerald-500 mb-4"></i>
-                    <h3 id="modal-title" class="text-xl font-black text-white italic uppercase tracking-widest">Final Review</h3>
-                    <p id="modal-desc" class="text-[10px] text-gray-500 uppercase tracking-[0.2em] mt-2">Ready to take your site live?</p>
+                    <i id="modal-icon" class="fa-solid fa-rocket text-4xl text-indigo-500 mb-4"></i>
+                    <h3 id="modal-title" class="text-xl font-bold text-white tracking-tight">Deployment Ready</h3>
+                    <p id="modal-desc" class="text-sm text-slate-400 mt-2">Ready to push your changes to the cloud?</p>
                 </div>
-                <div class="bg-black/40 border border-white/5 p-4 rounded-2xl mb-8">
-                    <p id="confirm-slug-display" class="text-[#D4AF37] font-mono text-sm truncate"></p>
+                <div class="bg-black/20 border border-white/5 p-4 rounded-2xl mb-8">
+                    <p id="confirm-slug-display" class="text-indigo-400 font-mono text-sm truncate"></p>
                 </div>
                 <div id="modal-actions" class="flex flex-col gap-3">
                     <div class="flex gap-4">
-                        <button id="cancel-deploy-btn" class="flex-1 text-gray-500 text-[10px] font-black uppercase tracking-widest hover:text-white transition">Cancel</button>
-                        <button id="confirm-deploy-btn" class="flex-1 bg-emerald-600 text-black font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest">PUBLISH</button>
+                        <button id="cancel-deploy-btn" class="flex-1 text-slate-400 text-xs font-bold uppercase tracking-wider hover:text-white transition">Cancel</button>
+                        <button id="confirm-deploy-btn" class="flex-1 bg-indigo-600 text-white font-bold py-4 rounded-2xl text-xs uppercase tracking-wider">Deploy Now</button>
                     </div>
-                    <button id="view-live-btn" class="hidden w-full bg-white/5 border border-white/10 text-white font-black py-3 rounded-xl text-[10px] uppercase tracking-widest hover:bg-white/10 transition">View Current Deployment</button>
+                    <button id="view-live-btn" class="hidden w-full bg-white/5 border border-white/10 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-wider hover:bg-white/10 transition">View Live Site</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <nav class="nav-glass px-6 py-3 flex justify-between items-center z-[1000]">
+    <nav class="nav-glass px-6 py-4 flex justify-between items-center z-[1000]">
         <div class="flex items-center gap-6">
-            <a href="/dashboard" class="text-gray-500 hover:text-[#D4AF37] transition-all">
-                <i class="fa-solid fa-house-chimney text-lg"></i>
+            <a href="/dashboard" class="text-slate-400 hover:text-white transition-all">
+                <i class="fa-solid fa-layer-group text-lg"></i>
             </a>
-            <span class="text-white font-black italic tracking-tighter text-2xl uppercase">Ammoue<span class="text-[#D4AF37]">AI</span></span>
+            <span class="text-white font-bold tracking-tighter text-xl uppercase">Ammoue<span class="text-indigo-500">AI</span></span>
             
-            <div class="flex bg-black/40 rounded-xl p-1 gap-1 border border-white/5">
-                <button id="toggle-preview" class="px-4 py-1.5 text-[10px] font-black rounded-lg bg-[#D4AF37] text-black">PREVIEW</button>
-                <button id="toggle-code" class="px-4 py-1.5 text-[10px] font-black rounded-lg text-gray-400">CODE</button>
-                <button id="toggle-mobile" class="px-3 py-1.5 text-[10px] text-gray-400 hover:text-[#D4AF37] border-l border-white/10 ml-1">
-                    <i class="fa-solid fa-mobile-screen-button"></i>
+            <div class="flex bg-slate-900 rounded-lg p-1 gap-1 border border-white/5">
+                <button id="toggle-preview" class="px-4 py-1.5 text-[10px] font-bold rounded-md bg-indigo-600 text-white shadow-lg">PREVIEW</button>
+                <button id="toggle-code" class="px-4 py-1.5 text-[10px] font-bold rounded-md text-slate-400 hover:text-white">CODE</button>
+                <button id="toggle-mobile" class="px-3 py-1.5 text-[10px] text-slate-500 hover:text-indigo-400 border-l border-white/5 ml-1">
+                    <i class="fa-solid fa-mobile-screen"></i>
                 </button>
             </div>
         </div>
 
         <div class="flex items-center gap-4">
-            <div id="publish-controls" class="flex items-center gap-2 bg-black/40 p-1.5 rounded-xl border border-white/5">
-                <input id="slug-input" type="text" placeholder="Identity..." class="bg-transparent border-none outline-none text-xs text-white px-3 w-36 placeholder:text-gray-700">
-                <button id="publish-btn" class="bg-emerald-600 hover:bg-emerald-500 text-black text-[10px] font-black px-5 py-2 rounded-lg transition uppercase tracking-widest">Publish</button>
-                <button id="share-link-btn" class="hidden text-gray-500 hover:text-[#D4AF37] px-2 transition-all">
-                    <i class="fa-solid fa-share-nodes"></i>
+            <div id="publish-controls" class="flex items-center gap-2 bg-slate-900 p-1.5 rounded-xl border border-white/5">
+                <input id="slug-input" type="text" placeholder="Project name..." class="bg-transparent border-none outline-none text-xs text-white px-3 w-36 placeholder:text-slate-600">
+                <button id="publish-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold px-5 py-2 rounded-lg transition uppercase tracking-wider">Publish</button>
+                <button id="share-link-btn" class="hidden text-slate-400 hover:text-indigo-400 px-2 transition-all">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
                 </button>
             </div>
             <div id="user-ui" class="hidden flex items-center gap-4 border-l border-white/5 pl-4">
-                <img id="user-avatar" class="w-8 h-8 rounded-full border border-[#D4AF37]/50 p-0.5">
-                <button id="logout-btn" class="text-[10px] text-gray-500 hover:text-white uppercase font-black">Exit</button>
+                <img id="user-avatar" class="w-8 h-8 rounded-full border border-indigo-500/30">
+                <button id="logout-btn" class="text-[10px] text-slate-500 hover:text-white uppercase font-bold">Sign Out</button>
             </div>
             <button id="login-btn" class="btn-luxury text-[10px] px-6 py-2.5 rounded-xl">SIGN IN</button>
         </div>
     </nav>
 
     <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
-        <aside class="w-full md:w-[400px] border-r border-white/5 p-6 flex flex-col gap-6 bg-[#0a0a0b] overflow-y-auto">
+        <aside class="w-full md:w-[420px] border-r border-white/5 p-6 flex flex-col gap-6 bg-[#020617] overflow-y-auto">
             <div id="page-navigator" class="flex items-center gap-2 overflow-x-auto pb-2 border-b border-white/5 no-scrollbar">
                 <div id="pages-container" class="flex gap-2"></div>
             </div>
 
             <div class="flex justify-between items-center">
                 <div class="flex gap-2">
-                    <button id="new-project-btn" class="bg-white/5 hover:bg-white/10 text-[10px] font-black px-4 py-2 rounded-lg border border-white/10 uppercase tracking-widest">NEW PROJECT</button>
-                    <button id="export-btn" class="bg-white/5 hover:bg-white/10 text-[10px] font-black px-4 py-2 rounded-lg border border-white/10"><i class="fa-solid fa-download"></i></button>
+                    <button id="new-project-btn" class="bg-slate-900 hover:bg-slate-800 text-[10px] font-bold px-4 py-2 rounded-lg border border-white/5 uppercase tracking-wider text-slate-300">NEW PROJECT</button>
+                    <button id="export-btn" class="bg-slate-900 hover:bg-slate-800 text-[10px] font-bold px-4 py-2 rounded-lg border border-white/5 text-slate-300"><i class="fa-solid fa-download"></i></button>
                 </div>
                 <div class="relative group">
-                    <button class="p-2 text-gray-400 hover:text-[#D4AF37] transition">
-                        <i class="fa-solid fa-folder-tree text-lg"></i>
+                    <button class="p-2 text-slate-500 hover:text-indigo-400 transition">
+                        <i class="fa-solid fa-database text-lg"></i>
                     </button>
-                    <div id="history-menu" class="hidden group-hover:block absolute left-0 top-10 w-80 bg-[#111113] border border-white/10 rounded-2xl p-4 max-h-[500px] overflow-hidden">
-                        <h2 class="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-3">Project Archive</h2>
+                    <div id="history-menu" class="hidden group-hover:block absolute left-0 top-10 w-80 bg-slate-900 border border-white/10 rounded-2xl p-4 max-h-[500px] overflow-hidden">
+                        <h2 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Project History</h2>
                         <div class="relative mb-4">
-                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-[10px]"></i>
-                            <input type="text" id="project-search" placeholder="Search projects..." class="w-full bg-black/40 border border-white/5 rounded-xl py-2 pl-9 pr-4 text-xs text-white focus:outline-none focus:border-[#D4AF37]/50 transition">
+                            <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 text-[10px]"></i>
+                            <input type="text" id="project-search" placeholder="Filter projects..." class="w-full bg-black/20 border border-white/5 rounded-xl py-2 pl-9 pr-4 text-xs text-white focus:outline-none focus:border-indigo-500/50 transition">
                         </div>
                         <div id="history-list" class="space-y-2 overflow-y-auto max-h-[350px] pr-1"></div>
                     </div>
@@ -156,29 +158,29 @@
 
             <div class="flex-1 flex flex-col overflow-hidden">
                 <div class="flex justify-between items-end mb-4">
-                    <h2 class="text-[9px] font-black text-[#D4AF37] uppercase tracking-[0.3em] opacity-70">Creative Directive</h2>
-                    <div id="usage-badge" class="text-[9px] font-black px-2 py-1 bg-white/5 rounded border border-white/10 text-gray-500 uppercase">Credits: --/--</div>
+                    <h2 class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Prompt Engineer</h2>
+                    <div id="usage-badge" class="text-[9px] font-bold px-2 py-1 bg-indigo-500/10 rounded border border-indigo-500/20 text-indigo-300 uppercase">Credits: --/--</div>
                 </div>
                 
-                <div id="thinking-box" class="hidden mb-4 overflow-y-auto max-h-[120px]">
+                <div id="thinking-box" class="hidden mb-4 overflow-y-auto max-h-[120px] bg-black/20 rounded-xl p-3 border border-white/5">
                     <div id="logs" class="space-y-1"></div>
                 </div>
 
-                <div class="flex-1 flex flex-col bg-[#161618] border border-white/5 rounded-3xl p-5 relative">
+                <div class="flex-1 flex flex-col bg-slate-900/50 border border-white/5 rounded-3xl p-5 relative">
                     <div id="img-tray" class="flex flex-wrap gap-2 mb-4 empty:hidden"></div>
-                    <textarea id="user-prompt" class="flex-1 w-full bg-transparent border-none outline-none text-sm text-gray-300 resize-none placeholder:text-gray-700 leading-relaxed" placeholder="Define masterpiece..."></textarea>
+                    <textarea id="user-prompt" class="flex-1 w-full bg-transparent border-none outline-none text-sm text-slate-200 resize-none placeholder:text-slate-600 leading-relaxed" placeholder="Describe your vision here..."></textarea>
                     
                     <div class="flex justify-between items-center mt-4 pt-4 border-t border-white/5">
                         <div class="flex items-center gap-2">
-                            <label class="cursor-pointer text-gray-600 hover:text-[#D4AF37] p-2">
+                            <label class="cursor-pointer text-slate-500 hover:text-indigo-400 p-2">
                                 <i class="fa-solid fa-paperclip text-lg"></i>
                                 <input type="file" id="img-input" class="hidden" accept="image/*" multiple>
                             </label>
-                            <button id="voice-btn" class="text-gray-600 hover:text-[#D4AF37] p-2">
+                            <button id="voice-btn" class="text-slate-500 hover:text-indigo-400 p-2">
                                 <i class="fa-solid fa-microphone text-lg"></i>
                             </button>
                         </div>
-                        <button id="gen-btn" class="bg-[#D4AF37] hover:bg-[#F1C40F] text-black w-14 h-14 rounded-2xl flex items-center justify-center active:scale-90 shadow-xl">
+                        <button id="gen-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white w-14 h-14 rounded-2xl flex items-center justify-center active:scale-95 shadow-xl shadow-indigo-500/20 transition-all">
                             <i class="fa-solid fa-wand-magic-sparkles text-lg"></i>
                         </button>
                     </div>
@@ -186,13 +188,13 @@
             </div>
         </aside>
 
-        <section class="flex-1 flex items-center justify-center p-4 bg-[#0f0f10] relative">
+        <section class="flex-1 flex items-center justify-center p-6 bg-[#010409] relative">
             <div id="preview-wrapper">
-                <iframe id="preview-frame" class="rounded-sm"></iframe>
+                <iframe id="preview-frame" class="rounded-lg"></iframe>
                 <textarea id="code-view" class="hidden" readonly></textarea>
             </div>
-            <button id="stop-btn" class="hidden absolute bottom-12 bg-red-950/40 border border-red-500/50 hover:bg-red-500 text-white px-8 py-3 rounded-2xl font-black text-xs tracking-widest z-50">
-                ABORT
+            <button id="stop-btn" class="hidden absolute bottom-12 bg-red-500/10 border border-red-500/50 hover:bg-red-500 text-white px-8 py-3 rounded-2xl font-bold text-xs tracking-widest z-50 transition-all">
+                STOP GENERATION
             </button>
         </section>
     </main>
@@ -301,7 +303,7 @@
 
         function renderTabs() {
             els.pagesContainer.innerHTML = Object.keys(projectState.pages).map(name => `
-                <button onclick="window.switchPage('${name}')" class="px-3 py-1 text-[9px] font-black rounded-lg uppercase transition-all duration-300 ${projectState.currentPage === name ? 'bg-[#D4AF37] text-black shadow-lg scale-105' : 'bg-white/5 text-gray-500 hover:text-white'}">
+                <button onclick="window.switchPage('${name}')" class="px-3 py-1 text-[9px] font-bold rounded-md uppercase transition-all duration-200 ${projectState.currentPage === name ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-900 text-slate-500 hover:text-slate-200'}">
                     ${name}
                 </button>
             `).join('');
@@ -396,16 +398,16 @@
             document.getElementById('confirm-slug-display').innerText = els.slugInput.value;
 
             if (projectState.deploymentUrl) {
-                title.innerText = "Live Control";
-                desc.innerText = "Your site is currently online.";
-                icon.className = "fa-solid fa-satellite-dish text-4xl text-emerald-500 mb-4";
-                confirmBtn.innerText = "REDEPLOY";
+                title.innerText = "Control Panel";
+                desc.innerText = "Site is live. Push updates or view status.";
+                icon.className = "fa-solid fa-circle-check text-4xl text-emerald-500 mb-4";
+                confirmBtn.innerText = "UPDATE SITE";
                 viewBtn.classList.remove('hidden');
             } else {
-                title.innerText = "Final Review";
-                desc.innerText = "Ready to take your site live?";
-                icon.className = "fa-solid fa-cloud-arrow-up text-4xl text-emerald-500 mb-4";
-                confirmBtn.innerText = "PUBLISH";
+                title.innerText = "Ready to Launch?";
+                desc.innerText = "Your site will be accessible via a public URL.";
+                icon.className = "fa-solid fa-rocket text-4xl text-indigo-500 mb-4";
+                confirmBtn.innerText = "LAUNCH NOW";
                 viewBtn.classList.add('hidden');
             }
             modal.classList.remove('hidden');
@@ -428,7 +430,7 @@
 
         UI.initVoice(document.getElementById('voice-btn'), els.prompt); 
         UI.setupImageUpload(document.getElementById('img-input'), els.imgTray, projectState, UI.renderImages);
-        initPromptTyping(els.prompt, ["Create a luxury store...", "Build a SaaS page...", "Design a portfolio..."]);
+        initPromptTyping(els.prompt, ["Build a startup landing page...", "Design a modern dashboard...", "Create a clean developer portfolio..."]);
         
         renderTabs();
     </script>
