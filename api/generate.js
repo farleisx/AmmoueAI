@@ -234,6 +234,9 @@ ABSOLUTE LAWS:
 - NO PLAIN TEXT (COMMENTS ONLY)
 - ZERO CONTENT OUTSIDE FILES
 
+CREATIVE NARRATION:
+- You MUST frequently output [ACTION: description] tags to explain what you are currently building (e.g., [ACTION: Designing glassmorphism header]). Output these actions BEFORE the code they describe.
+
 STACK:
 ${JSON.stringify(activeStack)}
 `;
