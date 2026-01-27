@@ -44,12 +44,24 @@
         .img-bubble img { width: 100%; height: 100%; object-fit: cover; }
         .remove-img { position: absolute; top: 2px; right: 2px; background: #ef4444; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; color: white; }
         
+        /* FIX: High Z-index and 3s Hover Fade Logic */
         #history-menu { 
-            z-index: 10000 !important; 
+            z-index: 99999 !important; 
             pointer-events: auto;
+            visibility: hidden;
+            opacity: 0;
+            /* Fades out after 3 seconds of no hover */
+            transition: opacity 0.4s ease, visibility 0s linear 3s;
             box-shadow: 0 30px 60px rgba(0,0,0,0.8);
             backdrop-filter: blur(24px);
             background: rgba(15, 23, 42, 0.98);
+        }
+
+        /* Show immediately on group hover */
+        .group:hover #history-menu { 
+            visibility: visible; 
+            opacity: 1; 
+            transition-delay: 0s; 
         }
 
         .btn-luxury { 
@@ -119,6 +131,9 @@
         </div>
 
         <div class="flex items-center gap-4">
+            <button id="undo-btn" class="text-slate-500 hover:text-white text-xs px-2 transition-all" title="Rollback Changes">
+                <i class="fa-solid fa-rotate-left"></i>
+            </button>
             <div id="publish-controls" class="flex items-center gap-2 bg-slate-900 p-1.5 rounded-xl border border-white/5">
                 <input id="slug-input" type="text" placeholder="Project name..." class="bg-transparent border-none outline-none text-xs text-white px-3 w-36 placeholder:text-slate-600">
                 <button id="publish-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold px-5 py-2 rounded-lg transition uppercase tracking-wider">Publish</button>
@@ -149,7 +164,7 @@
                     <button class="p-2 text-slate-500 hover:text-indigo-400 transition">
                         <i class="fa-solid fa-database text-lg"></i>
                     </button>
-                    <div id="history-menu" class="hidden group-hover:block absolute left-0 top-full mt-2 w-80 rounded-2xl p-4 max-h-[500px] overflow-hidden">
+                    <div id="history-menu" class="absolute left-0 top-full mt-2 w-80 rounded-2xl p-4 max-h-[500px] overflow-hidden">
                         <h2 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Project History</h2>
                         <div class="relative mb-4">
                             <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 text-[10px]"></i>
@@ -215,6 +230,7 @@
         import { initPromptTyping } from "./prompt-typing.js";
 
         /* --- STATE --- */
+        let projectHistory = []; // Added for Undo/Rollback
         let projectState = { 
             pages: { "landing": "" }, 
             currentPage: "landing", 
@@ -231,6 +247,7 @@
             shareBtn: document.getElementById('share-link-btn'),
             genBtn: document.getElementById('gen-btn'),
             stopBtn: document.getElementById('stop-btn'),
+            undoBtn: document.getElementById('undo-btn'), // Added
             slugInput: document.getElementById('slug-input'),
             historyList: document.getElementById('history-list'),
             imgTray: document.getElementById('img-tray'),
@@ -375,6 +392,10 @@
         document.getElementById('logout-btn').onclick = () => signOut(auth);
         
         els.genBtn.onclick = () => {
+            // Push current state to history for undo
+            projectHistory.push(JSON.parse(JSON.stringify(projectState.pages)));
+            if (projectHistory.length > 20) projectHistory.shift();
+
             els.stopBtn.classList.remove('hidden');
             document.getElementById('progress-bar').classList.remove('hidden');
             engine.start({ 
@@ -385,6 +406,18 @@
             }).finally(() => {
                 els.stopBtn.classList.add('hidden');
             });
+        };
+
+        // Undo Feature Implementation
+        els.undoBtn.onclick = () => {
+            if (projectHistory.length > 0) {
+                projectState.pages = projectHistory.pop();
+                const firstPage = Object.keys(projectState.pages)[0];
+                switchPage(firstPage);
+                UI.showNotification("Rolled back to previous version");
+            } else {
+                UI.showNotification("No history to rollback", "error");
+            }
         };
 
         els.stopBtn.onclick = () => {
