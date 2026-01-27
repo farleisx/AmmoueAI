@@ -146,6 +146,9 @@
             <div class="flex bg-black/40 rounded-xl p-1 gap-1 ml-4 border border-white/5">
                 <button id="toggle-preview" class="px-4 py-1.5 text-[10px] font-black rounded-lg bg-[#D4AF37] text-black transition">PREVIEW</button>
                 <button id="toggle-code" class="px-4 py-1.5 text-[10px] font-black rounded-lg text-gray-400 hover:text-white transition">CODE</button>
+                <button id="toggle-mobile" class="px-3 py-1.5 text-[10px] text-gray-400 hover:text-[#D4AF37] transition border-l border-white/10 ml-1">
+                    <i class="fa-solid fa-mobile-screen-button"></i>
+                </button>
             </div>
         </div>
 
@@ -170,9 +173,14 @@
             </div>
 
             <div class="flex justify-between items-center">
-                <button id="new-project-btn" class="bg-white/5 hover:bg-white/10 text-[10px] font-black px-4 py-2 rounded-lg transition border border-white/10 uppercase tracking-widest">
-                    <i class="fa-solid fa-plus mr-2"></i> NEW PROJECT
-                </button>
+                <div class="flex gap-2">
+                    <button id="new-project-btn" class="bg-white/5 hover:bg-white/10 text-[10px] font-black px-4 py-2 rounded-lg transition border border-white/10 uppercase tracking-widest">
+                        <i class="fa-solid fa-plus mr-2"></i> NEW PROJECT
+                    </button>
+                    <button id="export-btn" class="bg-white/5 hover:bg-white/10 text-[10px] font-black px-4 py-2 rounded-lg transition border border-white/10">
+                        <i class="fa-solid fa-download"></i>
+                    </button>
+                </div>
                 <div class="relative group">
                     <button class="p-2 text-gray-400 hover:text-[#D4AF37] transition">
                         <i class="fa-solid fa-folder-tree text-lg"></i>
@@ -406,6 +414,19 @@
                 UI.generateCoolName(els.slugInput);
                 engine.addLog ? engine.addLog("Ready for a new masterpiece.") : console.log("New Project Ready");
             }
+        };
+
+        document.getElementById('export-btn').onclick = () => {
+            if (Object.values(projectState.pages).every(content => content === "")) {
+                alert("Nothing to export yet!");
+                return;
+            }
+            UI.exportProject(projectState);
+        };
+
+        document.getElementById('toggle-mobile').onclick = () => {
+            const isMobile = UI.toggleMobileView(els.previewFrame);
+            document.getElementById('toggle-mobile').classList.toggle('text-[#D4AF37]', isMobile);
         };
         
         document.getElementById('publish-btn').onclick = () => {
