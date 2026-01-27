@@ -1,4 +1,3 @@
-// ui-manager.js
 export function generateCoolName(inputEl) {
     const adjs = ["prestige", "elara", "vanta", "aurum", "velvet", "onyx", "luxe", "monarch", "ethereal", "ivory"];
     const nouns = ["studio", "folio", "estate", "manor", "vault", "atlas", "domain", "crest", "sphere", "pillar"];
@@ -197,4 +196,15 @@ export function confirmDelete(projectName, onDelete) {
         onDelete();
         showNotification("Project Deleted", "error");
     }
+}
+
+export function initProjectSearch(searchEl, listEl, projects, loadCallback) {
+    searchEl.oninput = (e) => {
+        const term = e.target.value.toLowerCase();
+        const filtered = projects.filter(p => 
+            (p.title || "").toLowerCase().includes(term) || 
+            (p.prompt || "").toLowerCase().includes(term)
+        );
+        renderProjectHistory(listEl, filtered, loadCallback);
+    };
 }
