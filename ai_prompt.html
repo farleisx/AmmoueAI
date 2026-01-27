@@ -64,9 +64,8 @@
 
         .panel-bg { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(10px); border: 1px solid var(--glass-border); }
         
-        /* Progress Bar Styles */
-        #progress-bar { height: 2px; background: rgba(255,255,255,0.05); width: 100%; position: absolute; top: 0; left: 0; overflow: hidden; }
-        #progress-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.3s ease; }
+        #progress-bar { height: 3px; background: rgba(255,255,255,0.05); width: 100%; position: absolute; top: 0; left: 0; overflow: hidden; }
+        #progress-fill { height: 100%; background: linear-gradient(90deg, #6366f1, #10b981); width: 0%; transition: width 0.3s ease; }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden">
@@ -167,9 +166,9 @@
                     <div id="usage-badge" class="text-[9px] font-bold px-2 py-1 bg-indigo-500/10 rounded border border-indigo-500/20 text-indigo-300 uppercase">Credits: --/--</div>
                 </div>
                 
-                <div id="thinking-box" class="hidden mb-4 overflow-y-auto max-h-[120px] bg-black/20 rounded-xl p-3 border border-white/5 relative">
+                <div id="thinking-box" class="hidden mb-4 overflow-y-auto max-h-[140px] bg-black/20 rounded-xl border border-white/5 relative">
                     <div id="progress-bar" class="hidden"><div id="progress-fill"></div></div>
-                    <div id="logs" class="space-y-1 mt-2"></div>
+                    <div id="logs" class="space-y-1 p-4 pt-6"></div>
                 </div>
 
                 <div class="flex-1 flex flex-col bg-slate-900/50 border border-white/5 rounded-3xl p-5 relative">
@@ -199,7 +198,7 @@
                 <iframe id="preview-frame" class="rounded-lg"></iframe>
                 <textarea id="code-view" class="hidden" readonly></textarea>
             </div>
-            <button id="stop-btn" class="hidden absolute bottom-12 bg-red-500/10 border border-red-500/50 hover:bg-red-500 text-white px-8 py-3 rounded-2xl font-bold text-xs tracking-widest z-50 transition-all">
+            <button id="stop-btn" class="hidden absolute bottom-12 bg-red-600 hover:bg-red-500 text-white px-8 py-3 rounded-2xl font-bold text-[10px] tracking-[0.2em] z-50 transition-all shadow-2xl shadow-red-500/20 uppercase">
                 STOP GENERATION
             </button>
         </section>
@@ -231,6 +230,7 @@
             publishBtn: document.getElementById('publish-btn'),
             shareBtn: document.getElementById('share-link-btn'),
             genBtn: document.getElementById('gen-btn'),
+            stopBtn: document.getElementById('stop-btn'),
             slugInput: document.getElementById('slug-input'),
             historyList: document.getElementById('history-list'),
             imgTray: document.getElementById('img-tray'),
@@ -288,25 +288,15 @@
                     bridge.update(html); 
                 },
                 onAction: (text) => {
-                   const log = document.createElement('div');
-                   log.className = "text-[10px] text-slate-500 font-mono";
-                   log.innerHTML = `<span class="text-indigo-500 mr-2">›</span>${text}`;
-                   els.logs.appendChild(log);
-                   els.logs.parentElement.scrollTop = els.logs.parentElement.scrollHeight;
+                    const log = document.createElement('div');
+                    log.className = "text-[10px] text-slate-400 font-medium animate-pulse";
+                    log.innerHTML = `<span class="text-emerald-500 mr-2">✔</span>${text}`;
+                    els.logs.appendChild(log);
+                    els.logs.parentElement.scrollTop = els.logs.parentElement.scrollHeight;
                 },
-                onError: (msg) => UI.showNotification(msg, "error")
-            }
-        });
-
-        const deployer = new DeploymentManager({
-            ui: { publishBtn: els.publishBtn, logs: els.logs },
-            callbacks: {
-                getProjectState: () => projectState,
-                onSuccess: (url) => { 
-                    projectState.deploymentUrl = url;
-                    els.publishBtn.innerText = "LIVE"; 
-                    els.shareBtn.classList.remove('hidden');
-                    UI.showNotification("Project Published Successfully");
+                onError: (msg) => {
+                    UI.showNotification(msg, "error");
+                    els.stopBtn.classList.add('hidden');
                 }
             }
         });
@@ -385,13 +375,22 @@
         document.getElementById('logout-btn').onclick = () => signOut(auth);
         
         els.genBtn.onclick = () => {
+            els.stopBtn.classList.remove('hidden');
             document.getElementById('progress-bar').classList.remove('hidden');
             engine.start({ 
                 prompt: els.prompt.value, 
                 auth, 
                 projectState, 
                 attachedImages: projectState.attachedImages 
+            }).finally(() => {
+                els.stopBtn.classList.add('hidden');
             });
+        };
+
+        els.stopBtn.onclick = () => {
+            engine.stop();
+            els.stopBtn.classList.add('hidden');
+            UI.showNotification("Generation Paused/Stopped");
         };
 
         els.newProjectBtn.onclick = () => {
@@ -453,6 +452,18 @@
 
         document.getElementById('confirm-deploy-btn').onclick = () => {
             document.getElementById('confirm-modal').classList.add('hidden');
+            const deployer = new DeploymentManager({
+                ui: { publishBtn: els.publishBtn, logs: els.logs },
+                callbacks: {
+                    getProjectState: () => projectState,
+                    onSuccess: (url) => { 
+                        projectState.deploymentUrl = url;
+                        els.publishBtn.innerText = "LIVE"; 
+                        els.shareBtn.classList.remove('hidden');
+                        UI.showNotification("Project Published Successfully");
+                    }
+                }
+            });
             deployer.deploy({ html: projectState.currentHtml, projectId: projectState.id, slug: els.slugInput.value, auth, engine });
         };
 
