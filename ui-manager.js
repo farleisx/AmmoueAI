@@ -1,3 +1,4 @@
+// ui-manager.js
 export function generateCoolName(inputEl) {
     const adjs = ["prestige", "elara", "vanta", "aurum", "velvet", "onyx", "luxe", "monarch", "ethereal", "ivory"];
     const nouns = ["studio", "folio", "estate", "manor", "vault", "atlas", "domain", "crest", "sphere", "pillar"];
@@ -87,4 +88,27 @@ export function toggleView(view, frame, code, buttons, currentHtml = "") {
         buttons.preview.classList.add('bg-[#D4AF37]', 'text-black');
         buttons.code.classList.remove('bg-[#D4AF37]', 'text-black');
     }
+}
+
+export function toggleMobileView(frame) {
+    return frame.classList.toggle('mobile-view');
+}
+
+export function exportProject(projectState) {
+    const zip = new JSZip();
+    const folder = zip.folder(projectState.id || "ammoue-ai-project");
+
+    Object.entries(projectState.pages).forEach(([name, html]) => {
+        const fileName = name.endsWith('.html') ? name : `${name}.html`;
+        folder.file(fileName, html);
+    });
+
+    zip.generateAsync({ type: "blob" }).then((content) => {
+        const url = window.URL.createObjectURL(content);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `ammoue_export_${Date.now()}.zip`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+    });
 }
