@@ -389,6 +389,24 @@
         });
 
         document.getElementById('stop-btn').onclick = () => engine.stop();
+
+        document.getElementById('new-project-btn').onclick = () => {
+            if (confirm("Initialize new project? Current unsaved work will be cleared.")) {
+                projectState = {
+                    pages: { "landing": "" },
+                    currentPage: "landing",
+                    currentHtml: "",
+                    id: null,
+                    attachedImages: []
+                };
+                els.prompt.value = "";
+                els.imgTray.innerHTML = "";
+                bridge.update("");
+                renderTabs();
+                UI.generateCoolName(els.slugInput);
+                engine.addLog ? engine.addLog("Ready for a new masterpiece.") : console.log("New Project Ready");
+            }
+        };
         
         document.getElementById('publish-btn').onclick = () => {
             document.getElementById('confirm-slug-display').innerText = els.slugInput.value;
@@ -409,11 +427,14 @@
         document.getElementById('cancel-deploy-btn').onclick = () => document.getElementById('confirm-modal').classList.add('hidden');
 
         // UI Manager Initializers
-        UI.initVoice(document.getElementById('voice-btn'), els.prompt, document.createElement('div')); // Placeholder for voice indicator
+        UI.initVoice(document.getElementById('voice-btn'), els.prompt, document.createElement('div')); 
         UI.setupImageUpload(document.getElementById('img-input'), els.imgTray, projectState, UI.renderImages);
 
-        document.getElementById('toggle-code').onclick = () => UI.toggleView('code', els.previewFrame, els.codeView, {code: document.getElementById('toggle-code'), preview: document.getElementById('toggle-preview')});
+        document.getElementById('toggle-code').onclick = () => UI.toggleView('code', els.previewFrame, els.codeView, {code: document.getElementById('toggle-code'), preview: document.getElementById('toggle-preview')}, projectState.currentHtml);
         document.getElementById('toggle-preview').onclick = () => UI.toggleView('preview', els.previewFrame, els.codeView, {code: document.getElementById('toggle-code'), preview: document.getElementById('toggle-preview')});
+
+        // Initial setup
+        renderTabs();
 
         // Prompt Typing Effect Initializer
         initPromptTyping(els.prompt, [
