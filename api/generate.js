@@ -11,7 +11,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
 const GOOGLE_CX = process.env.GOOGLE_CX;
 const GOOGLE_SEARCH_KEY = process.env.GOOGLE_SEARCH_KEY;
-const API_MODEL = "gemini-2.5-flash"; 
+const API_MODEL = "gemini-2.0-flash"; 
 
 const SERVICE_ACCOUNT = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 const PROJECT_ID = SERVICE_ACCOUNT.project_id;
@@ -219,25 +219,26 @@ export default async function handler(req) {
       return new Response(JSON.stringify({ error: "Daily limit reached" }), { status: 429 });
     }
 
-    const { prompt, images = [], pexelsQuery, projectId, framework = "vanilla" } = body;
+    const { prompt, framework = "vanilla", projectId } = body;
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const activeStack = STACK_PRESETS[framework] || STACK_PRESETS.vanilla;
 
     const systemInstruction = `
-ROLE: COMPILER-GRADE FULL STACK CODE GENERATOR.
+ROLE: COMPILER-GRADE MULTI-FILE CODE GENERATOR.
 
 ABSOLUTE LAWS:
-- FILES MUST USE [NEW_PAGE] + [END_PAGE]
-- INLINE CSS/JS ONLY
+- YOU MUST GENERATE ALL FILES IN THE STACK: ${activeStack.requiredFiles.join(", ")}
+- EVERY FILE MUST USE [NEW_PAGE: filename] + [END_PAGE]
+- Ensure correct dependencies in package.json for ${framework}
 - NO EXTERNAL ASSETS
 - NO PLAIN TEXT (COMMENTS ONLY)
 - ZERO CONTENT OUTSIDE FILES
 
 CREATIVE NARRATION:
-- You MUST frequently output [ACTION: description] tags to explain what you are currently building (e.g., [ACTION: Designing glassmorphism header]). Output these actions BEFORE the code they describe.
+- You MUST frequently output [ACTION: description] tags to explain what you are currently building (e.g., [ACTION: Designing vercel configuration]). Output these actions BEFORE the code they describe.
 
-STACK:
+STACK CONFIG:
 ${JSON.stringify(activeStack)}
 `;
 
@@ -274,25 +275,14 @@ ${JSON.stringify(activeStack)}
           if (violations.length === 0) {
             valid = true;
           } else {
-            controller.enqueue(
-              encoder.encode(
-                `data: ${JSON.stringify({ status: "rejecting", violations })}\n\n`
-              )
-            );
-
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ status: "rejecting", violations })}\n\n`));
             finalText = "";
-            await model.generateContent(
-              `Fix ALL violations strictly:\n${violations.join("\n")}`
-            );
+            await model.generateContent(`Fix ALL violations strictly:\n${violations.join("\n")}`);
           }
         }
 
         if (!valid) {
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({ error: "Validation failed" })}\n\n`
-            )
-          );
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: "Validation failed" })}\n\n`));
           controller.close();
           return;
         }
@@ -309,13 +299,7 @@ ${JSON.stringify(activeStack)}
                   pages: {
                     mapValue: {
                       fields: Object.keys(files).reduce((acc, key) => {
-                        acc[key] = {
-                          mapValue: {
-                            fields: {
-                              content: { stringValue: files[key] }
-                            }
-                          }
-                        };
+                        acc[key] = { mapValue: { fields: { content: { stringValue: files[key] } } } };
                         return acc;
                       }, {})
                     }
@@ -327,7 +311,6 @@ ${JSON.stringify(activeStack)}
               updateMask: { fieldPaths: ["pages", "framework", "lastUpdated"] }
             }]
           };
-
           await fetchFirestore(null, "COMMIT", commitBody);
         }
 
