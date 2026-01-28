@@ -29,8 +29,7 @@ const STACK_PRESETS = {
   "react-node": {
     frontend: "React (Vite), Tailwind CSS (CDN ONLY, INLINE ONLY)",
     backend: "Node.js (Express Serverless)",
-    database: "MongoDB/Firestore",
-    auth: "Firebase Auth/JWT",
+    structure: "Standard Vite + Express project",
     requiredFiles: ["package.json", "vercel.json", "src/main.jsx", "src/App.jsx", "api/index.js", "README.md"]
   }
 };
@@ -290,6 +289,14 @@ ${JSON.stringify(activeStack)}
         if (projectId) {
           const sanitized = sanitizeOutput(finalText);
           const files = extractFilesStrict(sanitized);
+          
+          // EXTRACT ACTION LINES FOR LOG PERSISTENCE
+          const actionRegex = /\[ACTION:\s*(.*?)\s*\]/g;
+          let logsHTML = "";
+          let actionMatch;
+          while ((actionMatch = actionRegex.exec(finalText)) !== null) {
+            logsHTML += `<div class="text-[10px] text-slate-400 font-medium"><span class="text-emerald-500 mr-2">✔</span>${actionMatch[1]}</div>`;
+          }
 
           const commitBody = {
             writes: [{
@@ -305,10 +312,12 @@ ${JSON.stringify(activeStack)}
                     }
                   },
                   framework: { stringValue: framework },
+                  promptText: { stringValue: prompt },
+                  logsContent: { stringValue: logsHTML },
                   lastUpdated: { integerValue: Date.now().toString() }
                 }
               },
-              updateMask: { fieldPaths: ["pages", "framework", "lastUpdated"] }
+              updateMask: { fieldPaths: ["pages", "framework", "promptText", "logsContent", "lastUpdated"] }
             }]
           };
           await fetchFirestore(null, "COMMIT", commitBody);
