@@ -7,7 +7,7 @@
     <link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class' }</script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Space+Grotesk:wght@400;700&family=Outfit:wght@400;700&family=Playfair+Display:ital@0;1&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; transition: background-color 0.3s; }
         .dark body { background: #020617; color: #f8fafc; }
@@ -22,6 +22,8 @@
         .dark .glass-modal { background: rgba(2, 6, 23, 0.8); }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .emoji-btn { transition: transform 0.1s; }
+        .emoji-btn:active { transform: scale(1.2); }
     </style>
 </head>
 <body class="h-screen flex flex-col bg-[#fdfdfd] dark:bg-slate-950 relative overflow-hidden">
@@ -31,14 +33,17 @@
             <a href="/dashboard" class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
             </a>
-            <button onclick="createNewProject()" class="text-xs font-extrabold bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-lg hover:scale-105 transition-all">
-                + NEW
-            </button>
-            <span class="font-extrabold tracking-tighter text-xl text-slate-900 dark:text-white">AmmoueAI</span>
+            <button onclick="createNewProject()" class="text-xs font-extrabold bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-lg hover:scale-105 transition-all">+ NEW</button>
+            <div class="flex flex-col">
+                <span class="font-extrabold tracking-tighter text-xl text-slate-900 dark:text-white leading-none">AmmoueAI</span>
+                <span id="project-name-display" class="text-[9px] font-bold text-indigo-500 uppercase tracking-widest mt-1">Naming...</span>
+            </div>
             <div id="tab-container" class="flex gap-1 ml-4"></div>
         </div>
         
         <div class="flex items-center gap-4">
+            <button id="collab-btn" onclick="copyCollaborationLink()" class="p-2 px-3 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 rounded-lg text-[10px] font-bold hover:bg-slate-200 transition-all">🔗 Share</button>
+            
             <button onclick="toggleTheme()" class="p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
                 <svg class="dark:hidden" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
                 <svg class="hidden dark:block text-yellow-400" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
@@ -49,7 +54,7 @@
                 <button onclick="setViewport('mobile')" class="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all text-slate-600 dark:text-slate-300">📱</button>
             </div>
 
-            <button id="download-btn" onclick="downloadProjectSource()" class="p-2 px-4 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 rounded-xl text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">Download</button>
+            <button id="download-btn" onclick="openDownloadModal()" class="p-2 px-4 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 rounded-xl text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">Download</button>
 
             <button onclick="togglePublishModal(true)" class="btn-lovable px-6 py-2 rounded-xl text-sm font-bold shadow-lg shadow-indigo-100 dark:shadow-none">Publish</button>
         </div>
@@ -57,6 +62,40 @@
 
     <main class="flex-1 flex overflow-hidden">
         <aside class="w-60 sidebar flex flex-col p-5 gap-4 hidden lg:flex">
+            <div class="mb-2">
+                <label class="text-[10px] uppercase font-extrabold text-slate-400 tracking-widest mb-2 block">AI Style Presets</label>
+                <select onchange="applyStylePreset(this.value)" class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2 text-xs outline-none dark:text-white">
+                    <option value="modern">Modern Light</option>
+                    <option value="midnight">Midnight Neon</option>
+                    <option value="neon">Glassmorphism</option>
+                    <option value="classic">Classic Serif</option>
+                </select>
+            </div>
+            
+            <div class="mb-4">
+                <label class="text-[10px] uppercase font-extrabold text-slate-400 tracking-widest mb-2 block flex justify-between">Favicon <span id="current-favicon-display" class="text-xs">✨</span></label>
+                <div class="grid grid-cols-4 gap-2 bg-slate-100 dark:bg-slate-800/50 p-2 rounded-xl">
+                    <button onclick="setProjectFavicon('🚀')" class="emoji-btn hover:bg-white dark:hover:bg-slate-700 p-1 rounded">🚀</button>
+                    <button onclick="setProjectFavicon('⚡')" class="emoji-btn hover:bg-white dark:hover:bg-slate-700 p-1 rounded">⚡</button>
+                    <button onclick="setProjectFavicon('🔥')" class="emoji-btn hover:bg-white dark:hover:bg-slate-700 p-1 rounded">🔥</button>
+                    <button onclick="setProjectFavicon('🎨')" class="emoji-btn hover:bg-white dark:hover:bg-slate-700 p-1 rounded">🎨</button>
+                    <button onclick="setProjectFavicon('💎')" class="emoji-btn hover:bg-white dark:hover:bg-slate-700 p-1 rounded">💎</button>
+                    <button onclick="setProjectFavicon('📦')" class="emoji-btn hover:bg-white dark:hover:bg-slate-700 p-1 rounded">📦</button>
+                    <button onclick="setProjectFavicon('🌐')" class="emoji-btn hover:bg-white dark:hover:bg-slate-700 p-1 rounded">🌐</button>
+                    <button onclick="setProjectFavicon('✨')" class="emoji-btn hover:bg-white dark:hover:bg-slate-700 p-1 rounded">✨</button>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="text-[10px] uppercase font-extrabold text-slate-400 tracking-widest mb-2 block">Component Library</label>
+                <div class="space-y-2">
+                    <button onclick="addComponentToPrompt('Pricing Table')" class="w-full text-left p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-bold hover:border-indigo-500 transition-all dark:text-slate-300">📊 Pricing Table</button>
+                    <button onclick="addComponentToPrompt('Testimonials Grid')" class="w-full text-left p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-bold hover:border-indigo-500 transition-all dark:text-slate-300">💬 Testimonials</button>
+                    <button onclick="addComponentToPrompt('FAQ Accordion')" class="w-full text-left p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-bold hover:border-indigo-500 transition-all dark:text-slate-300">❓ FAQ Section</button>
+                    <button onclick="addComponentToPrompt('Contact Form')" class="w-full text-left p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-bold hover:border-indigo-500 transition-all dark:text-slate-300">✉️ Contact Form</button>
+                </div>
+            </div>
+
             <label class="text-[10px] uppercase font-extrabold text-slate-400 tracking-widest">History</label>
             <div id="history-list" class="flex-1 overflow-y-auto pr-2"></div>
         </aside>
@@ -118,12 +157,39 @@
         </div>
     </div>
 
+    <div id="download-modal" class="fixed inset-0 z-[100] flex items-center justify-center glass-modal hidden">
+        <div class="lovable-card w-[400px] p-8 shadow-2xl dark:shadow-none">
+            <h3 class="text-xl font-extrabold mb-2 dark:text-white">Review Files</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">The following files will be included in your ZIP:</p>
+            <div id="download-file-list" class="max-h-48 overflow-y-auto mb-6 bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border dark:border-slate-800"></div>
+            <div class="flex gap-3">
+                <button onclick="document.getElementById('download-modal').classList.add('hidden')" class="flex-1 py-3 font-bold text-slate-500">Cancel</button>
+                <button onclick="confirmDownload()" class="flex-1 py-3 btn-lovable font-bold rounded-xl">Download ZIP</button>
+            </div>
+        </div>
+    </div>
+
     <div id="publish-modal" class="fixed inset-0 z-[100] flex items-center justify-center glass-modal hidden">
-        <div class="lovable-card w-96 p-8 shadow-2xl dark:shadow-none">
+        <div class="lovable-card w-[450px] p-8 shadow-2xl dark:shadow-none overflow-y-auto max-h-[90vh]">
             <h3 class="text-xl font-extrabold mb-2 dark:text-white">Ready to launch?</h3>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mb-2">Enter a custom slug for your site.</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mb-2">Configure your site settings.</p>
             <div class="text-[10px] text-indigo-500 font-mono mb-4" id="slug-preview">my-awesome-website.vercel.app</div>
-            <input type="text" id="site-slug" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 mb-6 outline-none focus:ring-2 ring-indigo-100 dark:text-white" placeholder="my-awesome-site">
+            
+            <div class="space-y-4 mb-6">
+                <div>
+                    <label class="text-[10px] uppercase font-extrabold text-slate-400 mb-1 block">Domain Slug</label>
+                    <input type="text" id="site-slug" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 outline-none focus:ring-2 ring-indigo-100 dark:text-white" placeholder="my-awesome-site">
+                </div>
+                <div>
+                    <label class="text-[10px] uppercase font-extrabold text-slate-400 mb-1 block">AI Suggested SEO Title</label>
+                    <input type="text" id="seo-title" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs outline-none dark:text-white">
+                </div>
+                <div>
+                    <label class="text-[10px] uppercase font-extrabold text-slate-400 mb-1 block">AI Suggested SEO Description</label>
+                    <textarea id="seo-description" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs outline-none h-20 resize-none dark:text-white"></textarea>
+                </div>
+            </div>
+
             <div class="flex gap-3">
                 <button onclick="togglePublishModal(false)" class="flex-1 py-3 font-bold text-slate-500 dark:text-slate-400">Cancel</button>
                 <button id="publish-btn" onclick="triggerDeploy()" class="flex-1 py-3 btn-lovable font-bold rounded-xl">Deploy</button>
