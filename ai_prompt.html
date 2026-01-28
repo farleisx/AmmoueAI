@@ -320,21 +320,28 @@
                 onNewPage: (name) => {
                     if (!projectState.pages[name]) { 
                         projectState.pages[name] = ""; 
-                        projectState.currentPage = name; 
                         renderTabs(); 
                     }
                 },
-                onCodeUpdate: (html) => { 
-                    // FIX: Prevent SyntaxErrors by ensuring HTML is valid before bridge update
-                    const isValidHTML = html.includes('</html>') || html.includes('</div>') || html.length > 500;
-                    const cleanHtml = html.replace(/<path[^>]*d="[^"]*w3\.org[^"]*"[^>]*>/gi, ''); // Suppress malformed SVG errors
+                onCodeUpdate: (html, pageName) => { 
+                    // ROUTING FIX: Ensure code goes to the specific file requested by marker
+                    const targetPage = pageName || projectState.currentPage;
                     
-                    projectState.pages[projectState.currentPage] = cleanHtml; 
-                    projectState.currentHtml = cleanHtml;
+                    if (!projectState.pages[targetPage]) {
+                        projectState.pages[targetPage] = "";
+                        renderTabs();
+                    }
+
+                    const cleanHtml = html.replace(/<path[^>]*d="[^"]*w3\.org[^"]*"[^>]*>/gi, ''); 
+                    projectState.pages[targetPage] = cleanHtml;
                     
-                    if (isValidHTML) bridge.update(cleanHtml); 
+                    // Only update bridge if it's the currently viewed page
+                    if (targetPage === projectState.currentPage) {
+                        projectState.currentHtml = cleanHtml;
+                        const isValidHTML = cleanHtml.includes('</html>') || cleanHtml.includes('</div>') || cleanHtml.length > 500;
+                        if (isValidHTML) bridge.update(cleanHtml); 
+                    }
                     
-                    // SAVE ALL: Ensure prompt and action lines are persisted
                     autoSaveProject(projectState.pages, els.prompt.value, projectState.id, auth.currentUser.uid, els.logs.innerHTML, projectState.currentPage);
                 },
                 onAction: (text) => {
@@ -385,7 +392,6 @@
                 projectState.deploymentUrl = proj.deploymentUrl || null;
                 projectState.currentPage = proj.currentPage || Object.keys(projectState.pages)[0];
                 
-                // RESTORE PROMPT AND LOGS
                 if (proj.promptText) els.prompt.value = proj.promptText;
                 if (proj.logsContent) {
                     els.logs.innerHTML = proj.logsContent;
