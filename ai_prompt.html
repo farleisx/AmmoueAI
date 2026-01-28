@@ -317,32 +317,17 @@
                 progressFill: document.getElementById('progress-fill')
             },
             callbacks: {
-                onNewPage: (name) => {
-                    if (!projectState.pages[name]) { 
-                        projectState.pages[name] = ""; 
-                        renderTabs(); 
-                    }
-                },
-                onCodeUpdate: (html, pageName) => { 
-                    // ROUTING FIX: Ensure code goes to the specific file requested by marker
-                    const targetPage = pageName || projectState.currentPage;
+                onNewPage: (name) => engine.renderTabs(projectState, els.pagesContainer),
+                onCodeUpdate: (html, targetPage) => { 
+                    // Update the state
+                    projectState.pages[targetPage] = html;
                     
-                    if (!projectState.pages[targetPage]) {
-                        projectState.pages[targetPage] = "";
-                        renderTabs();
-                    }
-
-                    const cleanHtml = html.replace(/<path[^>]*d="[^"]*w3\.org[^"]*"[^>]*>/gi, ''); 
-                    projectState.pages[targetPage] = cleanHtml;
-                    
-                    // Only update bridge if it's the currently viewed page
+                    // If we are currently looking at the page being updated, refresh the preview
                     if (targetPage === projectState.currentPage) {
-                        projectState.currentHtml = cleanHtml;
-                        const isValidHTML = cleanHtml.includes('</html>') || cleanHtml.includes('</div>') || cleanHtml.length > 500;
-                        if (isValidHTML) bridge.update(cleanHtml); 
+                        projectState.currentHtml = html;
+                        const isValidHTML = html.includes('</html>') || html.includes('</div>') || html.length > 500;
+                        if (isValidHTML) bridge.update(html);
                     }
-                    
-                    autoSaveProject(projectState.pages, els.prompt.value, projectState.id, auth.currentUser.uid, els.logs.innerHTML, projectState.currentPage);
                 },
                 onAction: (text) => {
                     const log = document.createElement('div');
@@ -351,10 +336,7 @@
                     els.logs.appendChild(log);
                     els.logs.parentElement.scrollTop = els.logs.parentElement.scrollHeight;
                 },
-                onError: (msg) => {
-                    UI.showNotification(msg, "error");
-                    els.stopBtn.classList.add('hidden');
-                }
+                onError: (msg) => UI.showNotification(msg, "error")
             }
         });
 
@@ -363,65 +345,25 @@
             projectState.currentPage = name;
             projectState.currentHtml = projectState.pages[name];
             bridge.update(projectState.currentHtml);
-            renderTabs();
+            engine.renderTabs(projectState, els.pagesContainer);
         }
         window.switchPage = switchPage;
-
-        function renderTabs() {
-            els.pagesContainer.innerHTML = Object.keys(projectState.pages).map(name => `
-                <button onclick="window.switchPage('${name}')" class="px-3 py-1 text-[9px] font-bold rounded-md uppercase transition-all duration-200 ${projectState.currentPage === name ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-900 text-slate-500 hover:text-slate-200'}">
-                    ${name}
-                </button>
-            `).join('');
-        }
 
         async function refreshProjects(uid) {
             const projects = await getUserProjects(uid);
             UI.renderProjectHistory(els.historyList, projects, async (proj, action) => {
                 if (action === 'delete') {
-                    const confirmed = confirm(`Are you sure you want to delete "${proj.slug || 'this project'}"?`);
-                    if (confirmed) {
-                        await deleteProject(proj.id, uid);
-                        refreshProjects(uid);
-                        UI.showNotification("Project Deleted");
-                    }
+                    const confirmed = confirm(`Are you sure?`);
+                    if (confirmed) { await deleteProject(proj.id, uid); refreshProjects(uid); }
                     return;
                 }
                 projectState.id = proj.id;
                 projectState.pages = proj.pages || { "landing": proj.htmlContent };
-                projectState.deploymentUrl = proj.deploymentUrl || null;
                 projectState.currentPage = proj.currentPage || Object.keys(projectState.pages)[0];
-                
-                if (proj.promptText) els.prompt.value = proj.promptText;
-                if (proj.logsContent) {
-                    els.logs.innerHTML = proj.logsContent;
-                    document.getElementById('thinking-box').classList.remove('hidden');
-                } else {
-                    els.logs.innerHTML = "";
-                    document.getElementById('thinking-box').classList.add('hidden');
-                }
-
-                if (projectState.deploymentUrl) {
-                    els.shareBtn.classList.remove('hidden');
-                    els.publishBtn.innerText = "LIVE";
-                } else {
-                    els.shareBtn.classList.add('hidden');
-                    els.publishBtn.innerText = "Publish";
-                }
+                projectState.deploymentUrl = proj.deploymentUrl || null;
+                els.prompt.value = proj.promptText || "";
                 switchPage(projectState.currentPage);
             });
-        }
-
-        function startResetTimer() {
-            setInterval(() => {
-                const now = new Date();
-                const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-                const diff = tomorrow - now;
-                const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-                const mins = Math.floor((diff / (1000 * 60)) % 60);
-                const secs = Math.floor((diff / 1000) % 60);
-                els.resetTimer.innerText = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-            }, 1000);
         }
 
         onAuthStateChanged(auth, async (user) => {
@@ -433,162 +375,33 @@
                 els.usageBadge.innerText = `Credits: ${usage.dailyCount || 0}/${usage.plan === 'pro' ? 10 : 5}`;
                 UI.generateCoolName(els.slugInput);
                 refreshProjects(user.uid);
-                startResetTimer();
             } else {
                 window.location.href = "/login";
             }
         });
 
-        els.loginBtn.onclick = async () => { try { await signInWithPopup(auth, new GoogleAuthProvider()); } catch (err) { console.error(err); } };
-        document.getElementById('logout-btn').onclick = () => signOut(auth);
-        
         els.genBtn.onclick = () => {
             projectHistory.push(JSON.parse(JSON.stringify(projectState.pages)));
-            if (projectHistory.length > 20) projectHistory.shift();
-
-            els.stopBtn.classList.remove('hidden');
-            document.getElementById('progress-bar').classList.remove('hidden');
-            engine.start({ 
-                prompt: els.prompt.value, 
-                auth, 
-                projectState, 
-                attachedImages: projectState.attachedImages 
-            }).finally(() => {
-                els.stopBtn.classList.add('hidden');
-            });
+            engine.start({ prompt: els.prompt.value, auth, projectState, attachedImages: projectState.attachedImages });
         };
-
-        els.undoBtn.onclick = () => {
-            if (projectHistory.length > 0) {
-                projectState.pages = projectHistory.pop();
-                const firstPage = Object.keys(projectState.pages)[0];
-                switchPage(firstPage);
-                UI.showNotification("Rolled back to previous version");
-            } else {
-                UI.showNotification("No history to rollback", "error");
-            }
-        };
-
-        els.copyBtn.onclick = async () => {
-            try {
-                await navigator.clipboard.writeText(els.codeView.value);
-                const originalText = els.copyBtn.innerHTML;
-                els.copyBtn.innerHTML = '<i class="fa-solid fa-check mr-2"></i>Copied!';
-                els.copyBtn.style.background = '#10b981';
-                setTimeout(() => {
-                    els.copyBtn.innerHTML = originalText;
-                    els.copyBtn.style.background = '';
-                }, 2000);
-            } catch (err) {
-                UI.showNotification("Failed to copy", "error");
-            }
-        };
-
-        els.stopBtn.onclick = () => {
-            engine.stop();
-            els.stopBtn.classList.add('hidden');
-            UI.showNotification("Generation Paused/Stopped");
-        };
-
-        els.newProjectBtn.onclick = () => {
-            projectState = { pages: { "landing": "" }, currentPage: "landing", currentHtml: "", id: null, attachedImages: [], deploymentUrl: null };
-            els.prompt.value = "";
-            els.logs.innerHTML = "";
-            document.getElementById('thinking-box').classList.add('hidden');
-            els.shareBtn.classList.add('hidden');
-            els.publishBtn.innerText = "Publish";
-            UI.generateCoolName(els.slugInput);
-            bridge.update("");
-            renderTabs();
-            UI.showNotification("Started New Project");
-        };
-
-        document.getElementById('export-btn').onclick = () => {
-            if (Object.values(projectState.pages).every(content => content === "")) { 
-                UI.showNotification("Empty Project", "error"); 
-                return; 
-            }
-            UI.showExportModal(projectState, () => UI.exportProject(projectState));
-        };
-
-        els.shareBtn.onclick = () => UI.copyToClipboard(projectState.deploymentUrl);
 
         els.publishBtn.onclick = () => {
-            if (!projectState.currentHtml) {
-                UI.showNotification("Nothing to publish", "error");
-                return;
-            }
-            const modal = document.getElementById('confirm-modal');
-            const title = document.getElementById('modal-title');
-            const desc = document.getElementById('modal-desc');
-            const icon = document.getElementById('modal-icon');
-            const viewBtn = document.getElementById('view-live-btn');
-            const confirmBtn = document.getElementById('confirm-deploy-btn');
-
-            document.getElementById('confirm-slug-display').innerText = els.slugInput.value;
-
-            if (projectState.deploymentUrl) {
-                title.innerText = "Control Panel";
-                desc.innerText = "Site is live. Push updates or view status.";
-                icon.className = "fa-solid fa-circle-check text-4xl text-emerald-500 mb-4";
-                confirmBtn.innerText = "UPDATE SITE";
-                viewBtn.classList.remove('hidden');
-            } else {
-                title.innerText = "Ready to Launch?";
-                desc.innerText = "Your site will be accessible via a public URL.";
-                icon.className = "fa-solid fa-rocket text-4xl text-indigo-500 mb-4";
-                confirmBtn.innerText = "LAUNCH NOW";
-                viewBtn.classList.add('hidden');
-            }
-            modal.classList.remove('hidden');
-        };
-
-        document.getElementById('confirm-deploy-btn').onclick = () => {
-            document.getElementById('confirm-modal').classList.add('hidden');
             const deployer = new DeploymentManager({
                 ui: { publishBtn: els.publishBtn, logs: els.logs },
                 callbacks: {
                     getProjectState: () => projectState,
                     onSuccess: (url) => { 
                         projectState.deploymentUrl = url;
-                        els.publishBtn.innerText = "LIVE"; 
                         els.shareBtn.classList.remove('hidden');
-                        UI.showNotification("Project Published Successfully");
                     }
                 }
             });
-            deployer.deploy({ html: projectState.currentHtml, projectId: projectState.id, slug: els.slugInput.value, auth, engine });
-        };
-
-        document.getElementById('cancel-deploy-btn').onclick = () => document.getElementById('confirm-modal').classList.add('hidden');
-        
-        document.getElementById('toggle-mobile').onclick = () => {
-            UI.toggleMobileView(els.previewFrame);
-            const icon = document.getElementById('mobile-icon');
-            if (els.previewFrame.classList.contains('mobile-view')) {
-                icon.className = "fa-solid fa-desktop";
-            } else {
-                icon.className = "fa-solid fa-mobile-screen";
-            }
-        };
-
-        document.getElementById('toggle-code').onclick = () => {
-            UI.toggleView('code', els.previewFrame, els.codeView, {code: document.getElementById('toggle-code'), preview: document.getElementById('toggle-preview')}, projectState.currentHtml);
-            els.codeContainer.classList.remove('hidden');
-            els.previewFrame.classList.add('hidden');
-        };
-        
-        document.getElementById('toggle-preview').onclick = () => {
-            UI.toggleView('preview', els.previewFrame, els.codeView, {code: document.getElementById('toggle-code'), preview: document.getElementById('toggle-preview')});
-            els.codeContainer.classList.add('hidden');
-            els.previewFrame.classList.remove('hidden');
+            deployer.deploy({ html: projectState.currentHtml, projectId: projectState.id, slug: els.slugInput.value, auth });
         };
 
         UI.initVoice(document.getElementById('voice-btn'), els.prompt); 
         UI.setupImageUpload(document.getElementById('img-input'), els.imgTray, projectState, UI.renderImages);
-        initPromptTyping(els.prompt, ["Build a startup landing page...", "Design a modern dashboard...", "Create a clean developer portfolio..."]);
-        
-        renderTabs();
+        engine.renderTabs(projectState, els.pagesContainer);
     </script>
 </body>
 </html>
