@@ -307,11 +307,16 @@ ui.imageInput.addEventListener('change', async (e) => {
         const reader = new FileReader();
         reader.onload = (event) => {
             const base64 = event.target.result;
+            const index = projectState.attachedImages.length;
             projectState.attachedImages.push(base64);
-            const img = document.createElement('img');
-            img.src = base64;
-            img.className = "w-10 h-10 object-cover rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm";
-            ui.imagePreview.appendChild(img);
+            
+            const wrapper = document.createElement('div');
+            wrapper.className = "relative group cursor-pointer";
+            wrapper.innerHTML = `
+                <img src="${base64}" onclick="window.zoomImage('${base64}')" class="w-12 h-12 object-cover rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm transition-transform hover:scale-105">
+                <button onclick="window.removeImage(${index})" class="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
+            `;
+            ui.imagePreview.appendChild(wrapper);
         };
         reader.readAsDataURL(file);
     }
@@ -330,6 +335,10 @@ window.triggerGenerate = async () => {
     const prompt = document.getElementById('user-prompt').value;
     if (!prompt) return;
     ui.progressBar.classList.remove('hidden');
+    
+    // Add to Revision History
+    window.saveRevision(projectState.pages[projectState.currentPage]);
+    
     await engine.start({
         prompt,
         auth,
@@ -362,8 +371,17 @@ window.generateUniqueProjectName = () => {
     const adjectives = ["Velvet", "Neon", "Golden", "Silent", "Cosmic", "Swift", "Azure", "Emerald"];
     const nouns = ["Pulse", "Nebula", "Flow", "Sphere", "Nexus", "Drift", "Aura", "Beacon"];
     const name = adjectives[Math.floor(Math.random() * adjectives.length)] + " " + nouns[Math.floor(Math.random() * nouns.length)];
+    
     const nameDisplay = document.getElementById('project-name-display');
     if (nameDisplay) nameDisplay.innerText = name;
+    
+    // Apply to domain slug also
+    const slug = name.toLowerCase().replace(/\s+/g, '-');
+    if (ui.slugInput) {
+        ui.slugInput.value = slug;
+        document.getElementById('slug-preview').innerText = slug + '.vercel.app';
+    }
+    
     return name;
 };
 
@@ -371,3 +389,53 @@ window.generateUniqueProjectName = () => {
 if (!projectState.id) {
     window.generateUniqueProjectName();
 }
+
+// --- REVISION HISTORY LOGIC ---
+const revisions = [];
+window.saveRevision = (html) => {
+    if (!html) return;
+    revisions.push(html);
+    const slider = document.getElementById('revision-slider');
+    slider.max = revisions.length - 1;
+    slider.value = slider.max;
+    document.getElementById('rev-count').innerText = revisions.length;
+};
+
+window.scrubRevision = (index) => {
+    const html = revisions[index];
+    if (html) {
+        const blob = new Blob([html], { type: 'text/html' });
+        ui.preview.src = URL.createObjectURL(blob);
+    }
+};
+
+window.restoreRevision = () => {
+    const index = document.getElementById('revision-slider').value;
+    const html = revisions[index];
+    if (html) {
+        projectState.pages[projectState.currentPage] = html;
+        alert("Revision restored!");
+    }
+};
+
+// --- IMAGE UTILITY LOGIC ---
+window.removeImage = (index) => {
+    projectState.attachedImages.splice(index, 1);
+    // Refresh the preview UI
+    ui.imagePreview.innerHTML = '';
+    projectState.attachedImages.forEach((base64, i) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = "relative group cursor-pointer";
+        wrapper.innerHTML = `
+            <img src="${base64}" onclick="window.zoomImage('${base64}')" class="w-12 h-12 object-cover rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm transition-transform hover:scale-105">
+            <button onclick="window.removeImage(${i})" class="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
+        `;
+        ui.imagePreview.appendChild(wrapper);
+    });
+};
+
+window.zoomImage = (src) => {
+    const lightbox = document.getElementById('lightbox-modal');
+    document.getElementById('lightbox-img').src = src;
+    lightbox.classList.remove('hidden');
+};
