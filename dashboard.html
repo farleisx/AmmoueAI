@@ -7,17 +7,16 @@
     <title>Ammoue | User Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            /* Updated to a premium dark-to-teal gradient */
             background: radial-gradient(circle at top right, #111827, #0f172a, #042f2e);
             background-attachment: fixed;
         }
-        .text-ammoue { color: #2dd4bf; } /* Lightened teal for dark mode contrast */
+        .text-ammoue { color: #2dd4bf; }
         .bg-ammoue { background-color: #0d9488; }
-
         .loading-screen {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -27,27 +26,21 @@
             justify-content: center;
             z-index: 50;
         }
-
         .line-clamp-2 {
             display: -webkit-box;
             -webkit-box-orient: vertical;
             overflow: hidden;
             -webkit-line-clamp: 2;
         }
-
-        /* Glassmorphism Card Style */
         .glass-card {
             background: rgba(255, 255, 255, 0.03);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
-        
         .glass-card:hover {
             background: rgba(255, 255, 255, 0.07);
             border-color: #0d9488;
         }
-
-        /* Dropdown Menu Styling */
         .project-menu {
             display: none;
             position: absolute;
@@ -71,31 +64,37 @@
     </div>
 
     <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 opacity-0 transition-opacity duration-300 z-50"></div>
+    
     <div id="dashboard-content" class="min-h-screen hidden transition-opacity duration-500">
         <nav class="bg-slate-900/50 backdrop-blur-md border-b border-white/10 p-4 flex justify-between items-center sticky top-0 z-10">
-    <div class="flex items-center gap-2">
-        <img src="Gemini_Generated_Image_qry9pfqry9pfqry9.png" alt="Ammoue Logo" class="h-8 w-8" />
-        <div class="text-2xl font-extrabold text-ammoue">Ammoue Dashboard</div>
-    </div>
-    <div class="flex items-center space-x-4">
-        <span class="text-gray-400 text-sm">Welcome, <span id="user-email" class="font-bold text-gray-100">Loading...</span></span>
-        <a href="/profile" class="px-3 py-2 text-sm font-medium rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-150 shadow-md flex items-center">
-            <i data-lucide="user" class="w-4 h-4 mr-1"></i> Profile
-        </a>
-        <button onclick="handleLogout()" class="px-3 py-2 text-sm font-medium rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150 shadow-md">
-            Log Out
-        </button>
-    </div>
-</nav>
-
+            <div class="flex items-center gap-2">
+                <img src="Gemini_Generated_Image_qry9pfqry9pfqry9.png" alt="Ammoue Logo" class="h-8 w-8" />
+                <div class="text-2xl font-extrabold text-ammoue">Ammoue Dashboard</div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span class="text-gray-400 text-sm">Welcome, <span id="user-email" class="font-bold text-gray-100">Loading...</span></span>
+                <a href="/profile" class="px-3 py-2 text-sm font-medium rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-150 shadow-md flex items-center">
+                    <i data-lucide="user" class="w-4 h-4 mr-1"></i> Profile
+                </a>
+                <button onclick="handleLogout()" class="px-3 py-2 text-sm font-medium rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150 shadow-md">
+                    Log Out
+                </button>
+            </div>
+        </nav>
 
         <header class="p-4 md:p-8 max-w-6xl mx-auto flex flex-wrap gap-4 justify-between items-center border-b border-white/10 mb-6">
             <div class="flex items-center space-x-3">
                 <h1 class="text-3xl font-bold text-white">Your Sites</h1>
                 <span id="project-count" class="bg-white/10 text-teal-400 text-xs font-bold px-2.5 py-0.5 rounded-full border border-white/10">0</span>
-                <button onclick="openDeleteAllModal()" class="ml-4 px-3 py-1.5 text-xs font-bold rounded-lg text-red-400 border border-red-500/30 hover:bg-red-500/10 transition-colors flex items-center">
-                    <i data-lucide="trash-2" class="w-3.5 h-3.5 mr-1.5"></i> Delete All
-                </button>
+                
+                <div class="flex items-center gap-2 ml-4">
+                    <button id="btn-export-all" onclick="handleExportAll()" class="px-3 py-1.5 text-xs font-bold rounded-lg text-blue-400 border border-blue-500/30 hover:bg-blue-500/10 transition-all flex items-center">
+                        <i data-lucide="folder-down" class="w-3.5 h-3.5 mr-1.5"></i> Export All (ZIP)
+                    </button>
+                    <button onclick="openDeleteAllModal()" class="px-3 py-1.5 text-xs font-bold rounded-lg text-red-400 border border-red-500/30 hover:bg-red-500/10 transition-all flex items-center">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5 mr-1.5"></i> Delete All
+                    </button>
+                </div>
             </div>
             <div class="flex items-center space-x-4">
                 <span class="text-gray-400 text-sm font-medium">Your Plan:</span>
@@ -105,7 +104,6 @@
         </header>
 
         <main class="p-4 md:p-8 pt-0 max-w-6xl mx-auto">
-            
             <section id="pro-content" class="hidden mb-8 border-2 border-yellow-500/30 bg-yellow-500/5 p-6 rounded-2xl shadow-inner backdrop-blur-sm">
                 <div class="flex items-center justify-between">
                     <h3 class="text-2xl font-bold text-yellow-500 flex items-center">
@@ -126,18 +124,15 @@
             </div>
 
             <div id="projects-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-
                 <div onclick="window.location.href='/ai_prompt'"
                     class="bg-white/5 border-2 border-dashed border-white/10 rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:border-ammoue transition duration-300 cursor-pointer hover:shadow-lg h-full min-h-[200px] hover:bg-white/10">
                     <i data-lucide="plus-circle" class="w-12 h-12 text-gray-500 mb-3"></i>
                     <p class="text-lg font-semibold text-gray-200">Create New AI Site</p>
                     <p class="text-sm text-gray-500 mt-1">Start generating a new website</p>
                 </div>
-
                 <p id="no-projects-message" class="col-span-full text-center text-gray-500 text-lg hidden mt-10">
                     You don't have any projects yet. Create your first AI site to get started!
                 </p>
-
             </div>
         </main>
     </div>
@@ -183,19 +178,18 @@
 
     <div id="delete-all-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center">
         <div class="bg-slate-900 border border-white/10 rounded-xl shadow-2xl p-6 w-full max-w-sm m-4 transform transition-all duration-300 scale-95 opacity-0" id="delete-all-modal-content">
-            <h2 class="text-xl font-bold text-white mb-3 flex items-center">
-                <i data-lucide="alert-octagon" class="w-6 h-6 text-red-500 mr-2"></i> Danger Zone
+            <h2 class="text-xl font-bold text-white mb-3 flex items-center text-red-500">
+                <i data-lucide="alert-octagon" class="w-6 h-6 mr-2"></i> Delete Everything?
             </h2>
-            <p class="text-gray-400 mb-6 text-sm">You are about to delete <span class="text-red-400 font-bold" id="delete-all-count"></span> projects. This is permanent and cannot be reversed. Are you absolutely sure?</p>
-            <div class="flex flex-col space-y-3">
-                <button type="button" id="confirm-delete-all-button" class="w-full px-4 py-3 text-sm font-bold rounded-xl text-white bg-red-600 hover:bg-red-700 shadow-md transition-all">Yes, Delete All Projects</button>
-                <button type="button" onclick="closeDeleteAllModal()" class="w-full px-4 py-3 text-sm font-semibold rounded-xl text-gray-400 bg-white/5 hover:bg-white/10 transition-all">Cancel</button>
+            <p class="text-gray-400 mb-6">Are you absolutely sure you want to delete <span id="delete-all-count" class="font-bold text-white"></span> projects? This action is permanent.</p>
+            <div class="flex flex-col gap-2">
+                <button type="button" id="confirm-delete-all-button" class="w-full px-4 py-2 text-sm font-bold rounded-xl text-white bg-red-600 hover:bg-red-700 transition duration-150 shadow-md">Yes, Delete All</button>
+                <button type="button" onclick="closeDeleteAllModal()" class="w-full px-4 py-2 text-sm font-semibold rounded-xl text-gray-400 bg-white/5 hover:bg-white/10 transition duration-150">Cancel</button>
             </div>
         </div>
     </div>
     
 <script type="module">
-    // Import everything from your central firebase file
     import { 
         auth, 
         db, 
@@ -210,15 +204,13 @@
         Timestamp, 
         updateDoc, 
         getDoc,
-        writeBatch
+        writeBatch 
     } from "./firedashboard.js";
 
-    // State management
     let currentUserId = null;
     let projectsData = new Map();
     let allProjectsArray = []; 
 
-    // UI Element References
     const loadingScreen = document.getElementById('loading-screen');
     const dashboardContent = document.getElementById('dashboard-content');
     const userEmailSpan = document.getElementById('user-email');
@@ -237,7 +229,6 @@
     const deleteAllModalContent = document.getElementById('delete-all-modal-content');
     const confirmDeleteAllButton = document.getElementById('confirm-delete-all-button');
 
-    /* --- UI HELPERS --- */
     function showMessage(message, isError) {
         if (!msgBox) return;
         msgBox.textContent = message;
@@ -262,7 +253,6 @@
         return "Just now";
     }
 
-    /* --- PROJECT ACTIONS (Global Window functions) --- */
     window.handleLogout = async function() {
         try {
             await logout();
@@ -301,6 +291,43 @@
         a.click();
         document.body.removeChild(a);
     };
+
+    window.handleExportAll = async function() {
+        if (allProjectsArray.length === 0) {
+            showMessage("No projects to export.", true);
+            return;
+        }
+        
+        const btn = document.getElementById('btn-export-all');
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = `<i class="animate-spin mr-2" data-lucide="loader-2"></i> Zipping...`;
+        lucide.createIcons();
+
+        try {
+            const zip = new JSZip();
+            allProjectsArray.forEach(project => {
+                if (project.encodedHtmlContent) {
+                    const htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
+                    const fileName = project.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.html';
+                    zip.file(fileName, htmlContent);
+                }
+            });
+            const content = await zip.generateAsync({ type: "blob" });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(content);
+            link.download = `ammoue_projects_backup_${new Date().toISOString().split('T')[0]}.zip`;
+            link.click();
+            showMessage("Export successful!", false);
+        } catch (err) {
+            console.error(err);
+            showMessage("Export failed.", true);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            lucide.createIcons();
+        }
+    };
     
     window.handleCopyCode = function(projectId) {
         const project = projectsData.get(projectId);
@@ -313,7 +340,6 @@
         window.location.href = '/upgrade';
     };
 
-    /* --- MODAL LOGIC --- */
     window.openDeleteModal = function(projectId) {
         const project = projectsData.get(projectId);
         if (!project) return;
@@ -337,10 +363,7 @@
     };
 
     window.openDeleteAllModal = function() {
-        if (allProjectsArray.length === 0) {
-            showMessage("No projects to delete.", true);
-            return;
-        }
+        if (allProjectsArray.length === 0) return;
         document.getElementById('delete-all-count').textContent = allProjectsArray.length;
         deleteAllModal.classList.remove('hidden');
         deleteAllModal.classList.add('flex');
@@ -382,7 +405,6 @@
         }, 300);
     };
 
-    /* --- DATA OPERATIONS --- */
     async function executeDeleteProject(projectId) {
         try {
             const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
@@ -393,18 +415,19 @@
     }
 
     async function executeDeleteAllProjects() {
+        const total = allProjectsArray.length;
         try {
             const batch = writeBatch(db);
-            allProjectsArray.forEach(project => {
-                const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', project.id);
+            allProjectsArray.forEach(p => {
+                const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', p.id);
                 batch.delete(docRef);
             });
             await batch.commit();
-            showMessage(`Successfully deleted ${allProjectsArray.length} projects.`, false);
+            showMessage(`Successfully deleted ${total} projects.`, false);
             window.closeDeleteAllModal();
-        } catch (e) { 
+        } catch (e) {
             console.error(e);
-            showMessage("Error deleting all projects", true); 
+            showMessage("Failed to delete all projects.", true);
         }
     }
 
@@ -434,7 +457,6 @@
 
     if (editForm) editForm.addEventListener('submit', handleEditFormSubmit);
 
-    /* --- RENDERING & FILTERING --- */
     window.filterProjects = function(query) {
         const searchTerm = query.toLowerCase().trim();
         let filteredProjects = allProjectsArray;
@@ -516,7 +538,6 @@
         lucide.createIcons();
     }
 
-    /* --- CORE LOGIC --- */
     function getProjects(userId) {
         const projectsRef = collection(db, 'artifacts', appId, 'users', userId, 'projects');
         const q = query(projectsRef);
@@ -567,7 +588,6 @@
         } catch (e) { console.error(e); }
     }
 
-    // Use the observer from firedashboard.js
     observeAuth((user) => {
         if (user) {
             currentUserId = user.uid;
