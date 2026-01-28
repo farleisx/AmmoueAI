@@ -75,7 +75,7 @@ window.createNewProject = () => {
     const url = new URL(window.location);
     url.searchParams.delete('id');
     window.history.pushState({}, '', url);
-    location.reload(); // Refresh to clear state safely
+    location.reload(); 
 };
 
 // --- LIVE CHAT LOGIC ---
@@ -93,7 +93,6 @@ window.sendChatMessage = async () => {
     const box = document.getElementById('chat-messages');
     box.innerHTML += `<div class="bg-indigo-50 dark:bg-indigo-900/20 p-2 rounded-lg text-[11px] mb-2 self-end">User: ${msg}</div>`;
     input.value = "";
-    // Future: Connect chat to AI help engine
     box.innerHTML += `<div class="bg-slate-100 dark:bg-slate-800 p-2 rounded-lg text-[11px] mb-2">AI: I can help you with components! Try asking "How do I add a Navbar?"</div>`;
     box.scrollTop = box.scrollHeight;
 };
@@ -132,7 +131,15 @@ window.startVoicePrompt = () => {
 };
 
 // --- DOWNLOAD CODE LOGIC ---
-window.downloadProjectSource = async () => {
+window.openDownloadModal = () => {
+    const modal = document.getElementById('download-modal');
+    const list = document.getElementById('download-file-list');
+    const files = Object.keys(projectState.pages).map(name => name === 'landing' ? 'index.html' : `${name}.html`);
+    list.innerHTML = files.map(f => `<div class="text-[11px] py-1 border-b dark:border-slate-800 flex justify-between"><span>📄 ${f}</span><span class="text-emerald-500">Ready</span></div>`).join('');
+    modal.classList.remove('hidden');
+};
+
+window.confirmDownload = async () => {
     const { default: JSZip } = await import("https://cdn.skypack.dev/jszip");
     const zip = new JSZip();
     Object.entries(projectState.pages).forEach(([name, html]) => {
@@ -144,6 +151,74 @@ window.downloadProjectSource = async () => {
     link.href = URL.createObjectURL(content);
     link.download = `ammoueai-project-${Date.now()}.zip`;
     link.click();
+    document.getElementById('download-modal').classList.add('hidden');
+};
+
+// --- COLLABORATION LOGIC ---
+window.copyCollaborationLink = () => {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url).then(() => {
+        const btn = document.getElementById('collab-btn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = "Copied!";
+        setTimeout(() => btn.innerHTML = originalText, 2000);
+    });
+};
+
+// --- AI STYLE PRESETS LOGIC ---
+window.applyStylePreset = (preset) => {
+    const styles = {
+        modern: { font: "'Inter', sans-serif", primary: "#4f46e5", bg: "#ffffff" },
+        midnight: { font: "'Space Grotesk', sans-serif", primary: "#06b6d4", bg: "#020617" },
+        neon: { font: "'Outfit', sans-serif", primary: "#f472b6", bg: "#0f172a" },
+        classic: { font: "'Playfair Display', serif", primary: "#1e293b", bg: "#f8fafc" }
+    };
+    const selection = styles[preset];
+    const frame = document.getElementById('preview-frame');
+    if (frame.contentDocument) {
+        const styleTag = frame.contentDocument.createElement('style');
+        styleTag.innerHTML = `
+            :root { --primary: ${selection.primary}; --bg: ${selection.bg}; }
+            body { font-family: ${selection.font} !important; }
+        `;
+        frame.contentDocument.head.appendChild(styleTag);
+    }
+};
+
+// --- AI SEO METADATA LOGIC ---
+window.generateSEOMetadata = () => {
+    const prompt = document.getElementById('user-prompt').value || "My Awesome Project";
+    const titleInput = document.getElementById('seo-title');
+    const descInput = document.getElementById('seo-description');
+    
+    // Simple logic to simulate AI suggestion based on user prompt
+    const suggestedTitle = prompt.split(' ').slice(0, 5).join(' ') + " | Built with AmmoueAI";
+    const suggestedDesc = `Explore this professional project: ${prompt}. Created using advanced AI design tools for a seamless user experience.`;
+    
+    titleInput.value = suggestedTitle;
+    descInput.value = suggestedDesc;
+};
+
+// --- ONE-CLICK FAVICON LOGIC ---
+window.setProjectFavicon = (emoji) => {
+    const canvas = document.createElement('canvas');
+    canvas.height = 64;
+    canvas.width = 64;
+    const ctx = canvas.getContext('2d');
+    ctx.font = '54px serif';
+    ctx.fillText(emoji, 0, 54);
+    const dataUri = canvas.toDataURL();
+    const frame = document.getElementById('preview-frame');
+    if (frame.contentDocument) {
+        let link = frame.contentDocument.querySelector("link[rel~='icon']");
+        if (!link) {
+            link = frame.contentDocument.createElement('link');
+            link.rel = 'icon';
+            frame.contentDocument.head.appendChild(link);
+        }
+        link.href = dataUri;
+        document.getElementById('current-favicon-display').innerText = emoji;
+    }
 };
 
 // --- THEME LOGIC ---
@@ -179,9 +254,9 @@ window.setViewport = (type) => {
 // --- MODAL LOGIC ---
 window.togglePublishModal = (show) => {
     ui.publishModal.classList.toggle('hidden', !show);
+    if (show) window.generateSEOMetadata(); // Generate SEO when modal opens
 };
 
-// Update Slug Preview
 ui.slugInput?.addEventListener('input', (e) => {
     document.getElementById('slug-preview').innerText = (e.target.value || 'my-awesome-website') + '.vercel.app';
 });
@@ -273,3 +348,26 @@ window.triggerDeploy = async () => {
         engine
     });
 };
+
+// --- NEW COMPONENT LIBRARY LOGIC ---
+window.addComponentToPrompt = (compName) => {
+    const promptArea = document.getElementById('user-prompt');
+    const addition = `\n[Add ${compName} component with modern styling]`;
+    promptArea.value += addition;
+    promptArea.scrollTop = promptArea.scrollHeight;
+};
+
+// --- UNIQUE PROJECT NAMING LOGIC ---
+window.generateUniqueProjectName = () => {
+    const adjectives = ["Velvet", "Neon", "Golden", "Silent", "Cosmic", "Swift", "Azure", "Emerald"];
+    const nouns = ["Pulse", "Nebula", "Flow", "Sphere", "Nexus", "Drift", "Aura", "Beacon"];
+    const name = adjectives[Math.floor(Math.random() * adjectives.length)] + " " + nouns[Math.floor(Math.random() * nouns.length)];
+    const nameDisplay = document.getElementById('project-name-display');
+    if (nameDisplay) nameDisplay.innerText = name;
+    return name;
+};
+
+// Initialize name on load if it's a new project
+if (!projectState.id) {
+    window.generateUniqueProjectName();
+}
