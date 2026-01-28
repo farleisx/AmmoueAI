@@ -306,7 +306,14 @@ ${JSON.stringify(activeStack)}
                   pages: {
                     mapValue: {
                       fields: Object.keys(files).reduce((acc, key) => {
-                        acc[key] = { mapValue: { fields: { content: { stringValue: files[key] } } } };
+                        // Map each filename to its own nested object structure correctly
+                        acc[key] = { 
+                          mapValue: { 
+                            fields: { 
+                              content: { stringValue: files[key] } 
+                            } 
+                          } 
+                        };
                         return acc;
                       }, {})
                     }
