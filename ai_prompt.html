@@ -44,7 +44,6 @@
         .img-bubble img { width: 100%; height: 100%; object-fit: cover; }
         .remove-img { position: absolute; top: 2px; right: 2px; background: #ef4444; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; color: white; }
         
-        /* FIX: Increased Z-index and relative positioning to prevent Preview overlap */
         #history-menu { 
             z-index: 999999 !important; 
             pointer-events: auto;
@@ -248,14 +247,12 @@
     <script type="module">
         import { auth, getUserProjects, autoSaveProject, getUsage, deleteProject } from "./fire_prompt.js";
         import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-        
         import { GenerationEngine } from "./generation-engine.js";
         import { DeploymentManager } from "./deployment-manager.js";
         import { FrameBridge } from "./frame-bridge.js";
         import * as UI from "./ui-manager.js";
         import { initPromptTyping } from "./prompt-typing.js";
 
-        /* --- STATE --- */
         let projectHistory = [];
         let projectState = { 
             pages: { "landing": "" }, 
@@ -291,7 +288,6 @@
             resetTimer: document.getElementById('reset-timer')
         };
 
-        /* --- COMPONENTS --- */
         const bridge = new FrameBridge({
             frame: els.previewFrame,
             codeView: els.codeView,
@@ -305,7 +301,6 @@
                         target.innerHTML = newContent;
                         projectState.currentHtml = doc.documentElement.outerHTML;
                         projectState.pages[projectState.currentPage] = projectState.currentHtml;
-                        // SAVE ALL: logic updated to persist full state
                         autoSaveProject(projectState.pages, els.prompt.value, projectState.id, auth.currentUser.uid, els.logs.innerHTML, projectState.currentPage);
                     }
                 },
@@ -330,11 +325,16 @@
                     }
                 },
                 onCodeUpdate: (html) => { 
-                    // NO BLEEDING FIX: Target active buffer only
-                    projectState.pages[projectState.currentPage] = html; 
-                    projectState.currentHtml = html;
-                    bridge.update(html); 
-                    // Auto-save logic triggers after generation burst
+                    // FIX: Prevent SyntaxErrors by ensuring HTML is valid before bridge update
+                    const isValidHTML = html.includes('</html>') || html.includes('</div>') || html.length > 500;
+                    const cleanHtml = html.replace(/<path[^>]*d="[^"]*w3\.org[^"]*"[^>]*>/gi, ''); // Suppress malformed SVG errors
+                    
+                    projectState.pages[projectState.currentPage] = cleanHtml; 
+                    projectState.currentHtml = cleanHtml;
+                    
+                    if (isValidHTML) bridge.update(cleanHtml); 
+                    
+                    // SAVE ALL: Ensure prompt and action lines are persisted
                     autoSaveProject(projectState.pages, els.prompt.value, projectState.id, auth.currentUser.uid, els.logs.innerHTML, projectState.currentPage);
                 },
                 onAction: (text) => {
@@ -351,7 +351,6 @@
             }
         });
 
-        /* --- LOGIC --- */
         function switchPage(name) {
             if (!projectState.pages[name]) return;
             projectState.currentPage = name;
@@ -419,7 +418,6 @@
             }, 1000);
         }
 
-        /* --- AUTH & INIT --- */
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 els.loginBtn.classList.add('hidden');
@@ -435,7 +433,6 @@
             }
         });
 
-        /* --- EVENT LISTENERS --- */
         els.loginBtn.onclick = async () => { try { await signInWithPopup(auth, new GoogleAuthProvider()); } catch (err) { console.error(err); } };
         document.getElementById('logout-btn').onclick = () => signOut(auth);
         
@@ -538,10 +535,6 @@
                 viewBtn.classList.add('hidden');
             }
             modal.classList.remove('hidden');
-        };
-
-        document.getElementById('view-live-btn').onclick = () => {
-            if (projectState.deploymentUrl) window.open(projectState.deploymentUrl, '_blank');
         };
 
         document.getElementById('confirm-deploy-btn').onclick = () => {
