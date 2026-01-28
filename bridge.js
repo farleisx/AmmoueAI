@@ -442,3 +442,54 @@ window.zoomImage = (src) => {
     document.getElementById('lightbox-img').src = src;
     lightbox.classList.remove('hidden');
 };
+
+// --- MOBILE NAVIGATION & UI VIEW LOGIC ---
+window.toggleMobileView = (view) => {
+    const sidebar = document.querySelector('aside');
+    const leftPanel = document.querySelector('.lg\\:w-80');
+    const centerPanel = document.querySelector('.flex-1.flex.flex-col.min-w-0');
+    
+    sidebar.classList.add('hidden');
+    leftPanel.classList.add('hidden');
+    centerPanel.classList.add('hidden');
+    
+    if (view === 'sidebar') sidebar.classList.remove('hidden');
+    if (view === 'prompt') leftPanel.classList.remove('hidden');
+    if (view === 'preview') centerPanel.classList.remove('hidden');
+};
+
+// --- LIVE TEXT SYNC & CODE VIEWER LOGIC ---
+window.toggleCodeView = () => {
+    const frame = document.getElementById('preview-frame');
+    const editor = document.getElementById('code-editor-view');
+    const btn = document.getElementById('code-view-toggle');
+    
+    if (editor.classList.contains('hidden')) {
+        editor.value = projectState.pages[projectState.currentPage];
+        editor.classList.remove('hidden');
+        frame.classList.add('hidden');
+        btn.innerText = "👁️ View Preview";
+    } else {
+        projectState.pages[projectState.currentPage] = editor.value;
+        const blob = new Blob([editor.value], { type: 'text/html' });
+        frame.src = URL.createObjectURL(blob);
+        editor.classList.add('hidden');
+        frame.classList.remove('hidden');
+        btn.innerText = "💻 View Code";
+    }
+};
+
+window.enableVisualEditing = () => {
+    const frame = document.getElementById('preview-frame');
+    const doc = frame.contentDocument || frame.contentWindow.document;
+    
+    doc.querySelectorAll('h1, h2, h3, p, span, button, a').forEach(el => {
+        el.contentEditable = "true";
+        el.style.outline = "none";
+        el.addEventListener('blur', () => {
+            projectState.pages[projectState.currentPage] = doc.documentElement.outerHTML;
+        });
+    });
+};
+
+ui.preview.onload = () => window.enableVisualEditing();
