@@ -1,3 +1,4 @@
+// generation-engine.js
 import { autoSaveProject } from "./fire_prompt.js";
 
 export class GenerationEngine {
