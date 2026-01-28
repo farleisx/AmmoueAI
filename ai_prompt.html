@@ -78,6 +78,28 @@
         
         #progress-bar { height: 3px; background: rgba(255,255,255,0.05); width: 100%; position: absolute; top: 0; left: 0; overflow: hidden; }
         #progress-fill { height: 100%; background: linear-gradient(90deg, #6366f1, #10b981); width: 0%; transition: width 0.3s ease; }
+
+        /* Copy Button Styling */
+        #copy-code-btn {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            z-index: 100;
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #94a3b8;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            transition: all 0.2s;
+        }
+        #copy-code-btn:hover {
+            background: #6366f1;
+            color: white;
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden">
@@ -131,6 +153,10 @@
         </div>
 
         <div class="flex items-center gap-4">
+            <div class="text-[9px] font-bold text-slate-500 uppercase tracking-widest border-r border-white/5 pr-4 mr-2">
+                Reset: <span id="reset-timer" class="text-indigo-400">00:00:00</span>
+            </div>
+
             <button id="undo-btn" class="text-slate-500 hover:text-white text-xs px-2 transition-all" title="Rollback Changes">
                 <i class="fa-solid fa-rotate-left"></i>
             </button>
@@ -211,7 +237,10 @@
         <section class="flex-1 flex items-center justify-center p-6 bg-[#010409] relative">
             <div id="preview-wrapper">
                 <iframe id="preview-frame" class="rounded-lg"></iframe>
-                <textarea id="code-view" class="hidden" readonly></textarea>
+                <div id="code-container" class="hidden w-full h-full relative">
+                    <button id="copy-code-btn"><i class="fa-regular fa-copy mr-2"></i>Copy Code</button>
+                    <textarea id="code-view" readonly></textarea>
+                </div>
             </div>
             <button id="stop-btn" class="hidden absolute bottom-12 bg-red-600 hover:bg-red-500 text-white px-8 py-3 rounded-2xl font-bold text-[10px] tracking-[0.2em] z-50 transition-all shadow-2xl shadow-red-500/20 uppercase">
                 STOP GENERATION
@@ -254,12 +283,15 @@
             pagesContainer: document.getElementById('pages-container'),
             previewFrame: document.getElementById('preview-frame'),
             codeView: document.getElementById('code-view'),
+            codeContainer: document.getElementById('code-container'),
+            copyBtn: document.getElementById('copy-code-btn'),
             userUi: document.getElementById('user-ui'),
             loginBtn: document.getElementById('login-btn'),
             userAvatar: document.getElementById('user-avatar'),
             usageBadge: document.getElementById('usage-badge'),
             projectSearch: document.getElementById('project-search'),
-            newProjectBtn: document.getElementById('new-project-btn')
+            newProjectBtn: document.getElementById('new-project-btn'),
+            resetTimer: document.getElementById('reset-timer')
         };
 
         /* --- COMPONENTS --- */
@@ -300,8 +332,11 @@
                     }
                 },
                 onCodeUpdate: (html) => { 
-                    projectState.currentHtml = html; 
+                    // CRITICAL FIX: Ensure update only targets the intended page (No bleeding)
                     projectState.pages[projectState.currentPage] = html; 
+                    projectState.currentHtml = html;
+                    
+                    // Only update the bridge/UI if we are looking at the same page
                     bridge.update(html); 
                 },
                 onAction: (text) => {
@@ -372,6 +407,19 @@
             });
         }
 
+        // Timer Logic
+        function startResetTimer() {
+            setInterval(() => {
+                const now = new Date();
+                const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+                const diff = tomorrow - now;
+                const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+                const mins = Math.floor((diff / (1000 * 60)) % 60);
+                const secs = Math.floor((diff / 1000) % 60);
+                els.resetTimer.innerText = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            }, 1000);
+        }
+
         /* --- AUTH & INIT --- */
         onAuthStateChanged(auth, async (user) => {
             if (user) {
@@ -382,6 +430,7 @@
                 els.usageBadge.innerText = `Credits: ${usage.dailyCount || 0}/${usage.plan === 'pro' ? 10 : 5}`;
                 UI.generateCoolName(els.slugInput);
                 refreshProjects(user.uid);
+                startResetTimer();
             } else {
                 window.location.href = "/login";
             }
@@ -417,6 +466,21 @@
                 UI.showNotification("Rolled back to previous version");
             } else {
                 UI.showNotification("No history to rollback", "error");
+            }
+        };
+
+        els.copyBtn.onclick = async () => {
+            try {
+                await navigator.clipboard.writeText(els.codeView.value);
+                const originalText = els.copyBtn.innerHTML;
+                els.copyBtn.innerHTML = '<i class="fa-solid fa-check mr-2"></i>Copied!';
+                els.copyBtn.style.background = '#10b981';
+                setTimeout(() => {
+                    els.copyBtn.innerHTML = originalText;
+                    els.copyBtn.style.background = '';
+                }, 2000);
+            } catch (err) {
+                UI.showNotification("Failed to copy", "error");
             }
         };
 
@@ -512,8 +576,17 @@
             }
         };
 
-        document.getElementById('toggle-code').onclick = () => UI.toggleView('code', els.previewFrame, els.codeView, {code: document.getElementById('toggle-code'), preview: document.getElementById('toggle-preview')}, projectState.currentHtml);
-        document.getElementById('toggle-preview').onclick = () => UI.toggleView('preview', els.previewFrame, els.codeView, {code: document.getElementById('toggle-code'), preview: document.getElementById('toggle-preview')});
+        document.getElementById('toggle-code').onclick = () => {
+            UI.toggleView('code', els.previewFrame, els.codeView, {code: document.getElementById('toggle-code'), preview: document.getElementById('toggle-preview')}, projectState.currentHtml);
+            els.codeContainer.classList.remove('hidden');
+            els.previewFrame.classList.add('hidden');
+        };
+        
+        document.getElementById('toggle-preview').onclick = () => {
+            UI.toggleView('preview', els.previewFrame, els.codeView, {code: document.getElementById('toggle-code'), preview: document.getElementById('toggle-preview')});
+            els.codeContainer.classList.add('hidden');
+            els.previewFrame.classList.remove('hidden');
+        };
 
         UI.initVoice(document.getElementById('voice-btn'), els.prompt); 
         UI.setupImageUpload(document.getElementById('img-input'), els.imgTray, projectState, UI.renderImages);
