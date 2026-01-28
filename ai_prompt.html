@@ -80,10 +80,6 @@
                     <button onclick="setProjectFavicon('⚡')" class="emoji-btn hover:bg-white dark:hover:bg-slate-700 p-1 rounded">⚡</button>
                     <button onclick="setProjectFavicon('🔥')" class="emoji-btn hover:bg-white dark:hover:bg-slate-700 p-1 rounded">🔥</button>
                     <button onclick="setProjectFavicon('🎨')" class="emoji-btn hover:bg-white dark:hover:bg-slate-700 p-1 rounded">🎨</button>
-                    <button onclick="setProjectFavicon('💎')" class="emoji-btn hover:bg-white dark:hover:bg-slate-700 p-1 rounded">💎</button>
-                    <button onclick="setProjectFavicon('📦')" class="emoji-btn hover:bg-white dark:hover:bg-slate-700 p-1 rounded">📦</button>
-                    <button onclick="setProjectFavicon('🌐')" class="emoji-btn hover:bg-white dark:hover:bg-slate-700 p-1 rounded">🌐</button>
-                    <button onclick="setProjectFavicon('✨')" class="emoji-btn hover:bg-white dark:hover:bg-slate-700 p-1 rounded">✨</button>
                 </div>
             </div>
 
@@ -92,7 +88,6 @@
                 <div class="space-y-2">
                     <button onclick="addComponentToPrompt('Pricing Table')" class="w-full text-left p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-bold hover:border-indigo-500 transition-all dark:text-slate-300">📊 Pricing Table</button>
                     <button onclick="addComponentToPrompt('Testimonials Grid')" class="w-full text-left p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-bold hover:border-indigo-500 transition-all dark:text-slate-300">💬 Testimonials</button>
-                    <button onclick="addComponentToPrompt('FAQ Accordion')" class="w-full text-left p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-bold hover:border-indigo-500 transition-all dark:text-slate-300">❓ FAQ Section</button>
                 </div>
             </div>
 
@@ -107,7 +102,6 @@
                         <div class="flex gap-2 overflow-x-auto hide-scrollbar py-1">
                             <button onclick="applySuggestion('Minimalist SaaS')" class="whitespace-nowrap px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-full text-[10px] font-bold text-slate-500 hover:text-indigo-500 transition-colors">✨ SaaS</button>
                             <button onclick="applySuggestion('Luxury Portfolio')" class="whitespace-nowrap px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-full text-[10px] font-bold text-slate-500 hover:text-indigo-500 transition-colors">🎨 Portfolio</button>
-                            <button onclick="applySuggestion('Modern E-commerce')" class="whitespace-nowrap px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-full text-[10px] font-bold text-slate-500 hover:text-indigo-500 transition-colors">🛒 Shop</button>
                         </div>
                         <div class="relative">
                             <textarea id="user-prompt" class="w-full h-48 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 pr-14 text-sm focus:ring-2 ring-indigo-100 dark:ring-indigo-900 outline-none resize-none dark:text-white" placeholder=""></textarea>
@@ -131,6 +125,10 @@
                         <div id="thinking-box" class="flex-1 flex flex-col gap-2 min-h-0 overflow-hidden pt-2">
                             <label class="text-[10px] uppercase font-extrabold text-slate-400 tracking-widest text-slate-400">Logs</label>
                             <div id="action-logs" class="flex-1 overflow-y-auto text-[11px] space-y-2 text-slate-500 dark:text-slate-400 font-medium"></div>
+                        </div>
+                        
+                        <div id="progress-bar" class="hidden w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mt-2">
+                            <div id="progress-fill" class="h-full bg-indigo-500 w-0 transition-all"></div>
                         </div>
                     </div>
                 </div>
@@ -160,14 +158,6 @@
                 <div>
                     <label class="text-[10px] uppercase font-extrabold text-slate-400 mb-1 block">Domain Slug</label>
                     <input type="text" id="site-slug" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 outline-none focus:ring-2 ring-indigo-100 dark:text-white">
-                </div>
-                <div>
-                    <label class="text-[10px] uppercase font-extrabold text-slate-400 mb-1 block">SEO Title</label>
-                    <input type="text" id="seo-title" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs dark:text-white">
-                </div>
-                <div>
-                    <label class="text-[10px] uppercase font-extrabold text-slate-400 mb-1 block">SEO Description</label>
-                    <textarea id="seo-description" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs h-20 resize-none dark:text-white"></textarea>
                 </div>
             </div>
             <div class="flex gap-3">
