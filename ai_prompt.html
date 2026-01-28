@@ -44,20 +44,18 @@
         .img-bubble img { width: 100%; height: 100%; object-fit: cover; }
         .remove-img { position: absolute; top: 2px; right: 2px; background: #ef4444; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; color: white; }
         
-        /* FIX: High Z-index and 3s Hover Fade Logic */
+        /* FIX: Increased Z-index and relative positioning to prevent Preview overlap */
         #history-menu { 
-            z-index: 99999 !important; 
+            z-index: 999999 !important; 
             pointer-events: auto;
             visibility: hidden;
             opacity: 0;
-            /* Fades out after 3 seconds of no hover */
             transition: opacity 0.4s ease, visibility 0s linear 3s;
             box-shadow: 0 30px 60px rgba(0,0,0,0.8);
             backdrop-filter: blur(24px);
             background: rgba(15, 23, 42, 0.98);
         }
 
-        /* Show immediately on group hover */
         .group:hover #history-menu { 
             visibility: visible; 
             opacity: 1; 
@@ -79,7 +77,6 @@
         #progress-bar { height: 3px; background: rgba(255,255,255,0.05); width: 100%; position: absolute; top: 0; left: 0; overflow: hidden; }
         #progress-fill { height: 100%; background: linear-gradient(90deg, #6366f1, #10b981); width: 0%; transition: width 0.3s ease; }
 
-        /* Copy Button Styling */
         #copy-code-btn {
             position: absolute;
             top: 1rem;
@@ -259,7 +256,7 @@
         import { initPromptTyping } from "./prompt-typing.js";
 
         /* --- STATE --- */
-        let projectHistory = []; // Added for Undo/Rollback
+        let projectHistory = [];
         let projectState = { 
             pages: { "landing": "" }, 
             currentPage: "landing", 
@@ -276,7 +273,7 @@
             shareBtn: document.getElementById('share-link-btn'),
             genBtn: document.getElementById('gen-btn'),
             stopBtn: document.getElementById('stop-btn'),
-            undoBtn: document.getElementById('undo-btn'), // Added
+            undoBtn: document.getElementById('undo-btn'),
             slugInput: document.getElementById('slug-input'),
             historyList: document.getElementById('history-list'),
             imgTray: document.getElementById('img-tray'),
@@ -308,6 +305,7 @@
                         target.innerHTML = newContent;
                         projectState.currentHtml = doc.documentElement.outerHTML;
                         projectState.pages[projectState.currentPage] = projectState.currentHtml;
+                        // SAVE ALL: logic updated to persist full state
                         autoSaveProject(projectState.pages, els.prompt.value, projectState.id, auth.currentUser.uid, els.logs.innerHTML, projectState.currentPage);
                     }
                 },
@@ -332,12 +330,12 @@
                     }
                 },
                 onCodeUpdate: (html) => { 
-                    // CRITICAL FIX: Ensure update only targets the intended page (No bleeding)
+                    // NO BLEEDING FIX: Target active buffer only
                     projectState.pages[projectState.currentPage] = html; 
                     projectState.currentHtml = html;
-                    
-                    // Only update the bridge/UI if we are looking at the same page
                     bridge.update(html); 
+                    // Auto-save logic triggers after generation burst
+                    autoSaveProject(projectState.pages, els.prompt.value, projectState.id, auth.currentUser.uid, els.logs.innerHTML, projectState.currentPage);
                 },
                 onAction: (text) => {
                     const log = document.createElement('div');
@@ -386,8 +384,10 @@
                 projectState.id = proj.id;
                 projectState.pages = proj.pages || { "landing": proj.htmlContent };
                 projectState.deploymentUrl = proj.deploymentUrl || null;
-                projectState.currentPage = Object.keys(projectState.pages)[0];
+                projectState.currentPage = proj.currentPage || Object.keys(projectState.pages)[0];
                 
+                // RESTORE PROMPT AND LOGS
+                if (proj.promptText) els.prompt.value = proj.promptText;
                 if (proj.logsContent) {
                     els.logs.innerHTML = proj.logsContent;
                     document.getElementById('thinking-box').classList.remove('hidden');
@@ -407,7 +407,6 @@
             });
         }
 
-        // Timer Logic
         function startResetTimer() {
             setInterval(() => {
                 const now = new Date();
@@ -441,7 +440,6 @@
         document.getElementById('logout-btn').onclick = () => signOut(auth);
         
         els.genBtn.onclick = () => {
-            // Push current state to history for undo
             projectHistory.push(JSON.parse(JSON.stringify(projectState.pages)));
             if (projectHistory.length > 20) projectHistory.shift();
 
@@ -457,7 +455,6 @@
             });
         };
 
-        // Undo Feature Implementation
         els.undoBtn.onclick = () => {
             if (projectHistory.length > 0) {
                 projectState.pages = projectHistory.pop();
