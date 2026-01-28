@@ -3,6 +3,7 @@ import { GenerationEngine } from "./generation-engine.js";
 import { DeploymentManager } from "./deployment-manager.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+import { initPromptTyping } from "./prompt-typing.js"; 
 
 // --- GLOBAL STATE ---
 export const projectState = {
@@ -30,7 +31,7 @@ const ui = {
     publishModal: document.getElementById('publish-modal'),
     slugInput: document.getElementById('site-slug'),
     downloadBtn: document.getElementById('download-btn'),
-    voiceBtn: document.getElementById('voice-btn') // New Voice UI selector
+    voiceBtn: document.getElementById('voice-btn')
 };
 
 // --- ENGINE INIT ---
@@ -69,24 +70,63 @@ const deployer = new DeploymentManager({
     }
 });
 
+// --- NEW PROJECT LOGIC ---
+window.createNewProject = () => {
+    const url = new URL(window.location);
+    url.searchParams.delete('id');
+    window.history.pushState({}, '', url);
+    location.reload(); // Refresh to clear state safely
+};
+
+// --- LIVE CHAT LOGIC ---
+window.toggleChat = () => {
+    const chat = document.getElementById('chat-widget');
+    chat.classList.toggle('translate-y-full');
+    chat.classList.toggle('opacity-0');
+    chat.classList.toggle('pointer-events-none');
+};
+
+window.sendChatMessage = async () => {
+    const input = document.getElementById('chat-input');
+    const msg = input.value.trim();
+    if (!msg) return;
+    const box = document.getElementById('chat-messages');
+    box.innerHTML += `<div class="bg-indigo-50 dark:bg-indigo-900/20 p-2 rounded-lg text-[11px] mb-2 self-end">User: ${msg}</div>`;
+    input.value = "";
+    // Future: Connect chat to AI help engine
+    box.innerHTML += `<div class="bg-slate-100 dark:bg-slate-800 p-2 rounded-lg text-[11px] mb-2">AI: I can help you with components! Try asking "How do I add a Navbar?"</div>`;
+    box.scrollTop = box.scrollHeight;
+};
+
+// --- PROMPT SUGGESTIONS LOGIC ---
+const suggestions = [
+    "A minimalist portfolio for a creative director",
+    "A high-converting SaaS landing page",
+    "A luxury coffee shop website with a menu",
+    "A dark-themed crypto dashboard UI",
+    "An elegant wedding invitation page"
+];
+
+initPromptTyping(document.getElementById('user-prompt'), suggestions);
+
+window.applySuggestion = (text) => {
+    document.getElementById('user-prompt').value = text;
+};
+
 // --- VOICE PROMPT LOGIC ---
 window.startVoicePrompt = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) return alert("Voice recognition not supported in this browser.");
-
     const recognition = new SpeechRecognition();
     recognition.lang = 'en-US';
     recognition.interimResults = false;
-
     ui.voiceBtn.classList.add('animate-pulse', 'text-red-500');
     recognition.start();
-
     recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
         document.getElementById('user-prompt').value += (document.getElementById('user-prompt').value ? " " : "") + transcript;
         ui.voiceBtn.classList.remove('animate-pulse', 'text-red-500');
     };
-
     recognition.onerror = () => ui.voiceBtn.classList.remove('animate-pulse', 'text-red-500');
     recognition.onend = () => ui.voiceBtn.classList.remove('animate-pulse', 'text-red-500');
 };
@@ -95,12 +135,10 @@ window.startVoicePrompt = () => {
 window.downloadProjectSource = async () => {
     const { default: JSZip } = await import("https://cdn.skypack.dev/jszip");
     const zip = new JSZip();
-
     Object.entries(projectState.pages).forEach(([name, html]) => {
         const fileName = name === 'landing' ? 'index.html' : `${name}.html`;
         zip.file(fileName, html);
     });
-
     const content = await zip.generateAsync({ type: "blob" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(content);
@@ -142,6 +180,11 @@ window.setViewport = (type) => {
 window.togglePublishModal = (show) => {
     ui.publishModal.classList.toggle('hidden', !show);
 };
+
+// Update Slug Preview
+ui.slugInput?.addEventListener('input', (e) => {
+    document.getElementById('slug-preview').innerText = (e.target.value || 'my-awesome-website') + '.vercel.app';
+});
 
 // --- PROJECT LOADING LOGIC ---
 async function loadProjectData(projectId, userId) {
@@ -185,7 +228,6 @@ ui.imageInput.addEventListener('change', async (e) => {
     const files = Array.from(e.target.files);
     ui.imagePreview.innerHTML = '';
     projectState.attachedImages = [];
-
     for (const file of files) {
         const reader = new FileReader();
         reader.onload = (event) => {
