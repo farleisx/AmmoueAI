@@ -1,407 +1,58 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AmmoueAI | AI Builder</title>
-    <link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">
+    <title>AI Web Builder | Studio</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        :root {
-            --accent: #6366f1;
-            --accent-hover: #818cf8;
-            --midnight: #020617;
-            --slate-luxury: #0f172a;
-            --emerald: #10b981;
-            --platinum: #f8fafc;
-            --glass-border: rgba(255, 255, 255, 0.08);
-        }
-
-        body::before {
-            content: "";
-            position: fixed;
-            inset: 0;
-            background: 
-                radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.1), transparent 35%),
-                radial-gradient(circle at 100% 100%, rgba(16, 185, 129, 0.05), transparent 35%);
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        body { font-family: 'Inter', system-ui, sans-serif; background: var(--midnight); color: var(--platinum); position: relative; }
-        body > * { position: relative; z-index: 1; }
-        
-        #preview-wrapper { z-index: 10; position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-        #preview-frame { transition: all 0.4s ease; background: white; border: none; width: 100%; height: 100%; box-shadow: 0 0 40px rgba(0,0,0,0.3); }
-        
-        #code-view { height: 100%; width: 100%; border: none; font-family: 'Fira Code', monospace; font-size: 13px; outline: none; resize: none; color: #94a3b8; background: #010409; padding: 2rem; }
-        
-        .mobile-view { width: 375px !important; height: 667px !important; border: 16px solid #1e293b !important; border-radius: 48px; box-shadow: 0 50px 100px -20px rgba(0,0,0,0.7); }
-        
-        .img-bubble { position: relative; width: 56px; height: 56px; border-radius: 12px; border: 1px solid var(--glass-border); overflow: hidden; background: #1e293b; }
-        .img-bubble img { width: 100%; height: 100%; object-fit: cover; }
-        .remove-img { position: absolute; top: 2px; right: 2px; background: #ef4444; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; color: white; }
-        
-        #history-menu { 
-            z-index: 999999 !important; 
-            pointer-events: auto;
-            visibility: hidden;
-            opacity: 0;
-            transition: opacity 0.4s ease, visibility 0s linear 3s;
-            box-shadow: 0 30px 60px rgba(0,0,0,0.8);
-            backdrop-filter: blur(24px);
-            background: rgba(15, 23, 42, 0.98);
-        }
-
-        .group:hover #history-menu { 
-            visibility: visible; 
-            opacity: 1; 
-            transition-delay: 0s; 
-        }
-
-        .btn-luxury { 
-            background: var(--accent);
-            color: white; font-weight: 600; transition: all 0.2s ease; 
-            display: flex; align-items: center; justify-content: center;
-        }
-        .btn-luxury:hover { background: var(--accent-hover); transform: translateY(-1px); }
-        
-        .nav-glass { background: rgba(2, 6, 23, 0.8); backdrop-filter: blur(12px); border-bottom: 1px solid var(--glass-border); }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-
-        .panel-bg { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(10px); border: 1px solid var(--glass-border); }
-        
-        #progress-bar { height: 3px; background: rgba(255,255,255,0.05); width: 100%; position: absolute; top: 0; left: 0; overflow: hidden; }
-        #progress-fill { height: 100%; background: linear-gradient(90deg, #6366f1, #10b981); width: 0%; transition: width 0.3s ease; }
-
-        #copy-code-btn {
-            position: absolute;
-            top: 1rem;
-            right: 1rem;
-            z-index: 100;
-            background: rgba(30, 41, 59, 0.7);
-            border: 1px solid rgba(255,255,255,0.1);
-            color: #94a3b8;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            font-size: 10px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            transition: all 0.2s;
-        }
-        #copy-code-btn:hover {
-            background: #6366f1;
-            color: white;
-        }
+        body { background: #020617; color: #f8fafc; overflow: hidden; }
+        .glass { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
+        #preview-frame { background: white; border-radius: 8px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
     </style>
 </head>
-<body class="h-screen flex flex-col overflow-hidden">
+<body class="h-screen flex flex-col">
 
-    <div id="limit-modal" class="hidden fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
-        <div class="bg-[#0f172a] border border-indigo-500/30 rounded-3xl max-w-sm w-full p-8 text-center shadow-2xl">
-            <div class="w-20 h-20 bg-indigo-500/10 text-indigo-400 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl border border-indigo-500/20">
-                <i class="fa-solid fa-crown"></i>
-            </div>
-            <h3 class="text-2xl font-bold text-white mb-3">UPGRADE PLAN</h3>
-            <button onclick="document.getElementById('limit-modal').classList.add('hidden')" class="btn-luxury w-full py-4 rounded-2xl">GO PRO</button>
-        </div>
-    </div>
-
-    <div id="confirm-modal" class="hidden fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
-        <div class="bg-[#1e293b] border border-white/10 rounded-3xl max-w-sm w-full p-10 shadow-2xl text-center">
-            <div id="modal-initial-view">
-                <div class="mb-6">
-                    <i id="modal-icon" class="fa-solid fa-rocket text-4xl text-indigo-500 mb-4"></i>
-                    <h3 id="modal-title" class="text-xl font-bold text-white tracking-tight">Deployment Ready</h3>
-                    <p id="modal-desc" class="text-sm text-slate-400 mt-2">Ready to push your changes to the cloud?</p>
-                </div>
-                <div class="bg-black/20 border border-white/5 p-4 rounded-2xl mb-8">
-                    <p id="confirm-slug-display" class="text-indigo-400 font-mono text-sm truncate"></p>
-                </div>
-                <div id="modal-actions" class="flex flex-col gap-3">
-                    <div class="flex gap-4">
-                        <button id="cancel-deploy-btn" class="flex-1 text-slate-400 text-xs font-bold uppercase tracking-wider hover:text-white transition">Cancel</button>
-                        <button id="confirm-deploy-btn" class="flex-1 bg-indigo-600 text-white font-bold py-4 rounded-2xl text-xs uppercase tracking-wider">Deploy Now</button>
-                    </div>
-                    <button id="view-live-btn" class="hidden w-full bg-white/5 border border-white/10 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-wider hover:bg-white/10 transition">View Live Site</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <nav class="nav-glass px-6 py-4 flex justify-between items-center z-[1000]">
-        <div class="flex items-center gap-6">
-            <a href="/dashboard" class="text-slate-400 hover:text-white transition-all">
-                <i class="fa-solid fa-layer-group text-lg"></i>
-            </a>
-            <span class="text-white font-bold tracking-tighter text-xl uppercase">Ammoue<span class="text-indigo-500">AI</span></span>
-            
-            <div class="flex bg-slate-900 rounded-lg p-1 gap-1 border border-white/5">
-                <button id="toggle-preview" class="px-4 py-1.5 text-[10px] font-bold rounded-md bg-indigo-600 text-white shadow-lg">PREVIEW</button>
-                <button id="toggle-code" class="px-4 py-1.5 text-[10px] font-bold rounded-md text-slate-400 hover:text-white">CODE</button>
-                <button id="toggle-mobile" class="px-3 py-1.5 text-[10px] text-slate-500 hover:text-indigo-400 border-l border-white/5 ml-1">
-                    <i id="mobile-icon" class="fa-solid fa-mobile-screen"></i>
-                </button>
-            </div>
-        </div>
-
+    <header class="h-14 border-b border-white/10 flex items-center justify-between px-6 glass z-50">
         <div class="flex items-center gap-4">
-            <div class="text-[9px] font-bold text-slate-500 uppercase tracking-widest border-r border-white/5 pr-4 mr-2">
-                Reset: <span id="reset-timer" class="text-indigo-400">00:00:00</span>
-            </div>
-
-            <button id="undo-btn" class="text-slate-500 hover:text-white text-xs px-2 transition-all" title="Rollback Changes">
-                <i class="fa-solid fa-rotate-left"></i>
-            </button>
-            <div id="publish-controls" class="flex items-center gap-2 bg-slate-900 p-1.5 rounded-xl border border-white/5">
-                <input id="slug-input" type="text" placeholder="Project name..." class="bg-transparent border-none outline-none text-xs text-white px-3 w-36 placeholder:text-slate-600">
-                <button id="publish-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold px-5 py-2 rounded-lg transition uppercase tracking-wider">Publish</button>
-                <button id="share-link-btn" class="hidden text-slate-400 hover:text-indigo-400 px-2 transition-all">
-                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
-                </button>
-            </div>
-            <div id="user-ui" class="hidden flex items-center gap-4 border-l border-white/5 pl-4">
-                <img id="user-avatar" class="w-8 h-8 rounded-full border border-indigo-500/30">
-                <button id="logout-btn" class="text-[10px] text-slate-500 hover:text-white uppercase font-bold">Sign Out</button>
-            </div>
-            <button id="login-btn" class="btn-luxury text-[10px] px-6 py-2.5 rounded-xl">SIGN IN</button>
+            <span class="font-black tracking-tighter text-xl bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">AMMOUE.AI</span>
+            <div id="tab-container" class="flex gap-2 ml-8">
+                </div>
         </div>
-    </nav>
+        <div class="flex gap-3">
+            <button id="publish-btn" onclick="triggerDeploy()" class="bg-indigo-600 hover:bg-indigo-500 px-4 py-1.5 rounded-full text-sm font-bold transition-all">
+                DEPLOY SITE
+            </button>
+        </div>
+    </header>
 
-    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
-        <aside class="w-full md:w-[420px] border-r border-white/5 p-6 flex flex-col gap-6 bg-[#020617] overflow-y-auto">
-            <div id="page-navigator" class="flex items-center gap-2 overflow-x-auto pb-2 border-b border-white/5 no-scrollbar">
-                <div id="pages-container" class="flex gap-2"></div>
+    <main class="flex-1 flex overflow-hidden">
+        <aside class="w-80 border-r border-white/10 flex flex-col p-4 gap-4 glass">
+            <div class="space-y-2">
+                <label class="text-[10px] uppercase font-bold text-slate-500 tracking-widest">Prompt Engineering</label>
+                <textarea id="user-prompt" class="w-full h-40 bg-slate-900/50 border border-white/10 rounded-xl p-3 text-sm focus:ring-2 ring-indigo-500 outline-none resize-none" placeholder="Describe your website..."></textarea>
             </div>
 
-            <div class="flex justify-between items-center">
-                <div class="flex gap-2">
-                    <button id="new-project-btn" class="bg-slate-900 hover:bg-slate-800 text-[10px] font-bold px-4 py-2 rounded-lg border border-white/5 uppercase tracking-wider text-slate-300">NEW PROJECT</button>
-                    <button id="export-btn" class="bg-slate-900 hover:bg-slate-800 text-[10px] font-bold px-4 py-2 rounded-lg border border-white/5 text-slate-300"><i class="fa-solid fa-download"></i></button>
+            <button id="generate-btn" onclick="triggerGenerate()" class="w-full py-3 bg-white text-black font-bold rounded-xl hover:bg-slate-200 transition-all flex items-center justify-center gap-2">
+                <span>GENERATE</span>
+                <div id="progress-bar" class="hidden w-12 h-1 bg-slate-300 rounded-full overflow-hidden">
+                    <div id="progress-fill" class="h-full bg-indigo-600 w-0 transition-all duration-300"></div>
                 </div>
-                <div class="relative group">
-                    <button class="p-2 text-slate-500 hover:text-indigo-400 transition">
-                        <i class="fa-solid fa-database text-lg"></i>
-                    </button>
-                    <div id="history-menu" class="absolute left-0 top-full mt-2 w-80 rounded-2xl p-4 max-h-[500px] overflow-hidden">
-                        <h2 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Project History</h2>
-                        <div class="relative mb-4">
-                            <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 text-[10px]"></i>
-                            <input type="text" id="project-search" placeholder="Filter projects..." class="w-full bg-black/20 border border-white/5 rounded-xl py-2 pl-9 pr-4 text-xs text-white focus:outline-none focus:border-indigo-500/50 transition">
-                        </div>
-                        <div id="history-list" class="space-y-2 overflow-y-auto max-h-[350px] pr-1"></div>
-                    </div>
-                </div>
-            </div>
+            </button>
 
-            <div class="flex-1 flex flex-col overflow-hidden">
-                <div class="flex justify-between items-end mb-4">
-                    <h2 class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Prompt Engineer</h2>
-                    <div id="usage-badge" class="text-[9px] font-bold px-2 py-1 bg-indigo-500/10 rounded border border-indigo-500/20 text-indigo-300 uppercase">Credits: --/--</div>
-                </div>
-                
-                <div id="thinking-box" class="hidden mb-4 overflow-y-auto max-h-[140px] bg-black/20 rounded-xl border border-white/5 relative">
-                    <div id="progress-bar" class="hidden"><div id="progress-fill"></div></div>
-                    <div id="logs" class="space-y-1 p-4 pt-6"></div>
-                </div>
-
-                <div class="flex-1 flex flex-col bg-slate-900/50 border border-white/5 rounded-3xl p-5 relative">
-                    <div id="img-tray" class="flex flex-wrap gap-2 mb-4 empty:hidden"></div>
-                    <textarea id="user-prompt" class="flex-1 w-full bg-transparent border-none outline-none text-sm text-slate-200 resize-none placeholder:text-slate-600 leading-relaxed" placeholder="Describe your vision here..."></textarea>
-                    
-                    <div class="flex justify-between items-center mt-4 pt-4 border-t border-white/5">
-                        <div class="flex items-center gap-2">
-                            <label class="cursor-pointer text-slate-500 hover:text-indigo-400 p-2">
-                                <i class="fa-solid fa-paperclip text-lg"></i>
-                                <input type="file" id="img-input" class="hidden" accept="image/*" multiple>
-                            </label>
-                            <button id="voice-btn" class="text-slate-500 hover:text-indigo-400 p-2">
-                                <i class="fa-solid fa-microphone text-lg"></i>
-                            </button>
-                        </div>
-                        <button id="gen-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white w-14 h-14 rounded-2xl flex items-center justify-center active:scale-95 shadow-xl shadow-indigo-500/20 transition-all">
-                            <i class="fa-solid fa-wand-magic-sparkles text-lg"></i>
-                        </button>
-                    </div>
+            <div id="thinking-box" class="hidden flex-1 flex flex-col gap-2 overflow-hidden">
+                <label class="text-[10px] uppercase font-bold text-slate-500 tracking-widest">System Logs</label>
+                <div id="action-logs" class="flex-1 bg-black/40 rounded-xl p-3 font-mono text-[10px] overflow-y-auto border border-white/5 space-y-1">
+                    <div class="text-emerald-500">> System Ready...</div>
                 </div>
             </div>
         </aside>
 
-        <section class="flex-1 flex items-center justify-center p-6 bg-[#010409] relative">
-            <div id="preview-wrapper">
-                <iframe id="preview-frame" class="rounded-lg"></iframe>
-                <div id="code-container" class="hidden w-full h-full relative">
-                    <button id="copy-code-btn"><i class="fa-regular fa-copy mr-2"></i>Copy Code</button>
-                    <textarea id="code-view" readonly></textarea>
-                </div>
-            </div>
-            <button id="stop-btn" class="hidden absolute bottom-12 bg-red-600 hover:bg-red-500 text-white px-8 py-3 rounded-2xl font-bold text-[10px] tracking-[0.2em] z-50 transition-all shadow-2xl shadow-red-500/20 uppercase">
-                STOP GENERATION
-            </button>
+        <section class="flex-1 bg-slate-950 p-6 relative">
+            <iframe id="preview-frame" class="w-full h-full border-none shadow-2xl"></iframe>
         </section>
     </main>
 
-    <script type="module">
-        import { auth, getUserProjects, autoSaveProject, getUsage, deleteProject } from "./fire_prompt.js";
-        import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-        import { GenerationEngine } from "./generation-engine.js";
-        import { DeploymentManager } from "./deployment-manager.js";
-        import { FrameBridge } from "./frame-bridge.js";
-        import * as UI from "./ui-manager.js";
-        import { initPromptTyping } from "./prompt-typing.js";
-
-        let projectHistory = [];
-        let projectState = { 
-            pages: { "landing": "" }, 
-            currentPage: "landing", 
-            currentHtml: "", 
-            id: null, 
-            attachedImages: [], 
-            deploymentUrl: null 
-        };
-
-        const els = {
-            prompt: document.getElementById('user-prompt'),
-            logs: document.getElementById('logs'),
-            publishBtn: document.getElementById('publish-btn'),
-            shareBtn: document.getElementById('share-link-btn'),
-            genBtn: document.getElementById('gen-btn'),
-            stopBtn: document.getElementById('stop-btn'),
-            undoBtn: document.getElementById('undo-btn'),
-            slugInput: document.getElementById('slug-input'),
-            historyList: document.getElementById('history-list'),
-            imgTray: document.getElementById('img-tray'),
-            pagesContainer: document.getElementById('pages-container'),
-            previewFrame: document.getElementById('preview-frame'),
-            codeView: document.getElementById('code-view'),
-            codeContainer: document.getElementById('code-container'),
-            copyBtn: document.getElementById('copy-code-btn'),
-            userUi: document.getElementById('user-ui'),
-            loginBtn: document.getElementById('login-btn'),
-            userAvatar: document.getElementById('user-avatar'),
-            usageBadge: document.getElementById('usage-badge'),
-            projectSearch: document.getElementById('project-search'),
-            newProjectBtn: document.getElementById('new-project-btn'),
-            resetTimer: document.getElementById('reset-timer')
-        };
-
-        const bridge = new FrameBridge({
-            frame: els.previewFrame,
-            codeView: els.codeView,
-            callbacks: {
-                onSyncText: (syncId, newContent) => {
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(projectState.currentHtml, 'text/html');
-                    const textTags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'li', 'button'];
-                    const target = doc.querySelectorAll(textTags.join(','))[syncId];
-                    if (target) {
-                        target.innerHTML = newContent;
-                        projectState.currentHtml = doc.documentElement.outerHTML;
-                        projectState.pages[projectState.currentPage] = projectState.currentHtml;
-                        autoSaveProject(projectState.pages, els.prompt.value, projectState.id, auth.currentUser.uid, els.logs.innerHTML, projectState.currentPage);
-                    }
-                },
-                onSwitchPage: (name) => switchPage(name)
-            }
-        });
-
-        const engine = new GenerationEngine({
-            ui: { 
-                genBtn: els.genBtn, 
-                logs: els.logs, 
-                thinkingBox: document.getElementById('thinking-box'),
-                progressBar: document.getElementById('progress-bar'),
-                progressFill: document.getElementById('progress-fill')
-            },
-            callbacks: {
-                onNewPage: (name) => engine.renderTabs(projectState, els.pagesContainer),
-                onCodeUpdate: (html, targetPage) => { 
-                    // Update the state
-                    projectState.pages[targetPage] = html;
-                    
-                    // If we are currently looking at the page being updated, refresh the preview
-                    if (targetPage === projectState.currentPage) {
-                        projectState.currentHtml = html;
-                        const isValidHTML = html.includes('</html>') || html.includes('</div>') || html.length > 500;
-                        if (isValidHTML) bridge.update(html);
-                    }
-                },
-                onAction: (text) => {
-                    const log = document.createElement('div');
-                    log.className = "text-[10px] text-slate-400 font-medium animate-pulse";
-                    log.innerHTML = `<span class="text-emerald-500 mr-2">✔</span>${text}`;
-                    els.logs.appendChild(log);
-                    els.logs.parentElement.scrollTop = els.logs.parentElement.scrollHeight;
-                },
-                onError: (msg) => UI.showNotification(msg, "error")
-            }
-        });
-
-        function switchPage(name) {
-            if (!projectState.pages[name]) return;
-            projectState.currentPage = name;
-            projectState.currentHtml = projectState.pages[name];
-            bridge.update(projectState.currentHtml);
-            engine.renderTabs(projectState, els.pagesContainer);
-        }
-        window.switchPage = switchPage;
-
-        async function refreshProjects(uid) {
-            const projects = await getUserProjects(uid);
-            UI.renderProjectHistory(els.historyList, projects, async (proj, action) => {
-                if (action === 'delete') {
-                    const confirmed = confirm(`Are you sure?`);
-                    if (confirmed) { await deleteProject(proj.id, uid); refreshProjects(uid); }
-                    return;
-                }
-                projectState.id = proj.id;
-                projectState.pages = proj.pages || { "landing": proj.htmlContent };
-                projectState.currentPage = proj.currentPage || Object.keys(projectState.pages)[0];
-                projectState.deploymentUrl = proj.deploymentUrl || null;
-                els.prompt.value = proj.promptText || "";
-                switchPage(projectState.currentPage);
-            });
-        }
-
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                els.loginBtn.classList.add('hidden');
-                els.userUi.classList.remove('hidden');
-                els.userAvatar.src = user.photoURL;
-                const usage = await getUsage(user.uid);
-                els.usageBadge.innerText = `Credits: ${usage.dailyCount || 0}/${usage.plan === 'pro' ? 10 : 5}`;
-                UI.generateCoolName(els.slugInput);
-                refreshProjects(user.uid);
-            } else {
-                window.location.href = "/login";
-            }
-        });
-
-        els.genBtn.onclick = () => {
-            projectHistory.push(JSON.parse(JSON.stringify(projectState.pages)));
-            engine.start({ prompt: els.prompt.value, auth, projectState, attachedImages: projectState.attachedImages });
-        };
-
-        els.publishBtn.onclick = () => {
-            const deployer = new DeploymentManager({
-                ui: { publishBtn: els.publishBtn, logs: els.logs },
-                callbacks: {
-                    getProjectState: () => projectState,
-                    onSuccess: (url) => { 
-                        projectState.deploymentUrl = url;
-                        els.shareBtn.classList.remove('hidden');
-                    }
-                }
-            });
-            deployer.deploy({ html: projectState.currentHtml, projectId: projectState.id, slug: els.slugInput.value, auth });
-        };
-
-        UI.initVoice(document.getElementById('voice-btn'), els.prompt); 
-        UI.setupImageUpload(document.getElementById('img-input'), els.imgTray, projectState, UI.renderImages);
-        engine.renderTabs(projectState, els.pagesContainer);
-    </script>
+    <script type="module" src="bridge.js"></script>
 </body>
 </html>
