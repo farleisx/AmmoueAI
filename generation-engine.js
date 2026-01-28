@@ -1,11 +1,11 @@
-// generation-engine.js
 import { autoSaveProject } from "./fire_prompt.js";
 
 export class GenerationEngine {
     constructor(config) {
-        this.config = config; // Pass UI elements like logs, progressBar, etc.
+        this.config = config; 
         this.abortCtrl = null;
         this.frameTimeout = null;
+        this.streamingTarget = null; // Track which file is being written to
     }
 
     // Helper to extract specific [TAG: content] from the AI stream
@@ -18,12 +18,22 @@ export class GenerationEngine {
         return text.replace(regex, "");
     }
 
+    // NEW: Moved from main file to handle UI updates for tabs
+    renderTabs(projectState, container) {
+        container.innerHTML = Object.keys(projectState.pages).map(name => `
+            <button onclick="window.switchPage('${name}')" class="px-3 py-1 text-[9px] font-bold rounded-md uppercase transition-all duration-200 ${projectState.currentPage === name ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-900 text-slate-500 hover:text-slate-200'}">
+                ${name}
+            </button>
+        `).join('');
+    }
+
     async start({ prompt, style, auth, projectState, attachedImages, isResume }) {
         this.abortCtrl = new AbortController();
         const { ui, callbacks } = this.config;
 
         ui.thinkingBox.classList.remove('hidden');
         ui.genBtn.disabled = true;
+        this.streamingTarget = projectState.currentPage; // Default to current
 
         try {
             const token = await auth.currentUser.getIdToken();
@@ -66,9 +76,11 @@ export class GenerationEngine {
                         if (json.text) {
                             let text = json.text;
 
-                            // Handle New Page Signal
+                            // Handle New Page Signal - Updates target for subsequent text chunks
                             text = this.parseTags(text, 'NEW_PAGE', (pageName) => {
-                                callbacks.onNewPage(pageName.toLowerCase());
+                                const cleanName = pageName.toLowerCase();
+                                this.streamingTarget = cleanName;
+                                callbacks.onNewPage(cleanName);
                             });
 
                             // Handle Action Logs
@@ -76,9 +88,18 @@ export class GenerationEngine {
                                 callbacks.onAction(actionText);
                             });
 
-                            // Update HTML State
-                            projectState.currentHtml += text;
-                            callbacks.onCodeUpdate(projectState.currentHtml);
+                            // Remove [END_PAGE] markers if present in stream
+                            text = text.replace(/\[END_PAGE\]/g, "");
+
+                            // Update the correct file in the pages object
+                            if (!projectState.pages[this.streamingTarget]) {
+                                projectState.pages[this.streamingTarget] = "";
+                            }
+                            
+                            projectState.pages[this.streamingTarget] += text;
+                            
+                            // Relay update to the UI/Bridge
+                            callbacks.onCodeUpdate(projectState.pages[this.streamingTarget], this.streamingTarget);
                         }
                     } catch (e) { /* Ignore partial JSON chunks */ }
                 }
