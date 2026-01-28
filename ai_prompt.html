@@ -6,9 +6,7 @@
     <title>AmmoueAI | AI Builder</title>
     <link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = { darkMode: 'class' }
-    </script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; transition: background-color 0.3s; }
@@ -22,15 +20,20 @@
         #preview-wrapper { transition: width 0.3s ease-in-out; margin: 0 auto; }
         .glass-modal { background: rgba(255,255,255,0.8); backdrop-filter: blur(8px); }
         .dark .glass-modal { background: rgba(2, 6, 23, 0.8); }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
-<body class="h-screen flex flex-col bg-[#fdfdfd] dark:bg-slate-950">
+<body class="h-screen flex flex-col bg-[#fdfdfd] dark:bg-slate-950 relative overflow-hidden">
 
     <header class="h-16 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 bg-white dark:bg-slate-900 z-50">
         <div class="flex items-center gap-4">
             <a href="/dashboard" class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
             </a>
+            <button onclick="createNewProject()" class="text-xs font-extrabold bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-lg hover:scale-105 transition-all">
+                + NEW
+            </button>
             <span class="font-extrabold tracking-tighter text-xl text-slate-900 dark:text-white">AmmoueAI</span>
             <div id="tab-container" class="flex gap-1 ml-4"></div>
         </div>
@@ -62,41 +65,36 @@
             <div class="flex-1 flex gap-6 min-h-0">
                 <div class="w-80 flex flex-col gap-4">
                     <div class="lovable-card p-5 flex-1 flex flex-col gap-4 overflow-hidden shadow-sm">
+                        <div class="flex gap-2 overflow-x-auto hide-scrollbar py-1">
+                            <button onclick="applySuggestion('Minimalist SaaS')" class="whitespace-nowrap px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-full text-[10px] font-bold text-slate-500 hover:text-indigo-500 transition-colors">✨ SaaS</button>
+                            <button onclick="applySuggestion('Luxury Portfolio')" class="whitespace-nowrap px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-full text-[10px] font-bold text-slate-500 hover:text-indigo-500 transition-colors">🎨 Portfolio</button>
+                            <button onclick="applySuggestion('Modern E-commerce')" class="whitespace-nowrap px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-full text-[10px] font-bold text-slate-500 hover:text-indigo-500 transition-colors">🛒 Shop</button>
+                        </div>
                         <div class="relative">
-                            <textarea id="user-prompt" class="w-full h-48 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 pr-14 text-sm focus:ring-2 ring-indigo-100 dark:ring-indigo-900 outline-none resize-none dark:text-white" placeholder="Build me a..."></textarea>
+                            <textarea id="user-prompt" class="w-full h-48 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 pr-14 text-sm focus:ring-2 ring-indigo-100 dark:ring-indigo-900 outline-none resize-none dark:text-white" placeholder=""></textarea>
                             <div class="absolute bottom-3 right-3 flex flex-col gap-2">
-                                <button id="voice-btn" onclick="startVoicePrompt()" class="w-10 h-10 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
-                                    🎤
-                                </button>
-                                <button id="generate-btn" onclick="triggerGenerate()" class="w-10 h-10 btn-lovable rounded-xl flex items-center justify-center text-2xl shadow-xl shadow-indigo-200 dark:shadow-none">➤</button>
+                                <button id="voice-btn" onclick="startVoicePrompt()" class="w-10 h-10 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">🎤</button>
+                                <button id="generate-btn" onclick="triggerGenerate()" class="w-10 h-10 btn-lovable rounded-xl flex items-center justify-center text-2xl">➤</button>
                             </div>
                         </div>
-
                         <div class="flex flex-col gap-2">
                             <label class="text-[10px] uppercase font-extrabold text-slate-400 tracking-widest flex justify-between">Images <span onclick="document.getElementById('image-input').click()" class="text-indigo-500 cursor-pointer">+ Add</span></label>
                             <input type="file" id="image-input" multiple accept="image/*" class="hidden">
                             <div id="image-preview-zone" class="flex flex-wrap gap-2 p-2 bg-slate-50 dark:bg-slate-900 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 min-h-[50px]"></div>
                         </div>
-
                         <div id="thinking-box" class="flex-1 flex flex-col gap-2 min-h-0 overflow-hidden pt-2">
                             <label class="text-[10px] uppercase font-extrabold text-slate-400 tracking-widest text-slate-400">Logs</label>
                             <div id="action-logs" class="flex-1 overflow-y-auto text-[11px] space-y-2 text-slate-500 dark:text-slate-400 font-medium"></div>
                         </div>
-
                         <div id="progress-bar" class="hidden w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                             <div id="progress-fill" class="h-full bg-indigo-500 w-0 transition-all"></div>
                         </div>
                     </div>
                 </div>
-
                 <div class="flex-1 flex flex-col min-w-0">
                     <div id="preview-wrapper" class="h-full flex flex-col shadow-2xl dark:shadow-none shadow-slate-200">
                         <div class="h-10 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-b-0 rounded-t-2xl flex items-center px-4">
-                            <div class="flex gap-1.5">
-                                <div class="w-2.5 h-2.5 rounded-full bg-red-400/40"></div>
-                                <div class="w-2.5 h-2.5 rounded-full bg-amber-400/40"></div>
-                                <div class="w-2.5 h-2.5 rounded-full bg-emerald-400/40"></div>
-                            </div>
+                            <div class="flex gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-red-400/40"></div><div class="w-2.5 h-2.5 rounded-full bg-amber-400/40"></div><div class="w-2.5 h-2.5 rounded-full bg-emerald-400/40"></div></div>
                         </div>
                         <iframe id="preview-frame" class="w-full flex-1 border border-slate-200 dark:border-slate-800"></iframe>
                     </div>
@@ -105,10 +103,26 @@
         </section>
     </main>
 
+    <button onclick="toggleChat()" class="fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-all z-[60]">💬</button>
+    <div id="chat-widget" class="fixed bottom-24 right-6 w-80 h-96 lovable-card shadow-2xl flex flex-col transition-all duration-300 translate-y-full opacity-0 pointer-events-none z-[60]">
+        <div class="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-indigo-600 rounded-t-2xl">
+            <span class="text-white font-bold text-sm">AI UI Helper</span>
+            <button onclick="toggleChat()" class="text-white/70 hover:text-white">✕</button>
+        </div>
+        <div id="chat-messages" class="flex-1 p-4 overflow-y-auto flex flex-col hide-scrollbar">
+            <div class="bg-slate-100 dark:bg-slate-800 p-2 rounded-lg text-[11px] mb-2">Hello! Ask me about specific UI components or layout ideas.</div>
+        </div>
+        <div class="p-3 border-t dark:border-slate-800 flex gap-2">
+            <input id="chat-input" type="text" class="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-xs outline-none dark:text-white" placeholder="Type a message...">
+            <button onclick="sendChatMessage()" class="text-indigo-600 font-bold">Send</button>
+        </div>
+    </div>
+
     <div id="publish-modal" class="fixed inset-0 z-[100] flex items-center justify-center glass-modal hidden">
         <div class="lovable-card w-96 p-8 shadow-2xl dark:shadow-none">
             <h3 class="text-xl font-extrabold mb-2 dark:text-white">Ready to launch?</h3>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">Enter a custom slug for your site.</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mb-2">Enter a custom slug for your site.</p>
+            <div class="text-[10px] text-indigo-500 font-mono mb-4" id="slug-preview">my-awesome-website.vercel.app</div>
             <input type="text" id="site-slug" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 mb-6 outline-none focus:ring-2 ring-indigo-100 dark:text-white" placeholder="my-awesome-site">
             <div class="flex gap-3">
                 <button onclick="togglePublishModal(false)" class="flex-1 py-3 font-bold text-slate-500 dark:text-slate-400">Cancel</button>
