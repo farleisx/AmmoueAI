@@ -1,6 +1,7 @@
-import { auth, db, autoSaveProject } from "./fire_prompt.js";
+import { auth, db, autoSaveProject, getUserProjects } from "./fire_prompt.js";
 import { GenerationEngine } from "./generation-engine.js";
 import { DeploymentManager } from "./deployment-manager.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 
 // --- GLOBAL STATE ---
 export const projectState = {
@@ -22,7 +23,8 @@ const ui = {
     preview: document.getElementById('preview-frame'),
     tabContainer: document.getElementById('tab-container'),
     imageInput: document.getElementById('image-input'),
-    imagePreview: document.getElementById('image-preview-zone')
+    imagePreview: document.getElementById('image-preview-zone'),
+    historyList: document.getElementById('history-list')
 };
 
 // --- ENGINE INIT ---
@@ -56,6 +58,26 @@ const deployer = new DeploymentManager({
         onLimitReached: () => alert("Upgrade to Pro to deploy more sites!"),
         onFailure: () => console.log("Deployment failed.")
     }
+});
+
+// --- HISTORY LOGIC ---
+async function loadHistory(user) {
+    if (!user) return;
+    const projects = await getUserProjects(user.uid);
+    ui.historyList.innerHTML = projects.map(p => `
+        <div onclick="window.loadProject('${p.id}')" class="p-2 mb-2 rounded bg-white/5 hover:bg-white/10 cursor-pointer border border-white/5 transition-all">
+            <div class="text-[10px] font-bold truncate text-slate-300">${p.prompt || 'Untitled Project'}</div>
+            <div class="text-[8px] text-slate-500">${new Date(p.updatedAt?.seconds * 1000).toLocaleDateString()}</div>
+        </div>
+    `).join('');
+}
+
+window.loadProject = (id) => {
+    window.location.search = `?id=${id}`;
+};
+
+onAuthStateChanged(auth, (user) => {
+    if (user) loadHistory(user);
 });
 
 // --- IMAGE HANDLING LOGIC ---
