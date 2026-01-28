@@ -1,4 +1,3 @@
-// firebase.js Acuatal name path firedashboard.js
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
 import {
   getAuth,
@@ -14,12 +13,11 @@ import {
   doc,
   Timestamp,
   updateDoc,
-  getDoc
+  getDoc,
+  writeBatch // Added this
 } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
-/* ===============================
-   FIREBASE CONFIG
-   =============================== */
+/* ... config same as before ... */
 const firebaseConfig = {
   apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
   authDomain: "ammoueai.firebaseapp.com",
@@ -35,9 +33,6 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const appId = firebaseConfig.projectId;
 
-/* ===============================
-   AUTH HELPERS
-   =============================== */
 export function observeAuth(callback) {
   return onAuthStateChanged(auth, callback);
 }
@@ -46,9 +41,6 @@ export async function logout() {
   await signOut(auth);
 }
 
-/* ===============================
-   FIRESTORE HELPERS
-   =============================== */
 export {
   collection,
   onSnapshot,
@@ -57,5 +49,6 @@ export {
   doc,
   Timestamp,
   updateDoc,
-  getDoc
+  getDoc,
+  writeBatch // Added this
 };
