@@ -7,7 +7,8 @@ export const projectState = {
     id: new URLSearchParams(window.location.search).get('id') || null,
     currentPage: 'landing',
     pages: { landing: "" },
-    isGenerating: false
+    isGenerating: false,
+    attachedImages: [] // Added for image support
 };
 
 // --- UI SELECTORS ---
@@ -19,7 +20,9 @@ const ui = {
     progressFill: document.getElementById('progress-fill'),
     logs: document.getElementById('action-logs'),
     preview: document.getElementById('preview-frame'),
-    tabContainer: document.getElementById('tab-container')
+    tabContainer: document.getElementById('tab-container'),
+    imageInput: document.getElementById('image-input'),
+    imagePreview: document.getElementById('image-preview-zone')
 };
 
 // --- ENGINE INIT ---
@@ -40,7 +43,8 @@ const engine = new GenerationEngine({
             ui.logs.innerHTML += `<div class="text-indigo-400">> ${text}</div>`;
             ui.logs.scrollTop = ui.logs.scrollHeight;
         },
-        onError: (err) => alert("Generation Error: " + err)
+        onError: (err) => alert("Generation Error: " + err),
+        getProjectState: () => projectState // Required by DeploymentManager healing
     }
 });
 
@@ -49,7 +53,30 @@ const deployer = new DeploymentManager({
     callbacks: {
         getProjectState: () => projectState,
         onSuccess: (url) => window.open(url, '_blank'),
-        onLimitReached: () => alert("Upgrade to Pro to deploy more sites!")
+        onLimitReached: () => alert("Upgrade to Pro to deploy more sites!"),
+        onFailure: () => console.log("Deployment failed.")
+    }
+});
+
+// --- IMAGE HANDLING LOGIC ---
+ui.imageInput.addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files);
+    ui.imagePreview.innerHTML = '';
+    projectState.attachedImages = [];
+
+    for (const file of files) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const base64 = event.target.result;
+            projectState.attachedImages.push(base64);
+            
+            // Visual indicator
+            const img = document.createElement('img');
+            img.src = base64;
+            img.className = "w-10 h-10 object-cover rounded border border-white/20";
+            ui.imagePreview.appendChild(img);
+        };
+        reader.readAsDataURL(file);
     }
 });
 
@@ -70,7 +97,7 @@ window.triggerGenerate = async () => {
         prompt,
         auth,
         projectState,
-        attachedImages: [] // Add logic to collect images if needed
+        attachedImages: projectState.attachedImages // Now passing the real images
     });
 };
 
