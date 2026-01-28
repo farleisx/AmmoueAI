@@ -114,7 +114,7 @@ window.applySuggestion = (text) => {
 
 // --- VOICE PROMPT LOGIC ---
 window.startVoicePrompt = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitRecognition;
     if (!SpeechRecognition) return alert("Voice recognition not supported in this browser.");
     const recognition = new SpeechRecognition();
     recognition.lang = 'en-US';
@@ -334,7 +334,7 @@ window.switchPage = (name) => {
 window.triggerGenerate = async () => {
     const prompt = document.getElementById('user-prompt').value;
     if (!prompt) return;
-    ui.progressBar.classList.remove('hidden');
+    if (ui.progressBar) ui.progressBar.classList.remove('hidden');
     
     // Add to Revision History
     window.saveRevision(projectState.pages[projectState.currentPage]);
@@ -396,9 +396,12 @@ window.saveRevision = (html) => {
     if (!html) return;
     revisions.push(html);
     const slider = document.getElementById('revision-slider');
-    slider.max = revisions.length - 1;
-    slider.value = slider.max;
-    document.getElementById('rev-count').innerText = revisions.length;
+    if (slider) {
+        slider.max = revisions.length - 1;
+        slider.value = slider.max;
+    }
+    const countDisplay = document.getElementById('rev-count');
+    if (countDisplay) countDisplay.innerText = revisions.length;
 };
 
 window.scrubRevision = (index) => {
