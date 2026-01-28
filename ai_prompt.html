@@ -24,6 +24,7 @@
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .emoji-btn { transition: transform 0.1s; }
         .emoji-btn:active { transform: scale(1.2); }
+        input[type=range] { accent-color: #4f46e5; }
     </style>
 </head>
 <body class="h-screen flex flex-col bg-[#fdfdfd] dark:bg-slate-950 relative overflow-hidden">
@@ -92,7 +93,6 @@
                     <button onclick="addComponentToPrompt('Pricing Table')" class="w-full text-left p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-bold hover:border-indigo-500 transition-all dark:text-slate-300">📊 Pricing Table</button>
                     <button onclick="addComponentToPrompt('Testimonials Grid')" class="w-full text-left p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-bold hover:border-indigo-500 transition-all dark:text-slate-300">💬 Testimonials</button>
                     <button onclick="addComponentToPrompt('FAQ Accordion')" class="w-full text-left p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-bold hover:border-indigo-500 transition-all dark:text-slate-300">❓ FAQ Section</button>
-                    <button onclick="addComponentToPrompt('Contact Form')" class="w-full text-left p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-bold hover:border-indigo-500 transition-all dark:text-slate-300">✉️ Contact Form</button>
                 </div>
             </div>
 
@@ -121,12 +121,16 @@
                             <input type="file" id="image-input" multiple accept="image/*" class="hidden">
                             <div id="image-preview-zone" class="flex flex-wrap gap-2 p-2 bg-slate-50 dark:bg-slate-900 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 min-h-[50px]"></div>
                         </div>
+                        
+                        <div class="bg-indigo-50 dark:bg-slate-900 p-3 rounded-xl border border-indigo-100 dark:border-slate-800">
+                            <label class="text-[10px] uppercase font-extrabold text-indigo-400 tracking-widest mb-2 block flex justify-between">Revision History <span class="text-[9px] font-bold" id="rev-count">0</span></label>
+                            <input type="range" id="revision-slider" min="0" max="0" value="0" step="1" oninput="window.scrubRevision(this.value)" class="w-full h-1.5 mb-2 cursor-pointer">
+                            <button onclick="window.restoreRevision()" class="w-full text-[9px] font-bold py-1 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-md text-indigo-500">Restore Selected</button>
+                        </div>
+
                         <div id="thinking-box" class="flex-1 flex flex-col gap-2 min-h-0 overflow-hidden pt-2">
                             <label class="text-[10px] uppercase font-extrabold text-slate-400 tracking-widest text-slate-400">Logs</label>
                             <div id="action-logs" class="flex-1 overflow-y-auto text-[11px] space-y-2 text-slate-500 dark:text-slate-400 font-medium"></div>
-                        </div>
-                        <div id="progress-bar" class="hidden w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                            <div id="progress-fill" class="h-full bg-indigo-500 w-0 transition-all"></div>
                         </div>
                     </div>
                 </div>
@@ -142,56 +146,32 @@
         </section>
     </main>
 
-    <button onclick="toggleChat()" class="fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-all z-[60]">💬</button>
-    <div id="chat-widget" class="fixed bottom-24 right-6 w-80 h-96 lovable-card shadow-2xl flex flex-col transition-all duration-300 translate-y-full opacity-0 pointer-events-none z-[60]">
-        <div class="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-indigo-600 rounded-t-2xl">
-            <span class="text-white font-bold text-sm">AI UI Helper</span>
-            <button onclick="toggleChat()" class="text-white/70 hover:text-white">✕</button>
-        </div>
-        <div id="chat-messages" class="flex-1 p-4 overflow-y-auto flex flex-col hide-scrollbar">
-            <div class="bg-slate-100 dark:bg-slate-800 p-2 rounded-lg text-[11px] mb-2">Hello! Ask me about specific UI components or layout ideas.</div>
-        </div>
-        <div class="p-3 border-t dark:border-slate-800 flex gap-2">
-            <input id="chat-input" type="text" class="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-xs outline-none dark:text-white" placeholder="Type a message...">
-            <button onclick="sendChatMessage()" class="text-indigo-600 font-bold">Send</button>
-        </div>
-    </div>
-
-    <div id="download-modal" class="fixed inset-0 z-[100] flex items-center justify-center glass-modal hidden">
-        <div class="lovable-card w-[400px] p-8 shadow-2xl dark:shadow-none">
-            <h3 class="text-xl font-extrabold mb-2 dark:text-white">Review Files</h3>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">The following files will be included in your ZIP:</p>
-            <div id="download-file-list" class="max-h-48 overflow-y-auto mb-6 bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border dark:border-slate-800"></div>
-            <div class="flex gap-3">
-                <button onclick="document.getElementById('download-modal').classList.add('hidden')" class="flex-1 py-3 font-bold text-slate-500">Cancel</button>
-                <button onclick="confirmDownload()" class="flex-1 py-3 btn-lovable font-bold rounded-xl">Download ZIP</button>
-            </div>
-        </div>
+    <div id="lightbox-modal" onclick="this.classList.add('hidden')" class="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center p-10 hidden">
+        <img id="lightbox-img" class="max-w-full max-h-full rounded-xl shadow-2xl">
+        <p class="absolute bottom-10 text-white/50 text-xs">Click anywhere to close</p>
     </div>
 
     <div id="publish-modal" class="fixed inset-0 z-[100] flex items-center justify-center glass-modal hidden">
         <div class="lovable-card w-[450px] p-8 shadow-2xl dark:shadow-none overflow-y-auto max-h-[90vh]">
             <h3 class="text-xl font-extrabold mb-2 dark:text-white">Ready to launch?</h3>
             <p class="text-sm text-slate-500 dark:text-slate-400 mb-2">Configure your site settings.</p>
-            <div class="text-[10px] text-indigo-500 font-mono mb-4" id="slug-preview">my-awesome-website.vercel.app</div>
-            
+            <div class="text-[10px] text-indigo-500 font-mono mb-4" id="slug-preview">...vercel.app</div>
             <div class="space-y-4 mb-6">
                 <div>
                     <label class="text-[10px] uppercase font-extrabold text-slate-400 mb-1 block">Domain Slug</label>
-                    <input type="text" id="site-slug" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 outline-none focus:ring-2 ring-indigo-100 dark:text-white" placeholder="my-awesome-site">
+                    <input type="text" id="site-slug" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 outline-none focus:ring-2 ring-indigo-100 dark:text-white">
                 </div>
                 <div>
-                    <label class="text-[10px] uppercase font-extrabold text-slate-400 mb-1 block">AI Suggested SEO Title</label>
-                    <input type="text" id="seo-title" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs outline-none dark:text-white">
+                    <label class="text-[10px] uppercase font-extrabold text-slate-400 mb-1 block">SEO Title</label>
+                    <input type="text" id="seo-title" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs dark:text-white">
                 </div>
                 <div>
-                    <label class="text-[10px] uppercase font-extrabold text-slate-400 mb-1 block">AI Suggested SEO Description</label>
-                    <textarea id="seo-description" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs outline-none h-20 resize-none dark:text-white"></textarea>
+                    <label class="text-[10px] uppercase font-extrabold text-slate-400 mb-1 block">SEO Description</label>
+                    <textarea id="seo-description" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs h-20 resize-none dark:text-white"></textarea>
                 </div>
             </div>
-
             <div class="flex gap-3">
-                <button onclick="togglePublishModal(false)" class="flex-1 py-3 font-bold text-slate-500 dark:text-slate-400">Cancel</button>
+                <button onclick="togglePublishModal(false)" class="flex-1 py-3 font-bold text-slate-500">Cancel</button>
                 <button id="publish-btn" onclick="triggerDeploy()" class="flex-1 py-3 btn-lovable font-bold rounded-xl">Deploy</button>
             </div>
         </div>
