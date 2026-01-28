@@ -93,6 +93,9 @@
             <div class="flex items-center space-x-3">
                 <h1 class="text-3xl font-bold text-white">Your Sites</h1>
                 <span id="project-count" class="bg-white/10 text-teal-400 text-xs font-bold px-2.5 py-0.5 rounded-full border border-white/10">0</span>
+                <button onclick="openDeleteAllModal()" class="ml-4 px-3 py-1.5 text-xs font-bold rounded-lg text-red-400 border border-red-500/30 hover:bg-red-500/10 transition-colors flex items-center">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5 mr-1.5"></i> Delete All
+                </button>
             </div>
             <div class="flex items-center space-x-4">
                 <span class="text-gray-400 text-sm font-medium">Your Plan:</span>
@@ -177,6 +180,19 @@
             </div>
         </div>
     </div>
+
+    <div id="delete-all-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center">
+        <div class="bg-slate-900 border border-white/10 rounded-xl shadow-2xl p-6 w-full max-w-sm m-4 transform transition-all duration-300 scale-95 opacity-0" id="delete-all-modal-content">
+            <h2 class="text-xl font-bold text-white mb-3 flex items-center">
+                <i data-lucide="alert-octagon" class="w-6 h-6 text-red-500 mr-2"></i> Danger Zone
+            </h2>
+            <p class="text-gray-400 mb-6 text-sm">You are about to delete <span class="text-red-400 font-bold" id="delete-all-count"></span> projects. This is permanent and cannot be reversed. Are you absolutely sure?</p>
+            <div class="flex flex-col space-y-3">
+                <button type="button" id="confirm-delete-all-button" class="w-full px-4 py-3 text-sm font-bold rounded-xl text-white bg-red-600 hover:bg-red-700 shadow-md transition-all">Yes, Delete All Projects</button>
+                <button type="button" onclick="closeDeleteAllModal()" class="w-full px-4 py-3 text-sm font-semibold rounded-xl text-gray-400 bg-white/5 hover:bg-white/10 transition-all">Cancel</button>
+            </div>
+        </div>
+    </div>
     
 <script type="module">
     // Import everything from your central firebase file
@@ -193,7 +209,8 @@
         doc, 
         Timestamp, 
         updateDoc, 
-        getDoc 
+        getDoc,
+        writeBatch
     } from "./firedashboard.js";
 
     // State management
@@ -216,6 +233,9 @@
     const deleteConfirmModal = document.getElementById('delete-confirm-modal');
     const deleteModalContent = document.getElementById('delete-modal-content');
     const confirmDeleteButton = document.getElementById('confirm-delete-button');
+    const deleteAllModal = document.getElementById('delete-all-modal');
+    const deleteAllModalContent = document.getElementById('delete-all-modal-content');
+    const confirmDeleteAllButton = document.getElementById('confirm-delete-all-button');
 
     /* --- UI HELPERS --- */
     function showMessage(message, isError) {
@@ -316,6 +336,29 @@
         }, 300);
     };
 
+    window.openDeleteAllModal = function() {
+        if (allProjectsArray.length === 0) {
+            showMessage("No projects to delete.", true);
+            return;
+        }
+        document.getElementById('delete-all-count').textContent = allProjectsArray.length;
+        deleteAllModal.classList.remove('hidden');
+        deleteAllModal.classList.add('flex');
+        setTimeout(() => {
+            deleteAllModalContent.classList.remove('scale-95', 'opacity-0');
+            deleteAllModalContent.classList.add('scale-100', 'opacity-100');
+        }, 10);
+    };
+
+    window.closeDeleteAllModal = function() {
+        deleteAllModalContent.classList.remove('scale-100', 'opacity-100');
+        deleteAllModalContent.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => {
+            deleteAllModal.classList.remove('flex');
+            deleteAllModal.classList.add('hidden');
+        }, 300);
+    };
+
     window.openEditModal = function(projectId) {
         const project = projectsData.get(projectId);
         if (!project) return;
@@ -349,10 +392,28 @@
         } catch (e) { showMessage("Error deleting project", true); }
     }
 
+    async function executeDeleteAllProjects() {
+        try {
+            const batch = writeBatch(db);
+            allProjectsArray.forEach(project => {
+                const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', project.id);
+                batch.delete(docRef);
+            });
+            await batch.commit();
+            showMessage(`Successfully deleted ${allProjectsArray.length} projects.`, false);
+            window.closeDeleteAllModal();
+        } catch (e) { 
+            console.error(e);
+            showMessage("Error deleting all projects", true); 
+        }
+    }
+
     confirmDeleteButton.addEventListener('click', () => {
         const projectId = confirmDeleteButton.getAttribute('data-project-id');
         if (projectId) executeDeleteProject(projectId);
     });
+
+    confirmDeleteAllButton.addEventListener('click', executeDeleteAllProjects);
 
     async function handleEditFormSubmit(e) {
         e.preventDefault();
