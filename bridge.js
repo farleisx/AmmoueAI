@@ -134,7 +134,7 @@ window.startVoicePrompt = () => {
 window.openDownloadModal = () => {
     const modal = document.getElementById('download-modal');
     const list = document.getElementById('download-file-list');
-    if (!modal || !list) return; // FIX: Prevent null error
+    if (!modal || !list) return; 
     const files = Object.keys(projectState.pages).map(name => name === 'landing' ? 'index.html' : `${name}.html`);
     list.innerHTML = files.map(f => `<div class="text-[11px] py-1 border-b dark:border-slate-800 flex justify-between"><span>📄 ${f}</span><span class="text-emerald-500">Ready</span></div>`).join('');
     modal.classList.remove('hidden');
@@ -192,7 +192,6 @@ window.generateSEOMetadata = () => {
     const titleInput = document.getElementById('seo-title');
     const descInput = document.getElementById('seo-description');
     
-    // FIX: Check for existence before setting value to avoid Uncaught TypeError
     const suggestedTitle = prompt.split(' ').slice(0, 5).join(' ') + " | Built with AmmoueAI";
     const suggestedDesc = `Explore this professional project: ${prompt}. Created using advanced AI design tools for a seamless user experience.`;
     
@@ -255,7 +254,7 @@ window.setViewport = (type) => {
 // --- MODAL LOGIC ---
 window.togglePublishModal = (show) => {
     ui.publishModal.classList.toggle('hidden', !show);
-    if (show) window.generateSEOMetadata(); // Generate SEO when modal opens
+    if (show) window.generateSEOMetadata(); 
 };
 
 ui.slugInput?.addEventListener('input', (e) => {
@@ -337,9 +336,6 @@ window.triggerGenerate = async () => {
     if (!prompt) return;
     if (ui.progressBar) ui.progressBar.classList.remove('hidden');
     
-    // Add to Revision History
-    window.saveRevision(projectState.pages[projectState.currentPage]);
-    
     await engine.start({
         prompt,
         auth,
@@ -376,7 +372,6 @@ window.generateUniqueProjectName = () => {
     const nameDisplay = document.getElementById('project-name-display');
     if (nameDisplay) nameDisplay.innerText = name;
     
-    // Apply to domain slug also
     const slug = name.toLowerCase().replace(/\s+/g, '-');
     if (ui.slugInput) {
         ui.slugInput.value = slug;
@@ -386,46 +381,13 @@ window.generateUniqueProjectName = () => {
     return name;
 };
 
-// Initialize name on load if it's a new project
 if (!projectState.id) {
     window.generateUniqueProjectName();
 }
 
-// --- REVISION HISTORY LOGIC ---
-const revisions = [];
-window.saveRevision = (html) => {
-    if (!html) return;
-    revisions.push(html);
-    const slider = document.getElementById('revision-slider');
-    if (slider) {
-        slider.max = revisions.length - 1;
-        slider.value = slider.max;
-    }
-    const countDisplay = document.getElementById('rev-count');
-    if (countDisplay) countDisplay.innerText = revisions.length;
-};
-
-window.scrubRevision = (index) => {
-    const html = revisions[index];
-    if (html) {
-        const blob = new Blob([html], { type: 'text/html' });
-        ui.preview.src = URL.createObjectURL(blob);
-    }
-};
-
-window.restoreRevision = () => {
-    const index = document.getElementById('revision-slider').value;
-    const html = revisions[index];
-    if (html) {
-        projectState.pages[projectState.currentPage] = html;
-        alert("Revision restored!");
-    }
-};
-
 // --- IMAGE UTILITY LOGIC ---
 window.removeImage = (index) => {
     projectState.attachedImages.splice(index, 1);
-    // Refresh the preview UI
     ui.imagePreview.innerHTML = '';
     projectState.attachedImages.forEach((base64, i) => {
         const wrapper = document.createElement('div');
@@ -447,16 +409,24 @@ window.zoomImage = (src) => {
 // --- MOBILE NAVIGATION & UI VIEW LOGIC ---
 window.toggleMobileView = (view) => {
     const sidebar = document.querySelector('aside');
-    const leftPanel = document.querySelector('.lg\\:w-80');
-    const centerPanel = document.querySelector('.flex-1.flex.flex-col.min-w-0');
+    const leftPanel = document.getElementById('prompt-container');
+    const centerPanel = document.getElementById('preview-container');
     
     if (sidebar) sidebar.classList.add('hidden');
     if (leftPanel) leftPanel.classList.add('hidden');
     if (centerPanel) centerPanel.classList.add('hidden');
     
-    if (view === 'sidebar' && sidebar) sidebar.classList.remove('hidden');
-    if (view === 'prompt' && leftPanel) leftPanel.classList.remove('hidden');
-    if (view === 'preview' && centerPanel) centerPanel.classList.remove('hidden');
+    if (view === 'sidebar' && sidebar) {
+        sidebar.classList.remove('hidden');
+        sidebar.classList.add('sidebar-mobile');
+    }
+    if (view === 'prompt' && leftPanel) {
+        leftPanel.classList.remove('hidden');
+        leftPanel.classList.add('prompt-zone-mobile');
+    }
+    if (view === 'preview' && centerPanel) {
+        centerPanel.classList.remove('hidden');
+    }
 };
 
 // --- LIVE TEXT SYNC & CODE VIEWER LOGIC ---
