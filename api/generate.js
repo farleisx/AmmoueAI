@@ -1,4 +1,3 @@
-// api/generate.js 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // ---------------- VERCEL RUNTIME CONFIG ----------------
@@ -33,6 +32,42 @@ const STACK_PRESETS = {
     requiredFiles: ["package.json", "vercel.json", "src/main.jsx", "src/App.jsx", "api/index.js", "README.md"]
   }
 };
+
+// ---------------- PEXELS ASSET FETCHING ----------------
+async function fetchPexelsAssets(prompt, genAI) {
+  if (!PEXELS_API_KEY) return { images: [], videos: [] };
+  
+  try {
+    // 1. Keyword Extraction Phase
+    const extractionModel = genAI.getGenerativeModel({ model: API_MODEL });
+    const extractionResult = await extractionModel.generateContent(
+      `Extract exactly 3 highly descriptive search keywords from this prompt for a stock photo search. 
+       Return ONLY the keywords separated by commas. Prompt: "${prompt}"`
+    );
+    const query = extractionResult.response.text().trim() || prompt;
+
+    // 2. Fetch Assets
+    const [imgRes, vidRes] = await Promise.all([
+      fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=6`, {
+        headers: { Authorization: PEXELS_API_KEY }
+      }),
+      fetch(`https://api.pexels.com/videos/search?query=${encodeURIComponent(query)}&per_page=2`, {
+        headers: { Authorization: PEXELS_API_KEY }
+      })
+    ]);
+
+    const imgData = await imgRes.json();
+    const vidData = await vidRes.json();
+
+    return {
+      images: imgData.photos?.map(p => p.src.large) || [],
+      videos: vidData.videos?.map(v => v.video_files[0].link) || []
+    };
+  } catch (e) {
+    console.error("Asset fetch error:", e);
+    return { images: [], videos: [] };
+  }
+}
 
 // ---------------- EDGE AUTH (WEB CRYPTO) ----------------
 async function getAccessToken() {
@@ -222,22 +257,29 @@ export default async function handler(req) {
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const activeStack = STACK_PRESETS[framework] || STACK_PRESETS.vanilla;
+    
+    // Fetch precise Pexels assets
+    const assets = await fetchPexelsAssets(prompt, genAI);
 
     const systemInstruction = `
-ROLE: COMPILER-GRADE MULTI-FILE CODE GENERATOR.
+ROLE: ELITE FULL-STACK SOFTWARE ARCHITECT & PRODUCT DESIGNER.
 
-ABSOLUTE LAWS:
-- YOU MUST GENERATE ALL FILES IN THE STACK: ${activeStack.requiredFiles.join(", ")}
-- EVERY FILE MUST USE [NEW_PAGE: filename] + [END_PAGE]
-- Ensure correct dependencies in package.json for ${framework}
-- NO EXTERNAL ASSETS
-- NO PLAIN TEXT (COMMENTS ONLY)
-- ZERO CONTENT OUTSIDE FILES
+CORE OBJECTIVE:
+Construct a production-ready, highly aesthetic, and fully functional application for the given prompt. Your output must be indistinguishable from code written by a Senior Engineer.
 
-CREATIVE NARRATION:
-- You MUST frequently output [ACTION: description] tags to explain what you are currently building (e.g., [ACTION: Designing vercel configuration]). Output these actions BEFORE the code they describe.
+ENGINEERING LAWS:
+- MULTI-FILE GENERATION: You MUST generate every file listed in this stack: ${activeStack.requiredFiles.join(", ")}
+- ENCAPSULATION: Use [NEW_PAGE: filename] and [END_PAGE] markers for every file.
+- ASSET USAGE: Use only the provided Pexels URLs for <img> and <video> tags to ensure visual brilliance.
+- STYLING: Use Tailwind CSS extensively. Ensure high contrast, modern typography, and responsive layouts.
+- NO EXTERNAL LINKS: No external JS/CSS except Tailwind CDN.
+- NO NARRATIVE: No conversational text. Use [ACTION: task] tags to log your progress before code blocks.
 
-STACK CONFIG:
+AVAILABLE MEDIA ASSETS:
+Images: ${JSON.stringify(assets.images)}
+Videos: ${JSON.stringify(assets.videos)}
+
+STACK SPECIFICATIONS:
 ${JSON.stringify(activeStack)}
 `;
 
@@ -290,7 +332,6 @@ ${JSON.stringify(activeStack)}
           const sanitized = sanitizeOutput(finalText);
           const files = extractFilesStrict(sanitized);
           
-          // EXTRACT ACTION LINES FOR LOG PERSISTENCE
           const actionRegex = /\[ACTION:\s*(.*?)\s*\]/g;
           let logsHTML = "";
           let actionMatch;
@@ -306,7 +347,6 @@ ${JSON.stringify(activeStack)}
                   pages: {
                     mapValue: {
                       fields: Object.keys(files).reduce((acc, key) => {
-                        // Map each filename to its own nested object structure correctly
                         acc[key] = { 
                           mapValue: { 
                             fields: { 
