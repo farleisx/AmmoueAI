@@ -134,6 +134,7 @@ window.startVoicePrompt = () => {
 window.openDownloadModal = () => {
     const modal = document.getElementById('download-modal');
     const list = document.getElementById('download-file-list');
+    if (!modal || !list) return; // FIX: Prevent null error
     const files = Object.keys(projectState.pages).map(name => name === 'landing' ? 'index.html' : `${name}.html`);
     list.innerHTML = files.map(f => `<div class="text-[11px] py-1 border-b dark:border-slate-800 flex justify-between"><span>📄 ${f}</span><span class="text-emerald-500">Ready</span></div>`).join('');
     modal.classList.remove('hidden');
@@ -191,12 +192,12 @@ window.generateSEOMetadata = () => {
     const titleInput = document.getElementById('seo-title');
     const descInput = document.getElementById('seo-description');
     
-    // Simple logic to simulate AI suggestion based on user prompt
+    // FIX: Check for existence before setting value to avoid Uncaught TypeError
     const suggestedTitle = prompt.split(' ').slice(0, 5).join(' ') + " | Built with AmmoueAI";
     const suggestedDesc = `Explore this professional project: ${prompt}. Created using advanced AI design tools for a seamless user experience.`;
     
-    titleInput.value = suggestedTitle;
-    descInput.value = suggestedDesc;
+    if (titleInput) titleInput.value = suggestedTitle;
+    if (descInput) descInput.value = suggestedDesc;
 };
 
 // --- ONE-CLICK FAVICON LOGIC ---
@@ -449,13 +450,13 @@ window.toggleMobileView = (view) => {
     const leftPanel = document.querySelector('.lg\\:w-80');
     const centerPanel = document.querySelector('.flex-1.flex.flex-col.min-w-0');
     
-    sidebar.classList.add('hidden');
-    leftPanel.classList.add('hidden');
-    centerPanel.classList.add('hidden');
+    if (sidebar) sidebar.classList.add('hidden');
+    if (leftPanel) leftPanel.classList.add('hidden');
+    if (centerPanel) centerPanel.classList.add('hidden');
     
-    if (view === 'sidebar') sidebar.classList.remove('hidden');
-    if (view === 'prompt') leftPanel.classList.remove('hidden');
-    if (view === 'preview') centerPanel.classList.remove('hidden');
+    if (view === 'sidebar' && sidebar) sidebar.classList.remove('hidden');
+    if (view === 'prompt' && leftPanel) leftPanel.classList.remove('hidden');
+    if (view === 'preview' && centerPanel) centerPanel.classList.remove('hidden');
 };
 
 // --- LIVE TEXT SYNC & CODE VIEWER LOGIC ---
@@ -493,3 +494,11 @@ window.enableVisualEditing = () => {
 };
 
 ui.preview.onload = () => window.enableVisualEditing();
+
+// --- NEW FULL PAGE PREVIEW LOGIC ---
+window.openFullPreview = () => {
+    const html = projectState.pages[projectState.currentPage];
+    const newWin = window.open('about:blank', '_blank');
+    newWin.document.write(html);
+    newWin.document.close();
+};
