@@ -1,4 +1,4 @@
-import { auth, db, autoSaveProject, getUserProjects } from "./fire_prompt.js";
+import { auth, db, autoSaveProject, getUserProjects, getUsage } from "./fire_prompt.js";
 import { GenerationEngine } from "./generation-engine.js";
 import { DeploymentManager } from "./deployment-manager.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
@@ -35,7 +35,9 @@ const ui = {
     voiceBtn: document.getElementById('voice-btn'),
     header: document.querySelector('header'),
     nameDisplay: document.getElementById('project-name-display'),
-    stopBtn: document.getElementById('stop-gen-btn')
+    stopBtn: document.getElementById('stop-gen-btn'),
+    creditDisplay: document.getElementById('credit-limit-display'),
+    resetDisplay: document.getElementById('credit-reset-display')
 };
 
 // --- ENGINE INIT ---
@@ -92,6 +94,30 @@ const deployer = new DeploymentManager({
         onFailure: () => console.log("Deployment failed.")
     }
 });
+
+// --- CREDIT & USAGE UPDATE ---
+async function updateUIUsage(userId) {
+    if (!userId) return;
+    const usage = await getUsage(userId);
+    const limit = usage.plan === "pro" ? 10 : 5;
+    const remaining = Math.max(0, limit - (usage.dailyCount || 0));
+    
+    if (ui.creditDisplay) {
+        ui.creditDisplay.innerText = `${remaining}/${limit} Credits Left`;
+    }
+    
+    if (ui.resetDisplay && usage.dailyResetAt) {
+        const resetDate = new Date(parseInt(usage.dailyResetAt));
+        const now = new Date();
+        const diffMs = resetDate - now;
+        if (diffMs > 0) {
+            const hours = Math.floor(diffMs / (1000 * 60 * 60));
+            ui.resetDisplay.innerText = `Resets in ${hours}h`;
+        } else {
+            ui.resetDisplay.innerText = `Resetting soon...`;
+        }
+    }
+}
 
 // --- NEW PROJECT LOGIC ---
 window.createNewProject = () => {
@@ -264,6 +290,7 @@ onAuthStateChanged(auth, (user) => {
         window.location.href = "/login";
     } else {
         loadHistory(user);
+        updateUIUsage(user.uid);
         if (projectState.id) {
             loadProjectData(projectState.id, user.uid);
         } else {
@@ -412,6 +439,7 @@ window.stopGeneration = async () => {
         );
         if (savedId) projectState.id = savedId;
         loadHistory(auth.currentUser);
+        updateUIUsage(auth.currentUser.uid);
     }
     saveToLocal();
 };
@@ -452,6 +480,7 @@ window.triggerGenerate = async () => {
             );
             if (savedId) projectState.id = savedId;
             loadHistory(auth.currentUser);
+            updateUIUsage(auth.currentUser.uid);
         }
     }
 
