@@ -421,13 +421,22 @@ window.generateUniqueProjectName = () => {
 };
 
 window.editProjectName = () => {
-    const currentName = ui.nameDisplay.innerText;
-    const newName = prompt("Enter new project name:", currentName);
-    if (newName && newName.trim() !== "") {
-        projectState.name = newName.trim();
+    const modal = document.getElementById('rename-modal');
+    const input = document.getElementById('new-project-name-input');
+    input.value = projectState.name;
+    modal.classList.remove('hidden');
+    input.focus();
+};
+
+window.confirmRename = () => {
+    const input = document.getElementById('new-project-name-input');
+    const newName = input.value.trim();
+    if (newName !== "") {
+        projectState.name = newName;
         ui.nameDisplay.innerText = projectState.name;
         saveToLocal();
         syncNameWithFirebase(projectState.name);
+        document.getElementById('rename-modal').classList.add('hidden');
     }
 };
 
