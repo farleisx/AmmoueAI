@@ -29,6 +29,19 @@
         .haptic-press { transform: scale(0.95) !important; opacity: 0.9; }
         button, a, .emoji-btn { transition: transform 0.15s cubic-bezier(0.2, 0, 0.2, 1); }
 
+        /* Gen Button Loading Effects */
+        #generate-btn.gen-active {
+            background: #6366f1;
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.6);
+            pointer-events: none;
+            animation: pulse-border 2s infinite;
+        }
+        @keyframes pulse-border {
+            0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(99, 102, 241, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+        }
+
         /* Floating Action Button */
         #mobile-fab { position: fixed; bottom: 100px; right: 20px; width: 56px; height: 56px; border-radius: 28px; display: flex; align-items: center; justify-content: center; z-index: 60; box-shadow: 0 4px 20px rgba(79, 70, 229, 0.4); }
 
@@ -124,7 +137,7 @@
                             <textarea id="user-prompt" class="w-full h-48 bg-slate-50 dark:bg-slate-900 border rounded-2xl p-4 pr-14 text-sm focus:ring-2 ring-indigo-100 outline-none resize-none dark:text-white" placeholder="Describe your site..."></textarea>
                             <div class="absolute bottom-3 right-3 flex flex-col gap-2">
                                 <button id="voice-btn" onclick="startVoicePrompt()" class="w-10 h-10 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl flex items-center justify-center">🎤</button>
-                                <button id="generate-btn" onclick="triggerGenerate()" class="w-10 h-10 btn-lovable rounded-xl flex items-center justify-center text-2xl">➤</button>
+                                <button id="generate-btn" onclick="triggerGenerate()" class="w-10 h-10 btn-lovable rounded-xl flex items-center justify-center text-2xl transition-all duration-300">➤</button>
                             </div>
                         </div>
                         <div class="flex flex-col gap-2">
