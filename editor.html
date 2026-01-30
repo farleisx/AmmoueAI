@@ -23,7 +23,6 @@
         .bg-ammoue { background-color: #0d9488; }
         .hover\:bg-ammoue-dark:hover { background-color: #0c7b72; }
         
-        /* Fixed Heights & Transitions */
         .CodeMirror { height: 400px !important; border-radius: 0.75rem; font-size: 14px; transition: height 0.3s ease; }
         .editor-expanded .CodeMirror { height: 75vh !important; }
         #live-preview { max-height: 500px; transition: max-height 0.3s ease; }
@@ -53,7 +52,6 @@
             z-index: 50;
         }
 
-        /* Slot Machine Animation */
         @keyframes slot-in {
             0% { transform: translateY(-20px); opacity: 0; }
             20% { transform: translateY(0); opacity: 1; }
@@ -62,6 +60,10 @@
         }
         .slot-text { display: inline-block; animation: slot-in 1.5s ease-in-out infinite; }
         .ai-working-overlay { background: rgba(13, 148, 136, 0.96); backdrop-filter: blur(8px); }
+        
+        /* New File Tab Styles */
+        .file-tab { cursor: pointer; padding: 4px 12px; border-radius: 8px 8px 0 0; font-size: 12px; font-weight: 600; border: 1px solid #e2e8f0; border-bottom: none; background: #f8fafc; color: #64748b; margin-right: 2px; }
+        .file-tab.active { background: #1e293b; color: white; border-color: #1e293b; }
     </style>
 </head>
 <body class="antialiased">
@@ -118,7 +120,10 @@
 
                 <div class="flex-grow grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <div class="flex flex-col relative" id="editor-wrapper">
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-2">HTML Code</label>
+                        <div class="flex items-end justify-between">
+                            <div id="file-tabs" class="flex overflow-x-auto">
+                                </div>
+                        </div>
                         <div id="ai-loading-overlay" class="hidden absolute inset-0 z-40 flex flex-col items-center justify-center rounded-xl ai-working-overlay text-white">
                             <div class="flex flex-col items-center w-full max-w-xs">
                                 <i data-lucide="sparkles" class="w-12 h-12 mb-4 animate-pulse"></i>
@@ -131,7 +136,7 @@
                                 <p class="text-teal-100 text-[10px] mt-3 tracking-widest uppercase font-bold">Ammoue Intelligence</p>
                             </div>
                         </div>
-                        <div id="editor-container" class="flex-grow rounded-xl overflow-hidden border border-gray-300 shadow-inner">
+                        <div id="editor-container" class="flex-grow rounded-b-xl rounded-tr-xl overflow-hidden border border-gray-300 shadow-inner">
                             <textarea id="code-editor"></textarea>
                         </div>
                         
@@ -188,6 +193,10 @@
     let debounceTimer;
     const appId = firebaseConfig.projectId;
 
+    // Multi-page state
+    let projectPages = { "index.html": "" };
+    let activeFile = "index.html";
+
     const loadingScreen = document.getElementById('loading-screen');
     const editorContent = document.getElementById('editor-content');
     const msgBox = document.getElementById('message-box');
@@ -206,13 +215,13 @@
     const aiReviewBar = document.getElementById('ai-review-bar');
     const editorContainer = document.getElementById('editor-container');
     const toggleBtn = document.getElementById('toggle-expand');
+    const fileTabsContainer = document.getElementById('file-tabs');
 
     let latestDeploymentUrl = '';
 
     const userDocRef = () => doc(db, 'users', currentUserId);
     const projectDocRef = (id) => doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', id);
 
-    // AI Slot Machine Setup
     const aiMessages = [
         "Analyzing Structure...",
         "Changing Layout Order...",
@@ -261,7 +270,6 @@
         lucide.createIcons();
     }
 
-    // Toggle Editor Height Logic
     toggleBtn.onclick = () => {
         const wrapper = document.getElementById('editor-wrapper');
         const icon = document.getElementById('toggle-icon');
@@ -283,10 +291,60 @@
         setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
     }
 
-    function updateLivePreview(code) {
-        const html = code || cmEditor.getValue();
-        livePreviewFrame.srcdoc = html;
+    function renderTabs() {
+        fileTabsContainer.innerHTML = '';
+        Object.keys(projectPages).forEach(fileName => {
+            const tab = document.createElement('div');
+            tab.className = `file-tab ${fileName === activeFile ? 'active' : ''}`;
+            tab.textContent = fileName;
+            tab.onclick = () => switchFile(fileName);
+            fileTabsContainer.appendChild(tab);
+        });
     }
+
+    function switchFile(fileName) {
+        if (activeFile === fileName) return;
+        projectPages[activeFile] = cmEditor.getValue();
+        activeFile = fileName;
+        cmEditor.setValue(projectPages[fileName] || "");
+        renderTabs();
+        updateLivePreview();
+    }
+
+    function updateLivePreview() {
+        const currentContent = cmEditor.getValue();
+        projectPages[activeFile] = currentContent;
+        
+        const blobUrls = {};
+        for (const [name, content] of Object.entries(projectPages)) {
+            const blob = new Blob([content], { type: 'text/html' });
+            blobUrls[name] = URL.createObjectURL(blob);
+        }
+
+        let injectedContent = projectPages[activeFile];
+        for (const [name, url] of Object.entries(blobUrls)) {
+            const regex = new RegExp(`href=["']${name}["']`, 'g');
+            injectedContent = injectedContent.replace(regex, `href="${url}" data-virtual-link="${name}"`);
+        }
+
+        const scriptTag = `
+            <script>
+                document.addEventListener('click', e => {
+                    const link = e.target.closest('a');
+                    if (link && link.dataset.virtualLink) {
+                        e.preventDefault();
+                        window.parent.postMessage({ type: 'SWITCH_FILE', file: link.dataset.virtualLink }, '*');
+                    }
+                });
+            <\/script>
+        `;
+        
+        livePreviewFrame.srcdoc = injectedContent + scriptTag;
+    }
+
+    window.addEventListener('message', (e) => {
+        if (e.data.type === 'SWITCH_FILE') switchFile(e.data.file);
+    });
 
     function markDirty(dirty) {
         isDirty = dirty;
@@ -300,25 +358,17 @@
         lucide.createIcons();
     }
 
-    async function handleDeployment(htmlContent, plan, projectId, slug) {
+    async function handleDeployment(pages, plan, projectId, slug) {
         setPreviewButton('', true);
         saveBtn.disabled = true;
         deployStatusText.textContent = "Status: Deploying...";
         
         try {
             const token = await auth.currentUser.getIdToken();
-
             const response = await fetch("/api/deploy", {
                 method: "POST",
-                headers: { 
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}` 
-                },
-                body: JSON.stringify({ 
-                    htmlContent, 
-                    projectId,
-                    slug
-                }),
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+                body: JSON.stringify({ pages, projectId, slug }),
             });
             const result = await response.json();
             
@@ -354,27 +404,22 @@
 
     async function handleSave(e) {
         if (e) e.preventDefault();
+        projectPages[activeFile] = cmEditor.getValue();
         const projectId = projectIdInput.value;
-        const newHtml = cmEditor.getValue();
         const slugValue = slugInput.value.trim();
         
-        if (!newHtml.trim()) {
-            showMessage("HTML cannot be empty", true);
-            return;
-        }
-
         showMessage("Saving changes...", false);
         const snap = await getDoc(userDocRef());
         const plan = snap.exists() ? snap.data().plan : 'free';
 
-        const url = await handleDeployment(newHtml, plan, projectId, slugValue);
+        const url = await handleDeployment(projectPages, plan, projectId, slugValue);
         if (!url && deployStatusText.textContent === "Status: Failed") return;
 
         await updateDoc(projectDocRef(projectId), {
             title: titleInput.value.trim(),
             slug: slugValue,
             prompt: promptInput.value.trim().replace(/\n/g, '\\n'),
-            htmlContent: newHtml,
+            pages: projectPages,
             deploymentUrl: url || latestDeploymentUrl,
             updatedAt: Timestamp.fromDate(new Date())
         });
@@ -382,12 +427,11 @@
         titleHeader.textContent = titleInput.value;
         markDirty(false);
         showMessage("Saved & Deployed!", false);
-        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
     }
 
     async function handleCodeRefine() {
         if (pendingAiCode) { showMessage("Finish reviewing current changes first.", true); return; }
-        const currentHtml = cmEditor.getValue();
+        projectPages[activeFile] = cmEditor.getValue();
         const refinePrompt = promptInput.value.trim();
         if (!refinePrompt) { showMessage("Please describe the changes.", true); return; }
 
@@ -400,18 +444,21 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await auth.currentUser.getIdToken()}` },
                 body: JSON.stringify({ 
-                    html: currentHtml, 
+                    pages: projectPages, 
+                    activeFile: activeFile,
                     prompt: refinePrompt,
                     projectId: projectIdInput.value 
                 })
             });
 
             const data = await response.json();
-            if (data.htmlCode) {
-                originalCodeBeforeAi = currentHtml;
-                pendingAiCode = data.htmlCode;
-                cmEditor.setValue(pendingAiCode);
-                updateLivePreview(pendingAiCode);
+            if (data.pages) {
+                originalCodeBeforeAi = JSON.parse(JSON.stringify(projectPages));
+                pendingAiCode = data.pages;
+                projectPages = data.pages;
+                cmEditor.setValue(projectPages[activeFile]);
+                renderTabs();
+                updateLivePreview();
                 aiReviewBar.classList.remove('hidden');
                 editorContainer.classList.add('review-mode');
                 showMessage("Review AI changes.", false);
@@ -434,8 +481,10 @@
     };
 
     document.getElementById('reject-ai').onclick = () => {
-        cmEditor.setValue(originalCodeBeforeAi);
-        updateLivePreview(originalCodeBeforeAi);
+        projectPages = originalCodeBeforeAi;
+        cmEditor.setValue(projectPages[activeFile]);
+        renderTabs();
+        updateLivePreview();
         pendingAiCode = null;
         aiReviewBar.classList.add('hidden');
         editorContainer.classList.remove('review-mode');
@@ -465,13 +514,21 @@
                 titleHeader.textContent = data.title;
                 latestDeploymentUrl = data.deploymentUrl || '';
 
+                // Handle legacy migration from htmlContent to pages
+                if (data.pages) {
+                    projectPages = data.pages;
+                } else if (data.htmlContent) {
+                    projectPages = { "index.html": data.htmlContent };
+                }
+
                 cmEditor = CodeMirror.fromTextArea(document.getElementById('code-editor'), {
                     mode: "htmlmixed", theme: "dracula", lineNumbers: true, lineWrapping: true
                 });
 
-                cmEditor.setValue(data.htmlContent || "");
+                cmEditor.setValue(projectPages[activeFile] || "");
                 cmEditor.on('change', () => { if(!pendingAiCode) { markDirty(true); updateLivePreview(); } });
 
+                renderTabs();
                 updateLivePreview();
                 setPreviewButton(latestDeploymentUrl, false);
                 loadingScreen.classList.add('hidden');
