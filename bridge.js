@@ -47,6 +47,18 @@ const engine = new GenerationEngine({
                 ui.preview.src = URL.createObjectURL(blob);
             }
             saveToLocal();
+            // Trigger background save to Firebase during generation
+            if (auth.currentUser) {
+                autoSaveProject(
+                    projectState.pages,
+                    document.getElementById('user-prompt').value,
+                    projectState.id,
+                    auth.currentUser.uid,
+                    ui.logs.innerText,
+                    projectState.currentPage,
+                    projectState.name
+                ).then(id => { if (id) projectState.id = id; });
+            }
         },
         onNewPage: (name) => {
             if (!projectState.pages[name]) projectState.pages[name] = "";
@@ -396,6 +408,21 @@ window.triggerGenerate = async () => {
         attachedImages: projectState.attachedImages
     });
     projectState.isGenerating = false;
+
+    // Final background save to Firebase after completion
+    if (auth.currentUser) {
+        const savedId = await autoSaveProject(
+            projectState.pages,
+            prompt,
+            projectState.id,
+            auth.currentUser.uid,
+            ui.logs.innerText,
+            projectState.currentPage,
+            projectState.name
+        );
+        if (savedId) projectState.id = savedId;
+        loadHistory(auth.currentUser);
+    }
 
     ui.genBtn.classList.remove('gen-active');
     ui.genBtn.innerHTML = '➤';
