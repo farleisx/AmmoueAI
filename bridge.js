@@ -12,7 +12,8 @@ export const projectState = {
     pages: { landing: "" },
     isGenerating: false,
     attachedImages: [],
-    name: "Untitled Project"
+    name: "Untitled Project",
+    framework: "vanilla" // Default framework
 };
 
 // --- UI SELECTORS ---
@@ -50,18 +51,6 @@ const engine = new GenerationEngine({
                 ui.preview.src = URL.createObjectURL(blob);
             }
             saveToLocal();
-            // Trigger background save to Firebase during generation
-            if (auth.currentUser) {
-                autoSaveProject(
-                    projectState.pages,
-                    document.getElementById('user-prompt').value,
-                    projectState.id,
-                    auth.currentUser.uid,
-                    ui.logs.innerText,
-                    projectState.currentPage,
-                    projectState.name
-                ).then(id => { if (id) projectState.id = id; });
-            }
         },
         onNewPage: (name) => {
             if (!projectState.pages[name]) projectState.pages[name] = "";
@@ -107,19 +96,127 @@ async function updateUIUsage(userId) {
     }
     
     if (ui.resetDisplay && usage.dailyResetAt) {
-        const resetDate = new Date(parseInt(usage.dailyResetAt));
-        const now = new Date();
-        const diffMs = resetDate - now;
-        if (diffMs > 0) {
-            const hours = Math.floor(diffMs / (1000 * 60 * 60));
-            ui.resetDisplay.innerText = `Resets in ${hours}h`;
-        } else {
-            ui.resetDisplay.innerText = `Resetting soon...`;
-        }
+        startResetCountdown(usage.dailyResetAt);
     }
 }
 
-// --- NEW PROJECT LOGIC ---
+function startResetCountdown(resetAtMs) {
+    const update = () => {
+        const now = Date.now();
+        const diffMs = resetAtMs - now;
+
+        if (diffMs <= 0) {
+            ui.resetDisplay.innerText = `Resetting now...`;
+            return;
+        }
+
+        const hours = Math.floor(diffMs / (1000 * 60 * 60));
+        const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
+
+        // Simple display
+        ui.resetDisplay.innerText = `Resets in ${hours}h`;
+        
+        // Full precision on hover
+        ui.resetDisplay.title = `Exact Reset in: ${hours}h ${minutes}m ${seconds}s`;
+    };
+    
+    update();
+    setInterval(update, 1000);
+}
+
+// --- GENERATION BRIDGE ---
+window.triggerGenerate = async () => {
+    const prompt = document.getElementById('user-prompt').value;
+    if (!prompt || projectState.isGenerating) return;
+
+    ui.genBtn.classList.add('gen-active');
+    ui.genBtn.innerHTML = '<svg class="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+    ui.stopBtn.classList.remove('hidden');
+    if (ui.progressBar) ui.progressBar.classList.remove('hidden');
+
+    projectState.isGenerating = true;
+
+    try {
+        const idToken = await auth.currentUser.getIdToken();
+        const response = await fetch('/api/generate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${idToken}`
+            },
+            body: JSON.stringify({
+                prompt,
+                framework: projectState.framework,
+                projectId: projectState.id
+            })
+        });
+
+        if (response.status === 429) {
+            const data = await response.json();
+            showLimitModal(data.limit, data.resetAt);
+            projectState.isGenerating = false;
+            ui.genBtn.classList.remove('gen-active');
+            ui.genBtn.innerHTML = '➤';
+            return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            
+            const chunk = decoder.decode(value);
+            const lines = chunk.split("\n");
+
+            for (const line of lines) {
+                if (line.startsWith("data: ")) {
+                    const dataStr = line.slice(6).trim();
+                    if (dataStr === "[DONE]") break;
+
+                    try {
+                        const data = JSON.parse(dataStr);
+                        if (data.text) engine.processAIChunk(data.text);
+                        if (data.status === "initializing") updateUIUsage(auth.currentUser.uid);
+                    } catch (e) {}
+                }
+            }
+        }
+    } catch (err) {
+        console.error("Fetch error:", err);
+    } finally {
+        projectState.isGenerating = false;
+        ui.genBtn.classList.remove('gen-active');
+        ui.genBtn.innerHTML = '➤';
+        ui.stopBtn.classList.add('hidden');
+        saveToLocal();
+        loadHistory(auth.currentUser);
+    }
+};
+
+function showLimitModal(limit, resetAt) {
+    const diffMs = resetAt - Date.now();
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    
+    const modal = document.createElement('div');
+    modal.id = "limit-modal";
+    modal.className = "fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4";
+    modal.innerHTML = `
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl scale-in-center">
+            <div class="text-amber-500 mb-4 flex justify-center">
+                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-2">Daily Limit Reached</h3>
+            <p class="text-slate-400 text-sm mb-6">You've used your ${limit} generations. Resets in <span class="text-indigo-400 font-bold">${hours}h</span>.</p>
+            <button onclick="this.closest('#limit-modal').remove()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 rounded-xl transition-all">Understood</button>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+// --- REMAINDER OF EXISTING LOGIC ---
 window.createNewProject = () => {
     localStorage.removeItem('ammoue_autosave');
     const url = new URL(window.location);
@@ -128,7 +225,6 @@ window.createNewProject = () => {
     location.reload(); 
 };
 
-// --- LIVE CHAT LOGIC ---
 window.toggleChat = () => {
     const chat = document.getElementById('chat-widget');
     chat.classList.toggle('translate-y-full');
@@ -147,7 +243,6 @@ window.sendChatMessage = async () => {
     box.scrollTop = box.scrollHeight;
 };
 
-// --- PROMPT SUGGESTIONS LOGIC ---
 const suggestions = [
     "A minimalist portfolio for a creative director",
     "A high-converting SaaS landing page",
@@ -163,7 +258,6 @@ window.applySuggestion = (text) => {
     saveToLocal();
 };
 
-// --- VOICE PROMPT LOGIC ---
 window.startVoicePrompt = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitRecognition;
     if (!SpeechRecognition) return alert("Voice recognition not supported in this browser.");
@@ -182,7 +276,6 @@ window.startVoicePrompt = () => {
     recognition.onend = () => ui.voiceBtn.classList.remove('animate-pulse', 'text-red-500');
 };
 
-// --- DOWNLOAD CODE LOGIC ---
 window.openDownloadModal = () => {
     const modal = document.getElementById('download-modal');
     const list = document.getElementById('download-file-list');
@@ -207,7 +300,6 @@ window.confirmDownload = async () => {
     document.getElementById('download-modal').classList.add('hidden');
 };
 
-// --- COLLABORATION LOGIC ---
 window.copyCollaborationLink = () => {
     const url = window.location.href;
     navigator.clipboard.writeText(url).then(() => {
@@ -218,7 +310,6 @@ window.copyCollaborationLink = () => {
     });
 };
 
-// --- AI STYLE PRESETS LOGIC ---
 window.applyStylePreset = (preset) => {
     const styles = {
         modern: { font: "'Inter', sans-serif", primary: "#4f46e5", bg: "#ffffff" },
@@ -238,7 +329,6 @@ window.applyStylePreset = (preset) => {
     }
 };
 
-// --- AI SEO METADATA LOGIC ---
 window.generateSEOMetadata = () => {
     const prompt = document.getElementById('user-prompt').value || "My Awesome Project";
     const titleInput = document.getElementById('seo-title');
@@ -251,7 +341,6 @@ window.generateSEOMetadata = () => {
     if (descInput) descInput.value = suggestedDesc;
 };
 
-// --- ONE-CLICK FAVICON LOGIC ---
 window.setProjectFavicon = (emoji) => {
     const canvas = document.createElement('canvas');
     canvas.height = 64;
@@ -273,7 +362,6 @@ window.setProjectFavicon = (emoji) => {
     }
 };
 
-// --- THEME LOGIC ---
 window.toggleTheme = () => {
     document.documentElement.classList.toggle('dark');
     const isDark = document.documentElement.classList.contains('dark');
@@ -284,7 +372,6 @@ if (localStorage.getItem('theme') === 'dark') {
     document.documentElement.classList.add('dark');
 }
 
-// --- AUTH PROTECTION ---
 onAuthStateChanged(auth, (user) => {
     if (!user) {
         window.location.href = "/login";
@@ -299,7 +386,6 @@ onAuthStateChanged(auth, (user) => {
     }
 });
 
-// --- NEW VIEWPORT LOGIC ---
 window.setViewport = (type) => {
     if (type === 'mobile') {
         ui.previewContainer.style.width = '375px';
@@ -308,7 +394,6 @@ window.setViewport = (type) => {
     }
 };
 
-// --- MODAL LOGIC ---
 window.togglePublishModal = (show) => {
     ui.publishModal.classList.toggle('hidden', !show);
     if (show) window.generateSEOMetadata(); 
@@ -318,7 +403,6 @@ ui.slugInput?.addEventListener('input', (e) => {
     document.getElementById('slug-preview').innerText = (e.target.value || 'my-awesome-website') + '.vercel.app';
 });
 
-// --- PROJECT LOADING LOGIC ---
 async function loadProjectData(projectId, userId) {
     if (!projectId || !userId) return;
     try {
@@ -337,7 +421,6 @@ async function loadProjectData(projectId, userId) {
     } catch (e) { console.error("Load failed:", e); }
 }
 
-// --- AUTO-SAVE LOCAL LOGIC ---
 function saveToLocal() {
     const data = {
         prompt: document.getElementById('user-prompt').value,
@@ -363,7 +446,6 @@ function loadFromLocal() {
 
 document.getElementById('user-prompt').addEventListener('input', saveToLocal);
 
-// --- HISTORY LOGIC ---
 async function loadHistory(user) {
     if (!user) return;
     const projects = await getUserProjects(user.uid);
@@ -384,7 +466,6 @@ window.loadProject = (id) => {
     loadProjectData(id, auth.currentUser.uid);
 };
 
-// --- IMAGE HANDLING LOGIC ---
 ui.imageInput.addEventListener('change', async (e) => {
     const files = Array.from(e.target.files);
     ui.imagePreview.innerHTML = '';
@@ -408,7 +489,6 @@ ui.imageInput.addEventListener('change', async (e) => {
     }
 });
 
-// --- BRIDGE FUNCTIONS ---
 window.switchPage = (name) => {
     projectState.currentPage = name;
     engine.renderTabs(projectState, ui.tabContainer);
@@ -424,71 +504,6 @@ window.stopGeneration = async () => {
     ui.genBtn.classList.remove('gen-active');
     ui.genBtn.innerHTML = '➤';
     ui.stopBtn.classList.add('hidden');
-    
-    // Save current partial state to Firebase upon stopping
-    if (auth.currentUser) {
-        const prompt = document.getElementById('user-prompt').value;
-        const savedId = await autoSaveProject(
-            projectState.pages,
-            prompt,
-            projectState.id,
-            auth.currentUser.uid,
-            ui.logs.innerText + "\n[Generation Stopped by User]",
-            projectState.currentPage,
-            projectState.name
-        );
-        if (savedId) projectState.id = savedId;
-        loadHistory(auth.currentUser);
-        updateUIUsage(auth.currentUser.uid);
-    }
-    saveToLocal();
-};
-
-window.triggerGenerate = async () => {
-    const prompt = document.getElementById('user-prompt').value;
-    if (!prompt || projectState.isGenerating) return;
-    
-    ui.genBtn.classList.add('gen-active');
-    ui.genBtn.innerHTML = '<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
-    ui.stopBtn.classList.remove('hidden');
-
-    if (ui.progressBar) ui.progressBar.classList.remove('hidden');
-    
-    const fab = document.getElementById('mobile-fab');
-    if (fab) fab.classList.add('animate-spin');
-
-    projectState.isGenerating = true;
-    await engine.start({
-        prompt,
-        auth,
-        projectState,
-        attachedImages: projectState.attachedImages
-    });
-    
-    // Only proceed if not stopped manually
-    if (projectState.isGenerating) {
-        projectState.isGenerating = false;
-        if (auth.currentUser) {
-            const savedId = await autoSaveProject(
-                projectState.pages,
-                prompt,
-                projectState.id,
-                auth.currentUser.uid,
-                ui.logs.innerText,
-                projectState.currentPage,
-                projectState.name
-            );
-            if (savedId) projectState.id = savedId;
-            loadHistory(auth.currentUser);
-            updateUIUsage(auth.currentUser.uid);
-        }
-    }
-
-    ui.genBtn.classList.remove('gen-active');
-    ui.genBtn.innerHTML = '➤';
-    ui.stopBtn.classList.add('hidden');
-
-    if (fab) fab.classList.remove('animate-spin');
     saveToLocal();
 };
 
@@ -503,21 +518,17 @@ window.triggerDeploy = async () => {
     });
 };
 
-// --- UNIQUE PROJECT NAMING & RENAMING LOGIC ---
 window.generateUniqueProjectName = () => {
     const adjectives = ["Velvet", "Neon", "Golden", "Silent", "Cosmic", "Swift", "Azure", "Emerald"];
     const nouns = ["Pulse", "Nebula", "Flow", "Sphere", "Nexus", "Drift", "Aura", "Beacon"];
     const name = adjectives[Math.floor(Math.random() * adjectives.length)] + " " + nouns[Math.floor(Math.random() * nouns.length)];
-    
     projectState.name = name;
     if (ui.nameDisplay) ui.nameDisplay.innerText = name;
-    
     const slug = name.toLowerCase().replace(/\s+/g, '-');
     if (ui.slugInput) {
         ui.slugInput.value = slug;
         document.getElementById('slug-preview').innerText = slug + '.vercel.app';
     }
-    
     return name;
 };
 
@@ -553,7 +564,6 @@ if (!projectState.id) {
     window.generateUniqueProjectName();
 }
 
-// --- IMAGE UTILITY LOGIC ---
 window.removeImage = (index) => {
     projectState.attachedImages.splice(index, 1);
     ui.imagePreview.innerHTML = '';
@@ -574,20 +584,16 @@ window.zoomImage = (src) => {
     lightbox.classList.remove('hidden');
 };
 
-// --- MOBILE NAVIGATION & UI VIEW LOGIC ---
 window.toggleMobileView = (view) => {
     const sidebar = document.getElementById('main-sidebar');
     const leftPanel = document.getElementById('prompt-container');
     const centerPanel = document.getElementById('preview-container');
     const fab = document.getElementById('mobile-fab');
-    
     sidebar.classList.add('hidden');
     leftPanel.classList.add('hidden');
     centerPanel.classList.add('hidden');
-    
     sidebar.classList.remove('sidebar-mobile');
     leftPanel.classList.remove('prompt-zone-mobile');
-
     if (view === 'sidebar') {
         sidebar.classList.remove('hidden');
         sidebar.classList.add('sidebar-mobile');
@@ -602,14 +608,9 @@ window.toggleMobileView = (view) => {
     }
 };
 
-// --- SWIPE TO CLOSE LOGIC ---
 let touchStartX = 0;
 const sidebarEl = document.getElementById('main-sidebar');
-
-sidebarEl.addEventListener('touchstart', (e) => {
-    touchStartX = e.changedTouches[0].screenX;
-}, { passive: true });
-
+sidebarEl.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
 sidebarEl.addEventListener('touchend', (e) => {
     const touchEndX = e.changedTouches[0].screenX;
     if (touchStartX - touchEndX > 50 && sidebarEl.classList.contains('sidebar-mobile')) {
@@ -617,10 +618,8 @@ sidebarEl.addEventListener('touchend', (e) => {
     }
 }, { passive: true });
 
-// --- AUTO-HIDE HEADER ON SCROLL (MOBILE) ---
 let lastScrollY = 0;
 const scrollTarget = document.querySelector('section'); 
-
 scrollTarget.addEventListener('scroll', () => {
     if (window.innerWidth > 1024) return;
     const currentScrollY = scrollTarget.scrollTop;
@@ -632,27 +631,19 @@ scrollTarget.addEventListener('scroll', () => {
     lastScrollY = currentScrollY;
 }, { passive: true });
 
-// --- HAPTIC FEEDBACK EMULATION ---
 document.addEventListener('touchstart', (e) => {
     const target = e.target.closest('button, a, .emoji-btn, #mobile-fab');
     if (target) target.classList.add('haptic-press');
 }, { passive: true });
-
 document.addEventListener('touchend', (e) => {
     const target = e.target.closest('button, a, .emoji-btn, #mobile-fab');
     if (target) target.classList.remove('haptic-press');
 }, { passive: true });
 
-// --- PULL-TO-REFRESH SIMULATION ---
 let refreshStartY = 0;
 const previewWrapper = document.getElementById('preview-wrapper');
 const refreshIndicator = document.getElementById('refresh-indicator');
-
-previewWrapper.addEventListener('touchstart', (e) => {
-    if (window.innerWidth > 1024) return;
-    refreshStartY = e.touches[0].pageY;
-}, { passive: true });
-
+previewWrapper.addEventListener('touchstart', (e) => { if (window.innerWidth > 1024) return; refreshStartY = e.touches[0].pageY; }, { passive: true });
 previewWrapper.addEventListener('touchmove', (e) => {
     if (window.innerWidth > 1024) return;
     const currentY = e.touches[0].pageY;
@@ -662,7 +653,6 @@ previewWrapper.addEventListener('touchmove', (e) => {
         refreshIndicator.classList.remove('hidden');
     }
 }, { passive: true });
-
 previewWrapper.addEventListener('touchend', async (e) => {
     if (window.innerWidth > 1024) return;
     const diff = e.changedTouches[0].pageY - refreshStartY;
@@ -673,17 +663,13 @@ previewWrapper.addEventListener('touchend', async (e) => {
             refreshIndicator.classList.add('hidden');
             refreshIndicator.classList.remove('animate-spin');
         }, 1000);
-    } else {
-        refreshIndicator.classList.add('hidden');
-    }
+    } else { refreshIndicator.classList.add('hidden'); }
 }, { passive: true });
 
-// --- LIVE TEXT SYNC & CODE VIEWER LOGIC ---
 window.toggleCodeView = () => {
     const frame = document.getElementById('preview-frame');
     const editor = document.getElementById('code-editor-view');
     const btn = document.getElementById('code-view-toggle');
-    
     if (editor.classList.contains('hidden')) {
         editor.value = projectState.pages[projectState.currentPage];
         editor.classList.remove('hidden');
@@ -703,7 +689,6 @@ window.toggleCodeView = () => {
 window.enableVisualEditing = () => {
     const frame = document.getElementById('preview-frame');
     const doc = frame.contentDocument || frame.contentWindow.document;
-    
     doc.querySelectorAll('h1, h2, h3, p, span, button, a').forEach(el => {
         el.contentEditable = "true";
         el.style.outline = "none";
@@ -713,10 +698,8 @@ window.enableVisualEditing = () => {
         });
     });
 };
-
 ui.preview.onload = () => window.enableVisualEditing();
 
-// --- NEW FULL PAGE PREVIEW LOGIC ---
 window.openFullPreview = () => {
     const html = projectState.pages[projectState.currentPage];
     const newWin = window.open('about:blank', '_blank');
