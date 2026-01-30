@@ -1,4 +1,3 @@
-// fire_prompt.js
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 import {
@@ -13,7 +12,8 @@ import {
   increment,
   getDocs,
   query,
-  orderBy
+  orderBy,
+  setDoc
 } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
 /* ================= FIREBASE CONFIG ================= */
@@ -58,7 +58,8 @@ export async function autoSaveProject(
   existingProjectId,
   currentUserId,
   actionLogs = "",
-  activePageName = "landing" // New: tracks the current view
+  activePageName = "landing", // New: tracks the current view
+  projectName = "Untitled Project" // Added to sync naming
 ) {
   if (!currentUserId || !allPages) return null;
 
@@ -78,6 +79,7 @@ export async function autoSaveProject(
       htmlContent: allPages[activePageName] || "", // Primary page for compatibility
       pages: allPages,                             // The map of all generated pages
       actionLogs,
+      projectName,
       updatedAt: serverTimestamp()
     };
 
@@ -161,9 +163,11 @@ export async function updateProjectDeploymentUrl(
 export async function incrementCounter(userId, field) {
   try {
     const userRef = doc(db, "users", userId);
-    await updateDoc(userRef, {
-      [field]: increment(1)
-    });
+    // Use setDoc with merge to ensure user document exists
+    await setDoc(userRef, {
+      [field]: increment(1),
+      lastActive: serverTimestamp()
+    }, { merge: true });
   } catch (e) {
     console.error(`Failed to increment ${field}:`, e);
   }
