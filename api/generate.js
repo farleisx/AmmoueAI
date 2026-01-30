@@ -1,4 +1,3 @@
-// api/generate.js
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // ---------------- VERCEL RUNTIME CONFIG ----------------
@@ -190,7 +189,7 @@ async function enforceDailyLimit(uid) {
     }
   );
 
-  return { allowed: true, plan, remaining: limit - newCount };
+  return { allowed: true, plan, remaining: limit - newCount, resetAt };
 }
 
 // ---------------- STRICT FILE PARSER (NO BLEED) ----------------
@@ -263,7 +262,11 @@ export default async function handler(req) {
 
     const rate = await enforceDailyLimit(uid);
     if (!rate.allowed) {
-      return new Response(JSON.stringify({ error: "Daily limit reached" }), { status: 429 });
+      return new Response(JSON.stringify({ 
+        error: "Daily limit reached", 
+        limit: rate.limit, 
+        resetAt: rate.resetAt 
+      }), { status: 429 });
     }
 
     const { prompt, framework = "vanilla", projectId } = body;
@@ -281,7 +284,7 @@ CORE OBJECTIVE:
 Construct a production-ready, highly aesthetic, and fully functional multi-page application for the given prompt. Your output must be indistinguishable from code written by a Senior Engineer.
 
 ENGINEERING LAWS:
-- MULTI-FILE GENERATION: You MUST generate every file listed in this stack: ${activeStack.requiredFiles.join(", ")}. If the app needs more pages (e.g., about.html, contact.html), generate them too.
+- MULTI-FILE GENERATION: You MUST generate every file listed in this stack: ${activeStack.requiredFiles.join(", ")}. If the app needs more pages, generate them too.
 - CONFIGURATION: Always include a detailed package.json with appropriate dependencies and scripts, and a vercel.json for routing.
 - ENCAPSULATION: Use [NEW_PAGE: filename] and [END_PAGE] markers for every file.
 - ASSET USAGE: Use only the provided Pexels URLs for <img> and <video> tags to ensure visual brilliance.
@@ -306,7 +309,7 @@ ${JSON.stringify(activeStack)}
 
     const stream = new ReadableStream({
       async start(controller) {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ status: "initializing" })}\n\n`));
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ status: "initializing", remaining: rate.remaining, resetAt: rate.resetAt })}\n\n`));
 
         let finalText = "";
         let attempts = 0;
