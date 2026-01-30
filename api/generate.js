@@ -23,7 +23,19 @@ const STACK_PRESETS = {
     frontend: "HTML5, Tailwind CSS (CDN ONLY), Vanilla JS (INLINE ONLY)",
     backend: "None",
     structure: "Root-level index.html",
-    requiredFiles: ["package.json", "vercel.json", "README.md", "index.html"]
+    requiredFiles: ["package.json", "vercel.json", "README.md", "index.html", "404.html"]
+  },
+  "react-vite": {
+    frontend: "React 18+, Vite, Tailwind CSS",
+    backend: "Vercel Serverless Functions",
+    structure: "Vite Project Structure",
+    requiredFiles: ["package.json", "vite.config.js", "index.html", "src/main.jsx", "src/App.jsx", "src/index.css", "vercel.json", "README.md"]
+  },
+  "nextjs": {
+    frontend: "Next.js (App Router), Tailwind CSS",
+    backend: "Next.js API Routes",
+    structure: "Next.js Project Structure",
+    requiredFiles: ["package.json", "next.config.js", "app/layout.jsx", "app/page.jsx", "app/globals.css", "vercel.json", "README.md"]
   },
   "react-node": {
     frontend: "React (Vite), Tailwind CSS (CDN ONLY, INLINE ONLY)",
@@ -42,7 +54,7 @@ async function fetchPexelsAssets(prompt, genAI) {
     const extractionModel = genAI.getGenerativeModel({ model: API_MODEL });
     const extractionResult = await extractionModel.generateContent(
       `Extract exactly 3 highly descriptive search keywords from this prompt for a stock photo search. 
-       Return ONLY the keywords separated by commas. Prompt: "${prompt}"`
+        Return ONLY the keywords separated by commas. Prompt: "${prompt}"`
     );
     const query = extractionResult.response.text().trim() || prompt;
 
@@ -265,10 +277,11 @@ export default async function handler(req) {
 ROLE: ELITE FULL-STACK SOFTWARE ARCHITECT & PRODUCT DESIGNER.
 
 CORE OBJECTIVE:
-Construct a production-ready, highly aesthetic, and fully functional application for the given prompt. Your output must be indistinguishable from code written by a Senior Engineer.
+Construct a production-ready, highly aesthetic, and fully functional multi-page application for the given prompt. Your output must be indistinguishable from code written by a Senior Engineer.
 
 ENGINEERING LAWS:
-- MULTI-FILE GENERATION: You MUST generate every file listed in this stack: ${activeStack.requiredFiles.join(", ")}
+- MULTI-FILE GENERATION: You MUST generate every file listed in this stack: ${activeStack.requiredFiles.join(", ")}. If the app needs more pages (e.g., about.html, contact.html), generate them too.
+- CONFIGURATION: Always include a detailed package.json with appropriate dependencies and scripts, and a vercel.json for routing.
 - ENCAPSULATION: Use [NEW_PAGE: filename] and [END_PAGE] markers for every file.
 - ASSET USAGE: Use only the provided Pexels URLs for <img> and <video> tags to ensure visual brilliance.
 - STYLING: Use Tailwind CSS extensively. Ensure high contrast, modern typography, and responsive layouts.
