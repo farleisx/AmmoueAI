@@ -1,4 +1,3 @@
-<!-- ai_prompt.html -->
 <!DOCTYPE html>
 <html lang="en" class="">
 <head>
@@ -169,6 +168,20 @@
             <button onclick="window.toggleCodeView()" class="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-400 flex-1"><span>💻</span>Code</button>
         </nav>
     </main>
+
+    <div id="rename-modal" class="fixed inset-0 z-[110] flex items-center justify-center glass-modal hidden">
+        <div class="lovable-card w-[400px] p-8 shadow-2xl">
+            <h3 class="text-xl font-extrabold mb-4 dark:text-white">Rename Project</h3>
+            <div class="mb-6">
+                <label class="text-[10px] uppercase font-extrabold text-slate-400 mb-1 block">Project Name</label>
+                <input type="text" id="new-project-name-input" class="w-full bg-slate-50 dark:bg-slate-900 border rounded-xl p-3 outline-none dark:text-white text-sm font-bold">
+            </div>
+            <div class="flex gap-3">
+                <button onclick="document.getElementById('rename-modal').classList.add('hidden')" class="flex-1 py-3 font-bold text-slate-500">Cancel</button>
+                <button onclick="confirmRename()" class="flex-1 py-3 btn-lovable font-bold rounded-xl">Save Changes</button>
+            </div>
+        </div>
+    </div>
 
     <div id="download-modal" class="fixed inset-0 z-[100] flex items-center justify-center glass-modal hidden">
         <div class="lovable-card w-[400px] p-8">
