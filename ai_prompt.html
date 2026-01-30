@@ -161,7 +161,12 @@
                         </div>
                         <div class="h-10 bg-white dark:bg-slate-900 border border-b-0 flex items-center px-4 justify-between shrink-0">
                             <div class="flex gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-red-400/40"></div><div class="w-2.5 h-2.5 rounded-full bg-amber-400/40"></div><div class="w-2.5 h-2.5 rounded-full bg-emerald-400/40"></div></div>
-                            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Live Editor</span>
+                            <div class="flex items-center gap-3">
+                                <button id="stop-gen-btn" onclick="stopGeneration()" class="hidden flex items-center gap-1.5 px-3 py-1 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-[10px] font-bold rounded-full animate-pulse">
+                                    <span class="w-1.5 h-1.5 bg-red-600 rounded-full"></span> STOP
+                                </button>
+                                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Live Editor</span>
+                            </div>
                         </div>
                         <iframe id="preview-frame" class="w-full flex-1 border min-h-0 bg-white"></iframe>
                         <textarea id="code-editor-view" class="hidden w-full flex-1 bg-slate-900 text-emerald-400 font-mono text-xs p-6 outline-none resize-none"></textarea>
