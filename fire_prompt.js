@@ -180,10 +180,10 @@ export async function getUsage(userId) {
     if (snap.exists()) {
       return snap.data();
     }
-    return { dailyCount: 0, plan: "free" };
+    return { dailyCount: 0, plan: "free", dailyResetAt: 0 };
   } catch (e) {
     console.error("Failed to fetch usage:", e);
-    return { dailyCount: 0, plan: "free" };
+    return { dailyCount: 0, plan: "free", dailyResetAt: 0 };
   }
 }
 
