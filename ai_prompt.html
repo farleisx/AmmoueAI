@@ -103,6 +103,14 @@
 
     <main class="flex-1 flex overflow-hidden">
         <aside id="main-sidebar" class="w-60 sidebar flex flex-col p-5 gap-4 hidden lg:flex">
+            <div class="lovable-card p-3 mb-2 bg-indigo-50/50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-800/50">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-[9px] font-extrabold text-indigo-600 dark:text-indigo-400 tracking-widest uppercase">Usage</span>
+                    <span id="credit-reset-display" class="text-[8px] font-bold text-slate-400">Loading...</span>
+                </div>
+                <div id="credit-limit-display" class="text-xs font-extrabold text-slate-800 dark:text-slate-200">Checking...</div>
+            </div>
+
             <div class="mb-2">
                 <label class="text-[10px] uppercase font-extrabold text-slate-400 tracking-widest mb-2 block">AI Style Presets</label>
                 <select onchange="applyStylePreset(this.value)" class="w-full bg-white dark:bg-slate-800 border rounded-xl p-2 text-xs outline-none dark:text-white">
