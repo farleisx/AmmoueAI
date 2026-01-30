@@ -1,3 +1,4 @@
+// api/generate.js
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // ---------------- VERCEL RUNTIME CONFIG ----------------
