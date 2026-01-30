@@ -31,7 +31,8 @@ const ui = {
     publishModal: document.getElementById('publish-modal'),
     slugInput: document.getElementById('site-slug'),
     downloadBtn: document.getElementById('download-btn'),
-    voiceBtn: document.getElementById('voice-btn')
+    voiceBtn: document.getElementById('voice-btn'),
+    header: document.querySelector('header')
 };
 
 // --- ENGINE INIT ---
@@ -336,12 +337,18 @@ window.triggerGenerate = async () => {
     if (!prompt) return;
     if (ui.progressBar) ui.progressBar.classList.remove('hidden');
     
+    // Animate FAB if present
+    const fab = document.getElementById('mobile-fab');
+    if (fab) fab.classList.add('animate-spin');
+
     await engine.start({
         prompt,
         auth,
         projectState,
         attachedImages: projectState.attachedImages
     });
+
+    if (fab) fab.classList.remove('animate-spin');
 };
 
 window.triggerDeploy = async () => {
@@ -408,26 +415,107 @@ window.zoomImage = (src) => {
 
 // --- MOBILE NAVIGATION & UI VIEW LOGIC ---
 window.toggleMobileView = (view) => {
-    const sidebar = document.querySelector('aside');
+    const sidebar = document.getElementById('main-sidebar');
     const leftPanel = document.getElementById('prompt-container');
     const centerPanel = document.getElementById('preview-container');
+    const fab = document.getElementById('mobile-fab');
     
-    if (sidebar) sidebar.classList.add('hidden');
-    if (leftPanel) leftPanel.classList.add('hidden');
-    if (centerPanel) centerPanel.classList.add('hidden');
+    sidebar.classList.add('hidden');
+    leftPanel.classList.add('hidden');
+    centerPanel.classList.add('hidden');
     
-    if (view === 'sidebar' && sidebar) {
+    sidebar.classList.remove('sidebar-mobile');
+    leftPanel.classList.remove('prompt-zone-mobile');
+
+    if (view === 'sidebar') {
         sidebar.classList.remove('hidden');
         sidebar.classList.add('sidebar-mobile');
-    }
-    if (view === 'prompt' && leftPanel) {
+        if(fab) fab.classList.add('hidden');
+    } else if (view === 'prompt') {
         leftPanel.classList.remove('hidden');
         leftPanel.classList.add('prompt-zone-mobile');
-    }
-    if (view === 'preview' && centerPanel) {
+        if(fab) fab.classList.remove('hidden');
+    } else if (view === 'preview') {
         centerPanel.classList.remove('hidden');
+        if(fab) fab.classList.remove('hidden');
     }
 };
+
+// --- SWIPE TO CLOSE LOGIC ---
+let touchStartX = 0;
+const sidebarEl = document.getElementById('main-sidebar');
+
+sidebarEl.addEventListener('touchstart', (e) => {
+    touchStartX = e.changedTouches[0].screenX;
+}, { passive: true });
+
+sidebarEl.addEventListener('touchend', (e) => {
+    const touchEndX = e.changedTouches[0].screenX;
+    if (touchStartX - touchEndX > 50 && sidebarEl.classList.contains('sidebar-mobile')) {
+        window.toggleMobileView('preview');
+    }
+}, { passive: true });
+
+// --- AUTO-HIDE HEADER ON SCROLL (MOBILE) ---
+let lastScrollY = 0;
+const scrollTarget = document.querySelector('section'); 
+
+scrollTarget.addEventListener('scroll', () => {
+    if (window.innerWidth > 1024) return;
+    const currentScrollY = scrollTarget.scrollTop;
+    if (currentScrollY > lastScrollY && currentScrollY > 60) {
+        ui.header.classList.add('-translate-y-full');
+    } else {
+        ui.header.classList.remove('-translate-y-full');
+    }
+    lastScrollY = currentScrollY;
+}, { passive: true });
+
+// --- HAPTIC FEEDBACK EMULATION ---
+document.addEventListener('touchstart', (e) => {
+    const target = e.target.closest('button, a, .emoji-btn, #mobile-fab');
+    if (target) target.classList.add('haptic-press');
+}, { passive: true });
+
+document.addEventListener('touchend', (e) => {
+    const target = e.target.closest('button, a, .emoji-btn, #mobile-fab');
+    if (target) target.classList.remove('haptic-press');
+}, { passive: true });
+
+// --- PULL-TO-REFRESH SIMULATION ---
+let refreshStartY = 0;
+const previewWrapper = document.getElementById('preview-wrapper');
+const refreshIndicator = document.getElementById('refresh-indicator');
+
+previewWrapper.addEventListener('touchstart', (e) => {
+    if (window.innerWidth > 1024) return;
+    refreshStartY = e.touches[0].pageY;
+}, { passive: true });
+
+previewWrapper.addEventListener('touchmove', (e) => {
+    if (window.innerWidth > 1024) return;
+    const currentY = e.touches[0].pageY;
+    const diff = currentY - refreshStartY;
+    if (diff > 50 && diff < 150) {
+        refreshIndicator.style.transform = `translateY(${diff - 60}px)`;
+        refreshIndicator.classList.remove('hidden');
+    }
+}, { passive: true });
+
+previewWrapper.addEventListener('touchend', async (e) => {
+    if (window.innerWidth > 1024) return;
+    const diff = e.changedTouches[0].pageY - refreshStartY;
+    if (diff > 100) {
+        refreshIndicator.classList.add('animate-spin');
+        await window.triggerGenerate();
+        setTimeout(() => {
+            refreshIndicator.classList.add('hidden');
+            refreshIndicator.classList.remove('animate-spin');
+        }, 1000);
+    } else {
+        refreshIndicator.classList.add('hidden');
+    }
+}, { passive: true });
 
 // --- LIVE TEXT SYNC & CODE VIEWER LOGIC ---
 window.toggleCodeView = () => {
