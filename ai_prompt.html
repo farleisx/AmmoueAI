@@ -17,28 +17,45 @@
         .dark .sidebar { background: #020617; border-color: #1e293b; }
         #preview-frame { background: white; border-radius: 0 0 12px 12px; }
         .btn-lovable { background: #4f46e5; color: white; transition: all 0.2s; }
-        #preview-wrapper { transition: width 0.3s ease-in-out; margin: 0 auto; }
+        #preview-wrapper { transition: width 0.3s ease-in-out; margin: 0 auto; width: 100%; height: 100%; position: relative; }
         .glass-modal { background: rgba(255,255,255,0.8); backdrop-filter: blur(8px); }
         .dark .glass-modal { background: rgba(2, 6, 23, 0.8); }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .emoji-btn { transition: transform 0.1s; }
         .emoji-btn:active { transform: scale(1.2); }
-        input[type=range] { accent-color: #4f46e5; }
+        
+        /* Haptic Animation */
+        .haptic-press { transform: scale(0.95) !important; opacity: 0.9; }
+        button, a, .emoji-btn { transition: transform 0.15s cubic-bezier(0.2, 0, 0.2, 1); }
+
+        /* Floating Action Button */
+        #mobile-fab { position: fixed; bottom: 100px; right: 20px; width: 56px; height: 56px; border-radius: 28px; display: flex; align-items: center; justify-content: center; z-index: 60; box-shadow: 0 4px 20px rgba(79, 70, 229, 0.4); }
+
+        /* Floating Mobile Nav */
+        .mobile-nav-float { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 400px; height: 64px; background: rgba(255,255,255,0.9); backdrop-filter: blur(12px); border: 1px solid rgba(226,232,240,0.8); border-radius: 24px; display: flex; align-items: center; justify-content: around; z-index: 70; box-shadow: 0 8px 32px rgba(0,0,0,0.1); }
+        .dark .mobile-nav-float { background: rgba(15, 23, 42, 0.9); border-color: rgba(30, 41, 59, 0.8); }
 
         @media (max-width: 1024px) {
-            .sidebar-mobile { position: fixed; inset: 0; z-index: 60; width: 100% !important; height: 100vh; background: white !important; }
+            header { position: sticky; top: 0; transform: translateY(0); transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+            .sidebar-mobile { position: fixed; inset: 0; z-index: 80; width: 100% !important; height: 100vh; background: white !important; display: flex !important; transform: translateX(0); transition: transform 0.3s ease; }
             .dark .sidebar-mobile { background: #020617 !important; }
-            .prompt-zone-mobile { width: 100% !important; padding: 10px !important; }
-            .mobile-nav-active { display: flex !important; }
+            .prompt-zone-mobile { width: 100% !important; padding: 10px !important; flex: 1; display: flex !important; }
             header .hidden-mobile { display: none; }
-            main { padding-bottom: 64px; }
+            main { padding-bottom: 100px; }
+            #prompt-container, #preview-container { width: 100%; }
+            #mobile-fab { display: flex; }
+        }
+        
+        @media (min-width: 1025px) {
+            #mobile-fab { display: none; }
+            .mobile-nav-float { display: none; }
         }
     </style>
 </head>
 <body class="h-screen flex flex-col bg-[#fdfdfd] dark:bg-slate-950 relative overflow-hidden">
 
-    <header class="h-16 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 bg-white dark:bg-slate-900 z-50">
+    <header class="h-16 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 bg-white dark:bg-slate-900 z-50 shrink-0">
         <div class="flex items-center gap-4">
             <a href="/dashboard" class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
@@ -100,11 +117,13 @@
 
             <label class="text-[10px] uppercase font-extrabold text-slate-400 tracking-widest">History</label>
             <div id="history-list" class="flex-1 overflow-y-auto pr-2"></div>
+            
+            <div class="lg:hidden text-center text-[10px] text-slate-400 font-bold mt-auto py-4">← Swipe left to close</div>
         </aside>
 
-        <section class="flex-1 flex flex-col p-6 gap-6 bg-slate-50 dark:bg-slate-950/50 overflow-y-auto lg:overflow-hidden">
+        <section class="flex-1 flex flex-col p-4 lg:p-6 gap-6 bg-slate-50 dark:bg-slate-950/50 overflow-y-auto">
             <div class="flex-1 flex flex-col lg:flex-row gap-6 min-h-0">
-                <div id="prompt-container" class="w-80 flex flex-col gap-4">
+                <div id="prompt-container" class="lg:w-80 flex flex-col gap-4">
                     <div class="lovable-card p-5 flex-1 flex flex-col gap-4 overflow-hidden shadow-sm">
                         <div class="relative">
                             <textarea id="user-prompt" class="w-full h-48 bg-slate-50 dark:bg-slate-900 border rounded-2xl p-4 pr-14 text-sm focus:ring-2 ring-indigo-100 outline-none resize-none dark:text-white" placeholder="Describe your site..."></textarea>
@@ -118,11 +137,6 @@
                             <input type="file" id="image-input" multiple accept="image/*" class="hidden">
                             <div id="image-preview-zone" class="flex flex-wrap gap-2 p-2 bg-slate-50 dark:bg-slate-900 rounded-xl border border-dashed min-h-[50px]"></div>
                         </div>
-                        <div class="bg-indigo-50 dark:bg-slate-900 p-3 rounded-xl border border-indigo-100">
-                            <label class="text-[10px] uppercase font-extrabold text-indigo-400 tracking-widest mb-2 block flex justify-between">Revision History <span class="text-[9px] font-bold" id="rev-count">0</span></label>
-                            <input type="range" id="revision-slider" min="0" max="0" value="0" step="1" oninput="window.scrubRevision(this.value)" class="w-full h-1.5 mb-2 cursor-pointer">
-                            <button onclick="window.restoreRevision()" class="w-full text-[9px] font-bold py-1 bg-white dark:bg-slate-800 rounded-md text-indigo-500">Restore Selected</button>
-                        </div>
                         <div id="thinking-box" class="flex-1 flex flex-col gap-2 min-h-0 overflow-hidden pt-2">
                             <label class="text-[10px] uppercase font-extrabold text-slate-400 tracking-widest">Logs</label>
                             <div id="action-logs" class="flex-1 overflow-y-auto text-[11px] space-y-2 text-slate-500 dark:text-slate-400 font-medium"></div>
@@ -132,24 +146,31 @@
                         </div>
                     </div>
                 </div>
-                <div id="preview-container" class="flex-1 flex flex-col min-w-0">
-                    <div id="preview-wrapper" class="h-full flex flex-col shadow-2xl rounded-2xl overflow-hidden">
-                        <div class="h-10 bg-white dark:bg-slate-900 border border-b-0 flex items-center px-4 justify-between">
+                <div id="preview-container" class="flex-1 flex flex-col min-w-0 h-[500px] lg:h-full">
+                    <div id="preview-wrapper" class="flex flex-col shadow-2xl rounded-2xl overflow-hidden h-full">
+                        <div id="refresh-indicator" class="hidden absolute top-4 left-1/2 -translate-x-1/2 bg-indigo-500 text-white p-2 rounded-full shadow-lg z-20">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+                        </div>
+                        <div class="h-10 bg-white dark:bg-slate-900 border border-b-0 flex items-center px-4 justify-between shrink-0">
                             <div class="flex gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-red-400/40"></div><div class="w-2.5 h-2.5 rounded-full bg-amber-400/40"></div><div class="w-2.5 h-2.5 rounded-full bg-emerald-400/40"></div></div>
                             <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Live Editor</span>
                         </div>
-                        <iframe id="preview-frame" class="w-full flex-1 border"></iframe>
+                        <iframe id="preview-frame" class="w-full flex-1 border min-h-0 bg-white"></iframe>
                         <textarea id="code-editor-view" class="hidden w-full flex-1 bg-slate-900 text-emerald-400 font-mono text-xs p-6 outline-none resize-none"></textarea>
                     </div>
                 </div>
             </div>
         </section>
 
-        <nav class="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-slate-900 border-t flex items-center justify-around z-[70] px-4">
-            <button onclick="window.toggleMobileView('sidebar')" class="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-400"><span>📁</span>History</button>
-            <button onclick="window.toggleMobileView('prompt')" class="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-400"><span>✍️</span>Prompt</button>
-            <button onclick="window.toggleMobileView('preview')" class="flex flex-col items-center gap-1 text-[10px] font-bold text-indigo-500"><span>✨</span>Preview</button>
-            <button onclick="window.toggleCodeView()" class="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-400"><span>💻</span>Code</button>
+        <button id="mobile-fab" onclick="triggerGenerate()" class="btn-lovable">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+
+        <nav class="mobile-nav-float lg:hidden">
+            <button onclick="window.toggleMobileView('sidebar')" class="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-400 flex-1"><span>📁</span>History</button>
+            <button onclick="window.toggleMobileView('prompt')" class="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-400 flex-1"><span>✍️</span>Prompt</button>
+            <button onclick="window.toggleMobileView('preview')" class="flex flex-col items-center gap-1 text-[10px] font-bold text-indigo-500 flex-1"><span>✨</span>Preview</button>
+            <button onclick="window.toggleCodeView()" class="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-400 flex-1"><span>💻</span>Code</button>
         </nav>
     </main>
 
