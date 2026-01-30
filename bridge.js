@@ -2,7 +2,7 @@ import { auth, db, autoSaveProject, getUserProjects } from "./fire_prompt.js";
 import { GenerationEngine } from "./generation-engine.js";
 import { DeploymentManager } from "./deployment-manager.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 import { initPromptTyping } from "./prompt-typing.js"; 
 
 // --- GLOBAL STATE ---
@@ -11,7 +11,8 @@ export const projectState = {
     currentPage: 'landing',
     pages: { landing: "" },
     isGenerating: false,
-    attachedImages: [] 
+    attachedImages: [],
+    name: "Untitled Project"
 };
 
 // --- UI SELECTORS ---
@@ -32,7 +33,8 @@ const ui = {
     slugInput: document.getElementById('site-slug'),
     downloadBtn: document.getElementById('download-btn'),
     voiceBtn: document.getElementById('voice-btn'),
-    header: document.querySelector('header')
+    header: document.querySelector('header'),
+    nameDisplay: document.getElementById('project-name-display')
 };
 
 // --- ENGINE INIT ---
@@ -281,6 +283,8 @@ async function loadProjectData(projectId, userId) {
             const data = snap.data();
             projectState.pages = data.pages || { landing: data.htmlContent || "" };
             projectState.currentPage = 'landing';
+            projectState.name = data.projectName || ui.nameDisplay.innerText;
+            ui.nameDisplay.innerText = projectState.name;
             document.getElementById('user-prompt').value = data.prompt || "";
             engine.renderTabs(projectState, ui.tabContainer);
             window.switchPage('landing');
@@ -293,7 +297,8 @@ function saveToLocal() {
     const data = {
         prompt: document.getElementById('user-prompt').value,
         pages: projectState.pages,
-        id: projectState.id
+        id: projectState.id,
+        name: projectState.name
     };
     localStorage.setItem('ammoue_autosave', JSON.stringify(data));
 }
@@ -305,6 +310,8 @@ function loadFromLocal() {
     if (data.id && data.id !== projectState.id) return;
     document.getElementById('user-prompt').value = data.prompt || "";
     projectState.pages = data.pages || { landing: "" };
+    projectState.name = data.name || ui.nameDisplay.innerText;
+    ui.nameDisplay.innerText = projectState.name;
     engine.renderTabs(projectState, ui.tabContainer);
     window.switchPage(projectState.currentPage);
 }
@@ -317,7 +324,7 @@ async function loadHistory(user) {
     const projects = await getUserProjects(user.uid);
     ui.historyList.innerHTML = projects.map(p => `
         <div onclick="window.loadProject('${p.id}')" class="p-3 mb-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer border border-slate-200 dark:border-slate-700 transition-all group">
-            <div class="text-[11px] font-bold truncate text-slate-800 dark:text-slate-200">${p.prompt || 'Untitled'}</div>
+            <div class="text-[11px] font-bold truncate text-slate-800 dark:text-slate-200">${p.projectName || p.prompt || 'Untitled'}</div>
             <div class="text-[9px] text-slate-400 group-hover:text-indigo-500">${new Date(p.updatedAt?.seconds * 1000).toLocaleDateString()}</div>
         </div>
     `).join('');
@@ -404,14 +411,14 @@ window.addComponentToPrompt = (compName) => {
     saveToLocal();
 };
 
-// --- UNIQUE PROJECT NAMING LOGIC ---
+// --- UNIQUE PROJECT NAMING & RENAMING LOGIC ---
 window.generateUniqueProjectName = () => {
     const adjectives = ["Velvet", "Neon", "Golden", "Silent", "Cosmic", "Swift", "Azure", "Emerald"];
     const nouns = ["Pulse", "Nebula", "Flow", "Sphere", "Nexus", "Drift", "Aura", "Beacon"];
     const name = adjectives[Math.floor(Math.random() * adjectives.length)] + " " + nouns[Math.floor(Math.random() * nouns.length)];
     
-    const nameDisplay = document.getElementById('project-name-display');
-    if (nameDisplay) nameDisplay.innerText = name;
+    projectState.name = name;
+    if (ui.nameDisplay) ui.nameDisplay.innerText = name;
     
     const slug = name.toLowerCase().replace(/\s+/g, '-');
     if (ui.slugInput) {
@@ -421,6 +428,25 @@ window.generateUniqueProjectName = () => {
     
     return name;
 };
+
+window.editProjectName = () => {
+    const currentName = ui.nameDisplay.innerText;
+    const newName = prompt("Enter new project name:", currentName);
+    if (newName && newName.trim() !== "") {
+        projectState.name = newName.trim();
+        ui.nameDisplay.innerText = projectState.name;
+        saveToLocal();
+        syncNameWithFirebase(projectState.name);
+    }
+};
+
+async function syncNameWithFirebase(newName) {
+    if (!projectState.id || !auth.currentUser) return;
+    try {
+        const docRef = doc(db, "artifacts", "ammoueai", "users", auth.currentUser.uid, "projects", projectState.id);
+        await updateDoc(docRef, { projectName: newName });
+    } catch (e) { console.error("Name sync failed:", e); }
+}
 
 if (!projectState.id) {
     window.generateUniqueProjectName();
