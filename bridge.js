@@ -44,10 +44,12 @@ const engine = new GenerationEngine({
                 const blob = new Blob([code], { type: 'text/html' });
                 ui.preview.src = URL.createObjectURL(blob);
             }
+            saveToLocal();
         },
         onNewPage: (name) => {
             if (!projectState.pages[name]) projectState.pages[name] = "";
             engine.renderTabs(projectState, ui.tabContainer);
+            saveToLocal();
         },
         onAction: (text) => {
             ui.logs.innerHTML += `<div class="text-indigo-400 font-medium"> ${text}</div>`;
@@ -73,6 +75,7 @@ const deployer = new DeploymentManager({
 
 // --- NEW PROJECT LOGIC ---
 window.createNewProject = () => {
+    localStorage.removeItem('ammoue_autosave');
     const url = new URL(window.location);
     url.searchParams.delete('id');
     window.history.pushState({}, '', url);
@@ -111,6 +114,7 @@ initPromptTyping(document.getElementById('user-prompt'), suggestions);
 
 window.applySuggestion = (text) => {
     document.getElementById('user-prompt').value = text;
+    saveToLocal();
 };
 
 // --- VOICE PROMPT LOGIC ---
@@ -126,6 +130,7 @@ window.startVoicePrompt = () => {
         const transcript = event.results[0][0].transcript;
         document.getElementById('user-prompt').value += (document.getElementById('user-prompt').value ? " " : "") + transcript;
         ui.voiceBtn.classList.remove('animate-pulse', 'text-red-500');
+        saveToLocal();
     };
     recognition.onerror = () => ui.voiceBtn.classList.remove('animate-pulse', 'text-red-500');
     recognition.onend = () => ui.voiceBtn.classList.remove('animate-pulse', 'text-red-500');
@@ -239,7 +244,11 @@ onAuthStateChanged(auth, (user) => {
         window.location.href = "/login";
     } else {
         loadHistory(user);
-        if (projectState.id) loadProjectData(projectState.id, user.uid);
+        if (projectState.id) {
+            loadProjectData(projectState.id, user.uid);
+        } else {
+            loadFromLocal();
+        }
     }
 });
 
@@ -279,6 +288,29 @@ async function loadProjectData(projectId, userId) {
     } catch (e) { console.error("Load failed:", e); }
 }
 
+// --- AUTO-SAVE LOCAL LOGIC ---
+function saveToLocal() {
+    const data = {
+        prompt: document.getElementById('user-prompt').value,
+        pages: projectState.pages,
+        id: projectState.id
+    };
+    localStorage.setItem('ammoue_autosave', JSON.stringify(data));
+}
+
+function loadFromLocal() {
+    const saved = localStorage.getItem('ammoue_autosave');
+    if (!saved) return;
+    const data = JSON.parse(saved);
+    if (data.id && data.id !== projectState.id) return;
+    document.getElementById('user-prompt').value = data.prompt || "";
+    projectState.pages = data.pages || { landing: "" };
+    engine.renderTabs(projectState, ui.tabContainer);
+    window.switchPage(projectState.currentPage);
+}
+
+document.getElementById('user-prompt').addEventListener('input', saveToLocal);
+
 // --- HISTORY LOGIC ---
 async function loadHistory(user) {
     if (!user) return;
@@ -292,6 +324,7 @@ async function loadHistory(user) {
 }
 
 window.loadProject = (id) => {
+    localStorage.removeItem('ammoue_autosave');
     const url = new URL(window.location);
     url.searchParams.set('id', id);
     window.history.pushState({}, '', url);
@@ -337,7 +370,6 @@ window.triggerGenerate = async () => {
     if (!prompt) return;
     if (ui.progressBar) ui.progressBar.classList.remove('hidden');
     
-    // Animate FAB if present
     const fab = document.getElementById('mobile-fab');
     if (fab) fab.classList.add('animate-spin');
 
@@ -349,6 +381,7 @@ window.triggerGenerate = async () => {
     });
 
     if (fab) fab.classList.remove('animate-spin');
+    saveToLocal();
 };
 
 window.triggerDeploy = async () => {
@@ -368,6 +401,7 @@ window.addComponentToPrompt = (compName) => {
     const addition = `\n[Add ${compName} component with modern styling]`;
     promptArea.value += addition;
     promptArea.scrollTop = promptArea.scrollHeight;
+    saveToLocal();
 };
 
 // --- UNIQUE PROJECT NAMING LOGIC ---
@@ -535,6 +569,7 @@ window.toggleCodeView = () => {
         editor.classList.add('hidden');
         frame.classList.remove('hidden');
         btn.innerText = "💻 View Code";
+        saveToLocal();
     }
 };
 
@@ -547,6 +582,7 @@ window.enableVisualEditing = () => {
         el.style.outline = "none";
         el.addEventListener('blur', () => {
             projectState.pages[projectState.currentPage] = doc.documentElement.outerHTML;
+            saveToLocal();
         });
     });
 };
