@@ -146,17 +146,21 @@ export default async function handler(req, res) {
         const fileData = typeof data === 'string' ? data : (data.content || "");
         let fileName = name;
 
+        // Smart Mapping for Frameworks vs Vanilla
         if (fileName === "landing") {
-          fileName = framework === "vanilla" ? "index.html" : "index.jsx";
+          fileName = (framework === "vanilla" || !framework) ? "index.html" : "index.jsx";
         }
 
+        // Support for nested structures (e.g., src/App.js) provided by editor tabs
         vercelFiles.push({ file: fileName, data: String(fileData || "") });
         
+        // Ensure root index exists for vanilla deployments if specifically named index
         if (framework === "vanilla" && (name === "landing" || name === "index")) {
-          vercelFiles.push({ file: "landing.html", data: String(fileData || "") });
+          vercelFiles.push({ file: "index.html", data: String(fileData || "") });
         }
       });
     } else {
+      // Fallback for direct deployment from editor
       vercelFiles.push({ file: "index.html", data: String(htmlContent || "") });
     }
   } catch (err) {
@@ -269,11 +273,13 @@ export default async function handler(req, res) {
       }
     }
 
+    // Advanced Framework Resolution
     const frameworkSettings = {
       vanilla: { framework: null, buildCommand: null, outputDirectory: null },
       react: { framework: "create-react-app", buildCommand: "npm run build", outputDirectory: "build" },
       nextjs: { framework: "nextjs", buildCommand: "npm run build", outputDirectory: ".next" },
-      vue: { framework: "vue", buildCommand: "npm run build", outputDirectory: "dist" }
+      vue: { framework: "vue", buildCommand: "npm run build", outputDirectory: "dist" },
+      vite: { framework: "vite", buildCommand: "npm run build", outputDirectory: "dist" }
     }[framework] || { framework: null };
 
     const deployRes = await fetch(
