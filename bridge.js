@@ -402,15 +402,6 @@ window.triggerDeploy = async () => {
     });
 };
 
-// --- NEW COMPONENT LIBRARY LOGIC ---
-window.addComponentToPrompt = (compName) => {
-    const promptArea = document.getElementById('user-prompt');
-    const addition = `\n[Add ${compName} component with modern styling]`;
-    promptArea.value += addition;
-    promptArea.scrollTop = promptArea.scrollHeight;
-    saveToLocal();
-};
-
 // --- UNIQUE PROJECT NAMING & RENAMING LOGIC ---
 window.generateUniqueProjectName = () => {
     const adjectives = ["Velvet", "Neon", "Golden", "Silent", "Cosmic", "Swift", "Azure", "Emerald"];
