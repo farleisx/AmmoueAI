@@ -10,7 +10,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
 const GOOGLE_CX = process.env.GOOGLE_CX;
 const GOOGLE_SEARCH_KEY = process.env.GOOGLE_SEARCH_KEY;
-const API_MODEL = "gemini-2.5-flash"; // Make sure to keep it as 2.5 i only have billing for 2.5 
+const API_MODEL = "gemini-2.5-flash"; 
 
 const SERVICE_ACCOUNT = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 const PROJECT_ID = SERVICE_ACCOUNT.project_id;
@@ -50,7 +50,6 @@ async function fetchPexelsAssets(prompt, genAI) {
   if (!PEXELS_API_KEY) return { images: [], videos: [] };
   
   try {
-    // 1. Keyword Extraction Phase
     const extractionModel = genAI.getGenerativeModel({ model: API_MODEL });
     const extractionResult = await extractionModel.generateContent(
       `Extract exactly 3 highly descriptive search keywords from this prompt for a stock photo search. 
@@ -58,7 +57,6 @@ async function fetchPexelsAssets(prompt, genAI) {
     );
     const query = extractionResult.response.text().trim() || prompt;
 
-    // 2. Fetch Assets
     const [imgRes, vidRes] = await Promise.all([
       fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=6`, {
         headers: { Authorization: PEXELS_API_KEY }
@@ -209,24 +207,8 @@ function extractFilesStrict(text) {
 // ---------------- RULE VALIDATION (HARD FAIL) ----------------
 function validateGeneratedOutput(fullText) {
   const errors = [];
-
-  if (!/\/\*\s*\[NEW_PAGE:/i.test(fullText)) {
-    errors.push("Missing file boundary markers");
-  }
-
-  if (/<\/link>|<link\s+rel=|<script\s+src=|@import\s+/i.test(fullText)) {
-    errors.push("External asset usage detected");
-  }
-
-  const illegalTextPattern = />[^<\n]+</g;
-  if (illegalTextPattern.test(fullText)) {
-    errors.push("Plain text detected outside comments");
-  }
-
-  if (!/\/\*\s*\[END_PAGE\]\s*\*\//i.test(fullText)) {
-    errors.push("Missing END_PAGE markers");
-  }
-
+  if (!/\/\*\s*\[NEW_PAGE:/i.test(fullText)) errors.push("Missing file boundary markers");
+  if (!/\/\*\s*\[END_PAGE\]\s*\*\//i.test(fullText)) errors.push("Missing END_PAGE markers");
   return errors;
 }
 
@@ -234,125 +216,70 @@ function validateGeneratedOutput(fullText) {
 function sanitizeOutput(text) {
   const secrets = [GEMINI_API_KEY, PEXELS_API_KEY, GOOGLE_SEARCH_KEY].filter(Boolean);
   let sanitized = text;
-  secrets.forEach(s => {
-    sanitized = sanitized.split(s).join("[REDACTED]");
-  });
+  secrets.forEach(s => { sanitized = sanitized.split(s).join("[REDACTED]"); });
   return sanitized;
 }
 
 // ---------------- MAIN HANDLER ----------------
 export default async function handler(req) {
-  if (req.method !== "POST") {
-    return new Response("Method Not Allowed", { status: 405 });
-  }
+  if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
 
   try {
     const body = await req.json();
     const authHeader = req.headers.get("authorization") || "";
-    const userToken = authHeader.startsWith("Bearer ")
-      ? authHeader.slice(7)
-      : null;
-
-    if (!userToken) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
-    }
+    const userToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!userToken) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
 
     const payload = JSON.parse(atob(userToken.split(".")[1]));
     const uid = payload.user_id || payload.sub;
 
     const rate = await enforceDailyLimit(uid);
-    if (!rate.allowed) {
-      return new Response(JSON.stringify({ 
-        error: "Daily limit reached", 
-        limit: rate.limit, 
-        resetAt: rate.resetAt 
-      }), { status: 429 });
-    }
+    if (!rate.allowed) return new Response(JSON.stringify({ error: "Daily limit reached", limit: rate.limit, resetAt: rate.resetAt }), { status: 429 });
 
     const { prompt, framework = "vanilla", projectId } = body;
-
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const activeStack = STACK_PRESETS[framework] || STACK_PRESETS.vanilla;
-    
-    // Fetch precise Pexels assets
     const assets = await fetchPexelsAssets(prompt, genAI);
 
     const systemInstruction = `
-ROLE: ELITE FULL-STACK SOFTWARE ARCHITECT & PRODUCT DESIGNER.
+ROLE: ELITE FULL-STACK SOFTWARE ARCHITECT.
+FRAMEWORK: ${framework.toUpperCase()}
+STACK SPEC: ${JSON.stringify(activeStack)}
 
-CORE OBJECTIVE:
-Construct a production-ready, highly aesthetic, and fully functional multi-page application for the given prompt. Your output must be indistinguishable from code written by a Senior Engineer.
-
-ENGINEERING LAWS:
-- MULTI-FILE GENERATION: You MUST generate every file listed in this stack: ${activeStack.requiredFiles.join(", ")}. If the app needs more pages, generate them too.
-- CONFIGURATION: Always include a detailed package.json with appropriate dependencies and scripts, and a vercel.json for routing.
-- ENCAPSULATION: Use [NEW_PAGE: filename] and [END_PAGE] markers for every file.
-- ASSET USAGE: Use only the provided Pexels URLs for <img> and <video> tags to ensure visual brilliance.
-- STYLING: Use Tailwind CSS extensively. Ensure high contrast, modern typography, and responsive layouts.
-- NO EXTERNAL LINKS: No external JS/CSS except Tailwind CDN.
-- NO NARRATIVE: No conversational text. Use [ACTION: task] tags to log your progress before code blocks.
-
-AVAILABLE MEDIA ASSETS:
-Images: ${JSON.stringify(assets.images)}
-Videos: ${JSON.stringify(assets.videos)}
-
-STACK SPECIFICATIONS:
-${JSON.stringify(activeStack)}
+STRICT RULES:
+1. Generate EVERY file required for the ${framework} stack.
+2. For Next.js/React: Use JSX/TSX syntax. DO NOT use plain HTML/CDN scripts if the stack is React/Next.js. 
+3. Use [NEW_PAGE: filename] and [END_PAGE] markers for EVERY file.
+4. Output ONLY code inside markers. No conversation.
+5. MEDIA: Use these URLs: Images: ${JSON.stringify(assets.images)}, Videos: ${JSON.stringify(assets.videos)}
+6. LOGS: Use [ACTION: Task Name] before file blocks.
 `;
 
-    const model = genAI.getGenerativeModel({
-      model: API_MODEL,
-      systemInstruction
-    });
-
+    const model = genAI.getGenerativeModel({ model: API_MODEL, systemInstruction });
     const encoder = new TextEncoder();
 
     const stream = new ReadableStream({
       async start(controller) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ status: "initializing", remaining: rate.remaining, resetAt: rate.resetAt })}\n\n`));
 
-        let finalText = "";
-        let attempts = 0;
-        let valid = false;
+        const result = await model.generateContentStream({
+          contents: [{ role: "user", parts: [{ text: `Create a ${framework} project for: ${prompt}` }] }]
+        });
 
-        while (!valid && attempts < 3) {
-          attempts++;
-
-          const result = await model.generateContentStream({
-            contents: [{ role: "user", parts: [{ text: prompt }] }]
-          });
-
-          for await (const chunk of result.stream) {
-            const text = chunk.text();
-            finalText += text;
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
-          }
-
-          const violations = validateGeneratedOutput(finalText);
-
-          if (violations.length === 0) {
-            valid = true;
-          } else {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ status: "rejecting", violations })}\n\n`));
-            finalText = "";
-            await model.generateContent(`Fix ALL violations strictly:\n${violations.join("\n")}`);
-          }
-        }
-
-        if (!valid) {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: "Validation failed" })}\n\n`));
-          controller.close();
-          return;
+        let fullGeneratedText = "";
+        for await (const chunk of result.stream) {
+          const text = chunk.text();
+          fullGeneratedText += text;
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
         }
 
         if (projectId) {
-          const sanitized = sanitizeOutput(finalText);
+          const sanitized = sanitizeOutput(fullGeneratedText);
           const files = extractFilesStrict(sanitized);
-          
           const actionRegex = /\[ACTION:\s*(.*?)\s*\]/g;
           let logsHTML = "";
           let actionMatch;
-          while ((actionMatch = actionRegex.exec(finalText)) !== null) {
+          while ((actionMatch = actionRegex.exec(fullGeneratedText)) !== null) {
             logsHTML += `<div class="text-[10px] text-slate-400 font-medium"><span class="text-emerald-500 mr-2">✔</span>${actionMatch[1]}</div>`;
           }
 
@@ -364,13 +291,7 @@ ${JSON.stringify(activeStack)}
                   pages: {
                     mapValue: {
                       fields: Object.keys(files).reduce((acc, key) => {
-                        acc[key] = { 
-                          mapValue: { 
-                            fields: { 
-                              content: { stringValue: files[key] } 
-                            } 
-                          } 
-                        };
+                        acc[key] = { mapValue: { fields: { content: { stringValue: files[key] } } } };
                         return acc;
                       }, {})
                     }
@@ -393,11 +314,7 @@ ${JSON.stringify(activeStack)}
     });
 
     return new Response(stream, {
-      headers: {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        "Connection": "keep-alive"
-      }
+      headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" }
     });
 
   } catch (err) {
