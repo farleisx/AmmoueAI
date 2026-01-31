@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lovable Style Builder</title>
+    <title>AmmoueAI | AI Builder</title>
+    <link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -42,6 +43,7 @@
             <div class="h-4 w-[1px] bg-white/10"></div>
             <div class="flex items-center gap-4 text-xs font-medium text-gray-500">
                 <span id="credit-display" class="text-white/80 bg-white/5 px-2 py-1 rounded">Credits: --</span>
+                <button class="hover:text-white transition">Pages</button>
             </div>
         </div>
         <div class="flex items-center gap-2">
@@ -49,7 +51,7 @@
                 <i data-lucide="code" class="w-3.5 h-3.5"></i> Code
             </button>
             <button id="logout-btn" class="text-xs text-gray-400 px-3 py-1.5 hover:bg-white/5 rounded-md transition">Logout</button>
-            <button class="text-xs bg-white text-black px-4 py-1.5 rounded-md font-semibold hover:bg-gray-200 transition">Publish</button>
+            <button id="publish-btn" class="text-xs bg-white text-black px-4 py-1.5 rounded-md font-semibold hover:bg-gray-200 transition">Publish</button>
         </div>
     </nav>
 
@@ -59,7 +61,7 @@
             <i data-lucide="layers" class="w-5 h-5 text-gray-500 hover:text-white cursor-pointer transition"></i>
         </aside>
 
-        <main class="flex-1 canvas-grid relative flex flex-col items-center justify-start pt-12 p-8 overflow-auto">
+        <main class="flex-1 canvas-grid relative flex flex-col items-center justify-start pt-12 p-8 overflow-auto transition-all">
             <div class="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/40 p-1 rounded-lg border border-white/5 backdrop-blur-md z-30">
                 <button id="view-desktop" class="p-1.5 bg-white/10 rounded text-white transition"><i data-lucide="monitor" class="w-4 h-4"></i></button>
                 <button id="view-tablet" class="p-1.5 text-gray-500 hover:text-white transition"><i data-lucide="tablet" class="w-4 h-4"></i></button>
@@ -68,8 +70,12 @@
 
             <div id="preview-container" class="w-full max-w-[1100px] aspect-video bg-white rounded-xl browser-mockup overflow-hidden flex flex-col">
                 <div class="h-11 bg-[#f9f9f9] border-b border-gray-200 flex items-center px-4">
-                    <div class="flex gap-2 w-1/4"><div class="w-2.5 h-2.5 rounded-full bg-gray-300"></div><div class="w-2.5 h-2.5 rounded-full bg-gray-300"></div></div>
-                    <div class="w-1/2 flex justify-center text-[10px] text-gray-400 font-mono">preview.lovable.app</div>
+                    <div class="flex gap-2 w-1/4">
+                        <div class="w-2.5 h-2.5 rounded-full bg-[#ff5f57]"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-[#28c840]"></div>
+                    </div>
+                    <div class="w-1/2 flex justify-center text-[10px] text-gray-400 font-mono">preview.ammoue.ai</div>
                 </div>
                 <div id="preview-frame" class="flex-1 bg-white text-black p-12 overflow-auto">
                     <h2 class="text-5xl font-semibold tracking-tight">Your Idea, Built.</h2>
@@ -96,11 +102,14 @@
         </main>
 
         <aside id="code-sidebar" class="code-sidebar flex flex-col h-full">
-            <div class="p-4 border-b border-white/10 flex justify-between items-center">
-                <span class="text-xs font-semibold uppercase tracking-widest text-gray-500">Live Code Stream</span>
-                <button id="close-code" class="text-gray-500 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+            <div class="p-4 border-b border-white/10 flex flex-col gap-2">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-semibold uppercase tracking-widest text-gray-500">Live Build</span>
+                    <button id="close-code" class="text-gray-500 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+                </div>
+                <div id="thinking-status" class="text-[10px] text-emerald-400 font-mono min-h-[14px]">Idle</div>
             </div>
-            <pre class="flex-1 p-4 overflow-auto text-[13px] font-mono leading-relaxed text-blue-300/90 whitespace-pre-wrap"><code id="code-output"></code></pre>
+            <pre class="flex-1 p-4 overflow-auto text-[12px] font-mono leading-relaxed text-blue-300/90 whitespace-pre-wrap"><code id="code-output"></code></pre>
         </aside>
     </div>
 
