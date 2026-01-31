@@ -1,4 +1,3 @@
-// generation-engine.js
 import { autoSaveProject } from "./fire_prompt.js";
 
 export class GenerationEngine {
@@ -28,6 +27,45 @@ export class GenerationEngine {
         `).join('');
     }
 
+    // Added separate processChunk method to bridge the fetch stream from bridge.js
+    processAIChunk(textChunk) {
+        const { callbacks, ui } = this.config;
+        const projectState = callbacks.getProjectState();
+        let text = textChunk;
+
+        // Handle New Page Signal - Updates target for subsequent text chunks
+        text = this.parseTags(text, 'NEW_PAGE', (pageName) => {
+            const cleanName = pageName.toLowerCase();
+            this.streamingTarget = cleanName;
+            
+            // Logic to clear old data if it's the very first time we see this page in this session
+            if (!projectState.pages[cleanName]) {
+                projectState.pages[cleanName] = "";
+            }
+            callbacks.onNewPage(cleanName);
+        });
+
+        // Handle Action Logs
+        text = this.parseTags(text, 'ACTION', (actionText) => {
+            callbacks.onAction(actionText);
+        });
+
+        // Remove [END_PAGE] and Markdown code block markers if present in stream
+        text = text.replace(/\[END_PAGE\]/g, "");
+        text = text.replace(/```[a-z]*\n?/gi, "").replace(/```$/g, "");
+
+        // Update the correct file in the pages object
+        if (this.streamingTarget) {
+            if (!projectState.pages[this.streamingTarget]) {
+                projectState.pages[this.streamingTarget] = "";
+            }
+            projectState.pages[this.streamingTarget] += text;
+            
+            // Relay update to the UI/Bridge
+            callbacks.onCodeUpdate(projectState.pages[this.streamingTarget], this.streamingTarget);
+        }
+    }
+
     async start({ prompt, style, auth, projectState, attachedImages, isResume }) {
         this.abortCtrl = new AbortController();
         const { ui, callbacks } = this.config;
@@ -47,7 +85,9 @@ export class GenerationEngine {
                     prompt: finalPrompt,
                     images: attachedImages,
                     partialCode: isResume ? projectState.currentHtml : null,
-                    pageName: projectState.currentPage
+                    pageName: projectState.currentPage,
+                    projectId: projectState.id,
+                    framework: projectState.framework
                 }),
                 signal: this.abortCtrl.signal
             });
@@ -64,7 +104,7 @@ export class GenerationEngine {
 
                 const chunk = decoder.decode(value);
                 progress += 1.5;
-                ui.progressFill.style.width = `${Math.min(progress, 95)}%`;
+                if (ui.progressFill) ui.progressFill.style.width = `${Math.min(progress, 95)}%`;
 
                 const lines = chunk.split('\n');
                 for (const line of lines) {
@@ -75,32 +115,7 @@ export class GenerationEngine {
                     try {
                         const json = JSON.parse(dataStr);
                         if (json.text) {
-                            let text = json.text;
-
-                            // Handle New Page Signal - Updates target for subsequent text chunks
-                            text = this.parseTags(text, 'NEW_PAGE', (pageName) => {
-                                const cleanName = pageName.toLowerCase();
-                                this.streamingTarget = cleanName;
-                                callbacks.onNewPage(cleanName);
-                            });
-
-                            // Handle Action Logs
-                            text = this.parseTags(text, 'ACTION', (actionText) => {
-                                callbacks.onAction(actionText);
-                            });
-
-                            // Remove [END_PAGE] markers if present in stream
-                            text = text.replace(/\[END_PAGE\]/g, "");
-
-                            // Update the correct file in the pages object
-                            if (!projectState.pages[this.streamingTarget]) {
-                                projectState.pages[this.streamingTarget] = "";
-                            }
-                            
-                            projectState.pages[this.streamingTarget] += text;
-                            
-                            // Relay update to the UI/Bridge
-                            callbacks.onCodeUpdate(projectState.pages[this.streamingTarget], this.streamingTarget);
+                            this.processAIChunk(json.text);
                         }
                     } catch (e) { /* Ignore partial JSON chunks */ }
                 }
@@ -120,7 +135,7 @@ export class GenerationEngine {
             if (err.name !== 'AbortError') callbacks.onError(err.message);
         } finally {
             ui.genBtn.disabled = false;
-            ui.progressFill.style.width = "100%";
+            if (ui.progressFill) ui.progressFill.style.width = "100%";
             setTimeout(() => ui.progressBar.classList.add('hidden'), 600);
         }
     }
