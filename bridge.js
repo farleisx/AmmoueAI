@@ -4,7 +4,7 @@ import { DeploymentManager } from "./deployment-manager.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 import { initPromptTyping } from "./prompt-typing.js"; 
-import { updateUIUsage, saveToLocal, loadHistory, syncNameWithFirebase, generateUniqueProjectName } from "./project-utils.js";
+import { updateUIUsage, saveToLocal, loadHistory, syncNameWithFirebase, generateUniqueProjectName, toggleTheme, setViewport, copyCollaborationLink, openDownloadModal, togglePublishModal, applyStylePreset, toggleExpandFiles, startVoicePrompt } from "./project-utils.js";
 
 // --- GLOBAL STATE ---
 export const projectState = {
@@ -46,7 +46,38 @@ const ui = {
     frameworkLabel: document.getElementById('framework-label')
 };
 
-// --- HELPERS ---
+// --- WINDOW EXPOSURE (Fixes ReferenceErrors) ---
+window.toggleTheme = toggleTheme;
+window.setViewport = setViewport;
+window.copyCollaborationLink = copyCollaborationLink;
+window.openDownloadModal = openDownloadModal;
+window.togglePublishModal = togglePublishModal;
+window.applyStylePreset = applyStylePreset;
+window.toggleExpandFiles = toggleExpandFiles;
+window.startVoicePrompt = startVoicePrompt;
+window.triggerGenerate = async () => { /* Logic below */ };
+window.stopGeneration = (manual = true) => { /* Logic below */ };
+
+window.toggleCodeView = () => {
+    const editor = document.getElementById('code-editor-view');
+    const iframe = document.getElementById('preview-frame');
+    if (editor.classList.contains('hidden')) {
+        editor.value = projectState.pages[projectState.currentPage];
+        editor.classList.remove('hidden');
+        iframe.classList.add('hidden');
+    } else {
+        editor.classList.add('hidden');
+        iframe.classList.remove('hidden');
+    }
+};
+
+window.openFullPreview = () => {
+    const code = projectState.pages[projectState.currentPage];
+    const newWin = window.open();
+    newWin.document.write(code);
+    newWin.document.close();
+};
+
 window.setUnsavedStatus = (status) => {
     hasUnsavedChanges = status;
     if (ui.unsavedIndicator) {
@@ -102,7 +133,7 @@ const deployer = new DeploymentManager({
     }
 });
 
-// --- GENERATION ---
+// --- GENERATION LOGIC ---
 window.triggerGenerate = async () => {
     const prompt = document.getElementById('user-prompt').value;
     if (!prompt || projectState.isGenerating) return;
@@ -125,9 +156,8 @@ window.triggerGenerate = async () => {
         });
 
         if (response.status === 429) {
-            const data = await response.json();
-            showLimitModal(data.limit, data.resetAt);
-            return stopGeneration();
+            alert("Credit limit reached.");
+            return window.stopGeneration(false);
         }
 
         const reader = response.body.getReader();
@@ -165,7 +195,7 @@ window.triggerGenerate = async () => {
     } catch (err) {
         if (err.name !== 'AbortError') console.error(err);
     } finally {
-        stopGeneration(false);
+        window.stopGeneration(false);
         saveToLocal(projectState);
         updateUIUsage(auth.currentUser.uid, ui);
     }
@@ -216,7 +246,7 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// --- UI UTILS & PROJECT LOADING ---
+// --- PROJECT HELPERS ---
 window.createNewProject = () => {
     if (hasUnsavedChanges && !confirm("Discard unsaved changes?")) return;
     localStorage.removeItem('ammoue_autosave');
@@ -290,5 +320,4 @@ onAuthStateChanged(auth, (user) => {
     }
 });
 
-// Initialize
 if (!projectState.id) generateUniqueProjectName(projectState, ui);
