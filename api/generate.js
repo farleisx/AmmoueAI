@@ -237,18 +237,26 @@ export default async function handler(req) {
     if (!rate.allowed) return new Response(JSON.stringify({ error: "Daily limit reached", limit: rate.limit, resetAt: rate.resetAt }), { status: 429 });
 
     const { prompt, framework = "vanilla", projectId } = body;
+    
+    // Logic: Identify Framework from Prompt text if present, otherwise use selector value
+    let targetFramework = framework;
+    const lowerPrompt = prompt.toLowerCase();
+    if (lowerPrompt.includes("react") || lowerPrompt.includes("vite")) targetFramework = "react-vite";
+    else if (lowerPrompt.includes("nextjs") || lowerPrompt.includes("next.js")) targetFramework = "nextjs";
+    else if (lowerPrompt.includes("node") || lowerPrompt.includes("express")) targetFramework = "react-node";
+
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const activeStack = STACK_PRESETS[framework] || STACK_PRESETS.vanilla;
+    const activeStack = STACK_PRESETS[targetFramework] || STACK_PRESETS.vanilla;
     const assets = await fetchPexelsAssets(prompt, genAI);
 
     const systemInstruction = `
 ROLE: ELITE FULL-STACK SOFTWARE ARCHITECT.
-FRAMEWORK: ${framework.toUpperCase()}
+FRAMEWORK: ${targetFramework.toUpperCase()}
 STACK SPEC: ${JSON.stringify(activeStack)}
 
 STRICT RULES:
-1. Generate EVERY file required for the ${framework} stack.
-2. For Next.js/React: Use JSX/TSX syntax. DO NOT use plain HTML/CDN scripts if the stack is React/Next.js. 
+1. Generate EVERY file required for the ${targetFramework} stack: ${activeStack.requiredFiles.join(", ")}.
+2. For Next.js/React: You MUST use JSX/TSX syntax. DO NOT use plain HTML tags or CDN scripts in .jsx files. Ensure App Router logic for Next.js.
 3. Use [NEW_PAGE: filename] and [END_PAGE] markers for EVERY file.
 4. Output ONLY code inside markers. No conversation.
 5. MEDIA: Use these URLs: Images: ${JSON.stringify(assets.images)}, Videos: ${JSON.stringify(assets.videos)}
@@ -263,7 +271,7 @@ STRICT RULES:
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ status: "initializing", remaining: rate.remaining, resetAt: rate.resetAt })}\n\n`));
 
         const result = await model.generateContentStream({
-          contents: [{ role: "user", parts: [{ text: `Create a ${framework} project for: ${prompt}` }] }]
+          contents: [{ role: "user", parts: [{ text: `Generate a full multi-page project for: ${prompt}. Use the ${targetFramework} stack.` }] }]
         });
 
         let fullGeneratedText = "";
@@ -296,7 +304,7 @@ STRICT RULES:
                       }, {})
                     }
                   },
-                  framework: { stringValue: framework },
+                  framework: { stringValue: targetFramework },
                   promptText: { stringValue: prompt },
                   logsContent: { stringValue: logsHTML },
                   lastUpdated: { integerValue: Date.now().toString() }
