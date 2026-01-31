@@ -114,10 +114,7 @@ function startResetCountdown(resetAtMs) {
         const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
 
-        // Simple display
         ui.resetDisplay.innerText = `Resets in ${hours}h`;
-        
-        // Full precision on hover
         ui.resetDisplay.title = `Exact Reset in: ${hours}h ${minutes}m ${seconds}s`;
     };
     
@@ -163,6 +160,9 @@ window.triggerGenerate = async () => {
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
+
+        // Clear engine state for fresh multi-file generation
+        projectState.pages = {}; 
 
         while (true) {
             const { value, done } = await reader.read();
@@ -426,7 +426,8 @@ function saveToLocal() {
         prompt: document.getElementById('user-prompt').value,
         pages: projectState.pages,
         id: projectState.id,
-        name: projectState.name
+        name: projectState.name,
+        framework: projectState.framework
     };
     localStorage.setItem('ammoue_autosave', JSON.stringify(data));
 }
@@ -439,6 +440,7 @@ function loadFromLocal() {
     document.getElementById('user-prompt').value = data.prompt || "";
     projectState.pages = data.pages || { landing: "" };
     projectState.name = data.name || ui.nameDisplay.innerText;
+    projectState.framework = data.framework || "vanilla";
     ui.nameDisplay.innerText = projectState.name;
     engine.renderTabs(projectState, ui.tabContainer);
     window.switchPage(projectState.currentPage);
