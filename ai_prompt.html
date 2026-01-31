@@ -1,293 +1,133 @@
-<!-- ai_prompt.html -->
 <!DOCTYPE html>
-<html lang="en" class="">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AmmoueAI | AI Builder</title>
-    <link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">
+    <title>Lovable Style Builder</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>tailwind.config = { darkMode: 'class' }</script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Space+Grotesk:wght@400;700&family=Outfit:wght@400;700&family=Playfair+Display:ital@0;1&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; transition: background-color 0.3s; }
-        .dark body { background: #020617; color: #f8fafc; }
-        .lovable-card { background: white; border: 1px solid #e2e8f0; border-radius: 16px; transition: all 0.3s; }
-        .dark .lovable-card { background: #0f172a; border-color: #1e293b; }
-        .sidebar { background: #f8fafc; border-right: 1px solid #e2e8f0; }
-        .dark .sidebar { background: #020617; border-color: #1e293b; }
-        #preview-frame { background: white; border-radius: 0 0 12px 12px; }
-        .btn-lovable { background: #4f46e5; color: white; transition: all 0.2s; }
-        #preview-wrapper { transition: width 0.3s ease-in-out; margin: 0 auto; width: 100%; height: 100%; position: relative; }
-        .glass-modal { background: rgba(255,255,255,0.8); backdrop-filter: blur(8px); }
-        .dark .glass-modal { background: rgba(2, 6, 23, 0.8); }
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .emoji-btn { transition: transform 0.1s; }
-        .emoji-btn:active { transform: scale(1.2); }
+        @import url('https://fonts.googleapis.com/css2?family=Geist:wght@100;300;400;500;600&display=swap');
         
-        /* Haptic Animation */
-        .haptic-press { transform: scale(0.95) !important; opacity: 0.9; }
-        button, a, .emoji-btn { transition: transform 0.15s cubic-bezier(0.2, 0, 0.2, 1); }
-
-        /* Gen Button Loading Effects */
-        #generate-btn.gen-active {
-            background: #6366f1;
-            box-shadow: 0 0 20px rgba(99, 102, 241, 0.6);
-            pointer-events: none;
-            animation: pulse-border 2s infinite;
-        }
-        @keyframes pulse-border {
-            0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7); }
-            70% { box-shadow: 0 0 0 10px rgba(99, 102, 241, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+        body {
+            font-family: 'Geist', sans-serif;
+            background-color: #030303;
         }
 
-        /* Floating Action Button */
-        #mobile-fab { position: fixed; bottom: 100px; right: 20px; width: 56px; height: 56px; border-radius: 28px; display: flex; align-items: center; justify-content: center; z-index: 60; box-shadow: 0 4px 20px rgba(79, 70, 229, 0.4); }
-
-        /* Floating Mobile Nav */
-        .mobile-nav-float { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 400px; height: 64px; background: rgba(255,255,255,0.9); backdrop-filter: blur(12px); border: 1px solid rgba(226,232,240,0.8); border-radius: 24px; display: flex; align-items: center; justify-content: space-around; z-index: 70; box-shadow: 0 8px 32px rgba(0,0,0,0.1); }
-        .dark .mobile-nav-float { background: rgba(15, 23, 42, 0.9); border-color: rgba(30, 41, 59, 0.8); }
-
-        /* Usage Card Fixed Display Updates */
-        #credit-reset-display { color: #6366f1; font-weight: 800; opacity: 1 !important; visibility: visible !important; }
-
-        /* File List Expand Logic */
-        .file-list-expanded { position: fixed !important; inset: 0 !important; z-index: 99 !important; background: white !important; width: 100% !important; height: 100% !important; margin: 0 !important; border-radius: 0 !important; }
-        .dark .file-list-expanded { background: #020617 !important; }
-
-        @media (max-width: 1024px) {
-            header { position: sticky; top: 0; transform: translateY(0); transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-            .sidebar-mobile { position: fixed; inset: 0; z-index: 80; width: 100% !important; height: 100vh; background: white !important; display: flex !important; transform: translateX(0); transition: transform 0.3s ease; }
-            .dark .sidebar-mobile { background: #020617 !important; }
-            .prompt-zone-mobile { width: 100% !important; padding: 10px !important; flex: 1; display: flex !important; }
-            header .hidden-mobile { display: none; }
-            main { padding-bottom: 100px; }
-            #prompt-container, #preview-container { width: 100%; }
-            #mobile-fab { display: flex; }
+        .canvas-grid {
+            background-color: #0a0a0a;
+            background-image: 
+                linear-gradient(#141414 1px, transparent 1px),
+                linear-gradient(90deg, #141414 1px, transparent 1px);
+            background-size: 32px 32px;
         }
-        
-        @media (min-width: 1025px) {
-            #mobile-fab { display: none; }
-            .mobile-nav-float { display: none; }
+
+        .prompt-container {
+            background: rgba(10, 10, 10, 0.7);
+            backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .browser-mockup {
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 20px 50px rgba(0,0,0,0.3);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .prompt-container:focus-within {
+            border-color: rgba(255, 255, 255, 0.15);
+            background: rgba(15, 15, 15, 0.9);
         }
     </style>
 </head>
-<body class="h-screen flex flex-col bg-[#fdfdfd] dark:bg-slate-950 relative overflow-hidden">
+<body class="h-screen flex flex-col overflow-hidden text-[#ededed]">
 
-    <header class="h-16 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 bg-white dark:bg-slate-900 z-50 shrink-0">
-        <div class="flex items-center gap-4">
-            <a href="/dashboard" class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-            </a>
-            <button onclick="createNewProject()" class="text-xs font-extrabold bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-lg hover:scale-105 transition-all">+ NEW</button>
-            <div class="flex flex-col cursor-pointer group" onclick="editProjectName()">
-                <div class="flex items-center gap-2">
-                    <span class="font-extrabold tracking-tighter text-xl text-slate-900 dark:text-white leading-none">AmmoueAI</span>
-                    <svg class="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+    <nav class="h-14 border-b border-white/[0.06] flex items-center justify-between px-4 z-50 bg-[#030303]">
+        <div class="flex items-center gap-6">
+            <div class="flex items-center gap-2">
+                <div class="w-6 h-6 bg-white rounded-md flex items-center justify-center">
+                    <div class="w-3 h-3 bg-black rounded-sm"></div>
                 </div>
-                <div class="flex items-center gap-2 mt-1">
-                    <span id="project-name-display" class="text-[9px] font-bold text-indigo-500 uppercase tracking-widest leading-none">Naming...</span>
-                    <span id="unsaved-indicator" class="text-[9px] font-bold text-emerald-500 leading-none">Saved</span>
-                </div>
+                <span class="font-medium tracking-tight text-sm">lovable-clone</span>
             </div>
-            <div id="tab-container" class="flex gap-1 ml-4 overflow-x-auto hide-scrollbar max-w-[150px]"></div>
+            
+            <div class="h-4 w-[1px] bg-white/10"></div>
+            
+            <div class="flex items-center gap-4 text-xs font-medium text-gray-500">
+                <span id="credit-display" class="text-white/80 bg-white/5 px-2 py-1 rounded">Credits: --</span>
+                <button class="hover:text-white transition">Pages</button>
+                <button class="hover:text-white transition">Theme</button>
+            </div>
         </div>
-        
-        <div class="flex items-center gap-4">
-            <button onclick="window.openFullPreview()" class="hidden md:block text-[10px] font-bold px-3 py-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 rounded-lg">🚀 Full Page</button>
-            <button id="code-view-toggle" onclick="window.toggleCodeView()" class="hidden md:block text-[10px] font-bold px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg dark:text-slate-300">💻 Code</button>
-            <button id="collab-btn" onclick="copyCollaborationLink()" class="hidden-mobile p-2 px-3 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 rounded-lg text-[10px] font-bold">🔗 Share</button>
-            <button onclick="toggleTheme()" class="p-2 text-slate-500">
-                <svg class="dark:hidden" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-                <svg class="hidden dark:block text-yellow-400" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+
+        <div class="flex items-center gap-2">
+            <button class="text-xs text-gray-400 px-3 py-1.5 hover:bg-white/5 rounded-md transition flex items-center gap-2">
+                <i data-lucide="history" class="w-3.5 h-3.5"></i> History
             </button>
-            <div class="hidden-mobile flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-                <button onclick="setViewport('desktop')" class="p-2 rounded-lg transition-all text-slate-600 dark:text-slate-300">💻</button>
-                <button onclick="setViewport('mobile')" class="p-2 rounded-lg transition-all text-slate-600 dark:text-slate-300">📱</button>
-            </div>
-            <button id="download-btn" onclick="openDownloadModal()" class="hidden-mobile p-2 px-4 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 rounded-xl text-xs font-bold">Download</button>
-            <button onclick="togglePublishModal(true)" class="btn-lovable px-6 py-2 rounded-xl text-sm font-bold shadow-lg shadow-indigo-100">Publish</button>
+            <button id="logout-btn" class="text-xs text-gray-400 px-3 py-1.5 hover:bg-white/5 rounded-md transition">Logout</button>
+            <button id="publish-btn" class="text-xs bg-white text-black px-4 py-1.5 rounded-md font-semibold hover:bg-gray-200 transition">Publish</button>
         </div>
-    </header>
+    </nav>
 
-    <main class="flex-1 flex overflow-hidden">
-        <aside id="main-sidebar" class="w-60 sidebar flex flex-col p-5 gap-4 hidden lg:flex">
-            <div class="lovable-card p-3 mb-2 bg-indigo-50/50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-800/50 cursor-help">
-                <div class="flex items-center justify-between mb-1">
-                    <span class="text-[9px] font-extrabold text-indigo-600 dark:text-indigo-400 tracking-widest uppercase">Usage</span>
-                    <span id="credit-reset-display" class="text-[8px] font-bold transition-all">Loading...</span>
-                </div>
-                <div id="credit-limit-display" class="text-xs font-extrabold text-slate-800 dark:text-slate-200">Checking...</div>
+    <div class="flex flex-1 relative overflow-hidden">
+        
+        <aside class="w-12 border-r border-white/[0.06] flex flex-col items-center py-4 gap-6 bg-[#030303]">
+            <i data-lucide="layout-grid" class="w-5 h-5 text-gray-500 hover:text-white cursor-pointer transition"></i>
+            <i data-lucide="layers" class="w-5 h-5 text-gray-500 hover:text-white cursor-pointer transition"></i>
+            <i data-lucide="code-2" class="w-5 h-5 text-gray-500 hover:text-white cursor-pointer transition"></i>
+            <div class="mt-auto">
+                <i data-lucide="settings" class="w-5 h-5 text-gray-500 hover:text-white cursor-pointer transition"></i>
             </div>
-
-            <div class="mb-2">
-                <label class="text-[10px] uppercase font-extrabold text-slate-400 tracking-widest mb-2 block">AI Style Presets</label>
-                <select onchange="applyStylePreset(this.value)" class="w-full bg-white dark:bg-slate-800 border rounded-xl p-2 text-xs outline-none dark:text-white">
-                    <option value="modern">Modern Light</option>
-                    <option value="midnight">Midnight Neon</option>
-                    <option value="neon">Glassmorphism</option>
-                    <option value="classic">Classic Serif</option>
-                </select>
-            </div>
-            
-            <div class="mb-4">
-                <label class="text-[10px] uppercase font-extrabold text-slate-400 tracking-widest mb-2 block flex justify-between">Favicon <span id="current-favicon-display" class="text-xs">✨</span></label>
-                <div class="grid grid-cols-4 gap-2 bg-slate-100 dark:bg-slate-800/50 p-2 rounded-xl">
-                    <button onclick="setProjectFavicon('🚀')" class="emoji-btn hover:bg-white p-1 rounded">🚀</button>
-                    <button onclick="setProjectFavicon('⚡')" class="emoji-btn hover:bg-white p-1 rounded">⚡</button>
-                    <button onclick="setProjectFavicon('🔥')" class="emoji-btn hover:bg-white p-1 rounded">🔥</button>
-                    <button onclick="setProjectFavicon('🎨')" class="emoji-btn hover:bg-white p-1 rounded">🎨</button>
-                </div>
-            </div>
-
-            <div class="flex items-center justify-between mb-2">
-                <label class="text-[10px] uppercase font-extrabold text-slate-400 tracking-widest">History</label>
-                <button onclick="toggleExpandFiles()" class="text-[10px] font-bold text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded">Expand All</button>
-            </div>
-            <div id="history-list" class="flex-1 overflow-y-auto pr-2"></div>
-            
-            <div class="lg:hidden text-center text-[10px] text-slate-400 font-bold mt-auto py-4">← Swipe left to close</div>
         </aside>
 
-        <section class="flex-1 flex flex-col p-4 lg:p-6 gap-6 bg-slate-50 dark:bg-slate-950/50 overflow-y-auto">
-            <div class="flex-1 flex flex-col lg:flex-row gap-6 min-h-0">
-                <div id="prompt-container" class="lg:w-80 flex flex-col gap-4">
-                    <div class="lovable-card p-5 flex-1 flex flex-col gap-4 overflow-hidden shadow-sm">
-                        <div class="relative">
-                            <textarea id="user-prompt" class="w-full h-48 bg-slate-50 dark:bg-slate-900 border rounded-2xl p-4 pr-14 text-sm focus:ring-2 ring-indigo-100 outline-none resize-none dark:text-white" placeholder="Describe your site..."></textarea>
-                            <div class="absolute bottom-3 right-3 flex flex-col gap-2">
-                                <button onclick="triggerGenerate()" title="Regenerate" class="w-10 h-10 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">🔁</button>
-                                <button id="voice-btn" onclick="startVoicePrompt()" class="w-10 h-10 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl flex items-center justify-center">🎤</button>
-                                <button id="generate-btn" onclick="triggerGenerate()" class="w-10 h-10 btn-lovable rounded-xl flex items-center justify-center text-2xl transition-all duration-300">➤</button>
-                            </div>
-                        </div>
-                        <div class="flex flex-col gap-2">
-                            <label class="text-[10px] uppercase font-extrabold text-slate-400 tracking-widest flex justify-between">Images <span onclick="document.getElementById('image-input').click()" class="text-indigo-500 cursor-pointer">+ Add</span></label>
-                            <input type="file" id="image-input" multiple accept="image/*" class="hidden">
-                            <div id="image-preview-zone" class="flex flex-wrap gap-2 p-2 bg-slate-50 dark:bg-slate-900 rounded-xl border border-dashed min-h-[50px]"></div>
-                        </div>
-                        <div id="thinking-box" class="flex-1 flex flex-col gap-2 min-h-0 overflow-hidden pt-2">
-                            <label class="text-[10px] uppercase font-extrabold text-slate-400 tracking-widest">Logs</label>
-                            <div id="action-logs" class="flex-1 overflow-y-auto text-[11px] space-y-2 text-slate-500 dark:text-slate-400 font-medium"></div>
-                        </div>
-                        <div id="progress-bar" class="hidden w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mt-2">
-                            <div id="progress-fill" class="h-full bg-indigo-500 w-0 transition-all"></div>
-                        </div>
-                    </div>
-                </div>
-                <div id="preview-container" class="flex-1 flex flex-col min-w-0 h-[500px] lg:h-full">
-                    <div id="preview-wrapper" class="flex flex-col shadow-2xl rounded-2xl overflow-hidden h-full">
-                        <div id="refresh-indicator" class="hidden absolute top-4 left-1/2 -translate-x-1/2 bg-indigo-500 text-white p-2 rounded-full shadow-lg z-20">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
-                        </div>
-                        <div class="h-10 bg-white dark:bg-slate-900 border border-b-0 flex items-center px-4 justify-between shrink-0">
-                            <div class="flex gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-red-400/40"></div><div class="w-2.5 h-2.5 rounded-full bg-amber-400/40"></div><div class="w-2.5 h-2.5 rounded-full bg-emerald-400/40"></div></div>
-                            <div class="flex items-center gap-3">
-                                <button id="stop-gen-btn" onclick="stopGeneration()" class="hidden flex items-center gap-1.5 px-3 py-1 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-[10px] font-bold rounded-full animate-pulse">
-                                    <span class="w-1.5 h-1.5 bg-red-600 rounded-full"></span> STOP
-                                </button>
-                                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                                    Framework: <span id="framework-label" class="text-indigo-500">Vanilla</span>
-                                </span>
-                            </div>
-                        </div>
-                        <iframe id="preview-frame" class="w-full flex-1 border min-h-0 bg-white"></iframe>
-                        <textarea id="code-editor-view" class="hidden w-full flex-1 bg-slate-900 text-emerald-400 font-mono text-xs p-6 outline-none resize-none"></textarea>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <div id="chat-widget" class="fixed bottom-24 right-6 w-80 h-96 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl flex flex-col translate-y-full opacity-0 pointer-events-none transition-all duration-300 z-50">
-            <div class="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                <span class="text-sm font-bold dark:text-white">AI Assistant</span>
-                <button onclick="toggleChat()" class="text-slate-400 hover:text-slate-600">✕</button>
-            </div>
-            <div id="chat-messages" class="flex-1 p-4 overflow-y-auto flex flex-col"></div>
-            <div class="p-4 border-t border-slate-100 dark:border-slate-800 flex gap-2">
-                <input id="chat-input" type="text" placeholder="Ask AI..." class="flex-1 bg-slate-50 dark:bg-slate-800 border-none rounded-lg px-3 py-2 text-xs dark:text-white outline-none">
-                <button onclick="sendChatMessage()" class="bg-indigo-600 text-white px-3 py-2 rounded-lg text-xs">Send</button>
-            </div>
-        </div>
-
-        <button id="mobile-fab" onclick="triggerGenerate()" class="btn-lovable">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </button>
-
-        <nav class="mobile-nav-float lg:hidden">
-            <button onclick="window.toggleMobileView('sidebar')" class="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-400 flex-1"><span>📁</span>History</button>
-            <button onclick="window.toggleMobileView('prompt')" class="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-400 flex-1"><span>✍️</span>Prompt</button>
-            <button onclick="window.toggleMobileView('preview')" class="flex flex-col items-center gap-1 text-[10px] font-bold text-indigo-500 flex-1"><span>✨</span>Preview</button>
-            <button onclick="window.toggleCodeView()" class="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-400 flex-1"><span>💻</span>Code</button>
-        </nav>
-    </main>
-
-    <div id="rename-modal" class="fixed inset-0 z-[110] flex items-center justify-center glass-modal hidden">
-        <div class="lovable-card w-[400px] p-8 shadow-2xl">
-            <h3 class="text-xl font-extrabold mb-4 dark:text-white">Rename Project</h3>
-            <div class="mb-6">
-                <label class="text-[10px] uppercase font-extrabold text-slate-400 mb-1 block">Project Name</label>
-                <input type="text" id="new-project-name-input" class="w-full bg-slate-50 dark:bg-slate-900 border rounded-xl p-3 outline-none dark:text-white text-sm font-bold">
-            </div>
-            <div class="flex gap-3">
-                <button onclick="document.getElementById('rename-modal').classList.add('hidden')" class="flex-1 py-3 font-bold text-slate-500">Cancel</button>
-                <button onclick="confirmRename()" class="flex-1 py-3 btn-lovable font-bold rounded-xl">Save Changes</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="download-modal" class="fixed inset-0 z-[100] flex items-center justify-center glass-modal hidden">
-        <div class="lovable-card w-[400px] p-8">
-            <h3 class="text-xl font-bold mb-4 dark:text-white">Download Source</h3>
-            <div id="download-file-list" class="mb-6 max-h-[200px] overflow-y-auto"></div>
-            <div class="flex gap-3">
-                <button onclick="document.getElementById('download-modal').classList.add('hidden')" class="flex-1 py-3 font-bold text-slate-500">Cancel</button>
-                <button onclick="confirmDownload()" class="flex-1 py-3 btn-lovable font-bold rounded-xl">ZIP Download</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="lightbox-modal" onclick="this.classList.add('hidden')" class="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center hidden">
-        <img id="lightbox-img" class="max-w-full max-h-full rounded-xl">
-    </div>
-
-    <div id="publish-modal" class="fixed inset-0 z-[100] flex items-center justify-center glass-modal hidden">
-        <div class="lovable-card w-[450px] p-8 shadow-2xl">
-            <h3 class="text-xl font-extrabold mb-2 dark:text-white">Ready to launch?</h3>
-            <div class="text-[10px] text-indigo-500 font-mono mb-4" id="slug-preview">...vercel.app</div>
+        <main class="flex-1 canvas-grid relative flex flex-col items-center justify-start pt-12 p-8 overflow-auto">
             
-            <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 p-3 rounded-xl mb-6">
-                <label class="text-[10px] uppercase font-extrabold text-amber-600 dark:text-amber-400 mb-2 block flex items-center justify-between">
-                    Pre-Deployment Cleanup
-                    <span class="bg-amber-200 dark:bg-amber-800 px-1.5 rounded">AUTO</span>
-                </label>
-                <div class="text-[11px] text-amber-700 dark:text-amber-300 mb-2">Select generated files to remove from the production build:</div>
-                <div id="deployment-file-cleanup" class="max-h-32 overflow-y-auto space-y-1"></div>
+            <div class="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/40 p-1 rounded-lg border border-white/5 backdrop-blur-md z-30">
+                <button id="view-desktop" class="p-1.5 bg-white/10 rounded text-white transition"><i data-lucide="monitor" class="w-4 h-4"></i></button>
+                <button id="view-tablet" class="p-1.5 text-gray-500 hover:text-white transition"><i data-lucide="tablet" class="w-4 h-4"></i></button>
+                <button id="view-mobile" class="p-1.5 text-gray-500 hover:text-white transition"><i data-lucide="smartphone" class="w-4 h-4"></i></button>
             </div>
 
-            <div class="space-y-4 mb-6">
-                <div>
-                    <label class="text-[10px] uppercase font-extrabold text-slate-400 mb-1 block">Domain Slug</label>
-                    <input type="text" id="site-slug" class="w-full bg-slate-50 dark:bg-slate-900 border rounded-xl p-3 outline-none dark:text-white">
+            <div id="preview-container" class="w-full max-w-[1100px] aspect-video bg-white rounded-xl browser-mockup overflow-hidden flex flex-col">
+                <div class="h-11 bg-[#f9f9f9] border-b border-gray-200 flex items-center px-4">
+                    <div class="flex gap-2 w-1/4">
+                        <div class="w-2.5 h-2.5 rounded-full bg-gray-300"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-gray-300"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-gray-300"></div>
+                    </div>
+                    <div class="w-1/2 flex justify-center">
+                        <div class="px-12 py-1 bg-gray-200/50 rounded-md text-[10px] text-gray-500 font-mono">
+                            preview-7382.lovable.app
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <label class="text-[10px] uppercase font-extrabold text-slate-400 mb-1 block">SEO Title</label>
-                    <input type="text" id="seo-title" class="w-full bg-slate-50 dark:bg-slate-900 border rounded-xl p-3 outline-none dark:text-white">
-                </div>
-                <div>
-                    <label class="text-[10px] uppercase font-extrabold text-slate-400 mb-1 block">SEO Description</label>
-                    <textarea id="seo-description" class="w-full bg-slate-50 dark:bg-slate-900 border rounded-xl p-3 outline-none dark:text-white resize-none h-20"></textarea>
+
+                <div id="preview-frame" class="flex-1 bg-white flex flex-col items-center justify-center p-20 text-center">
+                    <h2 class="text-black text-6xl font-semibold tracking-tight mb-6">Your Idea, Built.</h2>
+                    <p class="text-gray-500 text-lg max-w-md">The AI is ready. Start describing the changes you want to see.</p>
                 </div>
             </div>
-            <div class="flex gap-3">
-                <button onclick="togglePublishModal(false)" class="flex-1 py-3 font-bold text-slate-500">Cancel</button>
-                <button id="publish-btn" onclick="triggerDeploy()" class="flex-1 py-3 btn-lovable font-bold rounded-xl">Deploy</button>
+
+            <div class="fixed bottom-10 left-1/2 -translate-x-1/2 w-full max-w-[700px] px-6">
+                <div class="prompt-container rounded-[24px] p-1.5 flex items-center gap-2">
+                    <div class="flex-1 flex items-center px-4 gap-3">
+                        <i data-lucide="sparkles" class="w-4 h-4 text-gray-400"></i>
+                        <input type="text" id="prompt-input" placeholder="Edit your app..." class="bg-transparent w-full outline-none py-3 text-[15px] placeholder:text-gray-600">
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button class="p-2.5 text-gray-500 hover:text-white transition">
+                            <i data-lucide="paperclip" class="w-4 h-4"></i>
+                        </button>
+                        <button id="generate-btn" class="bg-[#ededed] text-black h-10 px-5 rounded-[18px] text-sm font-semibold hover:bg-white transition flex items-center gap-2">
+                            Generate
+                        </button>
+                    </div>
+                </div>
             </div>
-        </div>
+        </main>
     </div>
 
     <script type="module" src="bridge.js"></script>
+    <script>lucide.createIcons();</script>
 </body>
 </html>
