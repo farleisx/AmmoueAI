@@ -24,13 +24,13 @@
         .prompt-container:focus-within { border-color: rgba(255, 255, 255, 0.15); background: rgba(15, 15, 15, 0.9); }
         .code-sidebar { width: 0; transition: width 0.3s ease; border-left: 1px solid rgba(255,255,255,0.06); background: #050505; }
         .code-sidebar.open { width: 400px; }
-        #image-preview-modal { display: none; background: rgba(0,0,0,0.9); z-index: 100; }
+        #image-preview-modal { display: none; background: rgba(0,0,0,0.9); z-index: 100; position: fixed; inset: 0; align-items: center; justify-content: center; padding: 40px; }
     </style>
 </head>
 <body class="h-screen flex flex-col">
 
-    <div id="image-preview-modal" class="fixed inset-0 flex items-center justify-center p-10 cursor-zoom-out" onclick="this.style.display='none'">
-        <img id="modal-img" src="" class="max-w-full max-h-full rounded-lg shadow-2xl">
+    <div id="image-preview-modal" onclick="this.style.display='none'">
+        <img id="modal-img" src="" class="max-w-full max-h-full rounded-lg shadow-2xl cursor-zoom-out">
     </div>
 
     <nav class="h-14 border-b border-white/[0.06] flex items-center justify-between px-4 z-50 bg-[#030303]">
@@ -42,7 +42,6 @@
             <div class="h-4 w-[1px] bg-white/10"></div>
             <div class="flex items-center gap-4 text-xs font-medium text-gray-500">
                 <span id="credit-display" class="text-white/80 bg-white/5 px-2 py-1 rounded">Credits: --</span>
-                <button class="hover:text-white transition">Pages</button>
             </div>
         </div>
         <div class="flex items-center gap-2">
@@ -60,7 +59,7 @@
             <i data-lucide="layers" class="w-5 h-5 text-gray-500 hover:text-white cursor-pointer transition"></i>
         </aside>
 
-        <main class="flex-1 canvas-grid relative flex flex-col items-center justify-start pt-12 p-8 overflow-auto transition-all">
+        <main class="flex-1 canvas-grid relative flex flex-col items-center justify-start pt-12 p-8 overflow-auto">
             <div class="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/40 p-1 rounded-lg border border-white/5 backdrop-blur-md z-30">
                 <button id="view-desktop" class="p-1.5 bg-white/10 rounded text-white transition"><i data-lucide="monitor" class="w-4 h-4"></i></button>
                 <button id="view-tablet" class="p-1.5 text-gray-500 hover:text-white transition"><i data-lucide="tablet" class="w-4 h-4"></i></button>
@@ -101,7 +100,7 @@
                 <span class="text-xs font-semibold uppercase tracking-widest text-gray-500">Live Code Stream</span>
                 <button id="close-code" class="text-gray-500 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
             </div>
-            <pre class="flex-1 p-4 overflow-auto text-[13px] font-mono leading-relaxed text-blue-300/90 whitespace-pre-wrap"><code id="code-output">// AI output will appear here...</code></pre>
+            <pre class="flex-1 p-4 overflow-auto text-[13px] font-mono leading-relaxed text-blue-300/90 whitespace-pre-wrap"><code id="code-output"></code></pre>
         </aside>
     </div>
 
