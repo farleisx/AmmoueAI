@@ -8,7 +8,6 @@ export async function updateUIUsage(userId, ui) {
     const remaining = Math.max(0, limit - (usage.dailyCount || 0));
     if (ui.creditDisplay) {
         ui.creditDisplay.innerText = `${remaining}/${limit} Credits Left`;
-        if (remaining <= 0 && ui.genBtn) ui.genBtn.disabled = true;
     }
     if (ui.resetDisplay && usage.dailyResetAt) startResetCountdown(usage.dailyResetAt, ui);
 }
@@ -33,7 +32,7 @@ export function saveToLocal(projectState) {
         framework: projectState.framework
     };
     localStorage.setItem('ammoue_autosave', JSON.stringify(data));
-    window.setUnsavedStatus(true);
+    if (window.setUnsavedStatus) window.setUnsavedStatus(true);
 }
 
 export async function loadHistory(user, ui) {
@@ -62,4 +61,48 @@ export function generateUniqueProjectName(projectState, ui) {
     projectState.name = name;
     if (ui.nameDisplay) ui.nameDisplay.innerText = name;
     return name;
+}
+
+// --- NEW UI HANDLERS (Fixes ReferenceErrors) ---
+
+export function toggleTheme() {
+    document.documentElement.classList.toggle('dark');
+}
+
+export function setViewport(type) {
+    const wrapper = document.getElementById('preview-wrapper');
+    if (type === 'mobile') {
+        wrapper.style.width = '375px';
+    } else {
+        wrapper.style.width = '100%';
+    }
+}
+
+export function copyCollaborationLink() {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url).then(() => alert("Link copied!"));
+}
+
+export function openDownloadModal() {
+    document.getElementById('download-modal').classList.remove('hidden');
+}
+
+export function togglePublishModal(show) {
+    const modal = document.getElementById('publish-modal');
+    if (show) modal.classList.remove('hidden');
+    else modal.classList.add('hidden');
+}
+
+export function applyStylePreset(val) {
+    console.log("Style applied:", val);
+    // Placeholder for future theme-injection logic
+}
+
+export function toggleExpandFiles() {
+    const history = document.getElementById('history-list');
+    history.classList.toggle('file-list-expanded');
+}
+
+export function startVoicePrompt() {
+    alert("Voice recognition coming soon.");
 }
