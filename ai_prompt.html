@@ -8,80 +8,49 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Geist:wght@100;300;400;500;600&display=swap');
-        
-        body {
-            font-family: 'Geist', sans-serif;
-            background-color: #030303;
-        }
-
+        body { font-family: 'Geist', sans-serif; background-color: #030303; color: #ededed; overflow: hidden; }
         .canvas-grid {
             background-color: #0a0a0a;
-            background-image: 
-                linear-gradient(#141414 1px, transparent 1px),
-                linear-gradient(90deg, #141414 1px, transparent 1px);
+            background-image: linear-gradient(#141414 1px, transparent 1px), linear-gradient(90deg, #141414 1px, transparent 1px);
             background-size: 32px 32px;
         }
-
         .prompt-container {
             background: rgba(10, 10, 10, 0.7);
             backdrop-filter: blur(20px) saturate(180%);
             border: 1px solid rgba(255, 255, 255, 0.08);
             box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.5);
         }
-
-        .browser-mockup {
-            box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 20px 50px rgba(0,0,0,0.3);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .prompt-container:focus-within {
-            border-color: rgba(255, 255, 255, 0.15);
-            background: rgba(15, 15, 15, 0.9);
-        }
+        .browser-mockup { box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 20px 50px rgba(0,0,0,0.3); transition: all 0.3s ease; }
+        .prompt-container:focus-within { border-color: rgba(255, 255, 255, 0.15); background: rgba(15, 15, 15, 0.9); }
     </style>
 </head>
-<body class="h-screen flex flex-col overflow-hidden text-[#ededed]">
+<body class="h-screen flex flex-col">
 
     <nav class="h-14 border-b border-white/[0.06] flex items-center justify-between px-4 z-50 bg-[#030303]">
         <div class="flex items-center gap-6">
             <div class="flex items-center gap-2">
-                <div class="w-6 h-6 bg-white rounded-md flex items-center justify-center">
-                    <div class="w-3 h-3 bg-black rounded-sm"></div>
-                </div>
+                <div class="w-6 h-6 bg-white rounded-md flex items-center justify-center"><div class="w-3 h-3 bg-black rounded-sm"></div></div>
                 <span class="font-medium tracking-tight text-sm">lovable-clone</span>
             </div>
-            
             <div class="h-4 w-[1px] bg-white/10"></div>
-            
             <div class="flex items-center gap-4 text-xs font-medium text-gray-500">
                 <span id="credit-display" class="text-white/80 bg-white/5 px-2 py-1 rounded">Credits: --</span>
                 <button class="hover:text-white transition">Pages</button>
-                <button class="hover:text-white transition">Theme</button>
             </div>
         </div>
-
         <div class="flex items-center gap-2">
-            <button class="text-xs text-gray-400 px-3 py-1.5 hover:bg-white/5 rounded-md transition flex items-center gap-2">
-                <i data-lucide="history" class="w-3.5 h-3.5"></i> History
-            </button>
             <button id="logout-btn" class="text-xs text-gray-400 px-3 py-1.5 hover:bg-white/5 rounded-md transition">Logout</button>
-            <button id="publish-btn" class="text-xs bg-white text-black px-4 py-1.5 rounded-md font-semibold hover:bg-gray-200 transition">Publish</button>
+            <button class="text-xs bg-white text-black px-4 py-1.5 rounded-md font-semibold hover:bg-gray-200 transition">Publish</button>
         </div>
     </nav>
 
     <div class="flex flex-1 relative overflow-hidden">
-        
         <aside class="w-12 border-r border-white/[0.06] flex flex-col items-center py-4 gap-6 bg-[#030303]">
             <i data-lucide="layout-grid" class="w-5 h-5 text-gray-500 hover:text-white cursor-pointer transition"></i>
-            <i data-lucide="layers" class="w-5 h-5 text-gray-500 hover:text-white cursor-pointer transition"></i>
             <i data-lucide="code-2" class="w-5 h-5 text-gray-500 hover:text-white cursor-pointer transition"></i>
-            <div class="mt-auto">
-                <i data-lucide="settings" class="w-5 h-5 text-gray-500 hover:text-white cursor-pointer transition"></i>
-            </div>
         </aside>
 
         <main class="flex-1 canvas-grid relative flex flex-col items-center justify-start pt-12 p-8 overflow-auto">
-            
             <div class="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/40 p-1 rounded-lg border border-white/5 backdrop-blur-md z-30">
                 <button id="view-desktop" class="p-1.5 bg-white/10 rounded text-white transition"><i data-lucide="monitor" class="w-4 h-4"></i></button>
                 <button id="view-tablet" class="p-1.5 text-gray-500 hover:text-white transition"><i data-lucide="tablet" class="w-4 h-4"></i></button>
@@ -90,21 +59,11 @@
 
             <div id="preview-container" class="w-full max-w-[1100px] aspect-video bg-white rounded-xl browser-mockup overflow-hidden flex flex-col">
                 <div class="h-11 bg-[#f9f9f9] border-b border-gray-200 flex items-center px-4">
-                    <div class="flex gap-2 w-1/4">
-                        <div class="w-2.5 h-2.5 rounded-full bg-gray-300"></div>
-                        <div class="w-2.5 h-2.5 rounded-full bg-gray-300"></div>
-                        <div class="w-2.5 h-2.5 rounded-full bg-gray-300"></div>
-                    </div>
-                    <div class="w-1/2 flex justify-center">
-                        <div class="px-12 py-1 bg-gray-200/50 rounded-md text-[10px] text-gray-500 font-mono">
-                            preview-7382.lovable.app
-                        </div>
-                    </div>
+                    <div class="flex gap-2 w-1/4"><div class="w-2.5 h-2.5 rounded-full bg-gray-300"></div><div class="w-2.5 h-2.5 rounded-full bg-gray-300"></div></div>
+                    <div class="w-1/2 flex justify-center text-[10px] text-gray-400 font-mono">preview.lovable.app</div>
                 </div>
-
-                <div id="preview-frame" class="flex-1 bg-white flex flex-col items-center justify-center p-20 text-center">
-                    <h2 class="text-black text-6xl font-semibold tracking-tight mb-6">Your Idea, Built.</h2>
-                    <p class="text-gray-500 text-lg max-w-md">The AI is ready. Start describing the changes you want to see.</p>
+                <div id="preview-frame" class="flex-1 bg-white text-black p-12 overflow-auto">
+                    <h2 class="text-5xl font-semibold tracking-tight">Your Idea, Built.</h2>
                 </div>
             </div>
 
@@ -112,16 +71,9 @@
                 <div class="prompt-container rounded-[24px] p-1.5 flex items-center gap-2">
                     <div class="flex-1 flex items-center px-4 gap-3">
                         <i data-lucide="sparkles" class="w-4 h-4 text-gray-400"></i>
-                        <input type="text" id="prompt-input" placeholder="Edit your app..." class="bg-transparent w-full outline-none py-3 text-[15px] placeholder:text-gray-600">
+                        <input type="text" id="prompt-input" placeholder="Edit your app..." class="bg-transparent w-full outline-none py-3 text-[15px]">
                     </div>
-                    <div class="flex items-center gap-1">
-                        <button class="p-2.5 text-gray-500 hover:text-white transition">
-                            <i data-lucide="paperclip" class="w-4 h-4"></i>
-                        </button>
-                        <button id="generate-btn" class="bg-[#ededed] text-black h-10 px-5 rounded-[18px] text-sm font-semibold hover:bg-white transition flex items-center gap-2">
-                            Generate
-                        </button>
-                    </div>
+                    <button id="generate-btn" class="bg-[#ededed] text-black h-10 px-5 rounded-[18px] text-sm font-semibold transition">Generate</button>
                 </div>
             </div>
         </main>
