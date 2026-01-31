@@ -1,8 +1,3 @@
-/**
- * attachment_service.js
- * Handles image selection, state, and UI rendering for attachments
- */
-
 let attachedImages = [];
 
 export function getAttachedImages() {
@@ -29,8 +24,7 @@ export function initAttachmentService(imageInputId, attachBtnId, rackId, preview
             if (attachedImages.length < 4) {
                 const reader = new FileReader();
                 reader.onload = (event) => {
-                    const imgData = event.target.result;
-                    attachedImages.push(imgData);
+                    attachedImages.push(event.target.result);
                     renderAttachments();
                 };
                 reader.readAsDataURL(file);
