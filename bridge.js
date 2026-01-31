@@ -11,12 +11,12 @@ import {
     signOut 
 } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 import { generateProjectStream } from "./generator_service.js";
+import { initAttachmentService, getAttachedImages, clearAttachments } from "./attachment_service.js";
 
 /* ================= STATE MANAGEMENT ================= */
 let currentUser = null;
 let currentProjectId = null;
 let projectPages = { landing: "" };
-let fullStreamedText = "";
 
 /* ================= AUTH PROTECTION ================= */
 onAuthStateChanged(auth, async (user) => {
@@ -28,7 +28,18 @@ onAuthStateChanged(auth, async (user) => {
     }
 });
 
-/* ================= UI LOGIC ================= */
+/* ================= INITIALIZE SERVICES ================= */
+initAttachmentService('image-upload', 'attach-btn', 'attachment-rack', 'image-preview-modal', 'modal-img');
+
+/* ================= SIDEBAR LOGIC ================= */
+const sidebar = document.getElementById('code-sidebar');
+const toggleCode = document.getElementById('toggle-code');
+const closeCode = document.getElementById('close-code');
+
+toggleCode?.addEventListener('click', () => sidebar.classList.toggle('open'));
+closeCode?.addEventListener('click', () => sidebar.classList.remove('open'));
+
+/* ================= UI SYNC ================= */
 async function syncUsage() {
     if (!currentUser) return;
     const usage = await getUsage(currentUser.uid);
@@ -40,29 +51,19 @@ async function syncUsage() {
 
 const setPreviewSize = (type) => {
     const container = document.getElementById('preview-container');
-    if (!container) return;
     const btns = ['view-desktop', 'view-tablet', 'view-mobile'];
-    btns.forEach(id => {
-        const btn = document.getElementById(id);
-        btn?.classList.remove('bg-white/10', 'text-white');
-        btn?.classList.add('text-gray-500');
-    });
+    btns.forEach(id => document.getElementById(id)?.classList.remove('bg-white/10', 'text-white'));
+    btns.forEach(id => document.getElementById(id)?.classList.add('text-gray-500'));
 
     if (type === 'desktop') {
-        container.style.maxWidth = '1100px';
-        container.style.aspectRatio = '16/9';
-        document.getElementById('view-desktop').classList.replace('text-gray-500', 'text-white');
-        document.getElementById('view-desktop').classList.add('bg-white/10');
+        container.style.maxWidth = '1100px'; container.style.aspectRatio = '16/9';
+        document.getElementById('view-desktop').classList.add('bg-white/10', 'text-white');
     } else if (type === 'tablet') {
-        container.style.maxWidth = '768px';
-        container.style.aspectRatio = '3/4';
-        document.getElementById('view-tablet').classList.replace('text-gray-500', 'text-white');
-        document.getElementById('view-tablet').classList.add('bg-white/10');
+        container.style.maxWidth = '768px'; container.style.aspectRatio = '3/4';
+        document.getElementById('view-tablet').classList.add('bg-white/10', 'text-white');
     } else if (type === 'mobile') {
-        container.style.maxWidth = '375px';
-        container.style.aspectRatio = '9/16';
-        document.getElementById('view-mobile').classList.replace('text-gray-500', 'text-white');
-        document.getElementById('view-mobile').classList.add('bg-white/10');
+        container.style.maxWidth = '375px'; container.style.aspectRatio = '9/16';
+        document.getElementById('view-mobile').classList.add('bg-white/10', 'text-white');
     }
 };
 
@@ -73,7 +74,7 @@ document.getElementById('view-mobile')?.addEventListener('click', () => setPrevi
 /* ================= GENERATION LOGIC ================= */
 const generateBtn = document.getElementById('generate-btn');
 const promptInput = document.getElementById('prompt-input');
-const previewFrame = document.getElementById('preview-frame');
+const codeOutput = document.getElementById('code-output');
 
 if (generateBtn) {
     generateBtn.addEventListener('click', async () => {
@@ -81,62 +82,45 @@ if (generateBtn) {
         if (!prompt || !currentUser) return;
 
         try {
-            // 1. Prepare UI
             generateBtn.disabled = true;
-            generateBtn.innerText = "Generating...";
-            fullStreamedText = "";
-            previewFrame.innerHTML = `<div class="text-gray-400 animate-pulse">AI is architecting your project...</div>`;
+            generateBtn.innerText = "Building...";
+            codeOutput.innerText = "";
+            sidebar.classList.add('open');
 
-            // 2. Get Firebase ID Token for Backend Auth
             const idToken = await currentUser.getIdToken();
 
-            // 3. Create initial project doc to get an ID for the backend to use
             if (!currentProjectId) {
-                currentProjectId = await autoSaveProject(
-                    projectPages, 
-                    prompt, 
-                    null, 
-                    currentUser.uid, 
-                    "Initializing...", 
-                    "landing", 
-                    "New Project"
-                );
+                currentProjectId = await autoSaveProject(projectPages, prompt, null, currentUser.uid, "Start", "landing", "Project");
             }
 
-            // 4. Call Generator Service (Backend)
+            // Backend call including attached images state
+            const images = getAttachedImages();
+
             await generateProjectStream(
-                prompt, 
-                "vanilla", 
-                currentProjectId, 
-                idToken, 
+                prompt, "vanilla", currentProjectId, idToken, 
                 (chunk) => {
-                    // Update preview with raw stream or handle partial parsing
-                    fullStreamedText += chunk;
-                    previewFrame.innerText = "Streaming code... " + fullStreamedText.length + " bytes";
+                    codeOutput.innerText += chunk;
+                    codeOutput.parentElement.scrollTop = codeOutput.parentElement.scrollHeight;
                 },
                 (statusData) => {
                     if (statusData.status === 'completed') {
                         generateBtn.disabled = false;
                         generateBtn.innerText = "Generate";
-                        previewFrame.innerHTML = `<div class="text-emerald-600 font-bold">Project Built Successfully!</div>`;
                         syncUsage();
                     }
                 }
             );
 
             promptInput.value = "";
+            clearAttachments();
         } catch (err) {
-            console.error(err);
-            alert("Error: " + err.message);
+            alert(err.message);
             generateBtn.disabled = false;
             generateBtn.innerText = "Generate";
         }
     });
 }
 
-/* ================= UTILS ================= */
 document.getElementById('logout-btn')?.addEventListener('click', () => {
     signOut(auth).then(() => window.location.href = "/login");
 });
-
-export { currentProjectId, deleteProject };
