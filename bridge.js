@@ -4,7 +4,13 @@ import { DeploymentManager } from "./deployment-manager.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 import { initPromptTyping } from "./prompt-typing.js"; 
-import { updateUIUsage, syncNameWithFirebase, saveToLocal, loadHistory } from "./ui-utils.js";
+import { 
+    updateUIUsage, 
+    saveToLocal, 
+    loadHistory, 
+    syncNameWithFirebase, 
+    generateUniqueProjectName 
+} from "./project-utils.js";
 
 // --- GLOBAL STATE ---
 export const projectState = {
@@ -178,7 +184,7 @@ function showLimitModal(limit, resetAt) {
     document.body.appendChild(modal);
 }
 
-// --- REMAINDER OF EXISTING LOGIC ---
+// --- PROJECT ACTIONS ---
 window.createNewProject = () => {
     localStorage.removeItem('ammoue_autosave');
     const url = new URL(window.location);
@@ -187,183 +193,14 @@ window.createNewProject = () => {
     location.reload(); 
 };
 
-window.toggleChat = () => {
-    const chat = document.getElementById('chat-widget');
-    chat.classList.toggle('translate-y-full');
-    chat.classList.toggle('opacity-0');
-    chat.classList.toggle('pointer-events-none');
+window.loadProject = (id) => {
+    localStorage.removeItem('ammoue_autosave');
+    const url = new URL(window.location);
+    url.searchParams.set('id', id);
+    window.history.pushState({}, '', url);
+    projectState.id = id;
+    loadProjectData(id, auth.currentUser.uid);
 };
-
-window.sendChatMessage = async () => {
-    const input = document.getElementById('chat-input');
-    const msg = input.value.trim();
-    if (!msg) return;
-    const box = document.getElementById('chat-messages');
-    box.innerHTML += `<div class="bg-indigo-50 dark:bg-indigo-900/20 p-2 rounded-lg text-[11px] mb-2 self-end">User: ${msg}</div>`;
-    input.value = "";
-    box.innerHTML += `<div class="bg-slate-100 dark:bg-slate-800 p-2 rounded-lg text-[11px] mb-2">AI: I can help you with components! Try asking "How do I add a Navbar?"</div>`;
-    box.scrollTop = box.scrollHeight;
-};
-
-const suggestions = [
-    "A minimalist portfolio for a creative director",
-    "A high-converting SaaS landing page",
-    "A luxury coffee shop website with a menu",
-    "A dark-themed crypto dashboard UI",
-    "An elegant wedding invitation page"
-];
-
-initPromptTyping(document.getElementById('user-prompt'), suggestions);
-
-window.applySuggestion = (text) => {
-    document.getElementById('user-prompt').value = text;
-    saveToLocal(projectState);
-};
-
-window.startVoicePrompt = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitRecognition;
-    if (!SpeechRecognition) return alert("Voice recognition not supported in this browser.");
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'en-US';
-    recognition.interimResults = false;
-    ui.voiceBtn.classList.add('animate-pulse', 'text-red-500');
-    recognition.start();
-    recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        document.getElementById('user-prompt').value += (document.getElementById('user-prompt').value ? " " : "") + transcript;
-        ui.voiceBtn.classList.remove('animate-pulse', 'text-red-500');
-        saveToLocal(projectState);
-    };
-    recognition.onerror = () => ui.voiceBtn.classList.remove('animate-pulse', 'text-red-500');
-    recognition.onend = () => ui.voiceBtn.classList.remove('animate-pulse', 'text-red-500');
-};
-
-window.openDownloadModal = () => {
-    const modal = document.getElementById('download-modal');
-    const list = document.getElementById('download-file-list');
-    if (!modal || !list) return; 
-    const files = Object.keys(projectState.pages).map(name => name === 'landing' ? 'index.html' : `${name}.html`);
-    list.innerHTML = files.map(f => `<div class="text-[11px] py-1 border-b dark:border-slate-800 flex justify-between"><span>📄 ${f}</span><span class="text-emerald-500">Ready</span></div>`).join('');
-    modal.classList.remove('hidden');
-};
-
-window.confirmDownload = async () => {
-    const { default: JSZip } = await import("https://cdn.skypack.dev/jszip");
-    const zip = new JSZip();
-    Object.entries(projectState.pages).forEach(([name, html]) => {
-        const fileName = name === 'landing' ? 'index.html' : `${name}.html`;
-        zip.file(fileName, html);
-    });
-    const content = await zip.generateAsync({ type: "blob" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(content);
-    link.download = `ammoueai-project-${Date.now()}.zip`;
-    link.click();
-    document.getElementById('download-modal').classList.add('hidden');
-};
-
-window.copyCollaborationLink = () => {
-    const url = window.location.href;
-    navigator.clipboard.writeText(url).then(() => {
-        const btn = document.getElementById('collab-btn');
-        const originalText = btn.innerHTML;
-        btn.innerHTML = "Copied!";
-        setTimeout(() => btn.innerHTML = originalText, 2000);
-    });
-};
-
-window.applyStylePreset = (preset) => {
-    const styles = {
-        modern: { font: "'Inter', sans-serif", primary: "#4f46e5", bg: "#ffffff" },
-        midnight: { font: "'Space Grotesk', sans-serif", primary: "#06b6d4", bg: "#020617" },
-        neon: { font: "'Outfit', sans-serif", primary: "#f472b6", bg: "#0f172a" },
-        classic: { font: "'Playfair Display', serif", primary: "#1e293b", bg: "#f8fafc" }
-    };
-    const selection = styles[preset];
-    const frame = document.getElementById('preview-frame');
-    if (frame.contentDocument) {
-        const styleTag = frame.contentDocument.createElement('style');
-        styleTag.innerHTML = `
-            :root { --primary: ${selection.primary}; --bg: ${selection.bg}; }
-            body { font-family: ${selection.font} !important; }
-        `;
-        frame.contentDocument.head.appendChild(styleTag);
-    }
-};
-
-window.generateSEOMetadata = () => {
-    const prompt = document.getElementById('user-prompt').value || "My Awesome Project";
-    const titleInput = document.getElementById('seo-title');
-    const descInput = document.getElementById('seo-description');
-    
-    const suggestedTitle = prompt.split(' ').slice(0, 5).join(' ') + " | Built with AmmoueAI";
-    const suggestedDesc = `Explore this professional project: ${prompt}. Created using advanced AI design tools for a seamless user experience.`;
-    
-    if (titleInput) titleInput.value = suggestedTitle;
-    if (descInput) descInput.value = suggestedDesc;
-};
-
-window.setProjectFavicon = (emoji) => {
-    const canvas = document.createElement('canvas');
-    canvas.height = 64;
-    canvas.width = 64;
-    const ctx = canvas.getContext('2d');
-    ctx.font = '54px serif';
-    ctx.fillText(emoji, 0, 54);
-    const dataUri = canvas.toDataURL();
-    const frame = document.getElementById('preview-frame');
-    if (frame.contentDocument) {
-        let link = frame.contentDocument.querySelector("link[rel~='icon']");
-        if (!link) {
-            link = frame.contentDocument.createElement('link');
-            link.rel = 'icon';
-            frame.contentDocument.head.appendChild(link);
-        }
-        link.href = dataUri;
-        document.getElementById('current-favicon-display').innerText = emoji;
-    }
-};
-
-window.toggleTheme = () => {
-    document.documentElement.classList.toggle('dark');
-    const isDark = document.documentElement.classList.contains('dark');
-    localStorage.setItem('theme', isDark ? 'dark' : 'light');
-};
-
-if (localStorage.getItem('theme') === 'dark') {
-    document.documentElement.classList.add('dark');
-}
-
-onAuthStateChanged(auth, (user) => {
-    if (!user) {
-        window.location.href = "/login";
-    } else {
-        loadHistory(user, ui);
-        updateUIUsage(user.uid, ui);
-        if (projectState.id) {
-            loadProjectData(projectState.id, user.uid);
-        } else {
-            loadFromLocal();
-        }
-    }
-});
-
-window.setViewport = (type) => {
-    if (type === 'mobile') {
-        ui.previewContainer.style.width = '375px';
-    } else {
-        ui.previewContainer.style.width = '100%';
-    }
-};
-
-window.togglePublishModal = (show) => {
-    ui.publishModal.classList.toggle('hidden', !show);
-    if (show) window.generateSEOMetadata(); 
-};
-
-ui.slugInput?.addEventListener('input', (e) => {
-    document.getElementById('slug-preview').innerText = (e.target.value || 'my-awesome-website') + '.vercel.app';
-});
 
 async function loadProjectData(projectId, userId) {
     if (!projectId || !userId) return;
@@ -397,104 +234,6 @@ function loadFromLocal() {
     window.switchPage(projectState.currentPage);
 }
 
-document.getElementById('user-prompt').addEventListener('input', () => saveToLocal(projectState));
-
-window.loadProject = (id) => {
-    localStorage.removeItem('ammoue_autosave');
-    const url = new URL(window.location);
-    url.searchParams.set('id', id);
-    window.history.pushState({}, '', url);
-    projectState.id = id;
-    loadProjectData(id, auth.currentUser.uid);
-};
-
-ui.imageInput.addEventListener('change', async (e) => {
-    const files = Array.from(e.target.files);
-    ui.imagePreview.innerHTML = '';
-    projectState.attachedImages = [];
-    for (const file of files) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const base64 = event.target.result;
-            const index = projectState.attachedImages.length;
-            projectState.attachedImages.push(base64);
-            
-            const wrapper = document.createElement('div');
-            wrapper.className = "relative group cursor-pointer";
-            wrapper.innerHTML = `
-                <img src="${base64}" onclick="window.zoomImage('${base64}')" class="w-12 h-12 object-cover rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm transition-transform hover:scale-105">
-                <button onclick="window.removeImage(${index})" class="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
-            `;
-            ui.imagePreview.appendChild(wrapper);
-        };
-        reader.readAsDataURL(file);
-    }
-});
-
-window.switchPage = (name) => {
-    projectState.currentPage = name;
-    engine.renderTabs(projectState, ui.tabContainer);
-    const code = projectState.pages[name] || "";
-    const blob = new Blob([code], { type: 'text/html' });
-    ui.preview.src = URL.createObjectURL(blob);
-};
-
-window.stopGeneration = async () => {
-    if (!projectState.isGenerating) return;
-    engine.stop();
-    projectState.isGenerating = false;
-    ui.genBtn.classList.remove('gen-active');
-    ui.genBtn.innerHTML = '➤';
-    ui.stopBtn.classList.add('hidden');
-    saveToLocal(projectState);
-};
-
-window.triggerDeploy = async () => {
-    const slug = ui.slugInput.value.trim() || `site-${Date.now()}`;
-    
-    if (!projectState.id && auth.currentUser) {
-        const prompt = document.getElementById('user-prompt').value;
-        const projectResult = await autoSaveProject(
-            projectState.pages,
-            projectState.name,
-            prompt,
-            auth.currentUser.uid,
-            ui.logs.innerHTML,
-            projectState.currentPage
-        );
-        if (projectResult?.id) {
-            projectState.id = projectResult.id;
-            const url = new URL(window.location);
-            url.searchParams.set('id', projectResult.id);
-            window.history.pushState({}, '', url);
-        }
-    }
-
-    if (!projectState.id) return alert("Error: Please generate content before publishing.");
-
-    await deployer.deploy({
-        html: projectState.pages[projectState.currentPage],
-        projectId: projectState.id,
-        slug: slug,
-        auth,
-        engine
-    });
-};
-
-window.generateUniqueProjectName = () => {
-    const adjectives = ["Velvet", "Neon", "Golden", "Silent", "Cosmic", "Swift", "Azure", "Emerald"];
-    const nouns = ["Pulse", "Nebula", "Flow", "Sphere", "Nexus", "Drift", "Aura", "Beacon"];
-    const name = adjectives[Math.floor(Math.random() * adjectives.length)] + " " + nouns[Math.floor(Math.random() * nouns.length)];
-    projectState.name = name;
-    if (ui.nameDisplay) ui.nameDisplay.innerText = name;
-    const slug = name.toLowerCase().replace(/\s+/g, '-');
-    if (ui.slugInput) {
-        ui.slugInput.value = slug;
-        document.getElementById('slug-preview').innerText = slug + '.vercel.app';
-    }
-    return name;
-};
-
 window.editProjectName = () => {
     const modal = document.getElementById('rename-modal');
     const input = document.getElementById('new-project-name-input');
@@ -510,118 +249,62 @@ window.confirmRename = () => {
         projectState.name = newName;
         ui.nameDisplay.innerText = projectState.name;
         saveToLocal(projectState);
-        syncNameWithFirebase(projectState.name, projectState.id);
+        syncNameWithFirebase(projectState.name, projectState.id, auth.currentUser.uid);
         document.getElementById('rename-modal').classList.add('hidden');
     }
 };
 
-if (!projectState.id) {
-    window.generateUniqueProjectName();
-}
-
-window.removeImage = (index) => {
-    projectState.attachedImages.splice(index, 1);
-    ui.imagePreview.innerHTML = '';
-    projectState.attachedImages.forEach((base64, i) => {
-        const wrapper = document.createElement('div');
-        wrapper.className = "relative group cursor-pointer";
-        wrapper.innerHTML = `
-            <img src="${base64}" onclick="window.zoomImage('${base64}')" class="w-12 h-12 object-cover rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm transition-transform hover:scale-105">
-            <button onclick="window.removeImage(${i})" class="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
-        `;
-        ui.imagePreview.appendChild(wrapper);
-    });
+// --- CHAT & VOICE ---
+window.toggleChat = () => {
+    const chat = document.getElementById('chat-widget');
+    chat.classList.toggle('translate-y-full');
+    chat.classList.toggle('opacity-0');
+    chat.classList.toggle('pointer-events-none');
 };
 
-window.zoomImage = (src) => {
-    const lightbox = document.getElementById('lightbox-modal');
-    document.getElementById('lightbox-img').src = src;
-    lightbox.classList.remove('hidden');
+window.sendChatMessage = async () => {
+    const input = document.getElementById('chat-input');
+    const msg = input.value.trim();
+    if (!msg) return;
+    const box = document.getElementById('chat-messages');
+    box.innerHTML += `<div class="bg-indigo-50 dark:bg-indigo-900/20 p-2 rounded-lg text-[11px] mb-2 self-end">User: ${msg}</div>`;
+    input.value = "";
+    box.innerHTML += `<div class="bg-slate-100 dark:bg-slate-800 p-2 rounded-lg text-[11px] mb-2">AI: I can help you with components! Try asking "How do I add a Navbar?"</div>`;
+    box.scrollTop = box.scrollHeight;
 };
 
-window.toggleMobileView = (view) => {
-    const sidebar = document.getElementById('main-sidebar');
-    const leftPanel = document.getElementById('prompt-container');
-    const centerPanel = document.getElementById('preview-container');
-    const fab = document.getElementById('mobile-fab');
-    sidebar.classList.add('hidden');
-    leftPanel.classList.add('hidden');
-    centerPanel.classList.add('hidden');
-    sidebar.classList.remove('sidebar-mobile');
-    leftPanel.classList.remove('prompt-zone-mobile');
-    if (view === 'sidebar') {
-        sidebar.classList.remove('hidden');
-        sidebar.classList.add('sidebar-mobile');
-        if(fab) fab.classList.add('hidden');
-    } else if (view === 'prompt') {
-        leftPanel.classList.remove('hidden');
-        leftPanel.classList.add('prompt-zone-mobile');
-        if(fab) fab.classList.remove('hidden');
-    } else if (view === 'preview') {
-        centerPanel.classList.remove('hidden');
-        if(fab) fab.classList.remove('hidden');
-    }
+window.startVoicePrompt = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitRecognition;
+    if (!SpeechRecognition) return alert("Voice recognition not supported.");
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    ui.voiceBtn.classList.add('animate-pulse', 'text-red-500');
+    recognition.start();
+    recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        document.getElementById('user-prompt').value += (document.getElementById('user-prompt').value ? " " : "") + transcript;
+        saveToLocal(projectState);
+    };
+    recognition.onend = () => ui.voiceBtn.classList.remove('animate-pulse', 'text-red-500');
 };
 
-let touchStartX = 0;
-const sidebarEl = document.getElementById('main-sidebar');
-sidebarEl.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
-sidebarEl.addEventListener('touchend', (e) => {
-    const touchEndX = e.changedTouches[0].screenX;
-    if (touchStartX - touchEndX > 50 && sidebarEl.classList.contains('sidebar-mobile')) {
-        window.toggleMobileView('preview');
-    }
-}, { passive: true });
+// --- UI UTILS ---
+window.toggleTheme = () => {
+    document.documentElement.classList.toggle('dark');
+    localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+};
 
-let lastScrollY = 0;
-const scrollTarget = document.querySelector('section'); 
-if(scrollTarget) {
-    scrollTarget.addEventListener('scroll', () => {
-        if (window.innerWidth > 1024) return;
-        const currentScrollY = scrollTarget.scrollTop;
-        if (currentScrollY > lastScrollY && currentScrollY > 60) {
-            ui.header.classList.add('-translate-y-full');
-        } else {
-            ui.header.classList.remove('-translate-y-full');
-        }
-        lastScrollY = currentScrollY;
-    }, { passive: true });
-}
+window.setViewport = (type) => {
+    ui.previewContainer.style.width = type === 'mobile' ? '375px' : '100%';
+};
 
-document.addEventListener('touchstart', (e) => {
-    const target = e.target.closest('button, a, .emoji-btn, #mobile-fab');
-    if (target) target.classList.add('haptic-press');
-}, { passive: true });
-document.addEventListener('touchend', (e) => {
-    const target = e.target.closest('button, a, .emoji-btn, #mobile-fab');
-    if (target) target.classList.remove('haptic-press');
-}, { passive: true });
-
-let refreshStartY = 0;
-const previewWrapper = document.getElementById('preview-wrapper');
-const refreshIndicator = document.getElementById('refresh-indicator');
-previewWrapper.addEventListener('touchstart', (e) => { if (window.innerWidth > 1024) return; refreshStartY = e.touches[0].pageY; }, { passive: true });
-previewWrapper.addEventListener('touchmove', (e) => {
-    if (window.innerWidth > 1024) return;
-    const currentY = e.touches[0].pageY;
-    const diff = currentY - refreshStartY;
-    if (diff > 50 && diff < 150) {
-        refreshIndicator.style.transform = `translateY(${diff - 60}px)`;
-        refreshIndicator.classList.remove('hidden');
-    }
-}, { passive: true });
-previewWrapper.addEventListener('touchend', async (e) => {
-    if (window.innerWidth > 1024) return;
-    const diff = e.changedTouches[0].pageY - refreshStartY;
-    if (diff > 100) {
-        refreshIndicator.classList.add('animate-spin');
-        await window.triggerGenerate();
-        setTimeout(() => {
-            refreshIndicator.classList.add('hidden');
-            refreshIndicator.classList.remove('animate-spin');
-        }, 1000);
-    } else { refreshIndicator.classList.add('hidden'); }
-}, { passive: true });
+window.switchPage = (name) => {
+    projectState.currentPage = name;
+    engine.renderTabs(projectState, ui.tabContainer);
+    const code = projectState.pages[name] || "";
+    const blob = new Blob([code], { type: 'text/html' });
+    ui.preview.src = URL.createObjectURL(blob);
+};
 
 window.toggleCodeView = () => {
     const frame = document.getElementById('preview-frame');
@@ -643,23 +326,129 @@ window.toggleCodeView = () => {
     }
 };
 
-window.enableVisualEditing = () => {
-    const frame = document.getElementById('preview-frame');
-    const doc = frame.contentDocument || frame.contentWindow.document;
-    doc.querySelectorAll('h1, h2, h3, p, span, button, a').forEach(el => {
-        el.contentEditable = "true";
-        el.style.outline = "none";
-        el.addEventListener('blur', () => {
-            projectState.pages[projectState.currentPage] = doc.documentElement.outerHTML;
-            saveToLocal(projectState);
-        });
-    });
-};
-ui.preview.onload = () => window.enableVisualEditing();
-
 window.openFullPreview = () => {
     const html = projectState.pages[projectState.currentPage];
     const newWin = window.open('about:blank', '_blank');
     newWin.document.write(html);
     newWin.document.close();
+};
+
+// --- IMAGE HANDLING ---
+ui.imageInput.addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files);
+    ui.imagePreview.innerHTML = '';
+    projectState.attachedImages = [];
+    for (const file of files) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const base64 = event.target.result;
+            projectState.attachedImages.push(base64);
+            const wrapper = document.createElement('div');
+            wrapper.className = "relative group";
+            wrapper.innerHTML = `<img src="${base64}" onclick="window.zoomImage('${base64}')" class="w-12 h-12 object-cover rounded-lg">
+                                 <button onclick="window.removeImage(${projectState.attachedImages.length - 1})" class="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full">✕</button>`;
+            ui.imagePreview.appendChild(wrapper);
+        };
+        reader.readAsDataURL(file);
+    }
+});
+
+window.removeImage = (index) => {
+    projectState.attachedImages.splice(index, 1);
+    ui.imagePreview.innerHTML = '';
+    projectState.attachedImages.forEach((img, i) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = "relative group";
+        wrapper.innerHTML = `<img src="${img}" onclick="window.zoomImage('${img}')" class="w-12 h-12 object-cover rounded-lg">
+                             <button onclick="window.removeImage(${i})" class="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full">✕</button>`;
+        ui.imagePreview.appendChild(wrapper);
+    });
+};
+
+window.zoomImage = (src) => {
+    const lightbox = document.getElementById('lightbox-modal');
+    document.getElementById('lightbox-img').src = src;
+    lightbox.classList.remove('hidden');
+};
+
+// --- AUTH & INIT ---
+onAuthStateChanged(auth, (user) => {
+    if (!user) {
+        window.location.href = "/login";
+    } else {
+        loadHistory(user, ui);
+        updateUIUsage(user.uid, ui);
+        if (projectState.id) loadProjectData(projectState.id, user.uid);
+        else loadFromLocal();
+    }
+});
+
+if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.add('dark');
+if (!projectState.id) generateUniqueProjectName(projectState, ui);
+
+document.getElementById('user-prompt').addEventListener('input', () => saveToLocal(projectState));
+
+// --- EXPORTED TRIGGERS ---
+window.triggerDeploy = async () => {
+    const slug = ui.slugInput.value.trim() || `site-${Date.now()}`;
+    if (!projectState.id && auth.currentUser) {
+        const prompt = document.getElementById('user-prompt').value;
+        const projectResult = await autoSaveProject(projectState.pages, projectState.name, prompt, auth.currentUser.uid, ui.logs.innerHTML, projectState.currentPage);
+        if (projectResult?.id) {
+            projectState.id = projectResult.id;
+            const url = new URL(window.location);
+            url.searchParams.set('id', projectResult.id);
+            window.history.pushState({}, '', url);
+        }
+    }
+    if (!projectState.id) return alert("Error: Please generate content before publishing.");
+    await deployer.deploy({ html: projectState.pages[projectState.currentPage], projectId: projectState.id, slug, auth, engine });
+};
+
+// --- EXTRA UI LOGIC ---
+window.togglePublishModal = (show) => {
+    ui.publishModal.classList.toggle('hidden', !show);
+    if (show) window.generateSEOMetadata(); 
+};
+
+window.generateSEOMetadata = () => {
+    const prompt = document.getElementById('user-prompt').value || "My Project";
+    const titleInput = document.getElementById('seo-title');
+    const descInput = document.getElementById('seo-description');
+    if (titleInput) titleInput.value = prompt.split(' ').slice(0, 5).join(' ') + " | Built with AmmoueAI";
+    if (descInput) descInput.value = `Explore this professional project: ${prompt}.`;
+};
+
+window.openDownloadModal = () => {
+    const modal = document.getElementById('download-modal');
+    const list = document.getElementById('download-file-list');
+    if (!modal || !list) return; 
+    const files = Object.keys(projectState.pages).map(name => name === 'landing' ? 'index.html' : `${name}.html`);
+    list.innerHTML = files.map(f => `<div class="text-[11px] py-1 border-b dark:border-slate-800 flex justify-between"><span>📄 ${f}</span><span class="text-emerald-500">Ready</span></div>`).join('');
+    modal.classList.remove('hidden');
+};
+
+window.confirmDownload = async () => {
+    const { default: JSZip } = await import("https://cdn.skypack.dev/jszip");
+    const zip = new JSZip();
+    Object.entries(projectState.pages).forEach(([name, html]) => {
+        zip.file(name === 'landing' ? 'index.html' : `${name}.html`, html);
+    });
+    const content = await zip.generateAsync({ type: "blob" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(content);
+    link.download = `ammoueai-project-${Date.now()}.zip`;
+    link.click();
+    document.getElementById('download-modal').classList.add('hidden');
+};
+
+ui.preview.onload = () => {
+    const frameDoc = ui.preview.contentDocument || ui.preview.contentWindow.document;
+    frameDoc.querySelectorAll('h1, h2, h3, p, span, button, a').forEach(el => {
+        el.contentEditable = "true";
+        el.addEventListener('blur', () => {
+            projectState.pages[projectState.currentPage] = frameDoc.documentElement.outerHTML;
+            saveToLocal(projectState);
+        });
+    });
 };
