@@ -161,7 +161,6 @@ window.triggerGenerate = async () => {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
 
-        // Clear engine state for fresh multi-file generation
         projectState.pages = {}; 
 
         while (true) {
@@ -454,7 +453,7 @@ async function loadHistory(user) {
     ui.historyList.innerHTML = projects.map(p => `
         <div onclick="window.loadProject('${p.id}')" class="p-3 mb-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer border border-slate-200 dark:border-slate-700 transition-all group">
             <div class="text-[11px] font-bold truncate text-slate-800 dark:text-slate-200">${p.projectName || p.prompt || 'Untitled'}</div>
-            <div class="text-[9px] text-slate-400 group-hover:text-indigo-500">${new Date(p.updatedAt?.seconds * 1000).toLocaleDateString()}</div>
+            <div class="text-[9px] text-slate-400 group-hover:text-indigo-500">${p.updatedAt ? new Date(p.updatedAt.seconds * 1000).toLocaleDateString() : 'Recent'}</div>
         </div>
     `).join('');
 }
@@ -512,7 +511,6 @@ window.stopGeneration = async () => {
 window.triggerDeploy = async () => {
     const slug = ui.slugInput.value.trim() || `site-${Date.now()}`;
     
-    // CRITICAL FIX: Handle cases where project isn't yet in Firestore
     if (!projectState.id && auth.currentUser) {
         const prompt = document.getElementById('user-prompt').value;
         const projectResult = await autoSaveProject(
@@ -644,16 +642,18 @@ sidebarEl.addEventListener('touchend', (e) => {
 
 let lastScrollY = 0;
 const scrollTarget = document.querySelector('section'); 
-scrollTarget.addEventListener('scroll', () => {
-    if (window.innerWidth > 1024) return;
-    const currentScrollY = scrollTarget.scrollTop;
-    if (currentScrollY > lastScrollY && currentScrollY > 60) {
-        ui.header.classList.add('-translate-y-full');
-    } else {
-        ui.header.classList.remove('-translate-y-full');
-    }
-    lastScrollY = currentScrollY;
-}, { passive: true });
+if(scrollTarget) {
+    scrollTarget.addEventListener('scroll', () => {
+        if (window.innerWidth > 1024) return;
+        const currentScrollY = scrollTarget.scrollTop;
+        if (currentScrollY > lastScrollY && currentScrollY > 60) {
+            ui.header.classList.add('-translate-y-full');
+        } else {
+            ui.header.classList.remove('-translate-y-full');
+        }
+        lastScrollY = currentScrollY;
+    }, { passive: true });
+}
 
 document.addEventListener('touchstart', (e) => {
     const target = e.target.closest('button, a, .emoji-btn, #mobile-fab');
