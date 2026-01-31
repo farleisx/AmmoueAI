@@ -1,8 +1,3 @@
-/**
- * generator_service.js
- * Handles the communication with the Vercel Edge Function backend
- */
-
 export async function generateProjectStream(prompt, framework, projectId, idToken, onChunk, onStatus) {
     try {
         const response = await fetch('/api/generate', {
@@ -11,17 +6,10 @@ export async function generateProjectStream(prompt, framework, projectId, idToke
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${idToken}`
             },
-            body: JSON.stringify({
-                prompt,
-                framework,
-                projectId
-            })
+            body: JSON.stringify({ prompt, framework, projectId })
         });
 
-        if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.error || 'Generation failed');
-        }
+        if (!response.ok) throw new Error('API Error');
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -44,19 +32,13 @@ export async function generateProjectStream(prompt, framework, projectId, idToke
                     }
                     try {
                         const data = JSON.parse(dataStr);
-                        if (data.status) {
-                            onStatus(data);
-                        } else if (data.text) {
-                            onChunk(data.text);
-                        }
-                    } catch (e) {
-                        console.error("Error parsing stream chunk", e);
-                    }
+                        if (data.status) onStatus(data);
+                        else if (data.text) onChunk(data.text);
+                    } catch (e) {}
                 }
             }
         }
     } catch (error) {
-        console.error("Generation Stream Error:", error);
         throw error;
     }
 }
