@@ -511,6 +511,28 @@ window.stopGeneration = async () => {
 
 window.triggerDeploy = async () => {
     const slug = ui.slugInput.value.trim() || `site-${Date.now()}`;
+    
+    // CRITICAL FIX: Handle cases where project isn't yet in Firestore
+    if (!projectState.id && auth.currentUser) {
+        const prompt = document.getElementById('user-prompt').value;
+        const projectResult = await autoSaveProject(
+            projectState.pages,
+            projectState.name,
+            prompt,
+            auth.currentUser.uid,
+            ui.logs.innerHTML,
+            projectState.currentPage
+        );
+        if (projectResult?.id) {
+            projectState.id = projectResult.id;
+            const url = new URL(window.location);
+            url.searchParams.set('id', projectResult.id);
+            window.history.pushState({}, '', url);
+        }
+    }
+
+    if (!projectState.id) return alert("Error: Please generate content before publishing.");
+
     await deployer.deploy({
         html: projectState.pages[projectState.currentPage],
         projectId: projectState.id,
