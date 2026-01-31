@@ -6,7 +6,10 @@ export async function updateUIUsage(userId, ui) {
     const usage = await getUsage(userId);
     const limit = usage.plan === "pro" ? 10 : 5;
     const remaining = Math.max(0, limit - (usage.dailyCount || 0));
-    if (ui.creditDisplay) ui.creditDisplay.innerText = `${remaining}/${limit} Credits Left`;
+    if (ui.creditDisplay) {
+        ui.creditDisplay.innerText = `${remaining}/${limit} Credits Left`;
+        if (remaining <= 0 && ui.genBtn) ui.genBtn.disabled = true;
+    }
     if (ui.resetDisplay && usage.dailyResetAt) startResetCountdown(usage.dailyResetAt, ui);
 }
 
@@ -16,7 +19,6 @@ function startResetCountdown(resetAtMs, ui) {
         if (diffMs <= 0) { ui.resetDisplay.innerText = `Resetting now...`; return; }
         const hours = Math.floor(diffMs / (1000 * 60 * 60));
         ui.resetDisplay.innerText = `Resets in ${hours}h`;
-        ui.resetDisplay.title = `Exact Reset in: ${hours}h ${Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))}m`;
     };
     update();
     setInterval(update, 1000);
@@ -31,6 +33,7 @@ export function saveToLocal(projectState) {
         framework: projectState.framework
     };
     localStorage.setItem('ammoue_autosave', JSON.stringify(data));
+    window.setUnsavedStatus(true);
 }
 
 export async function loadHistory(user, ui) {
@@ -58,11 +61,5 @@ export function generateUniqueProjectName(projectState, ui) {
     const name = adjectives[Math.floor(Math.random() * adjectives.length)] + " " + nouns[Math.floor(Math.random() * nouns.length)];
     projectState.name = name;
     if (ui.nameDisplay) ui.nameDisplay.innerText = name;
-    const slug = name.toLowerCase().replace(/\s+/g, '-');
-    if (ui.slugInput) {
-        ui.slugInput.value = slug;
-        const preview = document.getElementById('slug-preview');
-        if (preview) preview.innerText = slug + '.vercel.app';
-    }
     return name;
 }
