@@ -4,6 +4,7 @@ import { DeploymentManager } from "./deployment-manager.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 import { initPromptTyping } from "./prompt-typing.js"; 
+import { updateUIUsage, syncNameWithFirebase, saveToLocal, loadHistory } from "./ui-utils.js";
 
 // --- GLOBAL STATE ---
 export const projectState = {
@@ -50,12 +51,12 @@ const engine = new GenerationEngine({
                 const blob = new Blob([code], { type: 'text/html' });
                 ui.preview.src = URL.createObjectURL(blob);
             }
-            saveToLocal();
+            saveToLocal(projectState);
         },
         onNewPage: (name) => {
             if (!projectState.pages[name]) projectState.pages[name] = "";
             engine.renderTabs(projectState, ui.tabContainer);
-            saveToLocal();
+            saveToLocal(projectState);
         },
         onAction: (text) => {
             ui.logs.innerHTML += `<div class="text-indigo-400 font-medium"> ${text}</div>`;
@@ -83,44 +84,6 @@ const deployer = new DeploymentManager({
         onFailure: () => console.log("Deployment failed.")
     }
 });
-
-// --- CREDIT & USAGE UPDATE ---
-async function updateUIUsage(userId) {
-    if (!userId) return;
-    const usage = await getUsage(userId);
-    const limit = usage.plan === "pro" ? 10 : 5;
-    const remaining = Math.max(0, limit - (usage.dailyCount || 0));
-    
-    if (ui.creditDisplay) {
-        ui.creditDisplay.innerText = `${remaining}/${limit} Credits Left`;
-    }
-    
-    if (ui.resetDisplay && usage.dailyResetAt) {
-        startResetCountdown(usage.dailyResetAt);
-    }
-}
-
-function startResetCountdown(resetAtMs) {
-    const update = () => {
-        const now = Date.now();
-        const diffMs = resetAtMs - now;
-
-        if (diffMs <= 0) {
-            ui.resetDisplay.innerText = `Resetting now...`;
-            return;
-        }
-
-        const hours = Math.floor(diffMs / (1000 * 60 * 60));
-        const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
-
-        ui.resetDisplay.innerText = `Resets in ${hours}h`;
-        ui.resetDisplay.title = `Exact Reset in: ${hours}h ${minutes}m ${seconds}s`;
-    };
-    
-    update();
-    setInterval(update, 1000);
-}
 
 // --- GENERATION BRIDGE ---
 window.triggerGenerate = async () => {
@@ -178,7 +141,7 @@ window.triggerGenerate = async () => {
                     try {
                         const data = JSON.parse(dataStr);
                         if (data.text) engine.processAIChunk(data.text);
-                        if (data.status === "initializing") updateUIUsage(auth.currentUser.uid);
+                        if (data.status === "initializing") updateUIUsage(auth.currentUser.uid, ui);
                     } catch (e) {}
                 }
             }
@@ -190,8 +153,8 @@ window.triggerGenerate = async () => {
         ui.genBtn.classList.remove('gen-active');
         ui.genBtn.innerHTML = '➤';
         ui.stopBtn.classList.add('hidden');
-        saveToLocal();
-        loadHistory(auth.currentUser);
+        saveToLocal(projectState);
+        loadHistory(auth.currentUser, ui);
     }
 };
 
@@ -254,7 +217,7 @@ initPromptTyping(document.getElementById('user-prompt'), suggestions);
 
 window.applySuggestion = (text) => {
     document.getElementById('user-prompt').value = text;
-    saveToLocal();
+    saveToLocal(projectState);
 };
 
 window.startVoicePrompt = () => {
@@ -269,7 +232,7 @@ window.startVoicePrompt = () => {
         const transcript = event.results[0][0].transcript;
         document.getElementById('user-prompt').value += (document.getElementById('user-prompt').value ? " " : "") + transcript;
         ui.voiceBtn.classList.remove('animate-pulse', 'text-red-500');
-        saveToLocal();
+        saveToLocal(projectState);
     };
     recognition.onerror = () => ui.voiceBtn.classList.remove('animate-pulse', 'text-red-500');
     recognition.onend = () => ui.voiceBtn.classList.remove('animate-pulse', 'text-red-500');
@@ -375,8 +338,8 @@ onAuthStateChanged(auth, (user) => {
     if (!user) {
         window.location.href = "/login";
     } else {
-        loadHistory(user);
-        updateUIUsage(user.uid);
+        loadHistory(user, ui);
+        updateUIUsage(user.uid, ui);
         if (projectState.id) {
             loadProjectData(projectState.id, user.uid);
         } else {
@@ -420,17 +383,6 @@ async function loadProjectData(projectId, userId) {
     } catch (e) { console.error("Load failed:", e); }
 }
 
-function saveToLocal() {
-    const data = {
-        prompt: document.getElementById('user-prompt').value,
-        pages: projectState.pages,
-        id: projectState.id,
-        name: projectState.name,
-        framework: projectState.framework
-    };
-    localStorage.setItem('ammoue_autosave', JSON.stringify(data));
-}
-
 function loadFromLocal() {
     const saved = localStorage.getItem('ammoue_autosave');
     if (!saved) return;
@@ -445,18 +397,7 @@ function loadFromLocal() {
     window.switchPage(projectState.currentPage);
 }
 
-document.getElementById('user-prompt').addEventListener('input', saveToLocal);
-
-async function loadHistory(user) {
-    if (!user) return;
-    const projects = await getUserProjects(user.uid);
-    ui.historyList.innerHTML = projects.map(p => `
-        <div onclick="window.loadProject('${p.id}')" class="p-3 mb-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer border border-slate-200 dark:border-slate-700 transition-all group">
-            <div class="text-[11px] font-bold truncate text-slate-800 dark:text-slate-200">${p.projectName || p.prompt || 'Untitled'}</div>
-            <div class="text-[9px] text-slate-400 group-hover:text-indigo-500">${p.updatedAt ? new Date(p.updatedAt.seconds * 1000).toLocaleDateString() : 'Recent'}</div>
-        </div>
-    `).join('');
-}
+document.getElementById('user-prompt').addEventListener('input', () => saveToLocal(projectState));
 
 window.loadProject = (id) => {
     localStorage.removeItem('ammoue_autosave');
@@ -505,7 +446,7 @@ window.stopGeneration = async () => {
     ui.genBtn.classList.remove('gen-active');
     ui.genBtn.innerHTML = '➤';
     ui.stopBtn.classList.add('hidden');
-    saveToLocal();
+    saveToLocal(projectState);
 };
 
 window.triggerDeploy = async () => {
@@ -568,19 +509,11 @@ window.confirmRename = () => {
     if (newName !== "") {
         projectState.name = newName;
         ui.nameDisplay.innerText = projectState.name;
-        saveToLocal();
-        syncNameWithFirebase(projectState.name);
+        saveToLocal(projectState);
+        syncNameWithFirebase(projectState.name, projectState.id);
         document.getElementById('rename-modal').classList.add('hidden');
     }
 };
-
-async function syncNameWithFirebase(newName) {
-    if (!projectState.id || !auth.currentUser) return;
-    try {
-        const docRef = doc(db, "artifacts", "ammoueai", "users", auth.currentUser.uid, "projects", projectState.id);
-        await updateDoc(docRef, { projectName: newName });
-    } catch (e) { console.error("Name sync failed:", e); }
-}
 
 if (!projectState.id) {
     window.generateUniqueProjectName();
@@ -706,7 +639,7 @@ window.toggleCodeView = () => {
         editor.classList.add('hidden');
         frame.classList.remove('hidden');
         btn.innerText = "💻 View Code";
-        saveToLocal();
+        saveToLocal(projectState);
     }
 };
 
@@ -718,7 +651,7 @@ window.enableVisualEditing = () => {
         el.style.outline = "none";
         el.addEventListener('blur', () => {
             projectState.pages[projectState.currentPage] = doc.documentElement.outerHTML;
-            saveToLocal();
+            saveToLocal(projectState);
         });
     });
 };
