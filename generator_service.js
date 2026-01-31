@@ -34,7 +34,6 @@ export async function generateProjectStream(prompt, framework, projectId, idToke
                         const data = JSON.parse(dataStr);
                         if (data.status) onStatus(data);
                         else if (data.text) {
-                            // Detect Thinking File
                             const fileMatch = data.text.match(/\[NEW_PAGE:\s*(.*?)\s*\]/);
                             if (fileMatch) onThinking(fileMatch[1]);
                             onChunk(data.text);
