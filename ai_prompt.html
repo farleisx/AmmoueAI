@@ -49,8 +49,12 @@
         .mobile-nav-float { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 400px; height: 64px; background: rgba(255,255,255,0.9); backdrop-filter: blur(12px); border: 1px solid rgba(226,232,240,0.8); border-radius: 24px; display: flex; align-items: center; justify-content: space-around; z-index: 70; box-shadow: 0 8px 32px rgba(0,0,0,0.1); }
         .dark .mobile-nav-float { background: rgba(15, 23, 42, 0.9); border-color: rgba(30, 41, 59, 0.8); }
 
-        /* Usage Hover Precision Indicator */
-        .usage-card-hover:hover #credit-reset-display { color: #6366f1; font-weight: 800; }
+        /* Usage Card Fixed Display Updates */
+        #credit-reset-display { color: #6366f1; font-weight: 800; opacity: 1 !important; visibility: visible !important; }
+
+        /* File List Expand Logic */
+        .file-list-expanded { position: fixed !important; inset: 0 !important; z-index: 99 !important; background: white !important; width: 100% !important; height: 100% !important; margin: 0 !important; border-radius: 0 !important; }
+        .dark .file-list-expanded { background: #020617 !important; }
 
         @media (max-width: 1024px) {
             header { position: sticky; top: 0; transform: translateY(0); transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
@@ -106,10 +110,10 @@
 
     <main class="flex-1 flex overflow-hidden">
         <aside id="main-sidebar" class="w-60 sidebar flex flex-col p-5 gap-4 hidden lg:flex">
-            <div class="lovable-card p-3 mb-2 bg-indigo-50/50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-800/50 usage-card-hover cursor-help">
+            <div class="lovable-card p-3 mb-2 bg-indigo-50/50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-800/50 cursor-help">
                 <div class="flex items-center justify-between mb-1">
                     <span class="text-[9px] font-extrabold text-indigo-600 dark:text-indigo-400 tracking-widest uppercase">Usage</span>
-                    <span id="credit-reset-display" class="text-[8px] font-bold text-slate-400 transition-all">Loading...</span>
+                    <span id="credit-reset-display" class="text-[8px] font-bold transition-all">Loading...</span>
                 </div>
                 <div id="credit-limit-display" class="text-xs font-extrabold text-slate-800 dark:text-slate-200">Checking...</div>
             </div>
@@ -134,7 +138,10 @@
                 </div>
             </div>
 
-            <label class="text-[10px] uppercase font-extrabold text-slate-400 tracking-widest">History</label>
+            <div class="flex items-center justify-between mb-2">
+                <label class="text-[10px] uppercase font-extrabold text-slate-400 tracking-widest">History</label>
+                <button onclick="toggleExpandFiles()" class="text-[10px] font-bold text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded">Expand All</button>
+            </div>
             <div id="history-list" class="flex-1 overflow-y-auto pr-2"></div>
             
             <div class="lg:hidden text-center text-[10px] text-slate-400 font-bold mt-auto py-4">← Swipe left to close</div>
@@ -243,6 +250,16 @@
         <div class="lovable-card w-[450px] p-8 shadow-2xl">
             <h3 class="text-xl font-extrabold mb-2 dark:text-white">Ready to launch?</h3>
             <div class="text-[10px] text-indigo-500 font-mono mb-4" id="slug-preview">...vercel.app</div>
+            
+            <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 p-3 rounded-xl mb-6">
+                <label class="text-[10px] uppercase font-extrabold text-amber-600 dark:text-amber-400 mb-2 block flex items-center justify-between">
+                    Pre-Deployment Cleanup
+                    <span class="bg-amber-200 dark:bg-amber-800 px-1.5 rounded">AUTO</span>
+                </label>
+                <div class="text-[11px] text-amber-700 dark:text-amber-300 mb-2">Select generated files to remove from the production build:</div>
+                <div id="deployment-file-cleanup" class="max-h-32 overflow-y-auto space-y-1"></div>
+            </div>
+
             <div class="space-y-4 mb-6">
                 <div>
                     <label class="text-[10px] uppercase font-extrabold text-slate-400 mb-1 block">Domain Slug</label>
