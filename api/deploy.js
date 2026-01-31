@@ -100,13 +100,13 @@ export default async function handler(req, res) {
   const { htmlContent, projectId, slug, customDomain, framework = "vanilla", attempt = 1 } = req.body;
 
   if (!projectId) {
-    return res.status(400).json({ error: "Missing parameters" });
+    return res.status(400).json({ error: "Missing parameters: projectId is required" });
   }
 
   /* ---------------- AUTH VERIFY ---------------- */
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Unauthorized" });
+    return res.status(401).json({ error: "Unauthorized: No token provided" });
   }
 
   let userId;
@@ -115,7 +115,7 @@ export default async function handler(req, res) {
     const decoded = await admin.auth().verifyIdToken(token);
     userId = decoded.uid;
   } catch (err) {
-    return res.status(401).json({ error: "Invalid token" });
+    return res.status(401).json({ error: "Invalid token: " + err.message });
   }
 
   /* ---------------- FETCH USER PLAN ---------------- */
@@ -127,7 +127,7 @@ export default async function handler(req, res) {
     }
   } catch (err) {
     console.error("PLAN FETCH ERROR:", err);
-    return res.status(500).json({ error: "Failed to fetch plan" });
+    return res.status(500).json({ error: "Failed to fetch plan: " + err.message });
   }
 
   const planLimit = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free;
@@ -159,13 +159,13 @@ export default async function handler(req, res) {
           vercelFiles.push({ file: "index.html", data: String(fileData || "") });
         }
       });
-    } else {
+    } else if (htmlContent) {
       // Fallback for direct deployment from editor
       vercelFiles.push({ file: "index.html", data: String(htmlContent || "") });
     }
   } catch (err) {
     console.error("PROJECT FETCH ERROR:", err);
-    return res.status(500).json({ error: "Failed to prepare deployment files" });
+    return res.status(500).json({ error: "Failed to prepare deployment files: " + err.message });
   }
 
   if (vercelFiles.length === 0 || vercelFiles.every(f => !f.data || f.data.trim() === "")) {
@@ -202,7 +202,7 @@ export default async function handler(req, res) {
     }
   } catch (err) {
     console.error("DEPLOYMENT LIMIT ERROR:", err);
-    return res.status(500).json({ error: "Failed to check deployment limits" });
+    return res.status(500).json({ error: "Failed to check deployment limits: " + err.message });
   }
 
   let finalSlug = null;
@@ -214,7 +214,7 @@ export default async function handler(req, res) {
       finalSlug = normalizeSlug(slug);
 
       if (!finalSlug || finalSlug.length < 3) {
-        return res.status(400).json({ error: "Invalid site name" });
+        return res.status(400).json({ error: "Invalid site name: must be at least 3 characters" });
       }
 
       await reserveSlug(finalSlug, userId, projectId);
@@ -240,7 +240,7 @@ export default async function handler(req, res) {
       }
 
       if (!validateCustomDomain(customDomain)) {
-        return res.status(400).json({ error: "Invalid custom domain" });
+        return res.status(400).json({ error: "Invalid custom domain format" });
       }
 
       try {
@@ -276,10 +276,9 @@ export default async function handler(req, res) {
     // Advanced Framework Resolution
     const frameworkSettings = {
       vanilla: { framework: null, buildCommand: null, outputDirectory: null },
-      react: { framework: "create-react-app", buildCommand: "npm run build", outputDirectory: "build" },
+      "react-vite": { framework: "vite", buildCommand: "npm run build", outputDirectory: "dist" },
       nextjs: { framework: "nextjs", buildCommand: "npm run build", outputDirectory: ".next" },
-      vue: { framework: "vue", buildCommand: "npm run build", outputDirectory: "dist" },
-      vite: { framework: "vite", buildCommand: "npm run build", outputDirectory: "dist" }
+      "react-node": { framework: null, buildCommand: "npm run build", outputDirectory: "dist" }
     }[framework] || { framework: null };
 
     const deployRes = await fetch(
@@ -304,7 +303,7 @@ export default async function handler(req, res) {
     const deployment = await deployRes.json();
 
     if (!deployRes.ok) {
-      throw new Error(deployment.error?.message || "Vercel deploy failed");
+      throw new Error(deployment.error?.message || `Vercel deploy failed with status ${deployRes.status}`);
     }
 
     const deploymentUrl = publicAlias
@@ -364,6 +363,6 @@ export default async function handler(req, res) {
     }
 
     console.error("DEPLOY ERROR:", err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: "Deployment Error: " + err.message });
   }
 }
