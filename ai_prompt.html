@@ -1,4 +1,3 @@
-<!-- ai_prompt.html -->
 <!DOCTYPE html>
 <html lang="en" class="">
 <head>
@@ -87,7 +86,10 @@
                     <span class="font-extrabold tracking-tighter text-xl text-slate-900 dark:text-white leading-none">AmmoueAI</span>
                     <svg class="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
                 </div>
-                <span id="project-name-display" class="text-[9px] font-bold text-indigo-500 uppercase tracking-widest mt-1">Naming...</span>
+                <div class="flex items-center gap-2 mt-1">
+                    <span id="project-name-display" class="text-[9px] font-bold text-indigo-500 uppercase tracking-widest leading-none">Naming...</span>
+                    <span id="unsaved-indicator" class="text-[9px] font-bold text-emerald-500 leading-none">Saved</span>
+                </div>
             </div>
             <div id="tab-container" class="flex gap-1 ml-4 overflow-x-auto hide-scrollbar max-w-[150px]"></div>
         </div>
@@ -155,6 +157,7 @@
                         <div class="relative">
                             <textarea id="user-prompt" class="w-full h-48 bg-slate-50 dark:bg-slate-900 border rounded-2xl p-4 pr-14 text-sm focus:ring-2 ring-indigo-100 outline-none resize-none dark:text-white" placeholder="Describe your site..."></textarea>
                             <div class="absolute bottom-3 right-3 flex flex-col gap-2">
+                                <button onclick="triggerGenerate()" title="Regenerate" class="w-10 h-10 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">🔁</button>
                                 <button id="voice-btn" onclick="startVoicePrompt()" class="w-10 h-10 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl flex items-center justify-center">🎤</button>
                                 <button id="generate-btn" onclick="triggerGenerate()" class="w-10 h-10 btn-lovable rounded-xl flex items-center justify-center text-2xl transition-all duration-300">➤</button>
                             </div>
@@ -184,7 +187,9 @@
                                 <button id="stop-gen-btn" onclick="stopGeneration()" class="hidden flex items-center gap-1.5 px-3 py-1 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-[10px] font-bold rounded-full animate-pulse">
                                     <span class="w-1.5 h-1.5 bg-red-600 rounded-full"></span> STOP
                                 </button>
-                                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Live Editor</span>
+                                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                                    Framework: <span id="framework-label" class="text-indigo-500">Vanilla</span>
+                                </span>
                             </div>
                         </div>
                         <iframe id="preview-frame" class="w-full flex-1 border min-h-0 bg-white"></iframe>
