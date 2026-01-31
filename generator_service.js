@@ -1,4 +1,4 @@
-export async function generateProjectStream(prompt, framework, projectId, idToken, onChunk, onStatus) {
+export async function generateProjectStream(prompt, framework, projectId, idToken, onChunk, onStatus, onThinking) {
     try {
         const response = await fetch('/api/generate', {
             method: 'POST',
@@ -9,7 +9,7 @@ export async function generateProjectStream(prompt, framework, projectId, idToke
             body: JSON.stringify({ prompt, framework, projectId })
         });
 
-        if (!response.ok) throw new Error('API Error');
+        if (!response.ok) throw new Error('Generation failed');
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -33,12 +33,15 @@ export async function generateProjectStream(prompt, framework, projectId, idToke
                     try {
                         const data = JSON.parse(dataStr);
                         if (data.status) onStatus(data);
-                        else if (data.text) onChunk(data.text);
+                        else if (data.text) {
+                            // Detect Thinking File
+                            const fileMatch = data.text.match(/\[NEW_PAGE:\s*(.*?)\s*\]/);
+                            if (fileMatch) onThinking(fileMatch[1]);
+                            onChunk(data.text);
+                        }
                     } catch (e) {}
                 }
             }
         }
-    } catch (error) {
-        throw error;
-    }
+    } catch (error) { throw error; }
 }
