@@ -185,10 +185,24 @@ if (document.getElementById('confirm-publish')) {
             showCustomAlert("Hold on!", "You need to save or generate a project before publishing.");
             return;
         }
-        const idToken = await currentUser.getIdToken();
-        const res = await deployProject(currentProjectId, idToken, { slug });
-        window.open(res.deploymentUrl, '_blank');
-        document.getElementById('publish-modal').style.display = 'none';
+        const btn = document.getElementById('confirm-publish');
+        const originalContent = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto"></i>`;
+        lucide.createIcons();
+        
+        try {
+            const idToken = await currentUser.getIdToken();
+            const res = await deployProject(currentProjectId, idToken, { slug });
+            window.open(res.deploymentUrl, '_blank');
+            document.getElementById('publish-modal').style.display = 'none';
+        } catch (e) {
+            showCustomAlert("Publish Failed", e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+            lucide.createIcons();
+        }
     };
 }
 
@@ -332,11 +346,25 @@ function updatePreview() {
     const frame = document.getElementById('preview-frame');
     if (!frame) return;
     
-    const indexContent = projectFiles["index.html"] || "";
-    const blob = new Blob([indexContent], { type: 'text/html' });
+    const content = projectFiles[activeFile] || "";
+    let mime = 'text/plain';
+    if (activeFile.endsWith('.html')) mime = 'text/html';
+    else if (activeFile.endsWith('.css')) mime = 'text/css';
+    else if (activeFile.endsWith('.js') || activeFile.endsWith('.jsx')) mime = 'application/javascript';
+    else if (activeFile.endsWith('.json')) mime = 'application/json';
+
+    // Special logic: If non-HTML file selected, wrap in basic viewer for preview if it's code
+    let blobContent = content;
+    if (!activeFile.endsWith('.html') && (activeFile.endsWith('.css') || activeFile.endsWith('.js') || activeFile.endsWith('.json'))) {
+        blobContent = `<html><body style="background:#000;color:#fff;font-family:monospace;padding:20px;white-space:pre-wrap;">${content.replace(/</g, '&lt;')}</body></html>`;
+        mime = 'text/html';
+    }
+
+    const blob = new Blob([blobContent], { type: mime });
     frame.src = URL.createObjectURL(blob);
 
     frame.onload = () => {
+        if (!activeFile.endsWith('.html')) return;
         const doc = frame.contentDocument || frame.contentWindow.document;
         // Inject In-Preview Editing
         const style = doc.createElement('style');
@@ -353,6 +381,7 @@ function updatePreview() {
 }
 
 async function syncPreviewToCode(newHTML) {
+    if (activeFile !== 'index.html') return; // Only sync back for main file for now
     projectFiles["index.html"] = newHTML;
     displayActiveFile();
     // Auto-save to DB
