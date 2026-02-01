@@ -40,7 +40,7 @@ export async function generateProjectStream(prompt, framework, projectId, idToke
                         const data = JSON.parse(dataStr);
                         if (data.status) onStatus(data);
                         else if (data.text) {
-                            const fileMatch = data.text.match(/\[NEW_PAGE:\s*(.*?)\s*\]/);
+                            const fileMatch = data.text.match(/\/\*\s*\[NEW_PAGE:\s*(.*?)\s*\]\s*\*\//);
                             if (fileMatch) onThinking(fileMatch[1]);
                             onChunk(data.text);
                         }
