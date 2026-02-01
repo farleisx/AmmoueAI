@@ -187,17 +187,37 @@ if (document.getElementById('confirm-publish')) {
         }
         const btn = document.getElementById('confirm-publish');
         const originalContent = btn.innerHTML;
+        const progressContainer = document.getElementById('publish-progress-container');
+        const progressBar = document.getElementById('publish-progress-bar');
+        const progressText = document.getElementById('publish-progress-text');
+
         btn.disabled = true;
         btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto"></i>`;
         lucide.createIcons();
+
+        if(progressContainer) progressContainer.classList.remove('hidden');
         
+        const updateProgress = (pct, msg) => {
+            if(progressBar) progressBar.style.width = `${pct}%`;
+            if(progressText) progressText.innerText = msg;
+        };
+
         try {
+            updateProgress(20, "Packaging files...");
             const idToken = await currentUser.getIdToken();
+            
+            updateProgress(50, "Uploading to Vercel...");
             const res = await deployProject(currentProjectId, idToken, { slug });
-            window.open(res.deploymentUrl, '_blank');
-            document.getElementById('publish-modal').style.display = 'none';
+            
+            updateProgress(100, "Redirecting to site...");
+            setTimeout(() => {
+                window.open(res.deploymentUrl, '_blank');
+                document.getElementById('publish-modal').style.display = 'none';
+                if(progressContainer) progressContainer.classList.add('hidden');
+            }, 1000);
         } catch (e) {
             showCustomAlert("Publish Failed", e.message);
+            if(progressContainer) progressContainer.classList.add('hidden');
         } finally {
             btn.disabled = false;
             btn.innerHTML = originalContent;
@@ -347,21 +367,33 @@ function updatePreview() {
     if (!frame) return;
     
     const content = projectFiles[activeFile] || "";
-    let mime = 'text/plain';
-    if (activeFile.endsWith('.html')) mime = 'text/html';
-    else if (activeFile.endsWith('.css')) mime = 'text/css';
-    else if (activeFile.endsWith('.js') || activeFile.endsWith('.jsx')) mime = 'application/javascript';
-    else if (activeFile.endsWith('.json')) mime = 'application/json';
+    if (!content && activeFile === "index.html") return;
 
-    // Special logic: If non-HTML file selected, wrap in basic viewer for preview if it's code
-    let blobContent = content;
-    if (!activeFile.endsWith('.html') && (activeFile.endsWith('.css') || activeFile.endsWith('.js') || activeFile.endsWith('.json'))) {
-        blobContent = `<html><body style="background:#000;color:#fff;font-family:monospace;padding:20px;white-space:pre-wrap;">${content.replace(/</g, '&lt;')}</body></html>`;
-        mime = 'text/html';
+    let blob;
+    if (activeFile.endsWith('.html')) {
+        blob = new Blob([content], { type: 'text/html' });
+    } else {
+        const escapedContent = content.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const formattedViewer = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body { background: #0a0a0a; color: #a5b4fc; font-family: 'Geist Mono', monospace; padding: 24px; font-size: 13px; line-height: 1.6; }
+                    .header { color: #4b5563; margin-bottom: 20px; font-size: 11px; border-bottom: 1px solid #1f2937; padding-bottom: 10px; }
+                </style>
+            </head>
+            <body>
+                <div class="header">// Viewing ${activeFile}</div>
+                <pre>${escapedContent}</pre>
+            </body>
+            </html>
+        `;
+        blob = new Blob([formattedViewer], { type: 'text/html' });
     }
 
-    const blob = new Blob([blobContent], { type: mime });
-    frame.src = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob);
+    frame.src = url;
 
     frame.onload = () => {
         if (!activeFile.endsWith('.html')) return;
