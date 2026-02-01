@@ -57,6 +57,9 @@
             .history-panel:hover { width: 48px; background: transparent; border-right: none; }
             .history-panel:hover .history-content { opacity: 0; }
         }
+
+        #file-tabs::-webkit-scrollbar { height: 2px; }
+        #file-tabs::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
     </style>
 </head>
 <body class="h-screen flex flex-col">
@@ -89,8 +92,7 @@
                 <i data-lucide="rocket" class="w-8 h-8"></i>
             </div>
             <h2 class="text-xl font-bold text-white mb-2">Publish to Web</h2>
-            <p class="text-gray-500 text-sm mb-1">Your project will be live on a custom subdomain.</p>
-            <p class="text-[10px] text-emerald-500/70 font-medium mb-6">Ammoue.app slug coming soon</p>
+            <p class="text-gray-500 text-sm mb-6">Deploy project to a live URL.</p>
             <div class="text-left mb-6">
                 <label class="text-[10px] uppercase tracking-widest text-gray-500 font-bold ml-1">Site Slug</label>
                 <div class="relative flex items-center mt-1">
@@ -112,8 +114,7 @@
                     <p class="text-gray-500 text-xs">Bundle files into a ZIP</p>
                 </div>
             </div>
-            <div id="file-list-display" class="bg-black/40 border border-white/5 rounded-xl p-4 mb-8 max-h-40 overflow-y-auto">
-                </div>
+            <div id="file-list-display" class="bg-black/40 border border-white/5 rounded-xl p-4 mb-8 max-h-40 overflow-y-auto"></div>
             <button id="confirm-download" class="w-full bg-white text-black py-4 rounded-2xl font-bold hover:bg-blue-400 transition">Download ZIP</button>
             <button onclick="document.getElementById('download-modal').style.display='none'" class="w-full mt-4 text-sm text-gray-500">Cancel</button>
         </div>
@@ -158,8 +159,7 @@
             </div>
             <div class="history-content py-4 px-2">
                 <h4 class="text-[10px] uppercase tracking-widest text-gray-600 font-bold mb-4 px-2">Recent Projects</h4>
-                <div id="project-history-list" class="flex flex-col gap-1">
-                    </div>
+                <div id="project-history-list" class="flex flex-col gap-1"></div>
             </div>
         </aside>
 
@@ -180,7 +180,7 @@
                     <div class="w-1/2 flex justify-center text-[10px] text-gray-400 font-mono">preview.ammoue.ai</div>
                 </div>
                 <div class="flex-1 overflow-hidden relative flex items-center justify-center bg-[#f0f0f0]">
-                    <iframe id="preview-frame" srcdoc="<body style='display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;'><h2>Your Idea, Built.</h2></body>"></iframe>
+                    <iframe id="preview-frame" srcdoc="<body style='display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;'><h2>Enter a prompt to build.</h2></body>"></iframe>
                 </div>
             </div>
 
@@ -192,16 +192,11 @@
                         <input type="text" id="prompt-input" placeholder="Edit your app..." class="bg-transparent w-full outline-none py-3 text-[14px] md:text-[15px]">
                     </div>
                     <div class="flex items-center gap-0.5 md:gap-1">
-                        <button id="voice-btn" class="p-2 md:p-2.5 text-gray-500 hover:text-white transition">
-                            <i data-lucide="mic" class="w-4 h-4"></i>
-                        </button>
+                        <button id="voice-btn" class="p-2 md:p-2.5 text-gray-500 hover:text-white transition"><i data-lucide="mic" class="w-4 h-4"></i></button>
                         <input type="file" id="image-upload" accept="image/*" class="hidden" multiple>
-                        <button id="attach-btn" class="p-2 md:p-2.5 text-gray-500 hover:text-white transition">
-                            <i data-lucide="paperclip" class="w-4 h-4"></i>
-                        </button>
+                        <button id="attach-btn" class="p-2 md:p-2.5 text-gray-500 hover:text-white transition"><i data-lucide="paperclip" class="w-4 h-4"></i></button>
                         <button id="generate-btn" class="bg-[#ededed] text-black h-10 px-3 md:px-5 rounded-[18px] text-sm font-semibold transition">
-                            <i data-lucide="rocket" class="rocket-icon w-4 h-4"></i>
-                            Generate
+                            <i data-lucide="rocket" class="rocket-icon w-4 h-4"></i> Generate
                         </button>
                     </div>
                 </div>
@@ -211,9 +206,10 @@
         <aside id="code-sidebar" class="code-sidebar flex flex-col h-full">
             <div class="p-4 border-b border-white/10 flex flex-col gap-2">
                 <div class="flex justify-between items-center">
-                    <span class="text-xs font-semibold uppercase tracking-widest text-gray-500">Live Build</span>
+                    <span class="text-xs font-semibold uppercase tracking-widest text-gray-500">Explorer</span>
                     <button id="close-code" class="text-gray-500 hover:text-white transition"><i data-lucide="x" class="w-4 h-4"></i></button>
                 </div>
+                <div id="file-tabs" class="flex overflow-x-auto border-t border-white/5 mt-2"></div>
                 <div id="thinking-status" class="text-[10px] text-emerald-400 font-mono min-h-[14px]">Idle</div>
             </div>
             <pre class="flex-1 p-4 overflow-auto text-[12px] font-mono leading-relaxed text-blue-300/90 whitespace-pre-wrap"><code id="code-output"></code></pre>
