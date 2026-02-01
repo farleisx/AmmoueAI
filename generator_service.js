@@ -1,3 +1,4 @@
+// generator_service.js
 export async function generateProjectStream(prompt, framework, projectId, idToken, onChunk, onStatus, onThinking) {
     try {
         const response = await fetch('/api/generate', {
@@ -8,6 +9,10 @@ export async function generateProjectStream(prompt, framework, projectId, idToke
             },
             body: JSON.stringify({ prompt, framework, projectId })
         });
+
+        if (response.status === 429) {
+            throw new Error('Rate limit exceeded. Please wait a moment before trying again.');
+        }
 
         if (!response.ok) throw new Error('Generation failed');
 
