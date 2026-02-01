@@ -207,10 +207,12 @@ if (document.getElementById('confirm-publish')) {
             const idToken = await currentUser.getIdToken();
             
             updateProgress(50, "Resolving Module Tree...");
-            // Patch: Ensure vercel.json exists for clean build
-            if(!projectFiles['vercel.json']) {
-                projectFiles['vercel.json'] = JSON.stringify({ "version": 2, "framework": null, "installCommand": "echo 'skipping install'", "buildCommand": "echo 'skipping build'" }, null, 2);
-            }
+            // Patch: Ensure vercel.json is optimized for static serving to avoid CLI routing conflicts
+            projectFiles['vercel.json'] = JSON.stringify({ 
+                "version": 2, 
+                "cleanUrls": true,
+                "trailingSlash": false
+            }, null, 2);
 
             const res = await deployProject(currentProjectId, idToken, { slug, files: projectFiles });
             
