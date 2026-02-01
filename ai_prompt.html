@@ -7,6 +7,7 @@
     <link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Geist:wght@100;300;400;500;600&display=swap');
         body { font-family: 'Geist', sans-serif; background-color: #030303; color: #ededed; overflow: hidden; }
@@ -25,7 +26,7 @@
         .prompt-container:focus-within { border-color: rgba(255, 255, 255, 0.15); background: rgba(15, 15, 15, 0.9); }
         .code-sidebar { width: 0; transition: width 0.3s ease; border-left: 1px solid rgba(255,255,255,0.06); background: #050505; overflow: hidden; }
         .code-sidebar.open { width: 400px; }
-        #image-preview-modal, #rename-modal, #publish-modal { display: none; background: rgba(0,0,0,0.9); z-index: 100; position: fixed; inset: 0; align-items: center; justify-content: center; }
+        #image-preview-modal, #rename-modal, #publish-modal, #download-modal { display: none; background: rgba(0,0,0,0.9); z-index: 100; position: fixed; inset: 0; align-items: center; justify-content: center; }
         #preview-frame { width: 100%; height: 100%; border: none; transition: all 0.3s ease; background: white; }
         
         #reset-counter { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); width: 45px; overflow: hidden; white-space: nowrap; }
@@ -63,6 +64,22 @@
         </div>
     </div>
 
+    <div id="download-modal" class="backdrop-blur-md">
+        <div class="bg-[#0a0a0a] border border-white/10 p-8 rounded-3xl w-full max-w-[420px] shadow-2xl">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="p-3 bg-white/5 rounded-2xl text-white"><i data-lucide="folder-archive" class="w-6 h-6"></i></div>
+                <div>
+                    <h2 class="text-lg font-bold text-white leading-tight">Export Code</h2>
+                    <p class="text-gray-500 text-xs">Bundle files into a ZIP</p>
+                </div>
+            </div>
+            <div id="file-list-display" class="bg-black/40 border border-white/5 rounded-xl p-4 mb-8 max-h-40 overflow-y-auto">
+                </div>
+            <button id="confirm-download" class="w-full bg-white text-black py-4 rounded-2xl font-bold hover:bg-blue-400 transition">Download ZIP</button>
+            <button onclick="document.getElementById('download-modal').style.display='none'" class="w-full mt-4 text-sm text-gray-500">Cancel</button>
+        </div>
+    </div>
+
     <div id="image-preview-modal" onclick="this.style.display='none'">
         <img id="modal-img" src="" class="max-w-full max-h-full rounded-lg shadow-2xl cursor-zoom-out">
     </div>
@@ -84,6 +101,9 @@
             </div>
         </div>
         <div class="flex items-center gap-2">
+            <button id="download-btn" class="text-xs text-gray-400 px-3 py-1.5 hover:bg-white/5 rounded-md transition flex items-center gap-2">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i> Export
+            </button>
             <button id="toggle-code" class="text-xs text-gray-400 px-3 py-1.5 hover:bg-white/5 rounded-md transition flex items-center gap-2">
                 <i data-lucide="code" class="w-3.5 h-3.5"></i> Code
             </button>
