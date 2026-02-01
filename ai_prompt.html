@@ -34,11 +34,18 @@
         #reset-counter .full-time { opacity: 0; transition: opacity 0.2s; font-size: 10px; }
         #reset-counter:hover .full-time { opacity: 1; }
 
+        .history-panel { width: 48px; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; }
+        .history-panel:hover { width: 240px; background: #050505; border-right: 1px solid rgba(255,255,255,0.06); }
+        .history-content { opacity: 0; transition: opacity 0.2s; width: 192px; pointer-events: none; }
+        .history-panel:hover .history-content { opacity: 1; pointer-events: auto; }
+
         @media (max-width: 768px) {
             .code-sidebar.open { width: 100%; position: absolute; right: 0; z-index: 60; }
             #preview-container { height: 60vh !important; }
             nav { padding: 0 10px; }
             #project-name-display { max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .history-panel:hover { width: 48px; background: transparent; border-right: none; }
+            .history-panel:hover .history-content { opacity: 0; }
         }
     </style>
 </head>
@@ -72,10 +79,14 @@
                 <i data-lucide="rocket" class="w-8 h-8"></i>
             </div>
             <h2 class="text-xl font-bold text-white mb-2">Publish to Web</h2>
-            <p class="text-gray-500 text-sm mb-6">Your project will be live on a custom subdomain.</p>
+            <p class="text-gray-500 text-sm mb-1">Your project will be live on a custom subdomain.</p>
+            <p class="text-[10px] text-emerald-500/70 font-medium mb-6">Ammoue.app slug coming soon</p>
             <div class="text-left mb-6">
                 <label class="text-[10px] uppercase tracking-widest text-gray-500 font-bold ml-1">Site Slug</label>
-                <input type="text" id="publish-slug" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mt-1 outline-none focus:border-emerald-500/50 transition" placeholder="my-awesome-site">
+                <div class="relative flex items-center mt-1">
+                    <input type="text" id="publish-slug" class="w-full bg-white/5 border border-white/10 rounded-xl pl-4 pr-24 py-3 outline-none focus:border-emerald-500/50 transition" placeholder="my-awesome-site">
+                    <span class="absolute right-4 text-gray-500 text-xs font-mono pointer-events-none">.vercel.app</span>
+                </div>
             </div>
             <button id="confirm-publish" class="w-full bg-white text-black py-4 rounded-2xl font-bold hover:bg-emerald-400 hover:text-black transition">Deploy Now</button>
             <button onclick="document.getElementById('publish-modal').style.display='none'" class="mt-4 text-sm text-gray-500 hover:text-white transition">Back to Editor</button>
@@ -130,9 +141,16 @@
     </nav>
 
     <div class="flex flex-1 relative overflow-hidden">
-        <aside class="w-12 border-r border-white/[0.06] flex flex-col items-center py-4 gap-6 bg-[#030303] hidden md:flex">
-            <i data-lucide="layout-grid" class="w-5 h-5 text-gray-500 hover:text-white cursor-pointer transition"></i>
-            <i data-lucide="layers" class="w-5 h-5 text-gray-500 hover:text-white cursor-pointer transition"></i>
+        <aside class="history-panel border-r border-white/[0.06] flex bg-[#030303] hidden md:flex z-50">
+            <div class="w-12 flex flex-col items-center py-4 gap-6 shrink-0">
+                <i data-lucide="layout-grid" class="w-5 h-5 text-gray-500 hover:text-white cursor-pointer transition"></i>
+                <i data-lucide="layers" class="w-5 h-5 text-gray-500 hover:text-white cursor-pointer transition"></i>
+            </div>
+            <div class="history-content py-4 px-2">
+                <h4 class="text-[10px] uppercase tracking-widest text-gray-600 font-bold mb-4 px-2">Recent Projects</h4>
+                <div id="project-history-list" class="flex flex-col gap-1">
+                    </div>
+            </div>
         </aside>
 
         <main class="flex-1 canvas-grid relative flex flex-col items-center justify-start pt-12 p-4 md:p-8 overflow-auto transition-all">
