@@ -1,5 +1,5 @@
 // generator_service.js
-export async function generateProjectStream(prompt, framework, projectId, idToken, onChunk, onStatus, onThinking) {
+export async function generateProjectStream(prompt, framework, projectId, idToken, onChunk, onStatus, onThinking, signal) {
     try {
         const response = await fetch('/api/generate', {
             method: 'POST',
@@ -7,7 +7,8 @@ export async function generateProjectStream(prompt, framework, projectId, idToke
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${idToken}`
             },
-            body: JSON.stringify({ prompt, framework, projectId })
+            body: JSON.stringify({ prompt, framework, projectId }),
+            signal: signal
         });
 
         if (response.status === 429) {
@@ -47,5 +48,8 @@ export async function generateProjectStream(prompt, framework, projectId, idToke
                 }
             }
         }
-    } catch (error) { throw error; }
+    } catch (error) { 
+        if (error.name === 'AbortError') return;
+        throw error; 
+    }
 }
