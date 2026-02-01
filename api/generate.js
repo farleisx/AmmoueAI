@@ -11,7 +11,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
 const GOOGLE_CX = process.env.GOOGLE_CX;
 const GOOGLE_SEARCH_KEY = process.env.GOOGLE_SEARCH_KEY;
-const API_MODEL = "gemini-2.5-flash"; // keep 2.5 And keep this comment
+const API_MODEL = "gemini-2.0-flash"; // keep 2.5 And keep this comment
 const SERVICE_ACCOUNT = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 const PROJECT_ID = SERVICE_ACCOUNT.project_id;
 
@@ -257,8 +257,11 @@ STACK SPEC: ${JSON.stringify(activeStack)}
 STRICT RULES:
 1. Generate EVERY file required for the ${targetFramework} stack: ${activeStack.requiredFiles.join(", ")}.
 2. For Next.js/React: You MUST use JSX/TSX syntax. DO NOT use plain HTML tags or CDN scripts in .jsx files. Ensure App Router logic for Next.js.
-3. Use [NEW_PAGE: filename] and [END_PAGE] markers for EVERY file.
-4. Output ONLY code inside markers. No conversation.
+3. You MUST use EXACTLY this marker format for EVERY file:
+/* [NEW_PAGE: filename] */
+Code goes here...
+/* [END_PAGE] */
+4. Output ONLY code inside markers. No conversation. No markdown code blocks like \`\`\` outside the markers.
 5. MEDIA: Use these URLs: Images: ${JSON.stringify(assets.images)}, Videos: ${JSON.stringify(assets.videos)}
 6. LOGS: Use [ACTION: Task Name] before file blocks.
 `;
