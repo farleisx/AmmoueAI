@@ -26,7 +26,7 @@
         .prompt-container:focus-within { border-color: rgba(255, 255, 255, 0.15); background: rgba(15, 15, 15, 0.9); }
         .code-sidebar { width: 0; transition: width 0.3s ease; border-left: 1px solid rgba(255,255,255,0.06); background: #050505; overflow: hidden; }
         .code-sidebar.open { width: 400px; }
-        #image-preview-modal, #rename-modal, #publish-modal, #download-modal { display: none; background: rgba(0,0,0,0.9); z-index: 100; position: fixed; inset: 0; align-items: center; justify-content: center; }
+        #image-preview-modal, #rename-modal, #publish-modal, #download-modal, #alert-modal { display: none; background: rgba(0,0,0,0.9); z-index: 100; position: fixed; inset: 0; align-items: center; justify-content: center; }
         #preview-frame { width: 100%; height: 100%; border: none; transition: all 0.3s ease; background: white; }
         
         #reset-counter { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); width: 45px; overflow: hidden; white-space: nowrap; }
@@ -36,6 +36,17 @@
     </style>
 </head>
 <body class="h-screen flex flex-col">
+
+    <div id="alert-modal" class="backdrop-blur-sm">
+        <div class="bg-[#0a0a0a] border border-white/10 p-8 rounded-3xl w-full max-w-sm shadow-2xl text-center">
+            <div class="w-12 h-12 bg-amber-500/10 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i data-lucide="alert-circle" class="w-6 h-6"></i>
+            </div>
+            <h3 id="alert-title" class="text-lg font-bold text-white mb-2">Notification</h3>
+            <p id="alert-message" class="text-gray-500 text-sm mb-6 leading-relaxed"></p>
+            <button id="close-alert" class="w-full bg-white/10 text-white py-3 rounded-xl font-medium hover:bg-white/20 transition">Got it</button>
+        </div>
+    </div>
 
     <div id="rename-modal" class="backdrop-blur-sm">
         <div class="bg-[#0a0a0a] border border-white/10 p-6 rounded-2xl w-full max-w-sm shadow-2xl">
