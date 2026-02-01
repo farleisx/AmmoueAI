@@ -25,8 +25,13 @@
         .prompt-container:focus-within { border-color: rgba(255, 255, 255, 0.15); background: rgba(15, 15, 15, 0.9); }
         .code-sidebar { width: 0; transition: width 0.3s ease; border-left: 1px solid rgba(255,255,255,0.06); background: #050505; }
         .code-sidebar.open { width: 400px; }
-        #image-preview-modal, #rename-modal { display: none; background: rgba(0,0,0,0.9); z-index: 100; position: fixed; inset: 0; align-items: center; justify-content: center; }
+        #image-preview-modal, #rename-modal, #publish-modal { display: none; background: rgba(0,0,0,0.9); z-index: 100; position: fixed; inset: 0; align-items: center; justify-content: center; }
         #preview-frame { width: 100%; height: 100%; border: none; transition: all 0.3s ease; background: white; }
+        
+        #reset-counter { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); width: 45px; overflow: hidden; white-space: nowrap; }
+        #reset-counter:hover { width: 130px; background: rgba(255,255,255,0.1); }
+        #reset-counter .full-time { opacity: 0; transition: opacity 0.2s; font-size: 10px; }
+        #reset-counter:hover .full-time { opacity: 1; }
     </style>
 </head>
 <body class="h-screen flex flex-col">
@@ -39,6 +44,22 @@
                 <button onclick="document.getElementById('rename-modal').style.display='none'" class="px-4 py-2 text-sm text-gray-400">Cancel</button>
                 <button id="confirm-rename" class="bg-white text-black px-4 py-2 rounded-lg text-sm font-bold">Save Changes</button>
             </div>
+        </div>
+    </div>
+
+    <div id="publish-modal" class="backdrop-blur-md">
+        <div class="bg-[#0a0a0a] border border-white/10 p-8 rounded-3xl w-full max-w-[420px] shadow-2xl text-center">
+            <div class="w-16 h-16 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i data-lucide="rocket" class="w-8 h-8"></i>
+            </div>
+            <h2 class="text-xl font-bold text-white mb-2">Publish to Web</h2>
+            <p class="text-gray-500 text-sm mb-6">Your project will be live on a custom subdomain.</p>
+            <div class="text-left mb-6">
+                <label class="text-[10px] uppercase tracking-widest text-gray-500 font-bold ml-1">Site Slug</label>
+                <input type="text" id="publish-slug" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 mt-1 outline-none focus:border-emerald-500/50 transition" placeholder="my-awesome-site">
+            </div>
+            <button id="confirm-publish" class="w-full bg-white text-black py-4 rounded-2xl font-bold hover:bg-emerald-400 hover:text-black transition">Deploy Now</button>
+            <button onclick="document.getElementById('publish-modal').style.display='none'" class="mt-4 text-sm text-gray-500 hover:text-white transition">Back to Editor</button>
         </div>
     </div>
 
@@ -55,6 +76,10 @@
             <div class="h-4 w-[1px] bg-white/10"></div>
             <div class="flex items-center gap-4 text-xs font-medium text-gray-500">
                 <button id="project-name-display" class="text-white/80 hover:text-white transition cursor-pointer">lovable-clone</button>
+                <div id="reset-counter" class="text-white/40 bg-white/5 px-2 py-1 rounded-full flex items-center gap-2">
+                    <span class="hours">--h</span>
+                    <span class="full-time">--m --s</span>
+                </div>
                 <span id="credit-display" class="text-white/40 bg-white/5 px-2 py-1 rounded">Credits: --</span>
             </div>
         </div>
@@ -63,7 +88,7 @@
                 <i data-lucide="code" class="w-3.5 h-3.5"></i> Code
             </button>
             <button id="logout-btn" class="text-xs text-gray-400 px-3 py-1.5 hover:bg-white/5 rounded-md transition">Logout</button>
-            <button id="publish-btn" class="text-xs bg-white text-black px-4 py-1.5 rounded-md font-semibold hover:bg-gray-200 transition">Publish</button>
+            <button id="publish-btn" class="text-xs bg-white text-black px-4 py-1.5 rounded-md font-semibold hover:bg-emerald-400 transition">Publish</button>
         </div>
     </nav>
 
