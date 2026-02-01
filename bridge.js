@@ -11,14 +11,23 @@ import { initLiveEditor } from "./editor_service.js";
 
 let currentUser = null;
 let currentProjectId = null;
-let projectPages = { landing: "" };
+let projectFiles = {};
+let activeFile = "index.html";
 let recognition = null;
 let abortController = null;
 let isGenerating = false;
 
 onAuthStateChanged(auth, (user) => {
     if (!user) window.location.href = "/login";
-    else { currentUser = user; syncUsage(); startCountdown(); fetchProjectHistory(); }
+    else { 
+        currentUser = user; 
+        syncUsage(); 
+        startCountdown(); 
+        const urlParams = new URLSearchParams(window.location.search);
+        const pid = urlParams.get('id');
+        if (pid) loadExistingProject(pid);
+        else fetchProjectHistory(); 
+    }
 });
 
 // INITIALIZE ALL SERVICES
@@ -108,7 +117,8 @@ if (document.getElementById('download-btn')) {
         const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", currentProjectId);
         const snap = await getDoc(projectRef);
         if (snap.exists()) {
-            const files = listProjectFiles(snap.data().pages || {});
+            const filesData = snap.data().pages || {};
+            const files = Object.keys(filesData);
             const listContainer = document.getElementById('file-list-display');
             listContainer.innerHTML = files.map(f => `<div class="flex items-center gap-2 text-gray-400 text-sm py-1"><i data-lucide="file-code" class="w-4 h-4 text-emerald-500"></i> ${f}</div>`).join('');
             lucide.createIcons();
@@ -193,29 +203,26 @@ if (document.getElementById('generate-btn')) {
 
         if (!currentProjectId) {
             const coolName = generateCoolName();
-            currentProjectId = await autoSaveProject(projectPages, prompt, null, currentUser.uid, "Start", "landing", coolName);
+            currentProjectId = await autoSaveProject({}, prompt, null, currentUser.uid, "Start", "landing", coolName);
             const nameDisplay = document.getElementById('project-name-display');
             if (nameDisplay) nameDisplay.innerText = coolName;
         }
         
         const codeSidebar = document.getElementById('code-sidebar');
         if (codeSidebar) codeSidebar.classList.add('open');
-        const codeOutput = document.getElementById('code-output');
-        if (codeOutput) codeOutput.innerText = ""; 
+        
+        let fullRawText = "";
         
         try {
             await generateProjectStream(prompt, "vanilla", currentProjectId, idToken, 
                 (chunk) => {
-                    const out = document.getElementById('code-output');
-                    if (out) out.innerText += chunk;
-                    const frame = document.getElementById('preview-frame');
-                    if (frame && out) {
-                        frame.srcdoc = out.innerText;
-                    }
+                    fullRawText += chunk;
+                    renderFileTabsFromRaw(fullRawText);
                 },
-                () => {
+                async () => {
                     syncUsage();
                     resetGenerateButton();
+                    await refreshFileState();
                 },
                 (file) => {
                     const status = document.getElementById('thinking-status');
@@ -250,6 +257,108 @@ function resetGenerateButton() {
         btn.innerHTML = `Generate`;
         btn.classList.remove('bg-red-500/10', 'text-red-500', 'border', 'border-red-500/20');
         btn.classList.add('bg-[#ededed]', 'text-black');
+    }
+}
+
+// MULTI-FILE HANDLER
+function renderFileTabsFromRaw(rawText) {
+    const fileMap = {};
+    const regex = /\/\*\s*\[NEW_PAGE:\s*(.*?)\s*\]\s*\*\/([\s\S]*?)(?=\/\*\s*\[NEW_PAGE:|$)/g;
+    let match;
+    while ((match = regex.exec(rawText)) !== null) {
+        const fileName = match[1].trim();
+        const content = match[2].split(/\/\*\s*\[END_PAGE\]/)[0].trim();
+        fileMap[fileName] = content;
+    }
+    
+    projectFiles = fileMap;
+    updateFileTabsUI();
+    displayActiveFile();
+}
+
+function updateFileTabsUI() {
+    const tabContainer = document.getElementById('file-tabs');
+    if (!tabContainer) return;
+    
+    const files = Object.keys(projectFiles);
+    tabContainer.innerHTML = files.map(f => `
+        <button onclick="window.switchFile('${f}')" class="px-3 py-2 text-[11px] border-r border-white/5 whitespace-nowrap ${activeFile === f ? 'bg-white/5 text-white' : 'text-gray-500'} hover:text-white transition">
+            ${f}
+        </button>
+    `).join('');
+}
+
+window.switchFile = (fileName) => {
+    activeFile = fileName;
+    updateFileTabsUI();
+    displayActiveFile();
+};
+
+function displayActiveFile() {
+    const output = document.getElementById('code-output');
+    if (output) output.innerText = projectFiles[activeFile] || "";
+    updatePreview();
+}
+
+function updatePreview() {
+    const frame = document.getElementById('preview-frame');
+    if (!frame) return;
+    
+    const indexContent = projectFiles["index.html"] || "";
+    const blob = new Blob([indexContent], { type: 'text/html' });
+    frame.src = URL.createObjectURL(blob);
+
+    frame.onload = () => {
+        const doc = frame.contentDocument || frame.contentWindow.document;
+        // Inject In-Preview Editing
+        const style = doc.createElement('style');
+        style.innerHTML = `[contenteditable="true"]:focus { outline: 2px solid #10b981; border-radius: 4px; }`;
+        doc.head.appendChild(style);
+
+        doc.body.querySelectorAll('h1, h2, h3, p, span, button, a').forEach(el => {
+            el.contentEditable = "true";
+            el.addEventListener('blur', () => {
+                syncPreviewToCode(doc.documentElement.outerHTML);
+            });
+        });
+    };
+}
+
+async function syncPreviewToCode(newHTML) {
+    projectFiles["index.html"] = newHTML;
+    displayActiveFile();
+    // Auto-save to DB
+    if (currentProjectId && currentUser) {
+        const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", currentProjectId);
+        await updateDoc(projectRef, { 
+            [`pages.index.html.content`]: newHTML,
+            lastUpdated: Date.now()
+        });
+    }
+}
+
+async function refreshFileState() {
+    if (!currentProjectId || !currentUser) return;
+    const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", currentProjectId);
+    const snap = await getDoc(projectRef);
+    if (snap.exists()) {
+        const data = snap.data().pages || {};
+        projectFiles = {};
+        Object.keys(data).forEach(k => {
+            projectFiles[k] = data[k].content || "";
+        });
+        updateFileTabsUI();
+        displayActiveFile();
+    }
+}
+
+async function loadExistingProject(pid) {
+    currentProjectId = pid;
+    await refreshFileState();
+    const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", pid);
+    const snap = await getDoc(projectRef);
+    if (snap.exists()) {
+        document.getElementById('project-name-display').innerText = snap.data().projectName || "Untitled";
     }
 }
 
@@ -321,14 +430,12 @@ async function runTypingEffect() {
     let promptIndex = 0;
     while (true) {
         let text = typingPrompts[promptIndex];
-        // Type forward
         for (let i = 0; i <= text.length; i++) {
             if (document.activeElement === input) { input.placeholder = "Edit your app..."; break; }
             input.placeholder = text.substring(0, i) + "|";
             await new Promise(r => setTimeout(r, 50));
         }
         await new Promise(r => setTimeout(r, 2000));
-        // Type backward
         for (let i = text.length; i >= 0; i--) {
             if (document.activeElement === input) { input.placeholder = "Edit your app..."; break; }
             input.placeholder = text.substring(0, i) + "|";
@@ -347,7 +454,7 @@ async function fetchProjectHistory() {
     try {
         const q = query(
             collection(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects"),
-            orderBy("lastSaved", "desc"),
+            orderBy("lastUpdated", "desc"),
             limit(10)
         );
         const querySnapshot = await getDocs(q);
@@ -363,7 +470,7 @@ async function fetchProjectHistory() {
                 </div>
                 <div class="flex-1 overflow-hidden">
                     <p class="text-[13px] text-gray-300 truncate font-medium group-hover:text-white">${data.projectName || 'Untitled'}</p>
-                    <p class="text-[10px] text-gray-600 truncate">${new Date(data.lastSaved?.toDate()).toLocaleDateString()}</p>
+                    <p class="text-[10px] text-gray-600 truncate">${data.lastUpdated ? new Date(parseInt(data.lastUpdated)).toLocaleDateString() : 'New'}</p>
                 </div>
             `;
             item.onclick = () => { window.location.href = `/editor?id=${doc.id}`; };
@@ -376,7 +483,6 @@ async function fetchProjectHistory() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Set initial project name
     const nameDisplay = document.getElementById('project-name-display');
     if (nameDisplay && nameDisplay.innerText === 'lovable-clone') {
         nameDisplay.innerText = generateCoolName();
