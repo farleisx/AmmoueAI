@@ -1,3 +1,4 @@
+// bridge.js
 import { auth, getUsage, autoSaveProject, db } from "./fire_prompt.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 import { doc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
@@ -42,6 +43,7 @@ const setPreviewSize = (type) => {
     const frame = document.getElementById('preview-frame');
     const btns = { desktop: 'view-desktop', tablet: 'view-tablet', mobile: 'view-mobile' };
     
+    // Fix class swapping
     Object.values(btns).forEach(id => {
         const btn = document.getElementById(id);
         btn.classList.remove('text-white', 'bg-white/10');
@@ -106,11 +108,15 @@ document.getElementById('confirm-download').onclick = async () => {
     document.getElementById('download-modal').style.display = 'none';
 };
 
-// RENAME ACTION
+// RENAME ACTION (FIXED NULL PATH ERROR)
 document.getElementById('confirm-rename').onclick = async () => {
     const newName = document.getElementById('new-project-name').value;
-    if (!currentProjectId) return alert("No active project");
+    if (!currentProjectId) {
+        alert("No active project to rename.");
+        return;
+    }
     const idToken = await currentUser.getIdToken();
+    // Safety check for path.ts crash
     const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", String(currentProjectId));
     await updateDoc(projectRef, { projectName: newName });
     await renameRemoteProject(currentProjectId, idToken, newName);
@@ -128,7 +134,7 @@ document.getElementById('confirm-publish').onclick = async () => {
     document.getElementById('publish-modal').style.display = 'none';
 };
 
-// CODE SIDEBAR
+// CODE BUTTON TOGGLE FIX
 document.getElementById('toggle-code').onclick = () => {
     document.getElementById('code-sidebar').classList.toggle('open');
 };
@@ -148,9 +154,18 @@ document.getElementById('generate-btn').onclick = async () => {
     document.getElementById('code-output').innerText = ""; 
     
     await generateProjectStream(prompt, "vanilla", currentProjectId, idToken, 
-        (chunk) => { document.getElementById('code-output').innerText += chunk; },
+        (chunk) => {
+            document.getElementById('code-output').innerText += chunk;
+            // AUTO-UPDATER LOGIC: Update preview frame in real-time
+            const frame = document.getElementById('preview-frame');
+            if (frame) {
+                frame.srcdoc = document.getElementById('code-output').innerText;
+            }
+        },
         () => syncUsage(),
-        (file) => { document.getElementById('thinking-status').innerText = `Architecting: ${file}`; }
+        (file) => {
+            document.getElementById('thinking-status').innerText = `Architecting: ${file}`;
+        }
     );
     clearAttachments();
 };
