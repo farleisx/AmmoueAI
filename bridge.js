@@ -44,11 +44,13 @@ const setPreviewSize = (type) => {
     // Fix class swapping
     Object.values(btns).forEach(id => {
         const btn = document.getElementById(id);
-        btn.classList.remove('text-white');
+        btn.classList.remove('text-white', 'bg-white/10');
         btn.classList.add('text-gray-500');
     });
-    document.getElementById(btns[type]).classList.remove('text-gray-500');
-    document.getElementById(btns[type]).classList.add('text-white');
+    
+    const activeBtn = document.getElementById(btns[type]);
+    activeBtn.classList.remove('text-gray-500');
+    activeBtn.classList.add('text-white', 'bg-white/10');
 
     if (type === 'desktop') { 
         container.style.maxWidth = '1100px'; 
@@ -68,6 +70,18 @@ document.getElementById('view-desktop').onclick = () => setPreviewSize('desktop'
 document.getElementById('view-tablet').onclick = () => setPreviewSize('tablet');
 document.getElementById('view-mobile').onclick = () => setPreviewSize('mobile');
 
+// LOGOUT ACTION
+document.getElementById('logout-btn').onclick = () => signOut(auth);
+
+// MODAL TOGGLES
+document.getElementById('project-name-display').onclick = () => {
+    document.getElementById('rename-modal').style.display = 'flex';
+};
+
+document.getElementById('publish-btn').onclick = () => {
+    document.getElementById('publish-modal').style.display = 'flex';
+};
+
 // RENAME ACTION (FIXED NULL PATH ERROR)
 document.getElementById('confirm-rename').onclick = async () => {
     const newName = document.getElementById('new-project-name').value;
@@ -76,7 +90,6 @@ document.getElementById('confirm-rename').onclick = async () => {
         return;
     }
     const idToken = await currentUser.getIdToken();
-    // Safety check for path.ts crash
     const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", String(currentProjectId));
     await updateDoc(projectRef, { projectName: newName });
     await renameRemoteProject(currentProjectId, idToken, newName);
@@ -91,11 +104,15 @@ document.getElementById('confirm-publish').onclick = async () => {
     const idToken = await currentUser.getIdToken();
     const res = await deployProject(currentProjectId, idToken, { slug });
     window.open(res.deploymentUrl, '_blank');
+    document.getElementById('publish-modal').style.display = 'none';
 };
 
 // CODE BUTTON TOGGLE FIX
 document.getElementById('toggle-code').onclick = () => {
     document.getElementById('code-sidebar').classList.toggle('open');
+};
+document.getElementById('close-code').onclick = () => {
+    document.getElementById('code-sidebar').classList.remove('open');
 };
 
 // GENERATE ACTION
@@ -107,6 +124,8 @@ document.getElementById('generate-btn').onclick = async () => {
     }
     
     document.getElementById('code-sidebar').classList.add('open');
+    document.getElementById('code-output').innerText = ""; // Clear old code
+    
     await generateProjectStream(prompt, "vanilla", currentProjectId, idToken, 
         (chunk) => {
             document.getElementById('code-output').innerText += chunk;
