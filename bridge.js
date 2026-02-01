@@ -12,6 +12,7 @@ import { initLiveEditor } from "./editor_service.js";
 let currentUser = null;
 let currentProjectId = null;
 let projectPages = { landing: "" };
+let recognition = null;
 
 onAuthStateChanged(auth, (user) => {
     if (!user) window.location.href = "/login";
@@ -187,3 +188,33 @@ function showCustomAlert(title, message) {
 document.getElementById('close-alert').onclick = () => {
     document.getElementById('alert-modal').style.display = 'none';
 };
+
+// VOICE TO TEXT LOGIC
+const voiceBtn = document.getElementById('voice-btn');
+const promptInput = document.getElementById('prompt-input');
+
+if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+        voiceBtn.classList.add('text-red-500', 'animate-pulse');
+    };
+
+    recognition.onresult = (event) => {
+        const text = event.results[0][0].transcript;
+        promptInput.value += (promptInput.value ? ' ' : '') + text;
+    };
+
+    recognition.onend = () => {
+        voiceBtn.classList.remove('text-red-500', 'animate-pulse');
+    };
+
+    voiceBtn.onclick = () => {
+        recognition.start();
+    };
+} else {
+    voiceBtn.style.display = 'none';
+}
