@@ -253,3 +253,52 @@ if (voiceBtn && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in w
 } else if (voiceBtn) {
     voiceBtn.style.display = 'none';
 }
+
+// NEW LOGIC: DASHBOARD NAVIGATION
+if (document.getElementById('back-to-dashboard')) {
+    document.getElementById('back-to-dashboard').onclick = () => {
+        window.location.href = "/dashboard";
+    };
+}
+
+// NEW LOGIC: TYPING EFFECTS
+const typingPrompts = [
+    "Build a neon dashboard for a crypto app...",
+    "Create a clean landing page for a SaaS product...",
+    "Design a brutalist portfolio for a developer...",
+    "Generate a mobile-first social media interface...",
+    "Architect a glassmorphic glass weather app..."
+];
+
+async function runTypingEffect() {
+    const input = document.getElementById('prompt-input');
+    if (!input) return;
+    
+    let promptIndex = 0;
+    while (true) {
+        let text = typingPrompts[promptIndex];
+        // Type forward
+        for (let i = 0; i <= text.length; i++) {
+            if (document.activeElement === input) { input.placeholder = "Edit your app..."; break; }
+            input.placeholder = text.substring(0, i) + "|";
+            await new Promise(r => setTimeout(r, 50));
+        }
+        await new Promise(r => setTimeout(r, 2000));
+        // Type backward
+        for (let i = text.length; i >= 0; i--) {
+            if (document.activeElement === input) { input.placeholder = "Edit your app..."; break; }
+            input.placeholder = text.substring(0, i) + "|";
+            await new Promise(r => setTimeout(r, 30));
+        }
+        promptIndex = (promptIndex + 1) % typingPrompts.length;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Set initial project name
+    const nameDisplay = document.getElementById('project-name-display');
+    if (nameDisplay && nameDisplay.innerText === 'lovable-clone') {
+        nameDisplay.innerText = generateCoolName();
+    }
+    runTypingEffect();
+});
