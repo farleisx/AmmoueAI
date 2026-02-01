@@ -39,6 +39,16 @@
         .history-content { opacity: 0; transition: opacity 0.2s; width: 192px; pointer-events: none; }
         .history-panel:hover .history-content { opacity: 1; pointer-events: auto; }
 
+        @keyframes rocket-flight {
+            0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+            20% { opacity: 1; }
+            100% { transform: translate(20px, -20px) rotate(15deg); opacity: 0; }
+        }
+        #generate-btn { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease; }
+        #generate-btn .rocket-icon { position: absolute; left: 10px; opacity: 0; transition: all 0.3s ease; pointer-events: none; }
+        #generate-btn:hover .rocket-icon { opacity: 1; animation: rocket-flight 0.8s infinite linear; }
+        #generate-btn:hover { padding-left: 24px; }
+
         @media (max-width: 768px) {
             .code-sidebar.open { width: 100%; position: absolute; right: 0; z-index: 60; }
             #preview-container { height: 60vh !important; }
@@ -189,7 +199,10 @@
                         <button id="attach-btn" class="p-2 md:p-2.5 text-gray-500 hover:text-white transition">
                             <i data-lucide="paperclip" class="w-4 h-4"></i>
                         </button>
-                        <button id="generate-btn" class="bg-[#ededed] text-black h-10 px-3 md:px-5 rounded-[18px] text-sm font-semibold transition">Generate</button>
+                        <button id="generate-btn" class="bg-[#ededed] text-black h-10 px-3 md:px-5 rounded-[18px] text-sm font-semibold transition">
+                            <i data-lucide="rocket" class="rocket-icon w-4 h-4"></i>
+                            Generate
+                        </button>
                     </div>
                 </div>
             </div>
