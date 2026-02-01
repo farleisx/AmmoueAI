@@ -1,7 +1,7 @@
 // bridge.js
 import { auth, getUsage, autoSaveProject, db } from "./fire_prompt.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-import { doc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+import { doc, updateDoc, getDoc, collection, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 import { generateProjectStream } from "./generator_service.js";
 import { deployProject, renameRemoteProject } from "./deployment_service.js";
 import { downloadProjectFiles, listProjectFiles, generateCoolName } from "./download_service.js";
@@ -16,7 +16,7 @@ let recognition = null;
 
 onAuthStateChanged(auth, (user) => {
     if (!user) window.location.href = "/login";
-    else { currentUser = user; syncUsage(); startCountdown(); }
+    else { currentUser = user; syncUsage(); startCountdown(); fetchProjectHistory(); }
 });
 
 // INITIALIZE ALL SERVICES
@@ -291,6 +291,43 @@ async function runTypingEffect() {
             await new Promise(r => setTimeout(r, 30));
         }
         promptIndex = (promptIndex + 1) % typingPrompts.length;
+    }
+}
+
+// NEW LOGIC: Project History Sidebar
+async function fetchProjectHistory() {
+    if (!currentUser) return;
+    const historyList = document.getElementById('project-history-list');
+    if (!historyList) return;
+
+    try {
+        const q = query(
+            collection(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects"),
+            orderBy("lastSaved", "desc"),
+            limit(10)
+        );
+        const querySnapshot = await getDocs(q);
+        historyList.innerHTML = "";
+        
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            const item = document.createElement('div');
+            item.className = "p-2 hover:bg-white/5 rounded-lg cursor-pointer transition flex items-center gap-3 group";
+            item.innerHTML = `
+                <div class="w-8 h-8 bg-white/5 rounded-md flex items-center justify-center text-xs text-gray-400 group-hover:text-white">
+                    <i data-lucide="file-code" class="w-4 h-4"></i>
+                </div>
+                <div class="flex-1 overflow-hidden">
+                    <p class="text-[13px] text-gray-300 truncate font-medium group-hover:text-white">${data.projectName || 'Untitled'}</p>
+                    <p class="text-[10px] text-gray-600 truncate">${new Date(data.lastSaved?.toDate()).toLocaleDateString()}</p>
+                </div>
+            `;
+            item.onclick = () => { window.location.href = `/editor?id=${doc.id}`; };
+            historyList.appendChild(item);
+        });
+        lucide.createIcons();
+    } catch (e) {
+        console.error("Error loading history", e);
     }
 }
 
