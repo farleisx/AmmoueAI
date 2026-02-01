@@ -1,4 +1,54 @@
+// attachment_service.js
 let attachedImages = [];
+let uploadInput, attachBtn, rack, previewModal, modalImg;
+
+export function initAttachmentService(inputId, btnId, rackId, modalId, imgId) {
+    uploadInput = document.getElementById(inputId);
+    attachBtn = document.getElementById(btnId);
+    rack = document.getElementById(rackId);
+    previewModal = document.getElementById(modalId);
+    modalImg = document.getElementById(imgId);
+
+    if (attachBtn) attachBtn.onclick = () => uploadInput.click();
+    if (uploadInput) uploadInput.onchange = handleUpload;
+}
+
+function handleUpload(e) {
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            attachedImages.push(event.target.result);
+            renderAttachments();
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+function renderAttachments() {
+    if (!rack) return;
+    rack.innerHTML = attachedImages.map((src, index) => `
+        <div class="relative group w-12 h-12">
+            <img src="${src}" onclick="window.previewImage('${src}')" class="w-full h-full object-cover rounded-lg border border-white/10 cursor-zoom-in">
+            <button onclick="window.removeAttachment(${index})" class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition">
+                <i data-lucide="x" class="w-3 h-3"></i>
+            </button>
+        </div>
+    `).join('');
+    if (window.lucide) window.lucide.createIcons();
+}
+
+window.previewImage = (src) => {
+    if (previewModal && modalImg) {
+        modalImg.src = src;
+        previewModal.style.display = 'flex';
+    }
+};
+
+window.removeAttachment = (index) => {
+    attachedImages.splice(index, 1);
+    renderAttachments();
+};
 
 export function getAttachedImages() {
     return attachedImages;
@@ -7,56 +57,4 @@ export function getAttachedImages() {
 export function clearAttachments() {
     attachedImages = [];
     renderAttachments();
-}
-
-export function initAttachmentService(imageInputId, attachBtnId, rackId, previewModalId, modalImgId) {
-    const imageUpload = document.getElementById(imageInputId);
-    const attachBtn = document.getElementById(attachBtnId);
-    const rack = document.getElementById(rackId);
-    const modal = document.getElementById(previewModalId);
-    const modalImg = document.getElementById(modalImgId);
-
-    attachBtn?.addEventListener('click', () => imageUpload.click());
-
-    imageUpload?.addEventListener('change', (e) => {
-        const files = Array.from(e.target.files);
-        files.forEach(file => {
-            if (attachedImages.length < 4) {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    attachedImages.push(event.target.result);
-                    renderAttachments();
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-        imageUpload.value = ''; 
-    });
-
-    window.removeAttachment = (idx) => {
-        attachedImages.splice(idx, 1);
-        renderAttachments();
-    };
-
-    window.previewImage = (src) => {
-        modalImg.src = src;
-        modal.style.display = 'flex';
-    };
-
-    function renderAttachments() {
-        if (!rack) return;
-        rack.innerHTML = '';
-        attachedImages.forEach((img, idx) => {
-            const div = document.createElement('div');
-            div.className = "relative w-12 h-12 rounded-lg border border-white/10 overflow-hidden group cursor-pointer";
-            div.innerHTML = `
-                <img src="${img}" class="w-full h-full object-cover" onclick="previewImage('${img}')">
-                <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity" onclick="removeAttachment(${idx})">
-                    <i data-lucide="trash-2" class="w-4 h-4 text-red-500"></i>
-                </div>
-            `;
-            rack.appendChild(div);
-        });
-        if (window.lucide) window.lucide.createIcons();
-    }
 }
