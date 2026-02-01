@@ -4,7 +4,7 @@ import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/
 import { doc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 import { generateProjectStream } from "./generator_service.js";
 import { deployProject, renameRemoteProject } from "./deployment_service.js";
-import { downloadProjectFiles, listProjectFiles } from "./download_service.js";
+import { downloadProjectFiles, listProjectFiles, generateCoolName } from "./download_service.js";
 import { initAttachmentService, getAttachedImages, clearAttachments } from "./attachment_service.js";
 import { initUIService, updateCountdown } from "./ui_service.js";
 import { initLiveEditor } from "./editor_service.js";
@@ -86,7 +86,10 @@ document.getElementById('publish-btn').onclick = () => {
 
 // DOWNLOAD MODAL LOGIC
 document.getElementById('download-btn').onclick = async () => {
-    if (!currentProjectId) return alert("Generate something first!");
+    if (!currentProjectId) {
+        showCustomAlert("Wait!", "Generate something before exporting code.");
+        return;
+    }
     
     const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", currentProjectId);
     const snap = await getDoc(projectRef);
@@ -112,11 +115,11 @@ document.getElementById('confirm-download').onclick = async () => {
 document.getElementById('confirm-rename').onclick = async () => {
     const newName = document.getElementById('new-project-name').value;
     if (!currentProjectId) {
-        alert("No active project to rename.");
+        document.getElementById('rename-modal').style.display = 'none';
+        showCustomAlert("Error", "No active project to rename. Start building first!");
         return;
     }
     const idToken = await currentUser.getIdToken();
-    // Safety check for path.ts crash
     const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", String(currentProjectId));
     await updateDoc(projectRef, { projectName: newName });
     await renameRemoteProject(currentProjectId, idToken, newName);
@@ -127,7 +130,11 @@ document.getElementById('confirm-rename').onclick = async () => {
 // PUBLISH ACTION
 document.getElementById('confirm-publish').onclick = async () => {
     const slug = document.getElementById('publish-slug').value;
-    if (!currentProjectId) return alert("Save project first");
+    if (!currentProjectId) {
+        document.getElementById('publish-modal').style.display = 'none';
+        showCustomAlert("Hold on!", "You need to save or generate a project before publishing.");
+        return;
+    }
     const idToken = await currentUser.getIdToken();
     const res = await deployProject(currentProjectId, idToken, { slug });
     window.open(res.deploymentUrl, '_blank');
@@ -147,7 +154,9 @@ document.getElementById('generate-btn').onclick = async () => {
     const prompt = document.getElementById('prompt-input').value;
     const idToken = await currentUser.getIdToken();
     if (!currentProjectId) {
-        currentProjectId = await autoSaveProject(projectPages, prompt, null, currentUser.uid, "Start", "landing", "Project");
+        const coolName = generateCoolName();
+        currentProjectId = await autoSaveProject(projectPages, prompt, null, currentUser.uid, "Start", "landing", coolName);
+        document.getElementById('project-name-display').innerText = coolName;
     }
     
     document.getElementById('code-sidebar').classList.add('open');
@@ -156,7 +165,6 @@ document.getElementById('generate-btn').onclick = async () => {
     await generateProjectStream(prompt, "vanilla", currentProjectId, idToken, 
         (chunk) => {
             document.getElementById('code-output').innerText += chunk;
-            // AUTO-UPDATER LOGIC: Update preview frame in real-time
             const frame = document.getElementById('preview-frame');
             if (frame) {
                 frame.srcdoc = document.getElementById('code-output').innerText;
@@ -168,4 +176,14 @@ document.getElementById('generate-btn').onclick = async () => {
         }
     );
     clearAttachments();
+};
+
+// ALERT MODAL LOGIC
+function showCustomAlert(title, message) {
+    document.getElementById('alert-title').innerText = title;
+    document.getElementById('alert-message').innerText = message;
+    document.getElementById('alert-modal').style.display = 'flex';
+}
+document.getElementById('close-alert').onclick = () => {
+    document.getElementById('alert-modal').style.display = 'none';
 };
