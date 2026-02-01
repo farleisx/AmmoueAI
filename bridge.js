@@ -1,8 +1,9 @@
 import { auth, getUsage, autoSaveProject, db } from "./fire_prompt.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-import { doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+import { doc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 import { generateProjectStream } from "./generator_service.js";
 import { deployProject, renameRemoteProject } from "./deployment_service.js";
+import { downloadProjectFiles, listProjectFiles } from "./download_service.js";
 import { initAttachmentService, getAttachedImages, clearAttachments } from "./attachment_service.js";
 import { initUIService, updateCountdown } from "./ui_service.js";
 import { initLiveEditor } from "./editor_service.js";
@@ -41,7 +42,6 @@ const setPreviewSize = (type) => {
     const frame = document.getElementById('preview-frame');
     const btns = { desktop: 'view-desktop', tablet: 'view-tablet', mobile: 'view-mobile' };
     
-    // Fix class swapping
     Object.values(btns).forEach(id => {
         const btn = document.getElementById(id);
         btn.classList.remove('text-white', 'bg-white/10');
@@ -82,13 +82,34 @@ document.getElementById('publish-btn').onclick = () => {
     document.getElementById('publish-modal').style.display = 'flex';
 };
 
-// RENAME ACTION (FIXED NULL PATH ERROR)
+// DOWNLOAD MODAL LOGIC
+document.getElementById('download-btn').onclick = async () => {
+    if (!currentProjectId) return alert("Generate something first!");
+    
+    const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", currentProjectId);
+    const snap = await getDoc(projectRef);
+    if (snap.exists()) {
+        const files = listProjectFiles(snap.data().pages || {});
+        const listContainer = document.getElementById('file-list-display');
+        listContainer.innerHTML = files.map(f => `<div class="flex items-center gap-2 text-gray-400 text-sm py-1"><i data-lucide="file-code" class="w-4 h-4 text-emerald-500"></i> ${f}</div>`).join('');
+        lucide.createIcons();
+    }
+    
+    document.getElementById('download-modal').style.display = 'flex';
+};
+
+document.getElementById('confirm-download').onclick = async () => {
+    const btn = document.getElementById('confirm-download');
+    btn.innerText = "Zipping...";
+    await downloadProjectFiles(currentProjectId, currentUser.uid);
+    btn.innerText = "Download ZIP";
+    document.getElementById('download-modal').style.display = 'none';
+};
+
+// RENAME ACTION
 document.getElementById('confirm-rename').onclick = async () => {
     const newName = document.getElementById('new-project-name').value;
-    if (!currentProjectId) {
-        alert("No active project to rename.");
-        return;
-    }
+    if (!currentProjectId) return alert("No active project");
     const idToken = await currentUser.getIdToken();
     const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", String(currentProjectId));
     await updateDoc(projectRef, { projectName: newName });
@@ -107,7 +128,7 @@ document.getElementById('confirm-publish').onclick = async () => {
     document.getElementById('publish-modal').style.display = 'none';
 };
 
-// CODE BUTTON TOGGLE FIX
+// CODE SIDEBAR
 document.getElementById('toggle-code').onclick = () => {
     document.getElementById('code-sidebar').classList.toggle('open');
 };
@@ -124,14 +145,12 @@ document.getElementById('generate-btn').onclick = async () => {
     }
     
     document.getElementById('code-sidebar').classList.add('open');
-    document.getElementById('code-output').innerText = ""; // Clear old code
+    document.getElementById('code-output').innerText = ""; 
     
     await generateProjectStream(prompt, "vanilla", currentProjectId, idToken, 
-        (chunk) => {
-            document.getElementById('code-output').innerText += chunk;
-        },
+        (chunk) => { document.getElementById('code-output').innerText += chunk; },
         () => syncUsage(),
-        (file) => document.getElementById('thinking-status').innerText = `Architecting: ${file}`
+        (file) => { document.getElementById('thinking-status').innerText = `Architecting: ${file}`; }
     );
     clearAttachments();
 };
