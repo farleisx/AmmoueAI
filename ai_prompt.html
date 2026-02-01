@@ -72,7 +72,7 @@
 <body class="h-screen flex flex-col">
 
     <div id="alert-modal" class="backdrop-blur-sm">
-        <div class="bg-[#0a0a0a] border border-white/10 p-8 rounded-3xl w-full max-w-sm shadow-2xl text-center">
+        <div class="bg-[#0a0a0a] border border-white/10 p-8 rounded-3xl w-full max-sm shadow-2xl text-center">
             <div class="w-12 h-12 bg-amber-500/10 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4">
                 <i data-lucide="alert-circle" class="w-6 h-6"></i>
             </div>
@@ -130,6 +130,17 @@
                     <span class="absolute right-4 text-gray-500 text-xs font-mono pointer-events-none">.ammoue.app <span class="text-[8px] bg-white/10 px-1 py-0.5 rounded text-gray-400 ml-1">COMING SOON</span></span>
                 </div>
             </div>
+            
+            <div id="publish-progress-container" class="hidden w-full mb-6">
+                <div class="flex justify-between text-[10px] uppercase tracking-wider text-gray-500 mb-2 font-bold px-1">
+                    <span id="publish-progress-text">Initializing...</span>
+                    <span id="publish-progress-pct"></span>
+                </div>
+                <div class="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                    <div id="publish-progress-bar" class="h-full bg-emerald-500 transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+
             <button id="confirm-publish" class="w-full bg-white text-black py-4 rounded-2xl font-bold hover:bg-emerald-400 hover:text-black transition flex items-center justify-center gap-2">Deploy Now</button>
             <button onclick="document.getElementById('publish-modal').style.display='none'" class="mt-4 text-sm text-gray-500 hover:text-white transition">Back to Editor</button>
         </div>
