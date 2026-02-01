@@ -13,6 +13,8 @@ let currentUser = null;
 let currentProjectId = null;
 let projectPages = { landing: "" };
 let recognition = null;
+let abortController = null;
+let isGenerating = false;
 
 onAuthStateChanged(auth, (user) => {
     if (!user) window.location.href = "/login";
@@ -175,9 +177,20 @@ if (document.getElementById('close-code')) {
 // GENERATE ACTION
 if (document.getElementById('generate-btn')) {
     document.getElementById('generate-btn').onclick = async () => {
+        if (isGenerating) {
+            if (abortController) abortController.abort();
+            resetGenerateButton();
+            return;
+        }
+
         const promptInput = document.getElementById('prompt-input');
         const prompt = promptInput ? promptInput.value : "";
         const idToken = await currentUser.getIdToken();
+        
+        isGenerating = true;
+        abortController = new AbortController();
+        updateGenerateButtonToStop();
+
         if (!currentProjectId) {
             const coolName = generateCoolName();
             currentProjectId = await autoSaveProject(projectPages, prompt, null, currentUser.uid, "Start", "landing", coolName);
@@ -200,19 +213,44 @@ if (document.getElementById('generate-btn')) {
                         frame.srcdoc = out.innerText;
                     }
                 },
-                () => syncUsage(),
+                () => {
+                    syncUsage();
+                    resetGenerateButton();
+                },
                 (file) => {
                     const status = document.getElementById('thinking-status');
                     if (status) status.innerText = `Architecting: ${file}`;
-                }
+                },
+                abortController.signal
             );
         } catch (err) {
             showCustomAlert("Generation Error", err.message);
             const status = document.getElementById('thinking-status');
             if (status) status.innerText = "Error encountered.";
+            resetGenerateButton();
         }
         clearAttachments();
     };
+}
+
+function updateGenerateButtonToStop() {
+    const btn = document.getElementById('generate-btn');
+    if (btn) {
+        btn.innerHTML = `<i data-lucide="square" class="w-4 h-4 mr-2 fill-current"></i> Stop`;
+        btn.classList.add('bg-red-500/10', 'text-red-500', 'border', 'border-red-500/20');
+        btn.classList.remove('bg-[#ededed]', 'text-black');
+        lucide.createIcons();
+    }
+}
+
+function resetGenerateButton() {
+    isGenerating = false;
+    const btn = document.getElementById('generate-btn');
+    if (btn) {
+        btn.innerHTML = `Generate`;
+        btn.classList.remove('bg-red-500/10', 'text-red-500', 'border', 'border-red-500/20');
+        btn.classList.add('bg-[#ededed]', 'text-black');
+    }
 }
 
 // ALERT MODAL LOGIC
