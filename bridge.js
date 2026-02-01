@@ -203,11 +203,16 @@ if (document.getElementById('confirm-publish')) {
         };
 
         try {
-            updateProgress(20, "Packaging files...");
+            updateProgress(20, "Cleaning Build Context...");
             const idToken = await currentUser.getIdToken();
             
-            updateProgress(50, "Uploading to Vercel...");
-            const res = await deployProject(currentProjectId, idToken, { slug });
+            updateProgress(50, "Resolving Module Tree...");
+            // Patch: Ensure vercel.json exists for clean build
+            if(!projectFiles['vercel.json']) {
+                projectFiles['vercel.json'] = JSON.stringify({ "version": 2, "framework": null, "installCommand": "echo 'skipping install'", "buildCommand": "echo 'skipping build'" }, null, 2);
+            }
+
+            const res = await deployProject(currentProjectId, idToken, { slug, files: projectFiles });
             
             updateProgress(100, "Redirecting to site...");
             setTimeout(() => {
