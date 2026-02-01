@@ -16,13 +16,13 @@ let activeFile = "index.html";
 let recognition = null;
 let abortController = null;
 let isGenerating = false;
+let currentUsageData = { count: 0, limit: 5, resetAt: 0 };
 
 onAuthStateChanged(auth, (user) => {
     if (!user) window.location.href = "/login";
     else { 
         currentUser = user; 
         syncUsage(); 
-        startCountdown(); 
         const urlParams = new URLSearchParams(window.location.search);
         const pid = urlParams.get('id');
         if (pid) loadExistingProject(pid);
@@ -38,14 +38,34 @@ initLiveEditor(document.getElementById('preview-frame'));
 async function syncUsage() {
     if (!currentUser) return;
     const usage = await getUsage(currentUser.uid);
-    document.getElementById('credit-display').innerText = `Credits: ${usage.dailyCount || 0}`;
+    const plan = usage.plan === "pro" ? "pro" : "free";
+    const limitVal = plan === "pro" ? 10 : 5;
+    const count = usage.dailyCount || 0;
+    const resetAt = usage.dailyResetAt || (Date.now() + 86400000);
+    
+    currentUsageData = { count, limit: limitVal, resetAt };
+    
+    const display = document.getElementById('credit-display');
+    if (display) {
+        display.innerText = `Credits: ${limitVal}/${count}`;
+        if (count >= limitVal) {
+            display.classList.add('text-red-500', 'bg-red-500/10');
+            display.classList.remove('text-white/40', 'bg-white/5');
+        } else {
+            display.classList.remove('text-red-500', 'bg-red-500/10');
+            display.classList.add('text-white/40', 'bg-white/5');
+        }
+    }
+    startCountdown(resetAt);
 }
 
-function startCountdown() {
-    let timeLeft = 3600 * 24; // Example 24h reset
-    setInterval(() => {
-        timeLeft--;
+function startCountdown(resetAt) {
+    if (window.usageInterval) clearInterval(window.usageInterval);
+    window.usageInterval = setInterval(() => {
+        const now = Date.now();
+        const timeLeft = Math.max(0, Math.floor((resetAt - now) / 1000));
         updateCountdown(timeLeft);
+        if (timeLeft <= 0) syncUsage();
     }, 1000);
 }
 
@@ -187,6 +207,14 @@ if (document.getElementById('close-code')) {
 // GENERATE ACTION
 if (document.getElementById('generate-btn')) {
     document.getElementById('generate-btn').onclick = async () => {
+        if (currentUsageData.count >= currentUsageData.limit && !isGenerating) {
+            const display = document.getElementById('credit-display');
+            display.classList.add('animate-shake', 'brightness-150');
+            setTimeout(() => display.classList.remove('animate-shake', 'brightness-150'), 500);
+            showCustomAlert("Limit Reached", "You have used all your daily credits. Wait for the reset!");
+            return;
+        }
+
         if (isGenerating) {
             if (abortController) abortController.abort();
             resetGenerateButton();
@@ -220,7 +248,7 @@ if (document.getElementById('generate-btn')) {
                     renderFileTabsFromRaw(fullRawText);
                 },
                 async () => {
-                    syncUsage();
+                    await syncUsage();
                     resetGenerateButton();
                     await refreshFileState();
                 },
