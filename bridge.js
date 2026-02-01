@@ -47,13 +47,17 @@ const setPreviewSize = (type) => {
     // Fix class swapping
     Object.values(btns).forEach(id => {
         const btn = document.getElementById(id);
-        btn.classList.remove('text-white', 'bg-white/10');
-        btn.classList.add('text-gray-500');
+        if (btn) {
+            btn.classList.remove('text-white', 'bg-white/10');
+            btn.classList.add('text-gray-500');
+        }
     });
     
     const activeBtn = document.getElementById(btns[type]);
-    activeBtn.classList.remove('text-gray-500');
-    activeBtn.classList.add('text-white', 'bg-white/10');
+    if (activeBtn) {
+        activeBtn.classList.remove('text-gray-500');
+        activeBtn.classList.add('text-white', 'bg-white/10');
+    }
 
     if (type === 'desktop') { 
         container.style.maxWidth = '1100px'; 
@@ -69,131 +73,162 @@ const setPreviewSize = (type) => {
     }
 };
 
-document.getElementById('view-desktop').onclick = () => setPreviewSize('desktop');
-document.getElementById('view-tablet').onclick = () => setPreviewSize('tablet');
-document.getElementById('view-mobile').onclick = () => setPreviewSize('mobile');
+if (document.getElementById('view-desktop')) document.getElementById('view-desktop').onclick = () => setPreviewSize('desktop');
+if (document.getElementById('view-tablet')) document.getElementById('view-tablet').onclick = () => setPreviewSize('tablet');
+if (document.getElementById('view-mobile')) document.getElementById('view-mobile').onclick = () => setPreviewSize('mobile');
 
 // LOGOUT ACTION
-document.getElementById('logout-btn').onclick = () => signOut(auth);
+if (document.getElementById('logout-btn')) {
+    document.getElementById('logout-btn').onclick = () => signOut(auth);
+}
 
 // MODAL TOGGLES
-document.getElementById('project-name-display').onclick = () => {
-    document.getElementById('rename-modal').style.display = 'flex';
-};
+if (document.getElementById('project-name-display')) {
+    document.getElementById('project-name-display').onclick = () => {
+        document.getElementById('rename-modal').style.display = 'flex';
+    };
+}
 
-document.getElementById('publish-btn').onclick = () => {
-    document.getElementById('publish-modal').style.display = 'flex';
-};
+if (document.getElementById('publish-btn')) {
+    document.getElementById('publish-btn').onclick = () => {
+        document.getElementById('publish-modal').style.display = 'flex';
+    };
+}
 
 // DOWNLOAD MODAL LOGIC
-document.getElementById('download-btn').onclick = async () => {
-    if (!currentProjectId) {
-        showCustomAlert("Wait!", "Generate something before exporting code.");
-        return;
-    }
-    
-    const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", currentProjectId);
-    const snap = await getDoc(projectRef);
-    if (snap.exists()) {
-        const files = listProjectFiles(snap.data().pages || {});
-        const listContainer = document.getElementById('file-list-display');
-        listContainer.innerHTML = files.map(f => `<div class="flex items-center gap-2 text-gray-400 text-sm py-1"><i data-lucide="file-code" class="w-4 h-4 text-emerald-500"></i> ${f}</div>`).join('');
-        lucide.createIcons();
-    }
-    
-    document.getElementById('download-modal').style.display = 'flex';
-};
+if (document.getElementById('download-btn')) {
+    document.getElementById('download-btn').onclick = async () => {
+        if (!currentProjectId) {
+            showCustomAlert("Wait!", "Generate something before exporting code.");
+            return;
+        }
+        
+        const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", currentProjectId);
+        const snap = await getDoc(projectRef);
+        if (snap.exists()) {
+            const files = listProjectFiles(snap.data().pages || {});
+            const listContainer = document.getElementById('file-list-display');
+            listContainer.innerHTML = files.map(f => `<div class="flex items-center gap-2 text-gray-400 text-sm py-1"><i data-lucide="file-code" class="w-4 h-4 text-emerald-500"></i> ${f}</div>`).join('');
+            lucide.createIcons();
+        }
+        
+        document.getElementById('download-modal').style.display = 'flex';
+    };
+}
 
-document.getElementById('confirm-download').onclick = async () => {
-    const btn = document.getElementById('confirm-download');
-    btn.innerText = "Zipping...";
-    await downloadProjectFiles(currentProjectId, currentUser.uid);
-    btn.innerText = "Download ZIP";
-    document.getElementById('download-modal').style.display = 'none';
-};
+if (document.getElementById('confirm-download')) {
+    document.getElementById('confirm-download').onclick = async () => {
+        const btn = document.getElementById('confirm-download');
+        btn.innerText = "Zipping...";
+        await downloadProjectFiles(currentProjectId, currentUser.uid);
+        btn.innerText = "Download ZIP";
+        document.getElementById('download-modal').style.display = 'none';
+    };
+}
 
 // RENAME ACTION (FIXED NULL PATH ERROR)
-document.getElementById('confirm-rename').onclick = async () => {
-    const newName = document.getElementById('new-project-name').value;
-    if (!currentProjectId) {
+if (document.getElementById('confirm-rename')) {
+    document.getElementById('confirm-rename').onclick = async () => {
+        const newName = document.getElementById('new-project-name').value;
+        if (!currentProjectId) {
+            document.getElementById('rename-modal').style.display = 'none';
+            showCustomAlert("Error", "No active project to rename. Start building first!");
+            return;
+        }
+        const idToken = await currentUser.getIdToken();
+        const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", String(currentProjectId));
+        await updateDoc(projectRef, { projectName: newName });
+        await renameRemoteProject(currentProjectId, idToken, newName);
+        document.getElementById('project-name-display').innerText = newName;
         document.getElementById('rename-modal').style.display = 'none';
-        showCustomAlert("Error", "No active project to rename. Start building first!");
-        return;
-    }
-    const idToken = await currentUser.getIdToken();
-    const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", String(currentProjectId));
-    await updateDoc(projectRef, { projectName: newName });
-    await renameRemoteProject(currentProjectId, idToken, newName);
-    document.getElementById('project-name-display').innerText = newName;
-    document.getElementById('rename-modal').style.display = 'none';
-};
+    };
+}
 
 // PUBLISH ACTION
-document.getElementById('confirm-publish').onclick = async () => {
-    const slug = document.getElementById('publish-slug').value;
-    if (!currentProjectId) {
+if (document.getElementById('confirm-publish')) {
+    document.getElementById('confirm-publish').onclick = async () => {
+        const slug = document.getElementById('publish-slug').value;
+        if (!currentProjectId) {
+            document.getElementById('publish-modal').style.display = 'none';
+            showCustomAlert("Hold on!", "You need to save or generate a project before publishing.");
+            return;
+        }
+        const idToken = await currentUser.getIdToken();
+        const res = await deployProject(currentProjectId, idToken, { slug });
+        window.open(res.deploymentUrl, '_blank');
         document.getElementById('publish-modal').style.display = 'none';
-        showCustomAlert("Hold on!", "You need to save or generate a project before publishing.");
-        return;
-    }
-    const idToken = await currentUser.getIdToken();
-    const res = await deployProject(currentProjectId, idToken, { slug });
-    window.open(res.deploymentUrl, '_blank');
-    document.getElementById('publish-modal').style.display = 'none';
-};
+    };
+}
 
 // CODE BUTTON TOGGLE FIX
-document.getElementById('toggle-code').onclick = () => {
-    document.getElementById('code-sidebar').classList.toggle('open');
-};
-document.getElementById('close-code').onclick = () => {
-    document.getElementById('code-sidebar').classList.remove('open');
-};
+if (document.getElementById('toggle-code')) {
+    document.getElementById('toggle-code').onclick = () => {
+        document.getElementById('code-sidebar').classList.toggle('open');
+    };
+}
+if (document.getElementById('close-code')) {
+    document.getElementById('close-code').onclick = () => {
+        document.getElementById('code-sidebar').classList.remove('open');
+    };
+}
 
 // GENERATE ACTION
-document.getElementById('generate-btn').onclick = async () => {
-    const prompt = document.getElementById('prompt-input').value;
-    const idToken = await currentUser.getIdToken();
-    if (!currentProjectId) {
-        const coolName = generateCoolName();
-        currentProjectId = await autoSaveProject(projectPages, prompt, null, currentUser.uid, "Start", "landing", coolName);
-        document.getElementById('project-name-display').innerText = coolName;
-    }
-    
-    document.getElementById('code-sidebar').classList.add('open');
-    document.getElementById('code-output').innerText = ""; 
-    
-    await generateProjectStream(prompt, "vanilla", currentProjectId, idToken, 
-        (chunk) => {
-            document.getElementById('code-output').innerText += chunk;
-            const frame = document.getElementById('preview-frame');
-            if (frame) {
-                frame.srcdoc = document.getElementById('code-output').innerText;
-            }
-        },
-        () => syncUsage(),
-        (file) => {
-            document.getElementById('thinking-status').innerText = `Architecting: ${file}`;
+if (document.getElementById('generate-btn')) {
+    document.getElementById('generate-btn').onclick = async () => {
+        const promptInput = document.getElementById('prompt-input');
+        const prompt = promptInput ? promptInput.value : "";
+        const idToken = await currentUser.getIdToken();
+        if (!currentProjectId) {
+            const coolName = generateCoolName();
+            currentProjectId = await autoSaveProject(projectPages, prompt, null, currentUser.uid, "Start", "landing", coolName);
+            const nameDisplay = document.getElementById('project-name-display');
+            if (nameDisplay) nameDisplay.innerText = coolName;
         }
-    );
-    clearAttachments();
-};
+        
+        const codeSidebar = document.getElementById('code-sidebar');
+        if (codeSidebar) codeSidebar.classList.add('open');
+        const codeOutput = document.getElementById('code-output');
+        if (codeOutput) codeOutput.innerText = ""; 
+        
+        await generateProjectStream(prompt, "vanilla", currentProjectId, idToken, 
+            (chunk) => {
+                const out = document.getElementById('code-output');
+                if (out) out.innerText += chunk;
+                const frame = document.getElementById('preview-frame');
+                if (frame && out) {
+                    frame.srcdoc = out.innerText;
+                }
+            },
+            () => syncUsage(),
+            (file) => {
+                const status = document.getElementById('thinking-status');
+                if (status) status.innerText = `Architecting: ${file}`;
+            }
+        );
+        clearAttachments();
+    };
+}
 
 // ALERT MODAL LOGIC
 function showCustomAlert(title, message) {
-    document.getElementById('alert-title').innerText = title;
-    document.getElementById('alert-message').innerText = message;
-    document.getElementById('alert-modal').style.display = 'flex';
+    const t = document.getElementById('alert-title');
+    const m = document.getElementById('alert-message');
+    const mod = document.getElementById('alert-modal');
+    if (t) t.innerText = title;
+    if (m) m.innerText = message;
+    if (mod) mod.style.display = 'flex';
 }
-document.getElementById('close-alert').onclick = () => {
-    document.getElementById('alert-modal').style.display = 'none';
-};
+if (document.getElementById('close-alert')) {
+    document.getElementById('close-alert').onclick = () => {
+        document.getElementById('alert-modal').style.display = 'none';
+    };
+}
 
 // VOICE TO TEXT LOGIC
 const voiceBtn = document.getElementById('voice-btn');
 const promptInput = document.getElementById('prompt-input');
 
-if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+if (voiceBtn && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognition = new SpeechRecognition();
     recognition.continuous = false;
@@ -205,7 +240,7 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
 
     recognition.onresult = (event) => {
         const text = event.results[0][0].transcript;
-        promptInput.value += (promptInput.value ? ' ' : '') + text;
+        if (promptInput) promptInput.value += (promptInput.value ? ' ' : '') + text;
     };
 
     recognition.onend = () => {
@@ -215,6 +250,6 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     voiceBtn.onclick = () => {
         recognition.start();
     };
-} else {
+} else if (voiceBtn) {
     voiceBtn.style.display = 'none';
 }
