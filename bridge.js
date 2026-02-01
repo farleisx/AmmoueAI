@@ -190,21 +190,27 @@ if (document.getElementById('generate-btn')) {
         const codeOutput = document.getElementById('code-output');
         if (codeOutput) codeOutput.innerText = ""; 
         
-        await generateProjectStream(prompt, "vanilla", currentProjectId, idToken, 
-            (chunk) => {
-                const out = document.getElementById('code-output');
-                if (out) out.innerText += chunk;
-                const frame = document.getElementById('preview-frame');
-                if (frame && out) {
-                    frame.srcdoc = out.innerText;
+        try {
+            await generateProjectStream(prompt, "vanilla", currentProjectId, idToken, 
+                (chunk) => {
+                    const out = document.getElementById('code-output');
+                    if (out) out.innerText += chunk;
+                    const frame = document.getElementById('preview-frame');
+                    if (frame && out) {
+                        frame.srcdoc = out.innerText;
+                    }
+                },
+                () => syncUsage(),
+                (file) => {
+                    const status = document.getElementById('thinking-status');
+                    if (status) status.innerText = `Architecting: ${file}`;
                 }
-            },
-            () => syncUsage(),
-            (file) => {
-                const status = document.getElementById('thinking-status');
-                if (status) status.innerText = `Architecting: ${file}`;
-            }
-        );
+            );
+        } catch (err) {
+            showCustomAlert("Generation Error", err.message);
+            const status = document.getElementById('thinking-status');
+            if (status) status.innerText = "Error encountered.";
+        }
         clearAttachments();
     };
 }
