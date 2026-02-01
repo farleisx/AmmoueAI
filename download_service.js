@@ -36,3 +36,10 @@ export function listProjectFiles(pages) {
         return name === "landing" ? "index.html" : name;
     });
 }
+
+// NEW LOGIC: Unique Name Generator
+export function generateCoolName() {
+    const adjectives = ["Epic", "Cyber", "Fluid", "Neon", "Void", "Solar", "Lunar", "Swift", "Aero", "Zenith"];
+    const nouns = ["Sphere", "Node", "Flow", "Grid", "Pulse", "Wave", "Core", "Nexus", "Draft", "Forge"];
+    return `${adjectives[Math.floor(Math.random() * adjectives.length)]}-${nouns[Math.floor(Math.random() * nouns.length)]}-${Math.floor(1000 + Math.random() * 9000)}`;
+}
