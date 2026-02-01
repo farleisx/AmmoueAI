@@ -2,144 +2,85 @@ import { auth, getUsage, autoSaveProject, db } from "./fire_prompt.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 import { doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 import { generateProjectStream } from "./generator_service.js";
-import { deployProject } from "./deployment_service.js";
+import { deployProject, renameRemoteProject } from "./deployment_service.js";
 import { initAttachmentService, getAttachedImages, clearAttachments } from "./attachment_service.js";
+import { initUIService, updateCountdown } from "./ui_service.js";
+import { initLiveEditor } from "./editor_service.js";
 
-/* ================= STATE ================= */
 let currentUser = null;
 let currentProjectId = null;
 let projectPages = { landing: "" };
-let currentProjectName = "lovable-clone";
 
-/* ================= AUTH ================= */
-onAuthStateChanged(auth, async (user) => {
-    if (!user) {
-        window.location.href = "/login";
-    } else {
-        currentUser = user;
-        syncUsage();
-    }
+onAuthStateChanged(auth, (user) => {
+    if (!user) window.location.href = "/login";
+    else { currentUser = user; syncUsage(); startCountdown(); }
 });
 
-/* ================= INIT SERVICES ================= */
+// INITIALIZE ALL SERVICES
+initUIService();
 initAttachmentService('image-upload', 'attach-btn', 'attachment-rack', 'image-preview-modal', 'modal-img');
-
-/* ================= UI LOGIC ================= */
-const sidebar = document.getElementById('code-sidebar');
-const codeOutput = document.getElementById('code-output');
-const thinkingStatus = document.getElementById('thinking-status');
-const previewFrame = document.getElementById('preview-frame');
-const previewContainer = document.getElementById('preview-container');
+initLiveEditor(document.getElementById('preview-frame'));
 
 async function syncUsage() {
     if (!currentUser) return;
     const usage = await getUsage(currentUser.uid);
-    const display = document.getElementById('credit-display');
-    if (display) display.innerText = `Daily: ${usage.dailyCount || 0}`;
+    document.getElementById('credit-display').innerText = `Credits: ${usage.dailyCount || 0}`;
 }
 
-const setPreviewSize = (type) => {
-    const btns = ['view-desktop', 'view-tablet', 'view-mobile'];
-    btns.forEach(id => document.getElementById(id)?.classList.remove('bg-white/10', 'text-white'));
-    btns.forEach(id => document.getElementById(id)?.classList.add('text-gray-500'));
+function startCountdown() {
+    let timeLeft = 3600 * 24; // Example 24h reset
+    setInterval(() => {
+        timeLeft--;
+        updateCountdown(timeLeft);
+    }, 1000);
+}
 
-    if (type === 'desktop') {
-        previewContainer.style.maxWidth = '1100px'; 
-        previewContainer.style.aspectRatio = '16/9';
-        previewFrame.style.width = '100%';
-        previewFrame.style.height = '100%';
-        document.getElementById('view-desktop').classList.add('bg-white/10', 'text-white');
-    } else if (type === 'tablet') {
-        previewContainer.style.maxWidth = '768px'; 
-        previewContainer.style.aspectRatio = '3/4';
-        previewFrame.style.width = '768px';
-        previewFrame.style.height = '1024px';
-        document.getElementById('view-tablet').classList.add('bg-white/10', 'text-white');
-    } else if (type === 'mobile') {
-        previewContainer.style.maxWidth = '375px'; 
-        previewContainer.style.aspectRatio = '9/16';
-        previewFrame.style.width = '375px';
-        previewFrame.style.height = '667px';
-        document.getElementById('view-mobile').classList.add('bg-white/10', 'text-white');
-    }
+// DEVICE TOGGLE (PERSISTED LOGIC)
+const setPreviewSize = (type) => {
+    const container = document.getElementById('preview-container');
+    const frame = document.getElementById('preview-frame');
+    const btns = { desktop: 'view-desktop', tablet: 'view-tablet', mobile: 'view-mobile' };
+    Object.values(btns).forEach(id => document.getElementById(id).classList.replace('text-white', 'text-gray-500'));
+    document.getElementById(btns[type]).classList.replace('text-gray-500', 'text-white');
+
+    if (type === 'desktop') { container.style.maxWidth = '1100px'; frame.style.width = '100%'; }
+    else if (type === 'tablet') { container.style.maxWidth = '768px'; frame.style.width = '768px'; }
+    else { container.style.maxWidth = '375px'; frame.style.width = '375px'; }
 };
 
-/* ================= NAVIGATION & RENAME ================= */
-document.getElementById('back-to-dashboard')?.addEventListener('click', () => {
-    window.location.href = "/dashboard";
-});
+document.getElementById('view-desktop').onclick = () => setPreviewSize('desktop');
+document.getElementById('view-tablet').onclick = () => setPreviewSize('tablet');
+document.getElementById('view-mobile').onclick = () => setPreviewSize('mobile');
 
-document.getElementById('project-name-display')?.addEventListener('click', () => {
-    const modal = document.getElementById('rename-modal');
-    document.getElementById('new-project-name').value = currentProjectName;
-    modal.style.display = 'flex';
-});
+// RENAME ACTION
+document.getElementById('confirm-rename').onclick = async () => {
+    const newName = document.getElementById('new-project-name').value;
+    const idToken = await currentUser.getIdToken();
+    await updateDoc(doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", currentProjectId), { projectName: newName });
+    await renameRemoteProject(currentProjectId, idToken, newName);
+    document.getElementById('project-name-display').innerText = newName;
+    document.getElementById('rename-modal').style.display = 'none';
+};
 
-document.getElementById('confirm-rename')?.addEventListener('click', async () => {
-    const newName = document.getElementById('new-project-name').value.trim();
-    if (newName && currentProjectId && currentUser) {
-        try {
-            const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", currentProjectId);
-            await updateDoc(projectRef, { projectName: newName });
-            currentProjectName = newName;
-            document.getElementById('project-name-display').innerText = newName;
-            document.getElementById('rename-modal').style.display = 'none';
-        } catch (e) { alert("Rename failed: " + e.message); }
-    }
-});
+// PUBLISH ACTION
+document.getElementById('confirm-publish').onclick = async () => {
+    const slug = document.getElementById('publish-slug').value;
+    const idToken = await currentUser.getIdToken();
+    const res = await deployProject(currentProjectId, idToken, { slug });
+    window.open(res.deploymentUrl, '_blank');
+};
 
-/* ================= EVENT LISTENERS ================= */
-document.getElementById('view-desktop')?.addEventListener('click', () => setPreviewSize('desktop'));
-document.getElementById('view-tablet')?.addEventListener('click', () => setPreviewSize('tablet'));
-document.getElementById('view-mobile')?.addEventListener('click', () => setPreviewSize('mobile'));
-document.getElementById('toggle-code')?.addEventListener('click', () => sidebar.classList.toggle('open'));
-document.getElementById('close-code')?.addEventListener('click', () => sidebar.classList.remove('open'));
-
-document.getElementById('generate-btn')?.addEventListener('click', async () => {
-    const prompt = document.getElementById('prompt-input').value.trim();
-    if (!prompt || !currentUser) return;
-
-    try {
-        document.getElementById('generate-btn').disabled = true;
-        codeOutput.innerText = "";
-        sidebar.classList.add('open');
-        
-        const idToken = await currentUser.getIdToken();
-        if (!currentProjectId) {
-            currentProjectId = await autoSaveProject(projectPages, prompt, null, currentUser.uid, "Start", "landing", "Project");
-        }
-
-        await generateProjectStream(
-            prompt, "vanilla", currentProjectId, idToken, 
-            (chunk) => {
-                codeOutput.innerText += chunk;
-                codeOutput.parentElement.scrollTop = codeOutput.parentElement.scrollHeight;
-            },
-            (status) => {
-                if (status.status === 'completed') {
-                    document.getElementById('generate-btn').disabled = false;
-                    thinkingStatus.innerText = "Build Finished";
-                    syncUsage();
-                }
-            },
-            (fileName) => {
-                thinkingStatus.innerHTML = `<span class="flex items-center gap-2"><span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span> Architecting: ${fileName}</span>`;
-            }
-        );
-        clearAttachments();
-    } catch (err) { alert(err.message); document.getElementById('generate-btn').disabled = false; }
-});
-
-document.getElementById('publish-btn')?.addEventListener('click', async () => {
-    if (!currentProjectId || !currentUser) return alert("Build a project first.");
-    const slug = prompt("Enter a site name (slug):");
-    if (!slug) return;
-
-    try {
-        const idToken = await currentUser.getIdToken();
-        const result = await deployProject(currentProjectId, idToken, { slug, framework: "vanilla" });
-        window.open(result.deploymentUrl, '_blank');
-    } catch (err) { alert(err.message); }
-});
-
-document.getElementById('logout-btn')?.addEventListener('click', () => signOut(auth));
+// GENERATE ACTION
+document.getElementById('generate-btn').onclick = async () => {
+    const prompt = document.getElementById('prompt-input').value;
+    const idToken = await currentUser.getIdToken();
+    if (!currentProjectId) currentProjectId = await autoSaveProject(projectPages, prompt, null, currentUser.uid, "Start", "landing", "Project");
+    
+    document.getElementById('code-sidebar').classList.add('open');
+    await generateProjectStream(prompt, "vanilla", currentProjectId, idToken, 
+        (chunk) => document.getElementById('code-output').innerText += chunk,
+        () => syncUsage(),
+        (file) => document.getElementById('thinking-status').innerText = `Architecting: ${file}`
+    );
+    clearAttachments();
+};
