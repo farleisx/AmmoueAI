@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>AmmoueAI | AI Builder</title>
     <link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -10,7 +10,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Geist:wght@100;300;400;500;600&display=swap');
-        body { font-family: 'Geist', sans-serif; background-color: #030303; color: #ededed; overflow: hidden; }
+        body { font-family: 'Geist', sans-serif; background-color: #030303; color: #ededed; overflow-x: hidden; }
         .canvas-grid {
             background-color: #0a0a0a;
             background-image: linear-gradient(#141414 1px, transparent 1px), linear-gradient(90deg, #141414 1px, transparent 1px);
@@ -22,7 +22,7 @@
             border: 1px solid rgba(255, 255, 255, 0.08);
             box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.5);
         }
-        .browser-mockup { box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 20px 50px rgba(0,0,0,0.3); transition: all 0.3s ease; }
+        .browser-mockup { box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 20px 50px rgba(0,0,0,0.3); transition: all 0.3s ease; flex-shrink: 0; }
         .prompt-container:focus-within { border-color: rgba(255, 255, 255, 0.15); background: rgba(15, 15, 15, 0.9); }
         .code-sidebar { width: 0; transition: width 0.3s ease; border-left: 1px solid rgba(255,255,255,0.06); background: #050505; overflow: hidden; }
         .code-sidebar.open { width: 400px; }
@@ -33,6 +33,13 @@
         #reset-counter:hover { width: 130px; background: rgba(255,255,255,0.1); }
         #reset-counter .full-time { opacity: 0; transition: opacity 0.2s; font-size: 10px; }
         #reset-counter:hover .full-time { opacity: 1; }
+
+        @media (max-width: 768px) {
+            .code-sidebar.open { width: 100%; position: absolute; right: 0; z-index: 60; }
+            #preview-container { height: 60vh !important; }
+            nav { padding: 0 10px; }
+            #project-name-display { max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col">
@@ -101,8 +108,8 @@
                 <i data-lucide="chevron-left" class="w-4 h-4 text-gray-500 group-hover:text-white"></i>
                 <div class="w-6 h-6 bg-white rounded-md flex items-center justify-center"><div class="w-3 h-3 bg-black rounded-sm"></div></div>
             </button>
-            <div class="h-4 w-[1px] bg-white/10"></div>
-            <div class="flex items-center gap-4 text-xs font-medium text-gray-500">
+            <div class="h-4 w-[1px] bg-white/10 hidden md:block"></div>
+            <div class="flex items-center gap-2 md:gap-4 text-xs font-medium text-gray-500">
                 <button id="project-name-display" class="text-white/80 hover:text-white transition cursor-pointer">lovable-clone</button>
                 <div id="reset-counter" class="text-white/40 bg-white/5 px-2 py-1 rounded-full flex items-center gap-2">
                     <span class="hours">--h</span>
@@ -111,32 +118,31 @@
                 <span id="credit-display" class="text-white/40 bg-white/5 px-2 py-1 rounded">Credits: --</span>
             </div>
         </div>
-        <div class="flex items-center gap-2">
-            <button id="download-btn" class="text-xs text-gray-400 px-3 py-1.5 hover:bg-white/5 rounded-md transition flex items-center gap-2">
-                <i data-lucide="download" class="w-3.5 h-3.5"></i> Export
+        <div class="flex items-center gap-1 md:gap-2">
+            <button id="download-btn" class="text-xs text-gray-400 px-2 md:px-3 py-1.5 hover:bg-white/5 rounded-md transition flex items-center gap-2">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i> <span class="hidden md:inline">Export</span>
             </button>
-            <button id="toggle-code" class="text-xs text-gray-400 px-3 py-1.5 hover:bg-white/5 rounded-md transition flex items-center gap-2">
-                <i data-lucide="code" class="w-3.5 h-3.5"></i> Code
+            <button id="toggle-code" class="text-xs text-gray-400 px-2 md:px-3 py-1.5 hover:bg-white/5 rounded-md transition flex items-center gap-2">
+                <i data-lucide="code" class="w-3.5 h-3.5"></i> <span class="hidden md:inline">Code</span>
             </button>
-            <button id="logout-btn" class="text-xs text-gray-400 px-3 py-1.5 hover:bg-white/5 rounded-md transition">Logout</button>
-            <button id="publish-btn" class="text-xs bg-white text-black px-4 py-1.5 rounded-md font-semibold hover:bg-emerald-400 transition">Publish</button>
+            <button id="publish-btn" class="text-xs bg-white text-black px-3 md:px-4 py-1.5 rounded-md font-semibold hover:bg-emerald-400 transition">Publish</button>
         </div>
     </nav>
 
     <div class="flex flex-1 relative overflow-hidden">
-        <aside class="w-12 border-r border-white/[0.06] flex flex-col items-center py-4 gap-6 bg-[#030303]">
+        <aside class="w-12 border-r border-white/[0.06] flex flex-col items-center py-4 gap-6 bg-[#030303] hidden md:flex">
             <i data-lucide="layout-grid" class="w-5 h-5 text-gray-500 hover:text-white cursor-pointer transition"></i>
             <i data-lucide="layers" class="w-5 h-5 text-gray-500 hover:text-white cursor-pointer transition"></i>
         </aside>
 
-        <main class="flex-1 canvas-grid relative flex flex-col items-center justify-start pt-12 p-8 overflow-auto transition-all">
+        <main class="flex-1 canvas-grid relative flex flex-col items-center justify-start pt-12 p-4 md:p-8 overflow-auto transition-all">
             <div class="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/40 p-1 rounded-lg border border-white/5 backdrop-blur-md z-30">
                 <button id="view-desktop" class="p-1.5 bg-white/10 rounded text-white transition"><i data-lucide="monitor" class="w-4 h-4"></i></button>
                 <button id="view-tablet" class="p-1.5 text-gray-500 hover:text-white transition"><i data-lucide="tablet" class="w-4 h-4"></i></button>
                 <button id="view-mobile" class="p-1.5 text-gray-500 hover:text-white transition"><i data-lucide="smartphone" class="w-4 h-4"></i></button>
             </div>
 
-            <div id="preview-container" class="w-full max-w-[1100px] aspect-video bg-white rounded-xl browser-mockup overflow-hidden flex flex-col">
+            <div id="preview-container" class="w-full max-w-[1100px] aspect-video bg-white rounded-xl browser-mockup overflow-hidden flex flex-col mb-32">
                 <div class="h-11 bg-[#f9f9f9] border-b border-gray-200 flex items-center px-4">
                     <div class="flex gap-2 w-1/4">
                         <div class="w-2.5 h-2.5 rounded-full bg-[#ff5f57]"></div>
@@ -150,19 +156,22 @@
                 </div>
             </div>
 
-            <div class="fixed bottom-10 left-1/2 -translate-x-1/2 w-full max-w-[700px] px-6">
+            <div class="fixed bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 w-full max-w-[700px] px-4 md:px-6 z-40">
                 <div id="attachment-rack" class="flex gap-2 mb-3 px-2"></div>
                 <div class="prompt-container rounded-[24px] p-1.5 flex items-center gap-2">
-                    <div class="flex-1 flex items-center px-4 gap-3">
-                        <i data-lucide="sparkles" class="w-4 h-4 text-gray-400"></i>
-                        <input type="text" id="prompt-input" placeholder="Edit your app..." class="bg-transparent w-full outline-none py-3 text-[15px]">
+                    <div class="flex-1 flex items-center px-2 md:px-4 gap-2 md:gap-3">
+                        <i data-lucide="sparkles" class="w-4 h-4 text-gray-400 flex-shrink-0"></i>
+                        <input type="text" id="prompt-input" placeholder="Edit your app..." class="bg-transparent w-full outline-none py-3 text-[14px] md:text-[15px]">
                     </div>
-                    <div class="flex items-center gap-1">
+                    <div class="flex items-center gap-0.5 md:gap-1">
+                        <button id="voice-btn" class="p-2 md:p-2.5 text-gray-500 hover:text-white transition">
+                            <i data-lucide="mic" class="w-4 h-4"></i>
+                        </button>
                         <input type="file" id="image-upload" accept="image/*" class="hidden" multiple>
-                        <button id="attach-btn" class="p-2.5 text-gray-500 hover:text-white transition">
+                        <button id="attach-btn" class="p-2 md:p-2.5 text-gray-500 hover:text-white transition">
                             <i data-lucide="paperclip" class="w-4 h-4"></i>
                         </button>
-                        <button id="generate-btn" class="bg-[#ededed] text-black h-10 px-5 rounded-[18px] text-sm font-semibold transition">Generate</button>
+                        <button id="generate-btn" class="bg-[#ededed] text-black h-10 px-3 md:px-5 rounded-[18px] text-sm font-semibold transition">Generate</button>
                     </div>
                 </div>
             </div>
