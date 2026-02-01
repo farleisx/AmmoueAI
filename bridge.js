@@ -211,7 +211,7 @@ if (document.getElementById('generate-btn')) {
             const display = document.getElementById('credit-display');
             display.classList.add('animate-shake', 'brightness-150');
             setTimeout(() => display.classList.remove('animate-shake', 'brightness-150'), 500);
-            showCustomAlert("Limit Reached", "You have used all your daily credits. Wait for the reset!");
+            document.getElementById('checkout-modal').style.display = 'flex';
             return;
         }
 
@@ -508,6 +508,23 @@ async function fetchProjectHistory() {
     } catch (e) {
         console.error("Error loading history", e);
     }
+}
+
+// CHECKOUT LOGIC
+if (document.getElementById('checkout-pro-btn')) {
+    document.getElementById('checkout-pro-btn').onclick = async () => {
+        const btn = document.getElementById('checkout-pro-btn');
+        btn.innerText = "Processing...";
+        btn.disabled = true;
+        
+        const userRef = doc(db, "users", currentUser.uid);
+        await updateDoc(userRef, { 
+            plan: "pro", 
+            dailyCount: 0 
+        });
+        
+        window.location.reload();
+    };
 }
 
 document.addEventListener('DOMContentLoaded', () => {
