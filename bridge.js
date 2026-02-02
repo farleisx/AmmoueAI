@@ -639,17 +639,7 @@ async function fetchProjectHistory() {
 // CHECKOUT LOGIC
 if (document.getElementById('checkout-pro-btn')) {
     document.getElementById('checkout-pro-btn').onclick = async () => {
-        const btn = document.getElementById('checkout-pro-btn');
-        btn.innerText = "Processing...";
-        btn.disabled = true;
-        
-        const userRef = doc(db, "users", currentUser.uid);
-        await updateDoc(userRef, { 
-            plan: "pro", 
-            dailyCount: 0 
-        });
-        
-        window.location.reload();
+        window.location.href = "/upgrade";
     };
 }
 
