@@ -265,13 +265,14 @@ STRICT TECHNICAL RULES:
 1. Generate EVERY file required for the ${targetFramework} stack: ${activeStack.requiredFiles.join(", ")}.
 2. You MUST include a "src/context/ThemeContext.jsx" file for ALL React projects to prevent build crashes.
 3. For Next.js/React: Use JSX/TSX. DO NOT use plain HTML tags or CDN scripts in .jsx files.
-4. You MUST use EXACTLY this marker format for EVERY file:
+4. IMPORTANT: If using libraries like 'framer-motion' or 'lucide-react', you MUST include them in the 'dependencies' section of package.json.
+5. You MUST use EXACTLY this marker format for EVERY file:
 /* [NEW_PAGE: filename] */
 Code goes here...
 /* [END_PAGE] */
-5. Output ONLY code inside markers. No conversation.
-6. MEDIA: Use these URLs: Images: ${JSON.stringify(assets.images)}, Videos: ${JSON.stringify(assets.videos)}
-7. LOGS: Use [ACTION: Task Name] before file blocks.
+6. Output ONLY code inside markers. No conversation.
+7. MEDIA: Use these URLs: Images: ${JSON.stringify(assets.images)}, Videos: ${JSON.stringify(assets.videos)}
+8. LOGS: Use [ACTION: Task Name] before file blocks.
 `;
 
     const model = genAI.getGenerativeModel({ model: API_MODEL, systemInstruction });
@@ -282,7 +283,7 @@ Code goes here...
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ status: "initializing", remaining: rate.remaining, resetAt: rate.resetAt })}\n\n`));
 
         const result = await model.generateContentStream({
-          contents: [{ role: "user", parts: [{ text: `Generate a breathtaking, ultra-premium multi-page project for: ${prompt}. Use the ${targetFramework} stack. Focus on insane UI design and complete file integrity.` }] }]
+          contents: [{ role: "user", parts: [{ text: `Generate a breathtaking, ultra-premium multi-page project for: ${prompt}. Use the ${targetFramework} stack. Focus on insane UI design and complete file integrity. Ensure package.json includes all imported libraries to prevent 'Rollup failed to resolve import' errors.` }] }]
         });
 
         let fullGeneratedText = "";
