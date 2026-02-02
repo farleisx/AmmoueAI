@@ -73,6 +73,23 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        /* DASHBOARD HOVER ANIMATION */
+        @keyframes arrow-push {
+            0%, 100% { transform: translateX(0); }
+            50% { transform: translateX(-4px); }
+        }
+        @keyframes cube-backflip {
+            0% { transform: rotateX(0deg); }
+            100% { transform: rotateX(-360deg); }
+        }
+        #back-to-dashboard:hover .lucide-chevron-left {
+            animation: arrow-push 0.8s infinite ease-in-out;
+        }
+        #back-to-dashboard:hover .rounded-md.flex.items-center.justify-center {
+            animation: cube-backflip 0.8s infinite cubic-bezier(0.45, 0.05, 0.55, 0.95);
+            perspective: 1000px;
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col">
