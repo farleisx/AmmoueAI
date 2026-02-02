@@ -203,25 +203,54 @@ if (document.getElementById('confirm-publish')) {
         };
 
         try {
-            updateProgress(20, "Cleaning Build Context...");
+            updateProgress(10, "Initializing deployment...");
             const idToken = await currentUser.getIdToken();
             
-            updateProgress(50, "Resolving Module Tree...");
-            // Patch: Ensure vercel.json is optimized for static serving to avoid CLI routing conflicts
+            updateProgress(30, "Optimizing assets...");
             projectFiles['vercel.json'] = JSON.stringify({ 
                 "version": 2, 
                 "cleanUrls": true,
                 "trailingSlash": false
             }, null, 2);
 
+            updateProgress(50, "Uploading files to Vercel...");
             const res = await deployProject(currentProjectId, idToken, { slug, files: projectFiles });
             
-            updateProgress(100, "Redirecting to site...");
+            updateProgress(70, "Waiting for build completion...");
+            
+            // Poll for deployment status if available, otherwise artificial delay for propagation
+            let ready = false;
+            let attempts = 0;
+            while(!ready && attempts < 10) {
+                updateProgress(70 + (attempts * 2), "Verifying live status...");
+                await new Promise(r => setTimeout(r, 2000));
+                try {
+                    const check = await fetch(res.deploymentUrl, { mode: 'no-cors' });
+                    ready = true;
+                } catch(e) {
+                    attempts++;
+                }
+            }
+
+            updateProgress(100, "Site is live!");
+            
+            // Show link persistent
+            const linkArea = document.getElementById('deployment-link-area');
+            if(linkArea) {
+                linkArea.innerHTML = `<a href="${res.deploymentUrl}" target="_blank" class="text-emerald-400 text-xs font-mono hover:underline flex items-center justify-center gap-1 mt-2"><i data-lucide="external-link" class="w-3 h-3"></i> ${res.deploymentUrl}</a>`;
+                linkArea.classList.remove('hidden');
+                lucide.createIcons();
+            }
+
+            // Store in Firestore
+            const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", currentProjectId);
+            await updateDoc(projectRef, { lastDeploymentUrl: res.deploymentUrl });
+
             setTimeout(() => {
                 window.open(res.deploymentUrl, '_blank');
                 document.getElementById('publish-modal').style.display = 'none';
                 if(progressContainer) progressContainer.classList.add('hidden');
-            }, 1000);
+            }, 1500);
         } catch (e) {
             showCustomAlert("Publish Failed", e.message);
             if(progressContainer) progressContainer.classList.add('hidden');
@@ -290,12 +319,14 @@ if (document.getElementById('generate-btn')) {
                 },
                 async () => {
                     await syncUsage();
-                    resetGenerateButton();
+                    // Final refresh before UI reset to ensure button stays "Stop" until full data is saved
                     await refreshFileState();
+                    resetGenerateButton();
                 },
                 (file) => {
                     const status = document.getElementById('thinking-status');
                     if (status) status.innerText = `Architecting: ${file}`;
+                    showActionLine(`Updated ${file}`);
                 },
                 abortController.signal
             );
@@ -307,6 +338,20 @@ if (document.getElementById('generate-btn')) {
         }
         clearAttachments();
     };
+}
+
+function showActionLine(text) {
+    const container = document.getElementById('action-lines-container');
+    if(!container) return;
+    const line = document.createElement('div');
+    line.className = "action-line text-[10px] text-white/40 font-mono bg-white/5 px-2 py-1 rounded-full whitespace-nowrap border border-white/5 flex items-center gap-1.5";
+    line.innerHTML = `<span class="w-1 h-1 bg-emerald-500 rounded-full animate-pulse"></span> ${text}`;
+    container.appendChild(line);
+    container.scrollLeft = container.scrollWidth;
+    setTimeout(() => {
+        line.style.opacity = '0';
+        setTimeout(() => line.remove(), 500);
+    }, 4000);
 }
 
 function updateGenerateButtonToStop() {
@@ -374,6 +419,7 @@ function updatePreview() {
     if (!frame) return;
     
     const content = projectFiles[activeFile] || "";
+    // If we have content in index.html, render it immediately during generation
     if (!content && activeFile === "index.html") return;
 
     let blob;
@@ -443,6 +489,16 @@ async function refreshFileState() {
         Object.keys(data).forEach(k => {
             projectFiles[k] = data[k].content || "";
         });
+        
+        if (snap.data().lastDeploymentUrl) {
+            const linkArea = document.getElementById('deployment-link-area');
+            if(linkArea) {
+                linkArea.innerHTML = `<a href="${snap.data().lastDeploymentUrl}" target="_blank" class="text-emerald-400 text-xs font-mono hover:underline flex items-center justify-center gap-1 mt-2"><i data-lucide="external-link" class="w-3 h-3"></i> ${snap.data().lastDeploymentUrl}</a>`;
+                linkArea.classList.remove('hidden');
+                lucide.createIcons();
+            }
+        }
+
         updateFileTabsUI();
         displayActiveFile();
     }
