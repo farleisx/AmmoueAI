@@ -11,7 +11,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
 const GOOGLE_CX = process.env.GOOGLE_CX;
 const GOOGLE_SEARCH_KEY = process.env.GOOGLE_SEARCH_KEY;
-const API_MODEL = "gemini-2.5-flash"; // keep 2.5 And keep this comment
+const API_MODEL = "gemini-2.0-flash"; // keep 2.5 And keep this comment
 const SERVICE_ACCOUNT = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 const PROJECT_ID = SERVICE_ACCOUNT.project_id;
 
@@ -29,7 +29,7 @@ const STACK_PRESETS = {
     frontend: "React 18+, Vite, Tailwind CSS",
     backend: "Vercel Serverless Functions",
     structure: "Vite Project Structure",
-    requiredFiles: ["package.json", "vite.config.js", "index.html", "src/main.jsx", "src/App.jsx", "src/index.css", "vercel.json", "README.md"]
+    requiredFiles: ["package.json", "vite.config.js", "index.html", "src/main.jsx", "src/App.jsx", "src/index.css", "src/context/ThemeContext.jsx", "vercel.json", "README.md"]
   },
   "nextjs": {
     frontend: "Next.js (App Router), Tailwind CSS",
@@ -250,20 +250,28 @@ export default async function handler(req) {
     const assets = await fetchPexelsAssets(prompt, genAI);
 
     const systemInstruction = `
-ROLE: ELITE FULL-STACK SOFTWARE ARCHITECT.
+ROLE: WORLD-CLASS ELITE SOFTWARE ARCHITECT & AWARD-WINNING UI/UX DESIGNER.
+GOAL: Create a website so visually stunning, technically perfect, and "insane" that it looks like the work of a 1M IQ god-tier developer. 
 FRAMEWORK: ${targetFramework.toUpperCase()}
 STACK SPEC: ${JSON.stringify(activeStack)}
 
-STRICT RULES:
+DESIGN PHILOSOPHY:
+- Use ultra-modern, cutting-edge aesthetics: Glassmorphism, Bento Grids, Neo-brutalism, or highly polished dark-mode luxury.
+- Implement complex, high-end Tailwind CSS animations (framer-motion style logic).
+- Layouts must be breathtakingly unique, NOT generic templates. Think Apple-level polish.
+- Typography must be bold and professional. Use whitespace like a master.
+
+STRICT TECHNICAL RULES:
 1. Generate EVERY file required for the ${targetFramework} stack: ${activeStack.requiredFiles.join(", ")}.
-2. For Next.js/React: You MUST use JSX/TSX syntax. DO NOT use plain HTML tags or CDN scripts in .jsx files. Ensure App Router logic for Next.js.
-3. You MUST use EXACTLY this marker format for EVERY file:
+2. You MUST include a "src/context/ThemeContext.jsx" file for ALL React projects to prevent build crashes.
+3. For Next.js/React: Use JSX/TSX. DO NOT use plain HTML tags or CDN scripts in .jsx files.
+4. You MUST use EXACTLY this marker format for EVERY file:
 /* [NEW_PAGE: filename] */
 Code goes here...
 /* [END_PAGE] */
-4. Output ONLY code inside markers. No conversation. No markdown code blocks like \`\`\` outside the markers.
-5. MEDIA: Use these URLs: Images: ${JSON.stringify(assets.images)}, Videos: ${JSON.stringify(assets.videos)}
-6. LOGS: Use [ACTION: Task Name] before file blocks.
+5. Output ONLY code inside markers. No conversation.
+6. MEDIA: Use these URLs: Images: ${JSON.stringify(assets.images)}, Videos: ${JSON.stringify(assets.videos)}
+7. LOGS: Use [ACTION: Task Name] before file blocks.
 `;
 
     const model = genAI.getGenerativeModel({ model: API_MODEL, systemInstruction });
@@ -274,7 +282,7 @@ Code goes here...
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ status: "initializing", remaining: rate.remaining, resetAt: rate.resetAt })}\n\n`));
 
         const result = await model.generateContentStream({
-          contents: [{ role: "user", parts: [{ text: `Generate a full multi-page project for: ${prompt}. Use the ${targetFramework} stack.` }] }]
+          contents: [{ role: "user", parts: [{ text: `Generate a breathtaking, ultra-premium multi-page project for: ${prompt}. Use the ${targetFramework} stack. Focus on insane UI design and complete file integrity.` }] }]
         });
 
         let fullGeneratedText = "";
