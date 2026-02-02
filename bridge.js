@@ -122,6 +122,11 @@ if (document.getElementById('project-name-display')) {
 
 if (document.getElementById('publish-btn')) {
     document.getElementById('publish-btn').onclick = () => {
+        const currentName = document.getElementById('project-name-display').innerText;
+        const slugInput = document.getElementById('publish-slug');
+        if (slugInput && currentName) {
+            slugInput.value = currentName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+        }
         document.getElementById('publish-modal').style.display = 'flex';
     };
 }
@@ -669,3 +674,78 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     runTypingEffect();
 });
+
+// ADDITIVE LOGIC: GITHUB EXPORT HANDLER
+if (document.getElementById('export-github-btn')) {
+    document.getElementById('export-github-btn').onclick = async () => {
+        if (!currentProjectId) {
+            showCustomAlert("Wait!", "You need an active project to export to GitHub.");
+            return;
+        }
+
+        const btn = document.getElementById('export-github-btn');
+        const originalContent = btn.innerHTML;
+        const progressContainer = document.getElementById('publish-progress-container');
+        const progressBar = document.getElementById('publish-progress-bar');
+        const progressText = document.getElementById('publish-progress-text');
+
+        const updateProgress = (pct, msg) => {
+            if(progressBar) progressBar.style.width = `${pct}%`;
+            if(progressText) progressText.innerText = msg;
+        };
+
+        try {
+            btn.disabled = true;
+            btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto"></i>`;
+            lucide.createIcons();
+            
+            if(progressContainer) progressContainer.classList.remove('hidden');
+            updateProgress(20, "Authenticating with GitHub...");
+
+            const idToken = await currentUser.getIdToken();
+            const projectName = document.getElementById('project-name-display').innerText;
+
+            const response = await fetch('/api/github/export', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`
+                },
+                body: JSON.stringify({
+                    projectId: currentProjectId,
+                    projectName: projectName,
+                    files: projectFiles
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.message || "Failed to export to GitHub");
+            }
+
+            const data = await response.json();
+            updateProgress(100, "Successfully pushed to GitHub!");
+
+            const linkArea = document.getElementById('deployment-link-area');
+            if(linkArea) {
+                linkArea.innerHTML = `<a href="${data.repoUrl}" target="_blank" class="text-emerald-400 text-xs font-mono hover:underline flex items-center justify-center gap-1 mt-2"><i data-lucide="github" class="w-3 h-3"></i> View on GitHub</a>`;
+                linkArea.classList.remove('hidden');
+                lucide.createIcons();
+            }
+
+            setTimeout(() => {
+                window.open(data.repoUrl, '_blank');
+                document.getElementById('publish-modal').style.display = 'none';
+                if(progressContainer) progressContainer.classList.add('hidden');
+            }, 1500);
+
+        } catch (e) {
+            showCustomAlert("GitHub Export Failed", e.message);
+            if(progressContainer) progressContainer.classList.add('hidden');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+            lucide.createIcons();
+        }
+    };
+}
