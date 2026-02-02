@@ -216,41 +216,41 @@ if (document.getElementById('confirm-publish')) {
             updateProgress(50, "Uploading files to Vercel...");
             const res = await deployProject(currentProjectId, idToken, { slug, files: projectFiles });
             
-            updateProgress(70, "Waiting for build completion...");
-            
-            // Poll for deployment status if available, otherwise artificial delay for propagation
-            let ready = false;
+            const deploymentId = res.id;
+            let isReady = false;
             let attempts = 0;
-            while(!ready && attempts < 10) {
-                updateProgress(70 + (attempts * 2), "Verifying live status...");
-                await new Promise(r => setTimeout(r, 2000));
-                try {
-                    const check = await fetch(res.deploymentUrl, { mode: 'no-cors' });
-                    ready = true;
-                } catch(e) {
+
+            while (!isReady && attempts < 60) {
+                updateProgress(70 + (attempts * 0.5), "Vercel is building your site...");
+                const checkRes = await fetch(`/api/check-deployment?deploymentId=${deploymentId}`);
+                const statusData = await checkRes.json();
+
+                if (statusData.status === 'READY') {
+                    isReady = true;
+                    updateProgress(100, "Site is live!");
+                    
+                    const linkArea = document.getElementById('deployment-link-area');
+                    if(linkArea) {
+                        linkArea.innerHTML = `<a href="${statusData.url}" target="_blank" class="text-emerald-400 text-xs font-mono hover:underline flex items-center justify-center gap-1 mt-2"><i data-lucide="external-link" class="w-3 h-3"></i> ${statusData.url}</a>`;
+                        linkArea.classList.remove('hidden');
+                        lucide.createIcons();
+                    }
+
+                    const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", currentProjectId);
+                    await updateDoc(projectRef, { lastDeploymentUrl: statusData.url });
+
+                    setTimeout(() => {
+                        window.open(statusData.url, '_blank');
+                        document.getElementById('publish-modal').style.display = 'none';
+                        if(progressContainer) progressContainer.classList.add('hidden');
+                    }, 1000);
+                } else if (statusData.status === 'ERROR') {
+                    throw new Error("Vercel build failed.");
+                } else {
                     attempts++;
+                    await new Promise(r => setTimeout(r, 2000));
                 }
             }
-
-            updateProgress(100, "Site is live!");
-            
-            // Show link persistent
-            const linkArea = document.getElementById('deployment-link-area');
-            if(linkArea) {
-                linkArea.innerHTML = `<a href="${res.deploymentUrl}" target="_blank" class="text-emerald-400 text-xs font-mono hover:underline flex items-center justify-center gap-1 mt-2"><i data-lucide="external-link" class="w-3 h-3"></i> ${res.deploymentUrl}</a>`;
-                linkArea.classList.remove('hidden');
-                lucide.createIcons();
-            }
-
-            // Store in Firestore
-            const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", currentProjectId);
-            await updateDoc(projectRef, { lastDeploymentUrl: res.deploymentUrl });
-
-            setTimeout(() => {
-                window.open(res.deploymentUrl, '_blank');
-                document.getElementById('publish-modal').style.display = 'none';
-                if(progressContainer) progressContainer.classList.add('hidden');
-            }, 1500);
         } catch (e) {
             showCustomAlert("Publish Failed", e.message);
             if(progressContainer) progressContainer.classList.add('hidden');
@@ -318,7 +318,6 @@ if (document.getElementById('generate-btn')) {
                     renderFileTabsFromRaw(fullRawText);
                 },
                 async (statusUpdate) => {
-                    // Fix: Only reset UI once the generation status is explicitly 'completed'
                     if (statusUpdate && statusUpdate.status === 'completed') {
                         await syncUsage();
                         await refreshFileState();
@@ -425,13 +424,12 @@ function updatePreview() {
 
     let blob;
     if (activeFile.endsWith('.html')) {
-        // Resolve cross-file links for the preview
         let resolvedContent = content;
         Object.keys(projectFiles).forEach(fileName => {
             if (fileName !== activeFile) {
                 const escapedFileName = fileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 const fileContent = projectFiles[fileName];
-                const fileBlob = new Blob([fileContent], { type: activeFile.endsWith('.html') ? 'text/html' : 'text/javascript' });
+                const fileBlob = new Blob([fileContent], { type: 'text/html' });
                 const fileUrl = URL.createObjectURL(fileBlob);
                 resolvedContent = resolvedContent.replace(new RegExp(escapedFileName, 'g'), fileUrl);
             }
@@ -463,7 +461,6 @@ function updatePreview() {
     frame.onload = () => {
         if (!activeFile.endsWith('.html')) return;
         const doc = frame.contentDocument || frame.contentWindow.document;
-        // Inject In-Preview Editing
         const style = doc.createElement('style');
         style.innerHTML = `[contenteditable="true"]:focus { outline: 2px solid #10b981; border-radius: 4px; }`;
         doc.head.appendChild(style);
@@ -478,10 +475,9 @@ function updatePreview() {
 }
 
 async function syncPreviewToCode(newHTML) {
-    if (activeFile !== 'index.html') return; // Only sync back for main file for now
+    if (activeFile !== 'index.html') return;
     projectFiles["index.html"] = newHTML;
     displayActiveFile();
-    // Auto-save to DB
     if (currentProjectId && currentUser) {
         const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", currentProjectId);
         await updateDoc(projectRef, { 
@@ -523,7 +519,6 @@ async function loadExistingProject(pid) {
     const snap = await getDoc(projectRef);
     if (snap.exists()) {
         document.getElementById('project-name-display').innerText = snap.data().projectName || "Untitled";
-        // Ensure state is updated on current page without reload
         const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?id=' + pid;
         window.history.pushState({ path: newUrl }, '', newUrl);
     }
