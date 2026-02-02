@@ -30,11 +30,14 @@ export default async function handler(req, res) {
       'Content-Type': 'application/json'
     };
 
-    // 3. Get the latest commit SHA
+    // 3. Check if the branch exists to get the latest commit SHA
+    let latestCommitSha = null;
     const refRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/refs/heads/${GITHUB_BRANCH}`, { headers });
-    if (!refRes.ok) throw new Error(`GitHub Branch ${GITHUB_BRANCH} not found.`);
-    const refData = await refRes.json();
-    const latestCommitSha = refData.object.sha;
+    
+    if (refRes.ok) {
+        const refData = await refRes.json();
+        latestCommitSha = refData.object.sha;
+    }
 
     // 4. Create Git Tree
     const treeItems = Object.entries(files).map(([path, content]) => ({
@@ -44,13 +47,13 @@ export default async function handler(req, res) {
       content: content
     }));
 
+    const treeBody = { tree: treeItems };
+    if (latestCommitSha) treeBody.base_tree = latestCommitSha;
+
     const treeRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/trees`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({
-        base_tree: latestCommitSha,
-        tree: treeItems
-      })
+      body: JSON.stringify(treeBody)
     });
     const treeData = await treeRes.json();
 
@@ -61,17 +64,27 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         message: `Update: ${projectName} (${projectId})`,
         tree: treeData.sha,
-        parents: [latestCommitSha]
+        parents: latestCommitSha ? [latestCommitSha] : []
       })
     });
     const commitData = await commitRes.json();
 
-    // 6. Update Branch Ref
-    await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/refs/heads/${GITHUB_BRANCH}`, {
-      method: 'PATCH',
+    // 6. Update or Create Branch Ref
+    const refUrl = `https://api.github.com/repos/${GITHUB_REPO}/git/refs/heads/${GITHUB_BRANCH}`;
+    const finalRes = await fetch(latestCommitSha ? refUrl : `https://api.github.com/repos/${GITHUB_REPO}/git/refs`, {
+      method: latestCommitSha ? 'PATCH' : 'POST',
       headers,
-      body: JSON.stringify({ sha: commitData.sha })
+      body: JSON.stringify(
+        latestCommitSha 
+          ? { sha: commitData.sha } 
+          : { ref: `refs/heads/${GITHUB_BRANCH}`, sha: commitData.sha }
+      )
     });
+
+    if (!finalRes.ok) {
+        const errorDetail = await finalRes.text();
+        throw new Error(`GitHub Ref Update Failed: ${errorDetail}`);
+    }
 
     res.status(200).json({ 
       success: true, 
