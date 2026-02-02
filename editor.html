@@ -306,7 +306,7 @@
         if (activeFile === fileName) return;
         projectPages[activeFile] = cmEditor.getValue();
         activeFile = fileName;
-        cmEditor.setValue(projectPages[fileName] || "");
+        cmEditor.setValue(String(projectPages[fileName] ?? ""));
         renderTabs();
         updateLivePreview();
     }
@@ -456,7 +456,14 @@
                 originalCodeBeforeAi = JSON.parse(JSON.stringify(projectPages));
                 pendingAiCode = data.pages;
                 projectPages = data.pages;
-                cmEditor.setValue(projectPages[activeFile]);
+
+                for (const key in projectPages) {
+                    if (typeof projectPages[key] !== "string") {
+                        projectPages[key] = "";
+                    }
+                }
+
+                cmEditor.setValue(String(projectPages[activeFile] ?? ""));
                 renderTabs();
                 updateLivePreview();
                 aiReviewBar.classList.remove('hidden');
@@ -482,7 +489,7 @@
 
     document.getElementById('reject-ai').onclick = () => {
         projectPages = originalCodeBeforeAi;
-        cmEditor.setValue(projectPages[activeFile]);
+        cmEditor.setValue(String(projectPages[activeFile] ?? ""));
         renderTabs();
         updateLivePreview();
         pendingAiCode = null;
@@ -517,15 +524,20 @@
                 // Handle legacy migration from htmlContent to pages
                 if (data.pages) {
                     projectPages = data.pages;
+                    for (const key in projectPages) {
+                        if (typeof projectPages[key] !== "string") {
+                            projectPages[key] = "";
+                        }
+                    }
                 } else if (data.htmlContent) {
-                    projectPages = { "index.html": data.htmlContent };
+                    projectPages = { "index.html": String(data.htmlContent ?? "") };
                 }
 
                 cmEditor = CodeMirror.fromTextArea(document.getElementById('code-editor'), {
                     mode: "htmlmixed", theme: "dracula", lineNumbers: true, lineWrapping: true
                 });
 
-                cmEditor.setValue(projectPages[activeFile] || "");
+                cmEditor.setValue(String(projectPages[activeFile] ?? ""));
                 cmEditor.on('change', () => { if(!pendingAiCode) { markDirty(true); updateLivePreview(); } });
 
                 renderTabs();
