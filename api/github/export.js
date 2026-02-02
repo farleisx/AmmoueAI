@@ -2,82 +2,81 @@
 import { admin } from "../../fire_prompt_admin.js";
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method Not Allowed' });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ message: 'Method Not Allowed' });
 
   const { projectId, projectName, files } = req.body;
   const authHeader = req.headers.authorization;
 
-  if (!authHeader) {
-    return res.status(401).json({ message: 'Missing Authorization Header' });
-  }
-
+  if (!authHeader) return res.status(401).json({ message: 'Missing Authorization Header' });
   const idToken = authHeader.split('Bearer ')[1];
 
   try {
-    // 1. Verify Identity and get UID from Firebase
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     const uid = decodedToken.uid;
 
-    // 2. Load GitHub Config
     const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
     const GITHUB_REPO = process.env.GITHUB_REPO; 
     const GITHUB_BRANCH = process.env.GITHUB_BRANCH || 'main';
 
+    // Added User-Agent which GitHub sometimes requires
     const headers = {
       'Authorization': `token ${GITHUB_TOKEN}`,
       'Accept': 'application/vnd.github.v3+json',
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'User-Agent': 'AmmoueAI-App' 
     };
 
-    // 3. Check if the branch exists
+    // 1. Initial Auth Check (Verify token works before doing work)
+    const authCheck = await fetch(`https://api.github.com/user`, { headers });
+    if (authCheck.status === 401) {
+        throw new Error("GitHub Token is invalid or expired. Check Vercel Env Variables and Redeploy.");
+    }
+
+    // 2. Check Branch
     let latestCommitSha = null;
     const refRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/refs/heads/${GITHUB_BRANCH}`, { headers });
-    
     if (refRes.ok) {
         const refData = await refRes.json();
         latestCommitSha = refData.object.sha;
     }
 
-    // 4. Create Git Tree (Saving into user-specific folders)
+    // 3. Create Tree
     const treeItems = Object.entries(files).map(([path, content]) => ({
-      path: `exports/${uid}/${projectId}/${path}`, // Organized path
+      path: `exports/${uid}/${projectId}/${path}`,
       mode: '100644',
       type: 'blob',
       content: content
     }));
 
-    const treeBody = { tree: treeItems };
-    if (latestCommitSha) treeBody.base_tree = latestCommitSha;
-
     const treeRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/trees`, {
       method: 'POST',
       headers,
-      body: JSON.stringify(treeBody)
+      body: JSON.stringify({
+        tree: treeItems,
+        base_tree: latestCommitSha || undefined
+      })
     });
     
     if (!treeRes.ok) {
         const treeErr = await treeRes.text();
-        throw new Error(`Tree Creation Failed: ${treeErr}`);
+        throw new Error(`GitHub rejected tree creation: ${treeErr}`);
     }
     const treeData = await treeRes.json();
 
-    // 5. Create Commit
+    // 4. Create Commit
     const commitRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/commits`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        message: `Export: ${projectName} by user ${uid}`,
+        message: `Export: ${projectName}`,
         tree: treeData.sha,
         parents: latestCommitSha ? [latestCommitSha] : []
       })
     });
     const commitData = await commitRes.json();
 
-    // 6. Update or Create Branch Ref
-    const refUrl = `https://api.github.com/repos/${GITHUB_REPO}/git/refs/heads/${GITHUB_BRANCH}`;
-    const finalRes = await fetch(latestCommitSha ? refUrl : `https://api.github.com/repos/${GITHUB_REPO}/git/refs`, {
+    // 5. Update Ref
+    const finalRes = await fetch(latestCommitSha ? `https://api.github.com/repos/${GITHUB_REPO}/git/refs/heads/${GITHUB_BRANCH}` : `https://api.github.com/repos/${GITHUB_REPO}/git/refs`, {
       method: latestCommitSha ? 'PATCH' : 'POST',
       headers,
       body: JSON.stringify(
@@ -87,18 +86,12 @@ export default async function handler(req, res) {
       )
     });
 
-    if (!finalRes.ok) {
-        const errorDetail = await finalRes.text();
-        throw new Error(`GitHub Ref Update Failed (Bad Credentials or Permission): ${errorDetail}`);
-    }
-
     res.status(200).json({ 
       success: true, 
       repoUrl: `https://github.com/${GITHUB_REPO}/tree/${GITHUB_BRANCH}/exports/${uid}/${projectId}`
     });
 
   } catch (error) {
-    console.error('Export Error:', error);
     res.status(500).json({ message: error.message });
   }
 }
