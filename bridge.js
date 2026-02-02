@@ -317,11 +317,13 @@ if (document.getElementById('generate-btn')) {
                     fullRawText += chunk;
                     renderFileTabsFromRaw(fullRawText);
                 },
-                async () => {
-                    await syncUsage();
-                    // Final refresh before UI reset to ensure button stays "Stop" until full data is saved
-                    await refreshFileState();
-                    resetGenerateButton();
+                async (statusUpdate) => {
+                    // Fix: Only reset UI once the generation status is explicitly 'completed'
+                    if (statusUpdate && statusUpdate.status === 'completed') {
+                        await syncUsage();
+                        await refreshFileState();
+                        resetGenerateButton();
+                    }
                 },
                 (file) => {
                     const status = document.getElementById('thinking-status');
@@ -650,6 +652,17 @@ if (document.getElementById('checkout-pro-btn')) {
         window.location.reload();
     };
 }
+
+// ADDITIVE LOGIC: Explorer Scroll Buttons
+const explorerScroll = (direction) => {
+    const tabs = document.getElementById('file-tabs');
+    if (tabs) {
+        const offset = direction === 'left' ? -150 : 150;
+        tabs.scrollBy({ left: offset, behavior: 'smooth' });
+    }
+};
+
+window.explorerScroll = explorerScroll;
 
 document.addEventListener('DOMContentLoaded', () => {
     const nameDisplay = document.getElementById('project-name-display');
