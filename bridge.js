@@ -421,12 +421,22 @@ function updatePreview() {
     if (!frame) return;
     
     const content = projectFiles[activeFile] || "";
-    // If we have content in index.html, render it immediately during generation
     if (!content && activeFile === "index.html") return;
 
     let blob;
     if (activeFile.endsWith('.html')) {
-        blob = new Blob([content], { type: 'text/html' });
+        // Resolve cross-file links for the preview
+        let resolvedContent = content;
+        Object.keys(projectFiles).forEach(fileName => {
+            if (fileName !== activeFile) {
+                const escapedFileName = fileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const fileContent = projectFiles[fileName];
+                const fileBlob = new Blob([fileContent], { type: activeFile.endsWith('.html') ? 'text/html' : 'text/javascript' });
+                const fileUrl = URL.createObjectURL(fileBlob);
+                resolvedContent = resolvedContent.replace(new RegExp(escapedFileName, 'g'), fileUrl);
+            }
+        });
+        blob = new Blob([resolvedContent], { type: 'text/html' });
     } else {
         const escapedContent = content.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         const formattedViewer = `
@@ -513,6 +523,9 @@ async function loadExistingProject(pid) {
     const snap = await getDoc(projectRef);
     if (snap.exists()) {
         document.getElementById('project-name-display').innerText = snap.data().projectName || "Untitled";
+        // Ensure state is updated on current page without reload
+        const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?id=' + pid;
+        window.history.pushState({ path: newUrl }, '', newUrl);
     }
 }
 
@@ -627,7 +640,7 @@ async function fetchProjectHistory() {
                     <p class="text-[10px] text-gray-600 truncate">${data.lastUpdated ? new Date(parseInt(data.lastUpdated)).toLocaleDateString() : 'New'}</p>
                 </div>
             `;
-            item.onclick = () => { window.location.href = `/editor?id=${doc.id}`; };
+            item.onclick = () => { loadExistingProject(doc.id); };
             historyList.appendChild(item);
         });
         lucide.createIcons();
