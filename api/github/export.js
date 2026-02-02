@@ -16,8 +16,9 @@ export default async function handler(req, res) {
   const idToken = authHeader.split('Bearer ')[1];
 
   try {
-    // 1. Verify Identity using the Service Account
-    await admin.auth().verifyIdToken(idToken);
+    // 1. Verify Identity and get UID from Firebase
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const uid = decodedToken.uid;
 
     // 2. Load GitHub Config
     const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
@@ -30,7 +31,7 @@ export default async function handler(req, res) {
       'Content-Type': 'application/json'
     };
 
-    // 3. Check if the branch exists to get the latest commit SHA
+    // 3. Check if the branch exists
     let latestCommitSha = null;
     const refRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/refs/heads/${GITHUB_BRANCH}`, { headers });
     
@@ -39,9 +40,9 @@ export default async function handler(req, res) {
         latestCommitSha = refData.object.sha;
     }
 
-    // 4. Create Git Tree
+    // 4. Create Git Tree (Saving into user-specific folders)
     const treeItems = Object.entries(files).map(([path, content]) => ({
-      path: path,
+      path: `exports/${uid}/${projectId}/${path}`, // Organized path
       mode: '100644',
       type: 'blob',
       content: content
@@ -55,6 +56,11 @@ export default async function handler(req, res) {
       headers,
       body: JSON.stringify(treeBody)
     });
+    
+    if (!treeRes.ok) {
+        const treeErr = await treeRes.text();
+        throw new Error(`Tree Creation Failed: ${treeErr}`);
+    }
     const treeData = await treeRes.json();
 
     // 5. Create Commit
@@ -62,7 +68,7 @@ export default async function handler(req, res) {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        message: `Update: ${projectName} (${projectId})`,
+        message: `Export: ${projectName} by user ${uid}`,
         tree: treeData.sha,
         parents: latestCommitSha ? [latestCommitSha] : []
       })
@@ -83,12 +89,12 @@ export default async function handler(req, res) {
 
     if (!finalRes.ok) {
         const errorDetail = await finalRes.text();
-        throw new Error(`GitHub Ref Update Failed: ${errorDetail}`);
+        throw new Error(`GitHub Ref Update Failed (Bad Credentials or Permission): ${errorDetail}`);
     }
 
     res.status(200).json({ 
       success: true, 
-      repoUrl: `https://github.com/${GITHUB_REPO}`
+      repoUrl: `https://github.com/${GITHUB_REPO}/tree/${GITHUB_BRANCH}/exports/${uid}/${projectId}`
     });
 
   } catch (error) {
