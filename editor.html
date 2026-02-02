@@ -234,6 +234,13 @@
     ];
     let slotInterval;
 
+    function sanitizeHTML(html) {
+        return String(html)
+            .replace(/`/g, '\\`')
+            .replace(/<\/script>/gi, '<\\/script>')
+            .replace(/<script/gi, '<scri' + 'pt');
+    }
+
     function startSlotMachine() {
         const textEl = document.getElementById('slot-machine-text');
         const progressEl = document.getElementById('ai-progress-bar');
@@ -321,7 +328,7 @@
             blobUrls[name] = URL.createObjectURL(blob);
         }
 
-        let injectedContent = projectPages[activeFile];
+        let injectedContent = sanitizeHTML(projectPages[activeFile]);
         for (const [name, url] of Object.entries(blobUrls)) {
             const regex = new RegExp(`href=["']${name}["']`, 'g');
             injectedContent = injectedContent.replace(regex, `href="${url}" data-virtual-link="${name}"`);
@@ -339,7 +346,14 @@
             <\/script>
         `;
         
-        livePreviewFrame.srcdoc = injectedContent + scriptTag;
+        livePreviewFrame.srcdoc = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body>${injectedContent}${scriptTag}
+</body>
+</html>
+`;
     }
 
     window.addEventListener('message', (e) => {
@@ -563,9 +577,7 @@
         setSlugStatus('loading');
         debounceTimer = setTimeout(async () => {
             try {
-                const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js");
-                const slugRef = doc(db, "slugReservations", slug);
-                const snap = await getDoc(slugRef);
+                const snap = await getDoc(doc(db, "slugReservations", slug));
                 
                 if (snap.exists() && snap.data().projectId !== projectIdInput.value) {
                     setSlugStatus('taken');
