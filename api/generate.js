@@ -292,6 +292,7 @@ Code goes here...
 9. Output ONLY code inside markers. No conversation.
 10. MEDIA: Use these URLs: Images: ${JSON.stringify(assets.images)}, Videos: ${JSON.stringify(assets.videos)}
 11. LOGS: Use [ACTION: Task Name] before file blocks.
+12. SYNTAX POLICE: Double check every bracket, brace, and parenthesis. Ensure every opening '{' has a closing '}' and every '[' has a ']'. A single syntax error is a total failure.
 `;
 
     const model = genAI.getGenerativeModel({ model: API_MODEL, systemInstruction });
@@ -303,7 +304,7 @@ Code goes here...
 
         try {
             const result = await model.generateContentStream({
-              contents: [{ role: "user", parts: [{ text: `Generate a breathtaking, ultra-premium multi-page project for: ${prompt}. Use the ${targetFramework} stack. Focus on insane UI design and complete file integrity. STICK TO NATIVE TAILWIND FOR UI COMPONENTS. Ensure package.json includes all imported libraries, specifically "class-variance-authority", "tailwind-merge", "react-intersection-observer", and all used "@radix-ui" primitives. PERFORM A FINAL PASS: Every single import used in the JSX must exist in package.json. VERIFY all lucide-react icon names exist. NO GHOST DEPENDENCIES. Verify all imports and exports are 100% standard JavaScript (NO TypeScript "type" keywords in .js files). STRICTLY FORBIDDEN: Do not use react-dom/server or server-side rendering in API routes.` }] }]
+              contents: [{ role: "user", parts: [{ text: `Generate a breathtaking, ultra-premium multi-page project for: ${prompt}. Use the ${targetFramework} stack. Focus on insane UI design and complete file integrity. STICK TO NATIVE TAILWIND FOR UI COMPONENTS. Ensure package.json includes all imported libraries, specifically "class-variance-authority", "tailwind-merge", "react-intersection-observer", and all used "@radix-ui" primitives. PERFORM A FINAL PASS: Every single import used in the JSX must exist in package.json. VERIFY all lucide-react icon names exist. NO GHOST DEPENDENCIES. Verify all imports and exports are 100% standard JavaScript (NO TypeScript "type" keywords in .js files). VERIFY SYNTAX: Ensure every object and array is correctly closed. STRICTLY FORBIDDEN: Do not use react-dom/server or server-side rendering in API routes.` }] }]
             });
 
             let fullGeneratedText = "";
