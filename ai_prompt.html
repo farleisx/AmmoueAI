@@ -1,4 +1,3 @@
-<!-- ai_prompt.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -245,13 +244,18 @@
             </div>
 
             <div id="preview-container" class="w-full max-w-[1100px] aspect-video bg-white rounded-xl browser-mockup overflow-hidden flex flex-col mb-32">
-                <div class="h-11 bg-[#f9f9f9] border-b border-gray-200 flex items-center px-4">
+                <div class="h-11 bg-[#f9f9f9] border-b border-gray-200 flex items-center justify-between px-4">
                     <div class="flex gap-2 w-1/4">
                         <div class="w-2.5 h-2.5 rounded-full bg-[#ff5f57]"></div>
                         <div class="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]"></div>
                         <div class="w-2.5 h-2.5 rounded-full bg-[#28c840]"></div>
                     </div>
-                    <div class="w-1/2 flex justify-center text-[10px] text-gray-400 font-mono">preview.ammoue.ai</div>
+                    <div class="flex-1 flex justify-center text-[10px] text-gray-400 font-mono">preview.ammoue.ai</div>
+                    <div class="w-1/4 flex justify-end">
+                        <button id="open-tab-btn" class="p-1 text-gray-400 hover:text-black transition-colors" title="Open in new tab">
+                            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="flex-1 overflow-hidden relative flex items-center justify-center bg-[#f0f0f0]">
                     <iframe id="preview-frame" srcdoc="<body style='display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;color:#666;'><h2>Enter a prompt to build.</h2></body>"></iframe>
