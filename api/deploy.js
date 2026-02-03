@@ -134,20 +134,17 @@ export default async function handler(req, res) {
 
   /* ---------------- FETCH ALL PAGES FOR DEPLOYMENT ---------------- */
   let vercelFiles = [];
+  let existingProjectData = null;
 
-  if (passedFiles && Object.keys(passedFiles).length > 0) {
-    Object.entries(passedFiles).forEach(([name, data]) => {
-      vercelFiles.push({ file: name, data: String(data || "") });
-    });
-  } else {
-    try {
-      const projectRef = db.collection("artifacts").doc(FIREBASE_PROJECT_ID).collection("users").doc(userId).collection("projects").doc(projectId);
-      const projectSnap = await projectRef.get();
-      
-      if (projectSnap.exists) {
-        const projectData = projectSnap.data();
-        const pages = projectData.pages || {};
+  try {
+    const projectRef = db.collection("artifacts").doc(FIREBASE_PROJECT_ID).collection("users").doc(userId).collection("projects").doc(projectId);
+    const projectSnap = await projectRef.get();
+    
+    if (projectSnap.exists) {
+      existingProjectData = projectSnap.data();
+      const pages = existingProjectData.pages || {};
 
+      if (!(passedFiles && Object.keys(passedFiles).length > 0)) {
         Object.entries(pages).forEach(([name, data]) => {
           const fileData = typeof data === 'string' ? data : (data.content || "");
           let fileName = name;
@@ -162,13 +159,20 @@ export default async function handler(req, res) {
             vercelFiles.push({ file: "index.html", data: String(fileData || "") });
           }
         });
-      } else if (htmlContent) {
-        vercelFiles.push({ file: "index.html", data: String(htmlContent || "") });
       }
-    } catch (err) {
-      console.error("PROJECT FETCH ERROR:", err);
-      return res.status(500).json({ error: "Failed to prepare deployment files: " + err.message });
     }
+
+    if (passedFiles && Object.keys(passedFiles).length > 0) {
+      vercelFiles = [];
+      Object.entries(passedFiles).forEach(([name, data]) => {
+        vercelFiles.push({ file: name, data: String(data || "") });
+      });
+    } else if (vercelFiles.length === 0 && htmlContent) {
+      vercelFiles.push({ file: "index.html", data: String(htmlContent || "") });
+    }
+  } catch (err) {
+    console.error("PROJECT FETCH ERROR:", err);
+    return res.status(500).json({ error: "Failed to prepare deployment files: " + err.message });
   }
 
   if (vercelFiles.length === 0 || vercelFiles.every(f => !f.data || f.data.trim() === "")) {
@@ -213,8 +217,10 @@ export default async function handler(req, res) {
 
   try {
     /* -------- SLUG LOGIC -------- */
-    if (slug) {
-      finalSlug = normalizeSlug(slug);
+    const effectiveSlug = slug || (existingProjectData ? existingProjectData.slug : null) || (existingProjectData ? existingProjectData.projectName : null);
+
+    if (effectiveSlug) {
+      finalSlug = normalizeSlug(effectiveSlug);
 
       if (!finalSlug || finalSlug.length < 3) {
         return res.status(400).json({ error: "Invalid site name: must be at least 3 characters" });
@@ -225,7 +231,7 @@ export default async function handler(req, res) {
     }
 
     /* -------- INTERNAL PROJECT NAME -------- */
-    const internalName = randomInternalName(userId);
+    const internalName = finalSlug ? finalSlug : randomInternalName(userId);
 
     /* -------- DEPLOY -------- */
     const aliasList = [];
