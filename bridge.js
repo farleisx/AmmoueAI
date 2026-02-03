@@ -183,7 +183,10 @@ if (document.getElementById('confirm-rename')) {
 
 if (document.getElementById('confirm-publish')) {
     document.getElementById('confirm-publish').onclick = async () => {
-        const slug = document.getElementById('publish-slug').value;
+        const slugInput = document.getElementById('publish-slug');
+        const projectNameDisplay = document.getElementById('project-name-display');
+        const slug = (slugInput && slugInput.value) ? slugInput.value : (projectNameDisplay ? projectNameDisplay.innerText : null);
+        
         if (!currentProjectId) {
             document.getElementById('publish-modal').style.display = 'none';
             showCustomAlert("Hold on!", "You need to save or generate a project before publishing.");
@@ -213,7 +216,7 @@ if (document.getElementById('confirm-publish')) {
             projectFiles['vercel.json'] = JSON.stringify({ "version": 2, "cleanUrls": true, "trailingSlash": false }, null, 2);
             updateProgress(50, "Uploading files to Vercel...");
             const res = await deployProject(currentProjectId, idToken, { slug, files: projectFiles });
-            const deploymentId = res.id;
+            const deploymentId = res.id || res.deploymentId;
             let isReady = false;
             let attempts = 0;
 
