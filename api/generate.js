@@ -265,8 +265,12 @@ STRICT TECHNICAL RULES:
 1. Generate EVERY file required for the ${targetFramework} stack: ${activeStack.requiredFiles.join(", ")}.
 2. You MUST include a "src/context/ThemeContext.jsx" file for ALL React projects to prevent build crashes.
 3. For Next.js/React: Use JSX/TSX. DO NOT use plain HTML tags or CDN scripts in .jsx files.
-4. IMPORTANT: If using 'lucide-react', NEVER use 'Funnel'. Use 'Filter', 'BarChart', 'Zap', or 'TrendingUp'.
-5. CRITICAL: package.json MUST include all used dependencies (framer-motion, lucide-react, clsx, tailwind-merge).
+4. DEPENDENCY GATEKEEPER:
+   - NEVER use 'react-circular-progressbar' or 'recharts'.
+   - Build charts and progress bars manually using pure Tailwind CSS and Framer Motion.
+   - For icons, ONLY use 'lucide-react'. NEVER use 'Funnel'. Use 'Filter', 'BarChart', 'Zap', or 'TrendingUp'.
+   - EVERY package imported in your code MUST be listed in 'dependencies' in package.json.
+5. package.json MUST include: "framer-motion", "lucide-react", "clsx", "tailwind-merge".
 6. You MUST use EXACTLY this marker format for EVERY file:
 /* [NEW_PAGE: filename] */
 Code goes here...
@@ -284,7 +288,7 @@ Code goes here...
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ status: "initializing", remaining: rate.remaining, resetAt: rate.resetAt })}\n\n`));
 
         const result = await model.generateContentStream({
-          contents: [{ role: "user", parts: [{ text: `Generate a breathtaking, ultra-premium multi-page project for: ${prompt}. Use the ${targetFramework} stack. Focus on insane UI design and complete file integrity. Ensure package.json includes all imported libraries. VERIFY all lucide-react icon names exist (e.g., use Filter, not Funnel).` }] }]
+          contents: [{ role: "user", parts: [{ text: `Generate a breathtaking, ultra-premium multi-page project for: ${prompt}. Use the ${targetFramework} stack. Focus on insane UI design and complete file integrity. STICK TO NATIVE TAILWIND FOR UI COMPONENTS. Ensure package.json includes all imported libraries. VERIFY all lucide-react icon names exist (e.g., use Filter, not Funnel). NO GHOST DEPENDENCIES.` }] }]
         });
 
         let fullGeneratedText = "";
