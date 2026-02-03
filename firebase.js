@@ -21,6 +21,7 @@ export const db = getFirestore(app);
 // --- Providers ---
 export const googleProvider = new GoogleAuthProvider();
 export const githubProvider = new GithubAuthProvider();
+githubProvider.addScope('repo');
 
 // --- Auth State ---
 export function onAuthChange(callback) {
