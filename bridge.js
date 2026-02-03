@@ -1,4 +1,4 @@
-// bridge.js file
+// bridge.js
 import { auth, getUsage, autoSaveProject, db } from "./fire_prompt.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 import { doc, updateDoc, getDoc, collection, getDocs, query, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
@@ -56,7 +56,7 @@ async function syncUsage() {
     const display = document.getElementById('credit-display');
     if (display) {
         display.innerText = `Credits: ${limitVal}/${count}`;
-        if (count >= limitVal) {
+        if (count >= limitVal && Date.now() < resetAt) {
             display.classList.add('text-red-500', 'bg-red-500/10');
             display.classList.remove('text-white/40', 'bg-white/5');
         } else {
@@ -272,7 +272,8 @@ if (document.getElementById('close-code')) {
 
 if (document.getElementById('generate-btn')) {
     document.getElementById('generate-btn').onclick = async () => {
-        if (currentUsageData.count >= currentUsageData.limit && !isGenerating) {
+        const isCooldownOver = Date.now() >= currentUsageData.resetAt;
+        if (currentUsageData.count >= currentUsageData.limit && !isGenerating && !isCooldownOver) {
             const display = document.getElementById('credit-display');
             display.classList.add('animate-shake', 'brightness-150');
             setTimeout(() => display.classList.remove('animate-shake', 'brightness-150'), 500);
