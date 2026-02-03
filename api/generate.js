@@ -256,23 +256,24 @@ FRAMEWORK: ${targetFramework.toUpperCase()}
 STACK SPEC: ${JSON.stringify(activeStack)}
 
 DESIGN PHILOSOPHY:
-- Use ultra-modern, cutting-edge aesthetics: Glassmorphism, Bento Grids, Neo-brutalism, or highly polished dark-mode luxury.
-- Implement complex, high-end Tailwind CSS animations (framer-motion style logic).
-- Layouts must be breathtakingly unique, NOT generic templates. Think Apple-level polish.
-- Typography must be bold and professional. Use whitespace like a master.
+- STYLE: $1M Dollar Tech Startup. Clean, ultra-modern, high-performance aesthetic.
+- EFFECTS: Use "insane" glassmorphism, 3D transform hover effects, animated gradient borders, and bento-box layouts.
+- ANIMATIONS: Implement advanced Tailwind-based micro-interactions.
+- UX: Pro-level whitespace, massive high-impact typography, and seamless transitions.
 
 STRICT TECHNICAL RULES:
 1. Generate EVERY file required for the ${targetFramework} stack: ${activeStack.requiredFiles.join(", ")}.
 2. You MUST include a "src/context/ThemeContext.jsx" file for ALL React projects to prevent build crashes.
 3. For Next.js/React: Use JSX/TSX. DO NOT use plain HTML tags or CDN scripts in .jsx files.
-4. IMPORTANT: If using libraries like 'framer-motion' or 'lucide-react', you MUST include them in the 'dependencies' section of package.json.
-5. You MUST use EXACTLY this marker format for EVERY file:
+4. IMPORTANT: If using 'lucide-react', NEVER use 'Funnel'. Use 'Filter', 'BarChart', 'Zap', or 'TrendingUp'.
+5. CRITICAL: package.json MUST include all used dependencies (framer-motion, lucide-react, clsx, tailwind-merge).
+6. You MUST use EXACTLY this marker format for EVERY file:
 /* [NEW_PAGE: filename] */
 Code goes here...
 /* [END_PAGE] */
-6. Output ONLY code inside markers. No conversation.
-7. MEDIA: Use these URLs: Images: ${JSON.stringify(assets.images)}, Videos: ${JSON.stringify(assets.videos)}
-8. LOGS: Use [ACTION: Task Name] before file blocks.
+7. Output ONLY code inside markers. No conversation.
+8. MEDIA: Use these URLs: Images: ${JSON.stringify(assets.images)}, Videos: ${JSON.stringify(assets.videos)}
+9. LOGS: Use [ACTION: Task Name] before file blocks.
 `;
 
     const model = genAI.getGenerativeModel({ model: API_MODEL, systemInstruction });
@@ -283,7 +284,7 @@ Code goes here...
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ status: "initializing", remaining: rate.remaining, resetAt: rate.resetAt })}\n\n`));
 
         const result = await model.generateContentStream({
-          contents: [{ role: "user", parts: [{ text: `Generate a breathtaking, ultra-premium multi-page project for: ${prompt}. Use the ${targetFramework} stack. Focus on insane UI design and complete file integrity. Ensure package.json includes all imported libraries to prevent 'Rollup failed to resolve import' errors.` }] }]
+          contents: [{ role: "user", parts: [{ text: `Generate a breathtaking, ultra-premium multi-page project for: ${prompt}. Use the ${targetFramework} stack. Focus on insane UI design and complete file integrity. Ensure package.json includes all imported libraries. VERIFY all lucide-react icon names exist (e.g., use Filter, not Funnel).` }] }]
         });
 
         let fullGeneratedText = "";
