@@ -1,4 +1,4 @@
-// bridge.js
+// bridge.js file
 import { auth, getUsage, autoSaveProject, db } from "./fire_prompt.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 import { doc, updateDoc, getDoc, collection, getDocs, query, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
