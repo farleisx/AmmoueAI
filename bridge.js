@@ -550,10 +550,12 @@ if (document.getElementById('theme-toggle')) {
     document.getElementById('theme-toggle').onclick = () => {
         document.body.classList.toggle('light-mode');
         const icon = document.getElementById('theme-toggle').querySelector('i');
-        if (document.body.classList.contains('light-mode')) {
-            icon.setAttribute('data-lucide', 'moon');
-        } else {
-            icon.setAttribute('data-lucide', 'sun');
+        if (icon) {
+            if (document.body.classList.contains('light-mode')) {
+                icon.setAttribute('data-lucide', 'moon');
+            } else {
+                icon.setAttribute('data-lucide', 'sun');
+            }
         }
         lucide.createIcons();
     };
