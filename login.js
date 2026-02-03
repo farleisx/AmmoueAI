@@ -1,6 +1,6 @@
 // login.js
 import { auth, db, googleProvider, githubProvider, onAuthChange } from './firebase.js';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GithubAuthProvider } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 import { doc, setDoc, Timestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
 let pendingCredential = null;
@@ -113,6 +113,11 @@ export async function handleGitHubAuth(button) {
     setLoading(button, true);
     try {
         const result = await signInWithPopup(auth, githubProvider);
+        const credential = GithubAuthProvider.credentialFromResult(result);
+        const token = credential.accessToken;
+        if (token) {
+            localStorage.setItem('gh_access_token', token);
+        }
         if (result.additionalUserInfo?.isNewUser) await createUserDocument(result.user);
         showMessage(`Welcome!`, false);
     } catch (error) {
