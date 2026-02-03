@@ -1,4 +1,4 @@
-// api/deploy.js (Deployment Handler)
+// api/deploy.js
 import fetch from "node-fetch";
 import admin from "firebase-admin";
 import { initializeApp, getApps } from "firebase-admin/app";
@@ -97,7 +97,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { htmlContent, projectId, slug, customDomain, framework = "vanilla", attempt = 1 } = req.body;
+  const { htmlContent, projectId, slug, customDomain, framework = "vanilla", attempt = 1, files: passedFiles } = req.body;
 
   if (!projectId) {
     return res.status(400).json({ error: "Missing parameters: projectId is required" });
@@ -134,38 +134,41 @@ export default async function handler(req, res) {
 
   /* ---------------- FETCH ALL PAGES FOR DEPLOYMENT ---------------- */
   let vercelFiles = [];
-  try {
-    const projectRef = db.collection("artifacts").doc(FIREBASE_PROJECT_ID).collection("users").doc(userId).collection("projects").doc(projectId);
-    const projectSnap = await projectRef.get();
-    
-    if (projectSnap.exists) {
-      const projectData = projectSnap.data();
-      const pages = projectData.pages || {};
 
-      Object.entries(pages).forEach(([name, data]) => {
-        const fileData = typeof data === 'string' ? data : (data.content || "");
-        let fileName = name;
+  if (passedFiles && Object.keys(passedFiles).length > 0) {
+    Object.entries(passedFiles).forEach(([name, data]) => {
+      vercelFiles.push({ file: name, data: String(data || "") });
+    });
+  } else {
+    try {
+      const projectRef = db.collection("artifacts").doc(FIREBASE_PROJECT_ID).collection("users").doc(userId).collection("projects").doc(projectId);
+      const projectSnap = await projectRef.get();
+      
+      if (projectSnap.exists) {
+        const projectData = projectSnap.data();
+        const pages = projectData.pages || {};
 
-        // Smart Mapping for Frameworks vs Vanilla
-        if (fileName === "landing") {
-          fileName = (framework === "vanilla" || !framework) ? "index.html" : "index.jsx";
-        }
+        Object.entries(pages).forEach(([name, data]) => {
+          const fileData = typeof data === 'string' ? data : (data.content || "");
+          let fileName = name;
 
-        // Support for nested structures (e.g., src/App.js) provided by editor tabs
-        vercelFiles.push({ file: fileName, data: String(fileData || "") });
-        
-        // Ensure root index exists for vanilla deployments if specifically named index
-        if (framework === "vanilla" && (name === "landing" || name === "index")) {
-          vercelFiles.push({ file: "index.html", data: String(fileData || "") });
-        }
-      });
-    } else if (htmlContent) {
-      // Fallback for direct deployment from editor
-      vercelFiles.push({ file: "index.html", data: String(htmlContent || "") });
+          if (fileName === "landing") {
+            fileName = (framework === "vanilla" || !framework) ? "index.html" : "index.jsx";
+          }
+
+          vercelFiles.push({ file: fileName, data: String(fileData || "") });
+          
+          if (framework === "vanilla" && (name === "landing" || name === "index")) {
+            vercelFiles.push({ file: "index.html", data: String(fileData || "") });
+          }
+        });
+      } else if (htmlContent) {
+        vercelFiles.push({ file: "index.html", data: String(htmlContent || "") });
+      }
+    } catch (err) {
+      console.error("PROJECT FETCH ERROR:", err);
+      return res.status(500).json({ error: "Failed to prepare deployment files: " + err.message });
     }
-  } catch (err) {
-    console.error("PROJECT FETCH ERROR:", err);
-    return res.status(500).json({ error: "Failed to prepare deployment files: " + err.message });
   }
 
   if (vercelFiles.length === 0 || vercelFiles.every(f => !f.data || f.data.trim() === "")) {
