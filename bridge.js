@@ -218,9 +218,10 @@ if (document.getElementById('confirm-publish')) {
             let attempts = 0;
 
             while (!isReady && attempts < 60) {
-                updateProgress(70 + (attempts * 0.5), "Vercel is building your site...");
+                // High-frequency status polling with dynamic smoothing
                 const checkRes = await fetch(`/api/check-deployment?deploymentId=${deploymentId}`);
                 const statusData = await checkRes.json();
+                
                 if (statusData.status === 'READY') {
                     isReady = true;
                     updateProgress(100, "Site is live!");
@@ -237,11 +238,14 @@ if (document.getElementById('confirm-publish')) {
                         document.getElementById('publish-modal').style.display = 'none';
                         if(progressContainer) progressContainer.classList.add('hidden');
                     }, 1000);
-                } else if (statusData.status === 'ERROR') {
+                } else if (statusData.status === 'ERROR' || statusData.status === 'FAILED') {
                     throw new Error("Vercel build failed.");
                 } else {
+                    // Fast polling but visual progress acceleration
                     attempts++;
-                    await new Promise(r => setTimeout(r, 2000));
+                    const progressVal = Math.min(95, 50 + (attempts * 4));
+                    updateProgress(progressVal, "Vercel is building your site...");
+                    await new Promise(r => setTimeout(r, 1500));
                 }
             }
         } catch (e) {
