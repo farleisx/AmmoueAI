@@ -1,4 +1,4 @@
-// bridge.js file
+// bridge.js
 import { auth, getUsage, autoSaveProject, db } from "./fire_prompt.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 import { doc, updateDoc, getDoc, collection, getDocs, query, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
@@ -9,7 +9,6 @@ import { initAttachmentService, getAttachedImages, clearAttachments } from "./at
 import { initUIService, updateCountdown } from "./ui_service.js";
 import { initLiveEditor } from "./editor_service.js";
 
-// IMPORT EXTRACTED UI FUNCTIONS
 import { 
     showCustomAlert, 
     runTypingEffect, 
@@ -51,17 +50,23 @@ async function syncUsage() {
     const count = usage.dailyCount || 0;
     const resetAt = usage.dailyResetAt || (Date.now() + 86400000);
     
+    // Animate credit counter decrement
+    const creditEl = document.getElementById('credit-display');
+    if (creditEl && currentUsageData.count !== count) {
+        creditEl.classList.add('scale-110', 'text-emerald-400');
+        setTimeout(() => creditEl.classList.remove('scale-110', 'text-emerald-400'), 400);
+    }
+
     currentUsageData = { count, limit: limitVal, resetAt };
     
-    const display = document.getElementById('credit-display');
-    if (display) {
-        display.innerText = `Credits: ${limitVal}/${count}`;
+    if (creditEl) {
+        creditEl.innerText = `Credits: ${limitVal}/${count}`;
         if (count >= limitVal && Date.now() < resetAt) {
-            display.classList.add('text-red-500', 'bg-red-500/10');
-            display.classList.remove('text-white/40', 'bg-white/5');
+            creditEl.classList.add('text-red-500', 'bg-red-500/10');
+            creditEl.classList.remove('text-white/40', 'bg-white/5');
         } else {
-            display.classList.remove('text-red-500', 'bg-red-500/10');
-            display.classList.add('text-white/40', 'bg-white/5');
+            creditEl.classList.remove('text-red-500', 'bg-red-500/10');
+            creditEl.classList.add('text-white/40', 'bg-white/5');
         }
     }
     startCountdown(resetAt);
@@ -221,7 +226,6 @@ if (document.getElementById('confirm-publish')) {
             let attempts = 0;
 
             while (!isReady && attempts < 60) {
-                // High-frequency status polling with dynamic smoothing
                 const checkRes = await fetch(`/api/check-deployment?deploymentId=${deploymentId}`);
                 const statusData = await checkRes.json();
                 
@@ -244,7 +248,6 @@ if (document.getElementById('confirm-publish')) {
                 } else if (statusData.status === 'ERROR' || statusData.status === 'FAILED') {
                     throw new Error("Vercel build failed.");
                 } else {
-                    // Fast polling but visual progress acceleration
                     attempts++;
                     const progressVal = Math.min(95, 50 + (attempts * 4));
                     updateProgress(progressVal, "Vercel is building your site...");
@@ -269,7 +272,7 @@ if (document.getElementById('toggle-code')) {
 }
 if (document.getElementById('close-code')) {
     document.getElementById('close-code').onclick = () => {
-        document.getElementById('code-sidebar').classList.remove('open');
+        document.getElementById('code-sidebar').classList.remove('remove');
     };
 }
 
@@ -294,6 +297,12 @@ if (document.getElementById('generate-btn')) {
         isGenerating = true;
         abortController = new AbortController();
         updateGenerateButtonToStop();
+
+        // Save status start
+        updateSaveIndicator("Saving...");
+        showLoadingSkeleton(true);
+        const startTime = Date.now();
+
         if (!currentProjectId) {
             const coolName = generateCoolName();
             currentProjectId = await autoSaveProject({}, prompt, null, currentUser.uid, "Start", "landing", coolName);
@@ -314,12 +323,15 @@ if (document.getElementById('generate-btn')) {
                         await syncUsage();
                         await refreshFileState();
                         resetGenerateButton();
+                        updateSaveIndicator("Saved");
+                        showLoadingSkeleton(false);
+                        const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+                        showActionLine(`Built in ${duration}s`);
                     }
                 },
                 (file) => {
                     const status = document.getElementById('thinking-status');
                     if (status) status.innerText = `Architecting: ${file}`;
-                    showActionLine(`Updated ${file}`);
                 },
                 abortController.signal
             );
@@ -327,24 +339,12 @@ if (document.getElementById('generate-btn')) {
             showCustomAlert("Generation Error", err.message);
             const status = document.getElementById('thinking-status');
             if (status) status.innerText = "Error encountered.";
+            updateSaveIndicator("Error saving");
+            showLoadingSkeleton(false);
             resetGenerateButton();
         }
         clearAttachments();
     };
-}
-
-function showActionLine(text) {
-    const container = document.getElementById('action-lines-container');
-    if(!container) return;
-    const line = document.createElement('div');
-    line.className = "action-line text-[10px] text-white/40 font-mono bg-white/5 px-2 py-1 rounded-full whitespace-nowrap border border-white/5 flex items-center gap-1.5";
-    line.innerHTML = `<span class="w-1 h-1 bg-emerald-500 rounded-full animate-pulse"></span> ${text}`;
-    container.appendChild(line);
-    container.scrollLeft = container.scrollWidth;
-    setTimeout(() => {
-        line.style.opacity = '0';
-        setTimeout(() => line.remove(), 500);
-    }, 4000);
 }
 
 function updateGenerateButtonToStop() {
@@ -361,9 +361,10 @@ function resetGenerateButton() {
     isGenerating = false;
     const btn = document.getElementById('generate-btn');
     if (btn) {
-        btn.innerHTML = `Generate`;
+        btn.innerHTML = `<i data-lucide="rocket" class="rocket-icon w-4 h-4"></i> Generate`;
         btn.classList.remove('bg-red-500/10', 'text-red-500', 'border', 'border-red-500/20');
         btn.classList.add('bg-[#ededed]', 'text-black');
+        lucide.createIcons();
     }
 }
 
@@ -429,27 +430,27 @@ function updatePreview() {
     }
     const url = URL.createObjectURL(blob);
     frame.src = url;
+    
+    // Preview Error Boundary and Polish
     frame.onload = () => {
-        if (!activeFile.endsWith('.html')) return;
-        const doc = frame.contentDocument || frame.contentWindow.document;
-        const style = doc.createElement('style');
-        style.innerHTML = `[contenteditable="true"]:focus { outline: 2px solid #10b981; border-radius: 4px; }`;
-        doc.head.appendChild(style);
-        doc.body.querySelectorAll('h1, h2, h3, p, span, button, a').forEach(el => {
-            el.contentEditable = "true";
-            el.addEventListener('blur', () => { syncPreviewToCode(doc.documentElement.outerHTML); });
-        });
+        try {
+            const frameDoc = frame.contentDocument || frame.contentWindow.document;
+            const errorHandler = `
+                window.onerror = function(msg, url, line) {
+                    document.body.innerHTML = \`
+                        <div style="background:#0a0a0a;color:#ef4444;padding:40px;font-family:monospace;height:100vh;">
+                            <h2 style="font-size:18px;">Runtime Error</h2>
+                            <p style="color:#666;font-size:14px;margin-top:10px;">\${msg}</p>
+                            <p style="color:#444;font-size:12px;margin-top:20px;">Line: \${line}</p>
+                        </div>\`;
+                    return true;
+                };
+            `;
+            const script = frameDoc.createElement('script');
+            script.textContent = errorHandler;
+            frameDoc.head.prepend(script);
+        } catch(e) {}
     };
-}
-
-async function syncPreviewToCode(newHTML) {
-    if (activeFile !== 'index.html') return;
-    projectFiles["index.html"] = newHTML;
-    displayActiveFile();
-    if (currentProjectId && currentUser) {
-        const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", currentProjectId);
-        await updateDoc(projectRef, { [`pages.index.html.content`]: newHTML, lastUpdated: Date.now() });
-    }
 }
 
 async function refreshFileState() {
@@ -485,10 +486,81 @@ async function loadExistingProject(pid) {
     }
 }
 
-// ATTACH GLOBAL HELPERS
+// Additive Helpers
+function updateSaveIndicator(text) {
+    const el = document.getElementById('save-status');
+    if (el) el.innerText = text;
+}
+
+function showLoadingSkeleton(show) {
+    const skeleton = document.getElementById('preview-skeleton');
+    if (skeleton) skeleton.classList.toggle('hidden', !show);
+}
+
+function showActionLine(text) {
+    const container = document.getElementById('action-lines-container');
+    if (!container) return;
+    const line = document.createElement('div');
+    line.className = "action-line bg-white/5 border border-white/5 text-[10px] text-gray-400 px-3 py-1 rounded-full whitespace-nowrap";
+    line.innerText = text;
+    container.appendChild(line);
+    setTimeout(() => line.remove(), 5000);
+}
+
+// Keyboard Listeners (Cmd+K, Enter)
+document.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        const palette = document.getElementById('command-palette');
+        palette.classList.toggle('hidden');
+        if (!palette.classList.contains('hidden')) document.getElementById('command-input').focus();
+    }
+    if (e.key === 'Enter' && document.activeElement.id === 'prompt-input' && !e.shiftKey) {
+        e.preventDefault();
+        document.getElementById('generate-btn').click();
+    }
+});
+
+// Command Palette Logic
+if (document.getElementById('command-input')) {
+    const cmds = [
+        { label: 'Publish to Web', action: () => document.getElementById('publish-btn').click() },
+        { label: 'Export ZIP', action: () => document.getElementById('download-btn').click() },
+        { label: 'Rename Project', action: () => document.getElementById('project-name-display').click() },
+        { label: 'Switch to Mobile View', action: () => setPreviewSize('mobile') },
+        { label: 'Switch to Desktop View', action: () => setPreviewSize('desktop') },
+        { label: 'Toggle Code', action: () => document.getElementById('toggle-code').click() },
+        { label: 'Toggle Theme', action: () => document.getElementById('theme-toggle').click() }
+    ];
+    document.getElementById('command-input').oninput = (e) => {
+        const val = e.target.value.toLowerCase();
+        const results = cmds.filter(c => c.label.toLowerCase().includes(val));
+        const resCont = document.getElementById('command-results');
+        resCont.innerHTML = results.map((r, i) => `<div class="p-3 hover:bg-white/5 rounded-lg cursor-pointer transition cmd-item" data-idx="${i}">${r.label}</div>`).join('');
+        document.querySelectorAll('.cmd-item').forEach(el => {
+            el.onclick = () => {
+                cmds[el.dataset.idx].action();
+                document.getElementById('command-palette').classList.add('hidden');
+            };
+        });
+    };
+}
+
+if (document.getElementById('theme-toggle')) {
+    document.getElementById('theme-toggle').onclick = () => {
+        document.body.classList.toggle('light-mode');
+        const icon = document.getElementById('theme-toggle').querySelector('i');
+        if (document.body.classList.contains('light-mode')) {
+            icon.setAttribute('data-lucide', 'moon');
+        } else {
+            icon.setAttribute('data-lucide', 'sun');
+        }
+        lucide.createIcons();
+    };
+}
+
 window.explorerScroll = explorerScroll;
 
-// INITIALIZE VOICE
 if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognition = new SpeechRecognition();
@@ -497,7 +569,6 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     initVoiceRecognition(recognition, document.getElementById('voice-btn'), document.getElementById('prompt-input'));
 }
 
-// EVENT LISTENERS
 if (document.getElementById('close-alert')) {
     document.getElementById('close-alert').onclick = () => document.getElementById('alert-modal').style.display = 'none';
 }
@@ -510,49 +581,25 @@ if (document.getElementById('checkout-pro-btn')) {
     document.getElementById('checkout-pro-btn').onclick = () => window.location.href = "/upgrade";
 }
 
-// GITHUB EXPORT
 if (document.getElementById('export-github-btn')) {
     document.getElementById('export-github-btn').onclick = async () => {
-        if (!currentProjectId) { showCustomAlert("Wait!", "You need an active project to export to GitHub."); return; }
+        if (!currentProjectId) return;
         const btn = document.getElementById('export-github-btn');
-        const originalContent = btn.innerHTML;
-        const progressContainer = document.getElementById('publish-progress-container');
-        const progressBar = document.getElementById('publish-progress-bar');
-        const progressText = document.getElementById('publish-progress-text');
-        const updateProgress = (pct, msg) => { if(progressBar) progressBar.style.width = `${pct}%`; if(progressText) progressText.innerText = msg; };
-
+        btn.disabled = true;
+        btn.innerText = "Pushing...";
+        const idToken = await currentUser.getIdToken();
+        const userGitHubToken = localStorage.getItem('gh_access_token');
+        const projectName = document.getElementById('project-name-display').innerText;
         try {
-            btn.disabled = true;
-            btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto"></i>`;
-            lucide.createIcons();
-            if(progressContainer) progressContainer.classList.remove('hidden');
-            updateProgress(20, "Authenticating with GitHub...");
-            const idToken = await currentUser.getIdToken();
-            const userGitHubToken = localStorage.getItem('gh_access_token');
-
-            if (!userGitHubToken) {
-                showCustomAlert("GitHub Not Linked", "Please log out and log back in with GitHub to authorize exports.");
-                return;
-            }
-
-            const projectName = document.getElementById('project-name-display').innerText;
-            const response = await fetch('/api/github/export', {
+            const res = await fetch('/api/github/export', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
                 body: JSON.stringify({ projectId: currentProjectId, projectName, files: projectFiles, userGitHubToken })
             });
-            if (!response.ok) { const errData = await response.json(); throw new Error(errData.message || "Failed to export"); }
-            const data = await response.json();
-            updateProgress(100, "Successfully pushed!");
-            const linkArea = document.getElementById('deployment-link-area');
-            if(linkArea) {
-                linkArea.innerHTML = `<a href="${data.repoUrl}" target="_blank" class="text-emerald-400 text-xs font-mono hover:underline flex items-center justify-center gap-1 mt-2"><i data-lucide="github" class="w-3 h-3"></i> View on GitHub</a>`;
-                linkArea.classList.remove('hidden');
-                lucide.createIcons();
-            }
-            setTimeout(() => { window.open(data.repoUrl, '_blank'); document.getElementById('publish-modal').style.display = 'none'; if(progressContainer) progressContainer.classList.add('hidden'); }, 1500);
-        } catch (e) { showCustomAlert("GitHub Export Failed", e.message); if(progressContainer) progressContainer.classList.add('hidden'); }
-        finally { btn.disabled = false; btn.innerHTML = originalContent; lucide.createIcons(); }
+            const data = await res.json();
+            window.open(data.repoUrl, '_blank');
+        } catch (e) { showCustomAlert("Error", e.message); }
+        finally { btn.disabled = false; btn.innerText = "Push to GitHub"; }
     };
 }
 
@@ -561,13 +608,8 @@ if (document.getElementById('open-tab-btn')) {
         const content = projectFiles[activeFile] || "";
         const win = window.open('about:blank', '_blank');
         if (win) {
-            if (activeFile.endsWith('.html')) {
-                win.document.write(content);
-                win.document.close();
-            } else {
-                win.document.write(`<pre style="background:#0a0a0a;color:#ededed;padding:20px;">${content.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`);
-                win.document.close();
-            }
+            win.document.write(activeFile.endsWith('.html') ? content : `<pre>${content}</pre>`);
+            win.document.close();
         }
     };
 }
