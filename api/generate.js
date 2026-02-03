@@ -287,50 +287,65 @@ Code goes here...
       async start(controller) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ status: "initializing", remaining: rate.remaining, resetAt: rate.resetAt })}\n\n`));
 
-        const result = await model.generateContentStream({
-          contents: [{ role: "user", parts: [{ text: `Generate a breathtaking, ultra-premium multi-page project for: ${prompt}. Use the ${targetFramework} stack. Focus on insane UI design and complete file integrity. STICK TO NATIVE TAILWIND FOR UI COMPONENTS. Ensure package.json includes all imported libraries. VERIFY all lucide-react icon names exist (e.g., use Filter, not Funnel). NO GHOST DEPENDENCIES.` }] }]
-        });
+        try {
+            const result = await model.generateContentStream({
+              contents: [{ role: "user", parts: [{ text: `Generate a breathtaking, ultra-premium multi-page project for: ${prompt}. Use the ${targetFramework} stack. Focus on insane UI design and complete file integrity. STICK TO NATIVE TAILWIND FOR UI COMPONENTS. Ensure package.json includes all imported libraries. VERIFY all lucide-react icon names exist (e.g., use Filter, not Funnel). NO GHOST DEPENDENCIES.` }] }]
+            });
 
-        let fullGeneratedText = "";
-        for await (const chunk of result.stream) {
-          const text = chunk.text();
-          fullGeneratedText += text;
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
-        }
+            let fullGeneratedText = "";
+            try {
+                for await (const chunk of result.stream) {
+                  try {
+                    const text = chunk.text();
+                    fullGeneratedText += text;
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
+                  } catch (chunkErr) {
+                    console.error("Chunk parsing error:", chunkErr);
+                    continue;
+                  }
+                }
+            } catch (streamIterErr) {
+                console.error("Stream iteration error:", streamIterErr);
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: "Stream interrupted" })}\n\n`));
+            }
 
-        if (projectId) {
-          const sanitized = sanitizeOutput(fullGeneratedText);
-          const files = extractFilesStrict(sanitized);
-          const actionRegex = /\[ACTION:\s*(.*?)\s*\]/g;
-          let logsHTML = "";
-          let actionMatch;
-          while ((actionMatch = actionRegex.exec(fullGeneratedText)) !== null) {
-            logsHTML += `<div class="text-[10px] text-slate-400 font-medium"><span class="text-emerald-500 mr-2">✔</span>${actionMatch[1]}</div>`;
-          }
+            if (projectId && fullGeneratedText) {
+              const sanitized = sanitizeOutput(fullGeneratedText);
+              const files = extractFilesStrict(sanitized);
+              const actionRegex = /\[ACTION:\s*(.*?)\s*\]/g;
+              let logsHTML = "";
+              let actionMatch;
+              while ((actionMatch = actionRegex.exec(fullGeneratedText)) !== null) {
+                logsHTML += `<div class="text-[10px] text-slate-400 font-medium"><span class="text-emerald-500 mr-2">✔</span>${actionMatch[1]}</div>`;
+              }
 
-          const commitBody = {
-            writes: [{
-              update: {
-                name: `projects/${PROJECT_ID}/databases/(default)/documents/artifacts/ammoueai/users/${uid}/projects/${projectId}`,
-                fields: {
-                  pages: {
-                    mapValue: {
-                      fields: Object.keys(files).reduce((acc, key) => {
-                        acc[key] = { mapValue: { fields: { content: { stringValue: files[key] } } } };
-                        return acc;
-                      }, {})
+              const commitBody = {
+                writes: [{
+                  update: {
+                    name: `projects/${PROJECT_ID}/databases/(default)/documents/artifacts/ammoueai/users/${uid}/projects/${projectId}`,
+                    fields: {
+                      pages: {
+                        mapValue: {
+                          fields: Object.keys(files).reduce((acc, key) => {
+                            acc[key] = { mapValue: { fields: { content: { stringValue: files[key] } } } };
+                            return acc;
+                          }, {})
+                        }
+                      },
+                      framework: { stringValue: targetFramework },
+                      promptText: { stringValue: prompt },
+                      logsContent: { stringValue: logsHTML },
+                      lastUpdated: { integerValue: Date.now().toString() }
                     }
                   },
-                  framework: { stringValue: targetFramework },
-                  promptText: { stringValue: prompt },
-                  logsContent: { stringValue: logsHTML },
-                  lastUpdated: { integerValue: Date.now().toString() }
-                }
-              },
-              updateMask: { fieldPaths: ["pages", "framework", "promptText", "logsContent", "lastUpdated"] }
-            }]
-          };
-          await fetchFirestore(null, "COMMIT", commitBody);
+                  updateMask: { fieldPaths: ["pages", "framework", "promptText", "logsContent", "lastUpdated"] }
+                }]
+              };
+              await fetchFirestore(null, "COMMIT", commitBody);
+            }
+        } catch (genErr) {
+            console.error("Generation startup error:", genErr);
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: genErr.message })}\n\n`));
         }
 
         controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
