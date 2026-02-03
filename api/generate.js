@@ -270,7 +270,7 @@ STRICT TECHNICAL RULES:
    - Build charts and progress bars manually using pure Tailwind CSS and Framer Motion.
    - For icons, ONLY use 'lucide-react'. NEVER use 'Funnel'. Use 'Filter', 'BarChart', 'Zap', or 'TrendingUp'.
    - EVERY package imported in your code MUST be listed in 'dependencies' in package.json.
-5. package.json MUST include: "framer-motion", "lucide-react", "clsx", "tailwind-merge", "class-variance-authority".
+5. package.json MUST include: "framer-motion", "lucide-react", "clsx", "tailwind-merge", "class-variance-authority", "react-intersection-observer", "@radix-ui/react-slot", "@radix-ui/react-dialog", "@radix-ui/react-dropdown-menu", "@radix-ui/react-tabs", "lucide-react".
 6. CRITICAL BUILD SAFETY: 
    - You ARE WRITING JAVASCRIPT (.js/.jsx).
    - NEVER use the "type" keyword in imports (e.g., NO "import { type ... }").
@@ -279,13 +279,14 @@ STRICT TECHNICAL RULES:
      import { clsx } from "clsx";
      import { twMerge } from "tailwind-merge";
      export function cn(...inputs) { return twMerge(clsx(inputs)); }
-7. You MUST use EXACTLY this marker format for EVERY file:
+7. NEXT.js SECURITY: If framework is nextjs, use "next": "14.2.15" or higher in package.json to avoid vulnerabilities.
+8. You MUST use EXACTLY this marker format for EVERY file:
 /* [NEW_PAGE: filename] */
 Code goes here...
 /* [END_PAGE] */
-8. Output ONLY code inside markers. No conversation.
-9. MEDIA: Use these URLs: Images: ${JSON.stringify(assets.images)}, Videos: ${JSON.stringify(assets.videos)}
-10. LOGS: Use [ACTION: Task Name] before file blocks.
+9. Output ONLY code inside markers. No conversation.
+10. MEDIA: Use these URLs: Images: ${JSON.stringify(assets.images)}, Videos: ${JSON.stringify(assets.videos)}
+11. LOGS: Use [ACTION: Task Name] before file blocks.
 `;
 
     const model = genAI.getGenerativeModel({ model: API_MODEL, systemInstruction });
@@ -297,7 +298,7 @@ Code goes here...
 
         try {
             const result = await model.generateContentStream({
-              contents: [{ role: "user", parts: [{ text: `Generate a breathtaking, ultra-premium multi-page project for: ${prompt}. Use the ${targetFramework} stack. Focus on insane UI design and complete file integrity. STICK TO NATIVE TAILWIND FOR UI COMPONENTS. Ensure package.json includes all imported libraries, specifically "class-variance-authority" and "tailwind-merge". VERIFY all lucide-react icon names exist. NO GHOST DEPENDENCIES. Verify all imports and exports are 100% standard JavaScript (NO TypeScript "type" keywords in .js files).` }] }]
+              contents: [{ role: "user", parts: [{ text: `Generate a breathtaking, ultra-premium multi-page project for: ${prompt}. Use the ${targetFramework} stack. Focus on insane UI design and complete file integrity. STICK TO NATIVE TAILWIND FOR UI COMPONENTS. Ensure package.json includes all imported libraries, specifically "class-variance-authority", "tailwind-merge", "react-intersection-observer", and all used "@radix-ui" primitives. PERFORM A FINAL PASS: Every single import used in the JSX must exist in package.json. VERIFY all lucide-react icon names exist. NO GHOST DEPENDENCIES. Verify all imports and exports are 100% standard JavaScript (NO TypeScript "type" keywords in .js files).` }] }]
             });
 
             let fullGeneratedText = "";
