@@ -270,14 +270,15 @@ STRICT TECHNICAL RULES:
    - Build charts and progress bars manually using pure Tailwind CSS and Framer Motion.
    - For icons, ONLY use 'lucide-react'. NEVER use 'Funnel'. Use 'Filter', 'BarChart', 'Zap', or 'TrendingUp'.
    - EVERY package imported in your code MUST be listed in 'dependencies' in package.json.
-5. package.json MUST include: "framer-motion", "lucide-react", "clsx", "tailwind-merge".
-6. You MUST use EXACTLY this marker format for EVERY file:
+5. package.json MUST include: "framer-motion", "lucide-react", "clsx", "tailwind-merge", "class-variance-authority".
+6. CRITICAL BUILD SAFETY: For any React-based project using utility-based components (like Button.jsx), ensure "class-variance-authority" and "tailwind-merge" are present in dependencies. Double-check all imports/exports match.
+7. You MUST use EXACTLY this marker format for EVERY file:
 /* [NEW_PAGE: filename] */
 Code goes here...
 /* [END_PAGE] */
-7. Output ONLY code inside markers. No conversation.
-8. MEDIA: Use these URLs: Images: ${JSON.stringify(assets.images)}, Videos: ${JSON.stringify(assets.videos)}
-9. LOGS: Use [ACTION: Task Name] before file blocks.
+8. Output ONLY code inside markers. No conversation.
+9. MEDIA: Use these URLs: Images: ${JSON.stringify(assets.images)}, Videos: ${JSON.stringify(assets.videos)}
+10. LOGS: Use [ACTION: Task Name] before file blocks.
 `;
 
     const model = genAI.getGenerativeModel({ model: API_MODEL, systemInstruction });
@@ -289,7 +290,7 @@ Code goes here...
 
         try {
             const result = await model.generateContentStream({
-              contents: [{ role: "user", parts: [{ text: `Generate a breathtaking, ultra-premium multi-page project for: ${prompt}. Use the ${targetFramework} stack. Focus on insane UI design and complete file integrity. STICK TO NATIVE TAILWIND FOR UI COMPONENTS. Ensure package.json includes all imported libraries. VERIFY all lucide-react icon names exist (e.g., use Filter, not Funnel). NO GHOST DEPENDENCIES.` }] }]
+              contents: [{ role: "user", parts: [{ text: `Generate a breathtaking, ultra-premium multi-page project for: ${prompt}. Use the ${targetFramework} stack. Focus on insane UI design and complete file integrity. STICK TO NATIVE TAILWIND FOR UI COMPONENTS. Ensure package.json includes all imported libraries, specifically "class-variance-authority" and "tailwind-merge". VERIFY all lucide-react icon names exist (e.g., use Filter, not Funnel). NO GHOST DEPENDENCIES. Verify all imports and exports are 100% correct.` }] }]
             });
 
             let fullGeneratedText = "";
