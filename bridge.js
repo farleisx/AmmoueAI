@@ -556,6 +556,22 @@ if (document.getElementById('export-github-btn')) {
     };
 }
 
+if (document.getElementById('open-tab-btn')) {
+    document.getElementById('open-tab-btn').onclick = () => {
+        const content = projectFiles[activeFile] || "";
+        const win = window.open('about:blank', '_blank');
+        if (win) {
+            if (activeFile.endsWith('.html')) {
+                win.document.write(content);
+                win.document.close();
+            } else {
+                win.document.write(`<pre style="background:#0a0a0a;color:#ededed;padding:20px;">${content.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`);
+                win.document.close();
+            }
+        }
+    };
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const nameDisplay = document.getElementById('project-name-display');
     if (nameDisplay && nameDisplay.innerText === 'lovable-clone') nameDisplay.innerText = generateCoolName();
