@@ -90,9 +90,33 @@
             animation: cube-backflip 0.8s infinite cubic-bezier(0.45, 0.05, 0.55, 0.95);
             perspective: 1000px;
         }
+
+        /* UPGRADE STYLES */
+        .skeleton-shimmer {
+            background: linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        body.light-mode { background-color: #f5f5f7; color: #1d1d1f; }
+        body.light-mode .canvas-grid { background-color: #ffffff; background-image: linear-gradient(#e5e5e5 1px, transparent 1px), linear-gradient(90deg, #e5e5e5 1px, transparent 1px); }
+        body.light-mode .prompt-container { background: rgba(255, 255, 255, 0.8); border-color: rgba(0,0,0,0.1); }
+        body.light-mode nav { background: #ffffff; border-bottom-color: rgba(0,0,0,0.1); }
+        .generate-glow { position: absolute; inset: -2px; background: linear-gradient(45deg, #3b82f6, #10b981); filter: blur(8px); opacity: 0; transition: opacity 0.3s; z-index: -1; }
+        #generate-btn:hover .generate-glow { opacity: 0.4; }
     </style>
 </head>
 <body class="h-screen flex flex-col">
+
+    <div id="command-palette" class="hidden fixed inset-0 bg-black/60 backdrop-blur-md flex items-start justify-center pt-40 z-[200]">
+        <div class="bg-[#0a0a0a] border border-white/10 rounded-2xl w-[500px] p-4 shadow-2xl">
+            <input id="command-input" class="w-full bg-white/5 p-3 rounded-xl outline-none text-white border border-white/5 focus:border-white/20" placeholder="Type a command (Publish, Rename, View...)" autocomplete="off">
+            <div id="command-results" class="mt-4 text-sm text-gray-400 max-h-[300px] overflow-y-auto"></div>
+        </div>
+    </div>
 
     <div id="alert-modal" class="backdrop-blur-sm">
         <div class="bg-[#0a0a0a] border border-white/10 p-8 rounded-3xl w-full max-sm shadow-2xl text-center">
@@ -205,15 +229,23 @@
             </button>
             <div class="h-4 w-[1px] bg-white/10 hidden md:block"></div>
             <div class="flex items-center gap-2 md:gap-4 text-xs font-medium text-gray-500">
-                <button id="project-name-display" class="text-white/80 hover:text-white transition cursor-pointer">lovable-clone</button>
+                <div class="flex items-center">
+                    <button id="project-name-display" class="text-white/80 hover:text-white transition cursor-pointer">lovable-clone</button>
+                    <span id="save-status" class="text-[10px] text-gray-500 ml-2">Saved</span>
+                </div>
                 <div id="reset-counter" class="text-white/40 bg-white/5 px-2 py-1 rounded-full flex items-center gap-2">
                     <span class="hours">--h</span>
                     <span class="full-time">--m --s</span>
                 </div>
                 <span id="credit-display" class="text-white/40 bg-white/5 px-2 py-1 rounded transition-all duration-300">Credits: --</span>
+                <div class="flex items-center gap-1 text-[10px] text-emerald-400 ml-1">
+                    <span class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+                    Live
+                </div>
             </div>
         </div>
         <div class="flex items-center gap-1 md:gap-2">
+            <button id="theme-toggle" class="p-2 text-gray-500 hover:text-white transition"><i data-lucide="sun" class="w-4 h-4"></i></button>
             <button id="download-btn" class="text-xs text-gray-400 px-2 md:px-3 py-1.5 hover:bg-white/5 rounded-md transition flex items-center gap-2">
                 <i data-lucide="download" class="w-3.5 h-3.5"></i> <span class="hidden md:inline">Export</span>
             </button>
@@ -243,7 +275,8 @@
                 <button id="view-mobile" class="p-1.5 text-gray-500 hover:text-white transition"><i data-lucide="smartphone" class="w-4 h-4"></i></button>
             </div>
 
-            <div id="preview-container" class="w-full max-w-[1100px] aspect-video bg-white rounded-xl browser-mockup overflow-hidden flex flex-col mb-32">
+            <div id="preview-container" class="w-full max-w-[1100px] aspect-video bg-white rounded-xl browser-mockup overflow-hidden flex flex-col mb-32 relative">
+                <div id="preview-skeleton" class="hidden absolute inset-0 z-10 skeleton-shimmer"></div>
                 <div class="h-11 bg-[#f9f9f9] border-b border-gray-200 flex items-center justify-between px-4">
                     <div class="flex gap-2 w-1/4">
                         <div class="w-2.5 h-2.5 rounded-full bg-[#ff5f57]"></div>
@@ -265,7 +298,7 @@
             <div class="fixed bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 w-full max-w-[700px] px-4 md:px-6 z-40">
                 <div id="action-lines-container" class="flex gap-2 mb-3 overflow-x-auto no-scrollbar scroll-smooth px-2"></div>
                 <div id="attachment-rack" class="flex gap-2 mb-3 px-2"></div>
-                <div class="prompt-container rounded-[24px] p-1.5 flex items-center gap-2">
+                <div class="prompt-container rounded-[24px] p-1.5 flex items-center gap-2 relative">
                     <div class="flex-1 flex items-center px-2 md:px-4 gap-2 md:gap-3">
                         <i data-lucide="sparkles" class="w-4 h-4 text-gray-400 flex-shrink-0"></i>
                         <input type="text" id="prompt-input" placeholder="Edit your app..." class="bg-transparent w-full outline-none py-3 text-[14px] md:text-[15px]">
@@ -274,7 +307,8 @@
                         <button id="voice-btn" class="p-2 md:p-2.5 text-gray-500 hover:text-white transition"><i data-lucide="mic" class="w-4 h-4"></i></button>
                         <input type="file" id="image-upload" accept="image/*" class="hidden" multiple>
                         <button id="attach-btn" class="p-2 md:p-2.5 text-gray-500 hover:text-white transition"><i data-lucide="paperclip" class="w-4 h-4"></i></button>
-                        <button id="generate-btn" class="bg-[#ededed] text-black h-10 px-3 md:px-5 rounded-[18px] text-sm font-semibold transition">
+                        <button id="generate-btn" class="bg-[#ededed] text-black h-10 px-3 md:px-5 rounded-[18px] text-sm font-semibold transition overflow-visible">
+                            <div class="generate-glow"></div>
                             <i data-lucide="rocket" class="rocket-icon w-4 h-4"></i> Generate
                         </button>
                     </div>
