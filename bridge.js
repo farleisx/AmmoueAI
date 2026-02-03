@@ -616,6 +616,12 @@ if (document.getElementById('open-tab-btn')) {
     };
 }
 
+if (document.getElementById('new-project-btn')) {
+    document.getElementById('new-project-btn').onclick = () => {
+        window.location.href = window.location.pathname;
+    };
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const nameDisplay = document.getElementById('project-name-display');
     if (nameDisplay && nameDisplay.innerText === 'lovable-clone') nameDisplay.innerText = generateCoolName();
