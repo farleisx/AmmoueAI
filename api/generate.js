@@ -29,13 +29,13 @@ const STACK_PRESETS = {
     frontend: "React 18+, Vite, Tailwind CSS",
     backend: "Vercel Serverless Functions",
     structure: "Vite Project Structure",
-    requiredFiles: ["package.json", "vite.config.js", "index.html", "src/main.jsx", "src/App.jsx", "src/index.css", "src/context/ThemeContext.jsx", "vercel.json", "README.md"]
+    requiredFiles: ["package.json", "vite.config.js", "index.html", "src/main.jsx", "src/App.jsx", "src/index.css", "src/context/ThemeContext.jsx", "src/lib/utils.js", "vercel.json", "README.md"]
   },
   "nextjs": {
     frontend: "Next.js (App Router), Tailwind CSS",
     backend: "Next.js API Routes",
     structure: "Next.js Project Structure",
-    requiredFiles: ["package.json", "next.config.js", "app/layout.jsx", "app/page.jsx", "app/globals.css", "vercel.json", "README.md"]
+    requiredFiles: ["package.json", "next.config.js", "app/layout.jsx", "app/page.jsx", "app/globals.css", "lib/utils.js", "vercel.json", "README.md"]
   },
   "react-node": {
     frontend: "React (Vite), Tailwind CSS (CDN ONLY, INLINE ONLY)",
@@ -271,7 +271,14 @@ STRICT TECHNICAL RULES:
    - For icons, ONLY use 'lucide-react'. NEVER use 'Funnel'. Use 'Filter', 'BarChart', 'Zap', or 'TrendingUp'.
    - EVERY package imported in your code MUST be listed in 'dependencies' in package.json.
 5. package.json MUST include: "framer-motion", "lucide-react", "clsx", "tailwind-merge", "class-variance-authority".
-6. CRITICAL BUILD SAFETY: For any React-based project using utility-based components (like Button.jsx), ensure "class-variance-authority" and "tailwind-merge" are present in dependencies. Double-check all imports/exports match.
+6. CRITICAL BUILD SAFETY: 
+   - You ARE WRITING JAVASCRIPT (.js/.jsx).
+   - NEVER use the "type" keyword in imports (e.g., NO "import { type ... }").
+   - NEVER use interface or type definitions.
+   - For "src/lib/utils.js", use exactly this:
+     import { clsx } from "clsx";
+     import { twMerge } from "tailwind-merge";
+     export function cn(...inputs) { return twMerge(clsx(inputs)); }
 7. You MUST use EXACTLY this marker format for EVERY file:
 /* [NEW_PAGE: filename] */
 Code goes here...
@@ -290,7 +297,7 @@ Code goes here...
 
         try {
             const result = await model.generateContentStream({
-              contents: [{ role: "user", parts: [{ text: `Generate a breathtaking, ultra-premium multi-page project for: ${prompt}. Use the ${targetFramework} stack. Focus on insane UI design and complete file integrity. STICK TO NATIVE TAILWIND FOR UI COMPONENTS. Ensure package.json includes all imported libraries, specifically "class-variance-authority" and "tailwind-merge". VERIFY all lucide-react icon names exist (e.g., use Filter, not Funnel). NO GHOST DEPENDENCIES. Verify all imports and exports are 100% correct.` }] }]
+              contents: [{ role: "user", parts: [{ text: `Generate a breathtaking, ultra-premium multi-page project for: ${prompt}. Use the ${targetFramework} stack. Focus on insane UI design and complete file integrity. STICK TO NATIVE TAILWIND FOR UI COMPONENTS. Ensure package.json includes all imported libraries, specifically "class-variance-authority" and "tailwind-merge". VERIFY all lucide-react icon names exist. NO GHOST DEPENDENCIES. Verify all imports and exports are 100% standard JavaScript (NO TypeScript "type" keywords in .js files).` }] }]
             });
 
             let fullGeneratedText = "";
