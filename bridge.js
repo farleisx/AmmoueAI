@@ -1,3 +1,4 @@
+// bridge.js
 import { auth, getUsage, autoSaveProject, db } from "./fire_prompt.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 import { doc, updateDoc, getDoc, collection, getDocs, query, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
@@ -519,11 +520,18 @@ if (document.getElementById('export-github-btn')) {
             if(progressContainer) progressContainer.classList.remove('hidden');
             updateProgress(20, "Authenticating with GitHub...");
             const idToken = await currentUser.getIdToken();
+            const userGitHubToken = localStorage.getItem('gh_access_token');
+
+            if (!userGitHubToken) {
+                showCustomAlert("GitHub Not Linked", "Please log out and log back in with GitHub to authorize exports.");
+                return;
+            }
+
             const projectName = document.getElementById('project-name-display').innerText;
             const response = await fetch('/api/github/export', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-                body: JSON.stringify({ projectId: currentProjectId, projectName, files: projectFiles })
+                body: JSON.stringify({ projectId: currentProjectId, projectName, files: projectFiles, userGitHubToken })
             });
             if (!response.ok) { const errData = await response.json(); throw new Error(errData.message || "Failed to export"); }
             const data = await response.json();
