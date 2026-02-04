@@ -50,7 +50,6 @@ async function syncUsage() {
     const count = usage.dailyCount || 0;
     const resetAt = usage.dailyResetAt || (Date.now() + 86400000);
     
-    // Animate credit counter decrement
     const creditEl = document.getElementById('credit-display');
     if (creditEl && currentUsageData.count !== count) {
         creditEl.classList.add('scale-110', 'text-emerald-400');
@@ -214,10 +213,15 @@ if (document.getElementById('confirm-publish')) {
             if(progressText) progressText.innerText = msg;
         };
 
-        // Timer for 30s fallback/see deployment
         let timerExpired = false;
+        let finalDeploymentUrl = null;
         setTimeout(() => {
             timerExpired = true;
+            if (finalDeploymentUrl) {
+                btn.innerHTML = "See Deployment";
+                btn.disabled = false;
+                btn.onclick = () => window.open(finalDeploymentUrl, '_blank');
+            }
         }, 30000);
 
         try {
@@ -227,6 +231,7 @@ if (document.getElementById('confirm-publish')) {
             projectFiles['vercel.json'] = JSON.stringify({ "version": 2, "cleanUrls": true, "trailingSlash": false }, null, 2);
             updateProgress(50, "Uploading files to Vercel...");
             const res = await deployProject(currentProjectId, idToken, { slug, files: projectFiles });
+            
             const deploymentId = res.id || res.deploymentId;
             let isReady = false;
             let attempts = 0;
@@ -237,20 +242,30 @@ if (document.getElementById('confirm-publish')) {
                 
                 if (statusData.status === 'READY') {
                     isReady = true;
+                    finalDeploymentUrl = statusData.url.startsWith('http') ? statusData.url : `https://${statusData.url}`;
                     updateProgress(100, "Site is live!");
+                    
                     const linkArea = document.getElementById('deployment-link-area');
                     if(linkArea) {
-                        linkArea.innerHTML = `<a href="${statusData.url}" target="_blank" class="text-emerald-400 text-xs font-mono hover:underline flex items-center justify-center gap-1 mt-2"><i data-lucide="external-link" class="w-3 h-3"></i> ${statusData.url}</a>`;
+                        linkArea.innerHTML = `<a href="${finalDeploymentUrl}" target="_blank" class="text-emerald-400 text-xs font-mono hover:underline flex items-center justify-center gap-1 mt-2"><i data-lucide="external-link" class="w-3 h-3"></i> ${finalDeploymentUrl}</a>`;
                         linkArea.classList.remove('hidden');
                         lucide.createIcons();
                     }
+                    
                     const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", currentProjectId);
-                    await updateDoc(projectRef, { lastDeploymentUrl: statusData.url });
-                    setTimeout(() => {
-                        window.open(statusData.url, '_blank');
-                        document.getElementById('publish-modal').style.display = 'none';
-                        if(progressContainer) progressContainer.classList.add('hidden');
-                    }, 1000);
+                    await updateDoc(projectRef, { lastDeploymentUrl: finalDeploymentUrl });
+
+                    if (!timerExpired) {
+                        setTimeout(() => {
+                            window.open(finalDeploymentUrl, '_blank');
+                            document.getElementById('publish-modal').style.display = 'none';
+                            if(progressContainer) progressContainer.classList.add('hidden');
+                        }, 1000);
+                    } else {
+                        btn.innerHTML = "See Deployment";
+                        btn.disabled = false;
+                        btn.onclick = () => window.open(finalDeploymentUrl, '_blank');
+                    }
                 } else if (statusData.status === 'ERROR' || statusData.status === 'FAILED') {
                     throw new Error("Vercel build failed.");
                 } else {
@@ -258,15 +273,17 @@ if (document.getElementById('confirm-publish')) {
                     const progressVal = Math.min(95, 50 + (attempts * 4));
                     updateProgress(progressVal, "Vercel is building your site...");
                     
-                    if (timerExpired) {
-                        btn.innerHTML = "See Deployment";
-                        btn.disabled = false;
-                        btn.onclick = () => {
-                           if(statusData.url) window.open(statusData.url, '_blank');
-                        };
+                    if (statusData.url) {
+                        finalDeploymentUrl = statusData.url.startsWith('http') ? statusData.url : `https://${statusData.url}`;
                     }
 
-                    await new Promise(r => setTimeout(r, 1500));
+                    if (timerExpired && finalDeploymentUrl) {
+                        btn.innerHTML = "See Deployment";
+                        btn.disabled = false;
+                        btn.onclick = () => window.open(finalDeploymentUrl, '_blank');
+                    }
+
+                    await new Promise(r => setTimeout(r, 2000));
                 }
             }
         } catch (e) {
@@ -315,7 +332,6 @@ if (document.getElementById('generate-btn')) {
         abortController = new AbortController();
         updateGenerateButtonToStop();
 
-        // Save status start
         updateSaveIndicator("Saving...");
         showLoadingSkeleton(true);
         const startTime = Date.now();
@@ -448,7 +464,6 @@ function updatePreview() {
     const url = URL.createObjectURL(blob);
     frame.src = url;
     
-    // Preview Error Boundary and Polish
     frame.onload = () => {
         try {
             const frameDoc = frame.contentDocument || frame.contentWindow.document;
@@ -481,7 +496,8 @@ async function refreshFileState() {
         if (snap.data().lastDeploymentUrl) {
             const linkArea = document.getElementById('deployment-link-area');
             if(linkArea) {
-                linkArea.innerHTML = `<a href="${snap.data().lastDeploymentUrl}" target="_blank" class="text-emerald-400 text-xs font-mono hover:underline flex items-center justify-center gap-1 mt-2"><i data-lucide="external-link" class="w-3 h-3"></i> ${snap.data().lastDeploymentUrl}</a>`;
+                const url = snap.data().lastDeploymentUrl;
+                linkArea.innerHTML = `<a href="${url}" target="_blank" class="text-emerald-400 text-xs font-mono hover:underline flex items-center justify-center gap-1 mt-2"><i data-lucide="external-link" class="w-3 h-3"></i> ${url}</a>`;
                 linkArea.classList.remove('hidden');
                 lucide.createIcons();
             }
@@ -503,7 +519,6 @@ async function loadExistingProject(pid) {
     }
 }
 
-// Additive Helpers
 function updateSaveIndicator(text) {
     const el = document.getElementById('save-status');
     if (el) el.innerText = text;
@@ -524,7 +539,6 @@ function showActionLine(text) {
     setTimeout(() => line.remove(), 5000);
 }
 
-// Keyboard Listeners (Cmd+K, Enter)
 document.addEventListener('keydown', e => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
@@ -538,7 +552,6 @@ document.addEventListener('keydown', e => {
     }
 });
 
-// Command Palette Logic
 if (document.getElementById('command-input')) {
     const cmds = [
         { label: 'Publish to Web', action: () => document.getElementById('publish-btn').click() },
@@ -604,19 +617,17 @@ if (document.getElementById('export-github-btn')) {
     document.getElementById('export-github-btn').onclick = async () => {
         if (!currentProjectId) return;
         const btn = document.getElementById('export-github-btn');
-        btn.disabled = true;
-        btn.innerText = "Pushing...";
         const idToken = await currentUser.getIdToken();
         const userGitHubToken = localStorage.getItem('gh_access_token');
         const projectName = document.getElementById('project-name-display').innerText;
 
         if (!userGitHubToken) {
-            btn.disabled = false;
-            btn.innerHTML = `<i data-lucide="github" class="w-4 h-4"></i> Push to GitHub`;
-            lucide.createIcons();
-            showCustomAlert("Auth Required", "Please log in with GitHub to use this feature.");
+            showCustomAlert("GitHub Auth Error", "You must be logged in through GitHub to export. Please re-login with GitHub.");
             return;
         }
+
+        btn.disabled = true;
+        btn.innerText = "Pushing...";
 
         try {
             const res = await fetch('/api/github/export', {
@@ -632,8 +643,11 @@ if (document.getElementById('export-github-btn')) {
             }
         } catch (e) { 
             showCustomAlert("GitHub Export Error", e.message); 
+        } finally { 
+            btn.disabled = false; 
+            btn.innerHTML = `<i data-lucide="github" class="w-4 h-4"></i> Push to GitHub`; 
+            lucide.createIcons(); 
         }
-        finally { btn.disabled = false; btn.innerHTML = `<i data-lucide="github" class="w-4 h-4"></i> Push to GitHub`; lucide.createIcons(); }
     };
 }
 
