@@ -26,6 +26,12 @@ import {
     showActionLine
 } from "./project_ui_service.js";
 
+import {
+    updateGenerateButtonToStop,
+    resetGenerateButton,
+    renderFileTabsFromRaw
+} from "./generation_ui_service.js";
+
 let currentUser = null;
 let currentProjectId = null;
 let projectFiles = {};
@@ -339,6 +345,7 @@ if (document.getElementById('generate-btn')) {
         if (isGenerating) {
             if (abortController) abortController.abort();
             resetGenerateButton();
+            isGenerating = false;
             return;
         }
         const promptInput = document.getElementById('prompt-input');
@@ -365,13 +372,16 @@ if (document.getElementById('generate-btn')) {
             await generateProjectStream(prompt, "vanilla", currentProjectId, idToken, 
                 (chunk) => {
                     fullRawText += chunk;
-                    renderFileTabsFromRaw(fullRawText);
+                    projectFiles = renderFileTabsFromRaw(fullRawText, activeFile);
+                    updateFileTabsUI(projectFiles, activeFile);
+                    displayActiveFile(projectFiles, activeFile);
                 },
                 async (statusUpdate) => {
                     if (statusUpdate && statusUpdate.status === 'completed') {
                         await syncUsage();
                         await refreshFileState();
                         resetGenerateButton();
+                        isGenerating = false;
                         updateSaveIndicator("Saved");
                         showLoadingSkeleton(false);
                         const duration = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -391,44 +401,10 @@ if (document.getElementById('generate-btn')) {
             updateSaveIndicator("Error saving");
             showLoadingSkeleton(false);
             resetGenerateButton();
+            isGenerating = false;
         }
         clearAttachments();
     };
-}
-
-function updateGenerateButtonToStop() {
-    const btn = document.getElementById('generate-btn');
-    if (btn) {
-        btn.innerHTML = `<i data-lucide="square" class="w-4 h-4 mr-2 fill-current"></i> Stop`;
-        btn.classList.add('bg-red-500/10', 'text-red-500', 'border', 'border-red-500/20');
-        btn.classList.remove('bg-[#ededed]', 'text-black');
-        lucide.createIcons();
-    }
-}
-
-function resetGenerateButton() {
-    isGenerating = false;
-    const btn = document.getElementById('generate-btn');
-    if (btn) {
-        btn.innerHTML = `<i data-lucide="rocket" class="rocket-icon w-4 h-4"></i> Generate`;
-        btn.classList.remove('bg-red-500/10', 'text-red-500', 'border', 'border-red-500/20');
-        btn.classList.add('bg-[#ededed]', 'text-black');
-        lucide.createIcons();
-    }
-}
-
-function renderFileTabsFromRaw(rawText) {
-    const fileMap = {};
-    const regex = /\/\*\s*\[NEW_PAGE:\s*(.*?)\s*\]\s*\*\/([\s\S]*?)(?=\/\*\s*\[NEW_PAGE:|$)/g;
-    let match;
-    while ((match = regex.exec(rawText)) !== null) {
-        const fileName = match[1].trim();
-        const content = match[2].split(/\/\*\s*\[END_PAGE\]/)[0].trim();
-        fileMap[fileName] = content;
-    }
-    projectFiles = fileMap;
-    updateFileTabsUI(projectFiles, activeFile);
-    displayActiveFile(projectFiles, activeFile);
 }
 
 window.switchFile = (fileName) => {
