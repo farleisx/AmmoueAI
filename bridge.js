@@ -228,7 +228,14 @@ if (document.getElementById('confirm-publish')) {
             updateProgress(10, "Initializing deployment...");
             const idToken = await currentUser.getIdToken();
             updateProgress(30, "Optimizing assets...");
-            projectFiles['vercel.json'] = JSON.stringify({ "version": 2, "cleanUrls": true, "trailingSlash": false }, null, 2);
+            
+            projectFiles['vercel.json'] = JSON.stringify({ 
+                "version": 2, 
+                "cleanUrls": true, 
+                "trailingSlash": false,
+                "outputDirectory": "." 
+            }, null, 2);
+
             updateProgress(50, "Uploading files to Vercel...");
             const res = await deployProject(currentProjectId, idToken, { slug, files: projectFiles });
             
