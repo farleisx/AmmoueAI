@@ -214,6 +214,12 @@ if (document.getElementById('confirm-publish')) {
             if(progressText) progressText.innerText = msg;
         };
 
+        // Timer for 30s fallback/see deployment
+        let timerExpired = false;
+        setTimeout(() => {
+            timerExpired = true;
+        }, 30000);
+
         try {
             updateProgress(10, "Initializing deployment...");
             const idToken = await currentUser.getIdToken();
@@ -251,6 +257,15 @@ if (document.getElementById('confirm-publish')) {
                     attempts++;
                     const progressVal = Math.min(95, 50 + (attempts * 4));
                     updateProgress(progressVal, "Vercel is building your site...");
+                    
+                    if (timerExpired) {
+                        btn.innerHTML = "See Deployment";
+                        btn.disabled = false;
+                        btn.onclick = () => {
+                           if(statusData.url) window.open(statusData.url, '_blank');
+                        };
+                    }
+
                     await new Promise(r => setTimeout(r, 1500));
                 }
             }
@@ -258,9 +273,11 @@ if (document.getElementById('confirm-publish')) {
             showCustomAlert("Publish Failed", e.message);
             if(progressContainer) progressContainer.classList.add('hidden');
         } finally {
-            btn.disabled = false;
-            btn.innerHTML = originalContent;
-            lucide.createIcons();
+            if (!timerExpired) {
+                btn.disabled = false;
+                btn.innerHTML = originalContent;
+                lucide.createIcons();
+            }
         }
     };
 }
@@ -592,6 +609,15 @@ if (document.getElementById('export-github-btn')) {
         const idToken = await currentUser.getIdToken();
         const userGitHubToken = localStorage.getItem('gh_access_token');
         const projectName = document.getElementById('project-name-display').innerText;
+
+        if (!userGitHubToken) {
+            btn.disabled = false;
+            btn.innerHTML = `<i data-lucide="github" class="w-4 h-4"></i> Push to GitHub`;
+            lucide.createIcons();
+            showCustomAlert("Auth Required", "Please log in with GitHub to use this feature.");
+            return;
+        }
+
         try {
             const res = await fetch('/api/github/export', {
                 method: 'POST',
@@ -599,9 +625,15 @@ if (document.getElementById('export-github-btn')) {
                 body: JSON.stringify({ projectId: currentProjectId, projectName, files: projectFiles, userGitHubToken })
             });
             const data = await res.json();
-            window.open(data.repoUrl, '_blank');
-        } catch (e) { showCustomAlert("Error", e.message); }
-        finally { btn.disabled = false; btn.innerText = "Push to GitHub"; }
+            if (data.repoUrl) {
+                window.open(data.repoUrl, '_blank');
+            } else {
+                throw new Error(data.message || "Unknown error during export.");
+            }
+        } catch (e) { 
+            showCustomAlert("GitHub Export Error", e.message); 
+        }
+        finally { btn.disabled = false; btn.innerHTML = `<i data-lucide="github" class="w-4 h-4"></i> Push to GitHub`; lucide.createIcons(); }
     };
 }
 
