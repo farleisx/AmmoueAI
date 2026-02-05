@@ -20,6 +20,13 @@ export class FrameBridge {
     }
 
     update(html) {
+        // Ensure preview frame is visible and placeholder is hidden
+        if (this.frame) {
+            this.frame.classList.remove('hidden');
+            const placeholder = document.getElementById('preview-placeholder');
+            if (placeholder) placeholder.classList.add('hidden');
+        }
+
         const parser = new DOMParser();
         // Security: Remove script tags and inline handlers
         const sanitizedHtml = html.replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gim, "");
