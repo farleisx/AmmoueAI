@@ -264,7 +264,7 @@ if (document.getElementById('confirm-publish')) {
                 
                 if (statusData.status === 'READY') {
                     isReady = true;
-                    finalDeploymentUrl = statusData.url.startsWith('http') ? statusData.url : `https://${statusData.url}`;
+                    finalDeploymentUrl = `https://${slug}.vercel.app`;
                     updateProgress(100, "Site is live!");
                     
                     const linkArea = document.getElementById('deployment-link-area');
@@ -295,9 +295,7 @@ if (document.getElementById('confirm-publish')) {
                     const progressVal = Math.min(95, 50 + (attempts * 4));
                     updateProgress(progressVal, "Vercel is building your site...");
                     
-                    if (statusData.url) {
-                        finalDeploymentUrl = statusData.url.startsWith('http') ? statusData.url : `https://${statusData.url}`;
-                    }
+                    finalDeploymentUrl = `https://${slug}.vercel.app`;
 
                     if (timerExpired && finalDeploymentUrl) {
                         btn.innerHTML = "See Deployment";
