@@ -32,6 +32,8 @@ import {
     renderFileTabsFromRaw
 } from "./generation_ui_service.js";
 
+import { FrameBridge } from "./frame-bridge.js";
+
 let currentUser = null;
 let currentProjectId = null;
 let projectFiles = {};
@@ -40,6 +42,23 @@ let recognition = null;
 let abortController = null;
 let isGenerating = false;
 let currentUsageData = { count: 0, limit: 5, resetAt: 0 };
+
+// Initialize Bridge for Frame
+const bridge = new FrameBridge({
+    frame: document.getElementById('preview-frame'),
+    codeView: document.getElementById('code-editor'), // Or your specific code display element
+    callbacks: {
+        onSyncText: (syncId, content) => {
+            // Future implementation for real-time text sync
+        },
+        onSwitchPage: (pageName) => {
+            const fileName = pageName.endsWith('.html') ? pageName : `${pageName}.html`;
+            if (projectFiles[fileName]) {
+                window.switchFile(fileName);
+            }
+        }
+    }
+});
 
 onAuthStateChanged(auth, (user) => {
     if (!user) window.location.href = "/login";
@@ -326,7 +345,7 @@ if (document.getElementById('toggle-code')) {
 }
 if (document.getElementById('close-code')) {
     document.getElementById('close-code').onclick = () => {
-        document.getElementById('code-sidebar').classList.remove('remove');
+        document.getElementById('code-sidebar').classList.remove('open');
     };
 }
 
@@ -373,6 +392,11 @@ if (document.getElementById('generate-btn')) {
                     projectFiles = renderFileTabsFromRaw(fullRawText, activeFile);
                     updateFileTabsUI(projectFiles, activeFile);
                     displayActiveFile(projectFiles, activeFile);
+                    
+                    // Live Update Preview and Bridge if current active file is being streamed
+                    if (projectFiles[activeFile]) {
+                        bridge.update(projectFiles[activeFile]);
+                    }
                 },
                 async (statusUpdate) => {
                     if (statusUpdate && statusUpdate.status === 'completed') {
@@ -409,6 +433,11 @@ window.switchFile = (fileName) => {
     activeFile = fileName;
     updateFileTabsUI(projectFiles, activeFile);
     displayActiveFile(projectFiles, activeFile);
+    
+    // Update the Preview Frame when switching files
+    if (projectFiles[fileName]) {
+        bridge.update(projectFiles[fileName]);
+    }
 };
 
 async function refreshFileState() {
@@ -430,6 +459,11 @@ async function refreshFileState() {
         }
         updateFileTabsUI(projectFiles, activeFile);
         displayActiveFile(projectFiles, activeFile);
+        
+        // Initial Frame Load
+        if (projectFiles[activeFile]) {
+            bridge.update(projectFiles[activeFile]);
+        }
     }
 }
 
