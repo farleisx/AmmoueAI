@@ -261,9 +261,9 @@ export default async function handler(req) {
         if (historyPrompt) {
           previousContext = `
 ORIGINAL PROJECT THEME: ${historyPrompt}
-CURRENT EXISTING FILES: ${Object.keys(existingFiles).join(", ")}
-FILE CONTENTS:
-${Object.keys(existingFiles).map(f => `FILE: ${f}\nCONTENT: ${existingFiles[f].substring(0, 500)}...`).join("\n")}
+CURRENT EXISTING FILES ARCHITECTURE: ${Object.keys(existingFiles).join(", ")}
+STRICT REFERENCE CODE FOR EXISTING COMPONENTS:
+${Object.keys(existingFiles).map(f => `FILE: ${f}\nCONTENT_START:\n${existingFiles[f]}\nCONTENT_END`).join("\n")}
 `;
         }
       }
@@ -279,12 +279,16 @@ GOAL: Create a website so visually stunning, technically perfect, and "insane" t
 FRAMEWORK: ${targetFramework.toUpperCase()}
 STACK SPEC: ${JSON.stringify(activeStack)}
 
-${previousContext ? `REFINEMENT CONTEXT:
-This is a REFINEMENT request for an existing project.
+${previousContext ? `REFINEMENT MODE ACTIVATED:
+You are modifying an EXISTING project. 
 ${previousContext}
-CRITICAL: You MUST maintain the original theme/subject of the project unless explicitly told to change the entire brand. 
-CRITICAL: If the user asks for a specific addition (e.g., "add a sign up page"), you MUST provide the NEW file AND UPDATE the existing files (like navigation in App.jsx or index.html) to link to it. 
-CRITICAL: DO NOT DELETE EXISTING FILES. Return the code for the modified files AND the new files.` : ""}
+
+STRICT ARCHITECTURAL DIRECTIVES:
+1. DO NOT change the existing UI style, color palette, or "vibe" unless explicitly requested.
+2. If modifying an existing file, you MUST include the ENTIRE content of that file with your changes integrated. DO NOT truncate.
+3. If adding a new feature, ensure it is seamlessly integrated into the existing layout (e.g., update the nav bar in App.jsx or index.html).
+4. MAINTAIN THE SUBJECT: If the project is about "Coffee", every new page or component MUST strictly adhere to the "Coffee" theme.
+5. PRESERVE LOGIC: Do not delete existing functional code from files unless it directly conflicts with the new request.` : ""}
 
 DESIGN PHILOSOPHY:
 - STYLE: $1M Dollar Tech Startup. Clean, ultra-modern, high-performance aesthetic.
@@ -336,15 +340,16 @@ Code goes here...
 
         try {
             const result = await model.generateContentStream({
-              contents: [{ role: "user", parts: [{ text: `NEW USER REQUEST: ${prompt}. 
+              contents: [{ role: "user", parts: [{ text: `TASK: ${prompt}. 
               
-              INSTRUCTIONS: 
-              - If this is an addition, keep all existing logic from the ${targetFramework} project.
-              - Maintain the design language and subject (Brand Identity) established previously.
-              - Generate ALL necessary files to make the app complete and functional.
-              - Ensure every import in the code is accounted for in package.json.
-              - STRICTLY FORBIDDEN: Do not use react-dom/server or server-side rendering in API routes.
-              - FOR NEXT.js: YOU MUST PLACE ALL PAGES IN THE 'app/' DIRECTORY OR THE BUILD WILL FAIL.` }] }]
+              EXECUTION PLAN:
+              1. Review the EXISTING code provided in context.
+              2. Apply the requested changes while maintaining 100% style and theme consistency.
+              3. If you add new pages, you MUST also output the modified version of existing navigation files (e.g. App.jsx, index.html) to include links to the new pages.
+              4. You MUST output the FULL code for every file you touch or create. 
+              5. Ensure all imports and package.json are in sync.
+              6. NEVER use TypeScript syntax.
+              7. FOR NEXT.js: ALL PAGES IN 'app/' DIRECTORY.` }] }]
             });
 
             let fullGeneratedText = "";
@@ -368,7 +373,7 @@ Code goes here...
               const sanitized = sanitizeOutput(fullGeneratedText);
               const files = extractFilesStrict(sanitized);
               
-              // Merge Logic: Keep existing files if the AI didn't explicitly recreate them
+              // Merge Logic: New files overwrite old ones, missing files are preserved from history
               const mergedFiles = { ...existingFiles };
               Object.keys(files).forEach(f => {
                 mergedFiles[f] = files[f];
