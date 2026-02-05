@@ -245,6 +245,30 @@ export default async function handler(req) {
     else if (lowerPrompt.includes("nextjs") || lowerPrompt.includes("next.js")) targetFramework = "nextjs";
     else if (lowerPrompt.includes("node") || lowerPrompt.includes("express")) targetFramework = "react-node";
 
+    // ---------------- HISTORY FETCHING FOR REFINEMENT ----------------
+    let previousContext = "";
+    let existingFiles = {};
+    if (projectId) {
+      const projectDoc = await fetchFirestore(`artifacts/ammoueai/users/${uid}/projects/${projectId}`);
+      if (projectDoc && projectDoc.fields) {
+        const historyPrompt = projectDoc.fields.promptText?.stringValue || "";
+        const pagesMap = projectDoc.fields.pages?.mapValue?.fields || {};
+        
+        Object.keys(pagesMap).forEach(fileName => {
+          existingFiles[fileName] = pagesMap[fileName].mapValue?.fields?.content?.stringValue || "";
+        });
+
+        if (historyPrompt) {
+          previousContext = `
+ORIGINAL PROJECT THEME: ${historyPrompt}
+CURRENT EXISTING FILES: ${Object.keys(existingFiles).join(", ")}
+FILE CONTENTS:
+${Object.keys(existingFiles).map(f => `FILE: ${f}\nCONTENT: ${existingFiles[f].substring(0, 500)}...`).join("\n")}
+`;
+        }
+      }
+    }
+
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const activeStack = STACK_PRESETS[targetFramework] || STACK_PRESETS.vanilla;
     const assets = await fetchPexelsAssets(prompt, genAI);
@@ -254,6 +278,13 @@ ROLE: WORLD-CLASS ELITE SOFTWARE ARCHITECT & AWARD-WINNING UI/UX DESIGNER.
 GOAL: Create a website so visually stunning, technically perfect, and "insane" that it looks like the work of a 1M IQ god-tier developer. 
 FRAMEWORK: ${targetFramework.toUpperCase()}
 STACK SPEC: ${JSON.stringify(activeStack)}
+
+${previousContext ? `REFINEMENT CONTEXT:
+This is a REFINEMENT request for an existing project.
+${previousContext}
+CRITICAL: You MUST maintain the original theme/subject of the project unless explicitly told to change the entire brand. 
+CRITICAL: If the user asks for a specific addition (e.g., "add a sign up page"), you MUST provide the NEW file AND UPDATE the existing files (like navigation in App.jsx or index.html) to link to it. 
+CRITICAL: DO NOT DELETE EXISTING FILES. Return the code for the modified files AND the new files.` : ""}
 
 DESIGN PHILOSOPHY:
 - STYLE: $1M Dollar Tech Startup. Clean, ultra-modern, high-performance aesthetic.
@@ -305,7 +336,15 @@ Code goes here...
 
         try {
             const result = await model.generateContentStream({
-              contents: [{ role: "user", parts: [{ text: `Generate a breathtaking, ultra-premium multi-page project for: ${prompt}. Use the ${targetFramework} stack. Focus on insane UI design and complete file integrity. STICK TO NATIVE TAILWIND FOR UI COMPONENTS. Ensure package.json includes all imported libraries, specifically "class-variance-authority", "tailwind-merge", "react-intersection-observer", and all used "@radix-ui" primitives. PERFORM A FINAL PASS: Every single import used in the JSX must exist in package.json. VERIFY all lucide-react icon names exist. NO GHOST DEPENDENCIES. Verify all imports and exports are 100% standard JavaScript (NO TypeScript "type" keywords in .js files). VERIFY SYNTAX: Ensure every object and array is correctly closed. STRICTLY FORBIDDEN: Do not use react-dom/server or server-side rendering in API routes. FOR NEXT.js: YOU MUST PLACE ALL PAGES IN THE 'app/' DIRECTORY OR THE BUILD WILL FAIL.` }] }]
+              contents: [{ role: "user", parts: [{ text: `NEW USER REQUEST: ${prompt}. 
+              
+              INSTRUCTIONS: 
+              - If this is an addition, keep all existing logic from the ${targetFramework} project.
+              - Maintain the design language and subject (Brand Identity) established previously.
+              - Generate ALL necessary files to make the app complete and functional.
+              - Ensure every import in the code is accounted for in package.json.
+              - STRICTLY FORBIDDEN: Do not use react-dom/server or server-side rendering in API routes.
+              - FOR NEXT.js: YOU MUST PLACE ALL PAGES IN THE 'app/' DIRECTORY OR THE BUILD WILL FAIL.` }] }]
             });
 
             let fullGeneratedText = "";
@@ -328,6 +367,13 @@ Code goes here...
             if (projectId && fullGeneratedText) {
               const sanitized = sanitizeOutput(fullGeneratedText);
               const files = extractFilesStrict(sanitized);
+              
+              // Merge Logic: Keep existing files if the AI didn't explicitly recreate them
+              const mergedFiles = { ...existingFiles };
+              Object.keys(files).forEach(f => {
+                mergedFiles[f] = files[f];
+              });
+
               const actionRegex = /\[ACTION:\s*(.*?)\s*\]/g;
               let logsHTML = "";
               let actionMatch;
@@ -342,8 +388,8 @@ Code goes here...
                     fields: {
                       pages: {
                         mapValue: {
-                          fields: Object.keys(files).reduce((acc, key) => {
-                            acc[key] = { mapValue: { fields: { content: { stringValue: files[key] } } } };
+                          fields: Object.keys(mergedFiles).reduce((acc, key) => {
+                            acc[key] = { mapValue: { fields: { content: { stringValue: mergedFiles[key] } } } };
                             return acc;
                           }, {})
                         }
