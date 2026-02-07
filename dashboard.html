@@ -67,7 +67,6 @@
             backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
-        /* Live Preview Additions */
         .preview-window-container {
             position: relative;
             width: 100%;
@@ -169,23 +168,14 @@
             <div class="mb-8">
                 <div class="relative">
                     <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500"></i>
-                    <input type="text" id="project-search" oninput="filterProjects(this.value)"
+                    <input type="text" id="project-search" oninput="triggerFilter(this.value)"
                             placeholder="Search projects..."
                             class="w-full bg-white/5 border border-white/10 rounded-xl shadow-md focus:border-ammoue focus:ring-1 focus:ring-ammoue transition duration-150 p-3 pl-10 text-gray-200 placeholder-gray-600 outline-none">
                 </div>
             </div>
 
             <div id="projects-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                <div onclick="window.location.href='/ai_prompt'"
-                    class="bg-white/5 border-2 border-dashed border-white/10 rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:border-ammoue transition duration-300 cursor-pointer hover:shadow-lg h-full min-h-[200px] hover:bg-white/10">
-                    <i data-lucide="plus-circle" class="w-12 h-12 text-gray-600 mb-3"></i>
-                    <p class="text-lg font-semibold text-gray-200">Create New AI Site</p>
-                    <p class="text-sm text-gray-500 mt-1">Start generating a new website</p>
                 </div>
-                <p id="no-projects-message" class="col-span-full text-center text-gray-600 text-lg hidden mt-10">
-                    You don't have any projects yet. Create your first AI site to get started!
-                </p>
-            </div>
         </main>
     </div>
 
@@ -253,528 +243,58 @@
             </div>
         </div>
     </div>
-    
-<script type="module">
-    import { 
-        auth, 
-        db, 
-        appId, 
-        observeAuth, 
-        logout,
-        collection, 
-        onSnapshot, 
-        query, 
-        deleteDoc, 
-        doc, 
-        Timestamp, 
-        updateDoc, 
-        getDoc,
-        writeBatch 
-    } from "./firedashboard.js";
 
-    let currentUserId = null;
-    let projectsData = new Map();
-    let allProjectsArray = []; 
+<script type="module">
+    import { observeAuth } from "./firedashboard.js";
+    import * as Logic from "./dashboard-logic.js";
+    import * as UI from "./dashboard-ui.js";
+
+    // Global Exposure for HTML onclicks
+    window.handleLogout = Logic.handleLogout;
+    window.handlePreview = Logic.handlePreview;
+    window.handleDownload = Logic.handleDownload;
+    window.handleCopyCode = Logic.handleCopyCode;
+    window.handleExportAll = Logic.handleExportAll;
+    window.openExportModal = UI.openExportModal;
+    window.closeExportModal = UI.closeExportModal;
+    window.openDeleteModal = UI.openDeleteModal;
+    window.closeDeleteModal = UI.closeDeleteModal;
+    window.openDeleteAllModal = UI.openDeleteAllModal;
+    window.closeDeleteAllModal = UI.closeDeleteAllModal;
+    window.openEditModal = UI.openEditModal;
+    window.closeEditModal = UI.closeEditModal;
+    window.toggleProjectMenu = UI.toggleProjectMenu;
+    window.handleUpgradeClick = () => window.location.href = '/upgrade';
+    window.triggerFilter = (val) => Logic.filterProjects(val, UI.renderProjects);
 
     const loadingScreen = document.getElementById('loading-screen');
     const dashboardContent = document.getElementById('dashboard-content');
     const userEmailSpan = document.getElementById('user-email');
-    const msgBox = document.getElementById('message-box');
-    const projectsContainer = document.getElementById('projects-container');
     const currentPlanEl = document.getElementById('current-plan');
     const proContent = document.getElementById('pro-content');
     const upgradeCardWrapper = document.getElementById('upgrade-card-wrapper');
-    const editModal = document.getElementById('edit-modal');
-    const editModalContent = document.getElementById('edit-modal-content');
     const editForm = document.getElementById('edit-project-form');
-    const deleteConfirmModal = document.getElementById('delete-confirm-modal');
-    const deleteModalContent = document.getElementById('delete-modal-content');
     const confirmDeleteButton = document.getElementById('confirm-delete-button');
-    const deleteAllModal = document.getElementById('delete-all-modal');
-    const deleteAllModalContent = document.getElementById('delete-all-modal-content');
     const confirmDeleteAllButton = document.getElementById('confirm-delete-all-button');
-    const exportConfirmModal = document.getElementById('export-confirm-modal');
-    const exportModalContent = document.getElementById('export-modal-content');
 
-    function showMessage(message, isError) {
-        if (!msgBox) return;
-        msgBox.textContent = message;
-        msgBox.className = 'p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 transition-opacity duration-300 z-50';
-        msgBox.classList.add(isError ? 'bg-red-500' : 'bg-green-500');
-        msgBox.classList.add('opacity-100');
-        setTimeout(() => { msgBox.classList.remove('opacity-100'); }, 4000);
-    }
-
-    function timeAgo(date) {
-        const seconds = Math.floor((new Date() - date) / 1000);
-        let interval = seconds / 31536000;
-        if (interval > 1) return Math.floor(interval) + "y ago";
-        interval = seconds / 2592000;
-        if (interval > 1) return Math.floor(interval) + "mo ago";
-        interval = seconds / 86400;
-        if (interval > 1) return Math.floor(interval) + "d ago";
-        interval = seconds / 3600;
-        if (interval > 1) return Math.floor(interval) + "h ago";
-        interval = seconds / 60;
-        if (interval > 1) return Math.floor(interval) + "m ago";
-        return "Just now";
-    }
-
-    window.handleLogout = async function() {
-        try {
-            await logout();
-            window.location.href = '/login';
-        } catch (error) {
-            console.error("Logout failed", error);
-        }
-    };
-
-    window.handlePreview = function(projectId) {
-        const project = projectsData.get(projectId);
-        if (!project) return;
-        if (project.deploymentUrl) {
-            window.open(project.deploymentUrl, "_blank");
-            return;
-        }
-        
-        let contentToPreview = project.htmlContent;
-        if (!contentToPreview && project.pages) {
-            const pages = project.pages;
-            const targetPage = pages['index.html'] || pages['landing'] || Object.values(pages)[0];
-            contentToPreview = typeof targetPage === 'object' ? targetPage.content : targetPage;
-        }
-
-        if (!contentToPreview) return;
-        const previewWindow = window.open('', '_blank');
-        if (previewWindow) {
-            previewWindow.document.write(contentToPreview);
-            previewWindow.document.close();
-        }
-    };
-
-    window.handleDownload = function(projectId) {
-        const project = projectsData.get(projectId);
-        if (!project) {
-            showMessage("No project data found", true);
-            return;
-        }
-
-        const zip = new JSZip();
-        let hasFiles = false;
-
-        if (project.pages && typeof project.pages === 'object') {
-            Object.entries(project.pages).forEach(([fileName, fileData]) => {
-                const content = typeof fileData === 'object' ? fileData.content : fileData;
-                if (content) {
-                    zip.file(fileName, content);
-                    hasFiles = true;
-                }
-            });
-        }
-
-        if (!hasFiles && project.htmlContent) {
-            zip.file('index.html', project.htmlContent);
-            hasFiles = true;
-        }
-
-        if (!hasFiles) {
-            showMessage("No content available for download", true);
-            return;
-        }
-
-        const cleanTitle = project.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'ammoue_project';
-        zip.generateAsync({ type: "blob" }).then(content => {
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(content);
-            a.download = `${cleanTitle}.zip`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(a.href);
-        });
-    };
-
-    window.openExportModal = function() {
-        if (allProjectsArray.length === 0) {
-            showMessage("No projects to export.", true);
-            return;
-        }
-        exportConfirmModal.classList.remove('hidden');
-        exportConfirmModal.classList.add('flex');
-        setTimeout(() => {
-            exportModalContent.classList.remove('scale-95', 'opacity-0');
-            exportModalContent.classList.add('scale-100', 'opacity-100');
-        }, 10);
-    };
-
-    window.closeExportModal = function() {
-        exportModalContent.classList.remove('scale-100', 'opacity-100');
-        exportModalContent.classList.add('scale-95', 'opacity-0');
-        setTimeout(() => {
-            exportConfirmModal.classList.remove('flex');
-            exportConfirmModal.classList.add('hidden');
-        }, 300);
-    };
-
-    window.handleExportAll = async function() {
-        window.closeExportModal();
-        if (allProjectsArray.length === 0) {
-            showMessage("No projects to export.", true);
-            return;
-        }
-        
-        const btn = document.getElementById('btn-export-all');
-        const originalHtml = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = `<i class="animate-spin mr-2" data-lucide="loader-2"></i> Zipping...`;
-        lucide.createIcons();
-
-        try {
-            const zip = new JSZip();
-            allProjectsArray.forEach(project => {
-                const projectFolder = zip.folder(project.title.replace(/[^a-z0-9]/gi, '_').toLowerCase());
-                let hasFiles = false;
-
-                if (project.pages && typeof project.pages === 'object') {
-                    Object.entries(project.pages).forEach(([fileName, fileData]) => {
-                        const content = typeof fileData === 'object' ? fileData.content : fileData;
-                        if (content) {
-                            projectFolder.file(fileName, content);
-                            hasFiles = true;
-                        }
-                    });
-                }
-
-                if (!hasFiles && project.htmlContent) {
-                    projectFolder.file('index.html', project.htmlContent);
-                }
-            });
-            const content = await zip.generateAsync({ type: "blob" });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(content);
-            link.download = `ammoue_projects_backup_${new Date().toISOString().split('T')[0]}.zip`;
-            link.click();
-            showMessage("Export successful!", false);
-        } catch (err) {
-            console.error(err);
-            showMessage("Export failed.", true);
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = originalHtml;
-            lucide.createIcons();
-        }
-    };
-    
-    window.handleCopyCode = function(projectId) {
-        const project = projectsData.get(projectId);
-        if (!project) return;
-        
-        let contentToCopy = project.htmlContent;
-        if (!contentToCopy && project.pages) {
-            const pages = project.pages;
-            const targetPage = pages['index.html'] || pages['landing'] || Object.values(pages)[0];
-            contentToCopy = typeof targetPage === 'object' ? targetPage.content : targetPage;
-        }
-
-        if (!contentToCopy) return;
-        navigator.clipboard.writeText(contentToCopy).then(() => showMessage("Code copied!", false));
-    };
-
-    window.handleUpgradeClick = function() {
-        window.location.href = '/upgrade';
-    };
-
-    window.openDeleteModal = function(projectId) {
-        const project = projectsData.get(projectId);
-        if (!project) return;
-        document.getElementById('delete-project-title').textContent = project.title;
-        confirmDeleteButton.setAttribute('data-project-id', projectId);
-        deleteConfirmModal.classList.remove('hidden');
-        deleteConfirmModal.classList.add('flex');
-        setTimeout(() => {
-            deleteModalContent.classList.remove('scale-95', 'opacity-0');
-            deleteModalContent.classList.add('scale-100', 'opacity-100');
-        }, 10);
-    };
-
-    window.closeDeleteModal = function() {
-        deleteModalContent.classList.remove('scale-100', 'opacity-100');
-        deleteModalContent.classList.add('scale-95', 'opacity-0');
-        setTimeout(() => {
-            deleteConfirmModal.classList.remove('flex');
-            deleteConfirmModal.classList.add('hidden');
-        }, 300);
-    };
-
-    window.openDeleteAllModal = function() {
-        if (allProjectsArray.length === 0) return;
-        document.getElementById('delete-all-count').textContent = allProjectsArray.length;
-        deleteAllModal.classList.remove('hidden');
-        deleteAllModal.classList.add('flex');
-        setTimeout(() => {
-            deleteAllModalContent.classList.remove('scale-95', 'opacity-0');
-            deleteAllModalContent.classList.add('scale-100', 'opacity-100');
-        }, 10);
-    };
-
-    window.closeDeleteAllModal = function() {
-        deleteAllModalContent.classList.remove('scale-100', 'opacity-100');
-        deleteAllModalContent.classList.add('scale-95', 'opacity-0');
-        setTimeout(() => {
-            deleteAllModal.classList.remove('flex');
-            deleteAllModal.classList.add('hidden');
-        }, 300);
-    };
-
-    window.openEditModal = function(projectId) {
-        const project = projectsData.get(projectId);
-        if (!project) return;
-        document.getElementById('edit-project-id').value = projectId;
-        document.getElementById('edit-title').value = project.title;
-        document.getElementById('edit-prompt').value = project.prompt; 
-        editModal.classList.remove('hidden');
-        editModal.classList.add('flex');
-        setTimeout(() => {
-            editModalContent.classList.remove('scale-95', 'opacity-0');
-            editModalContent.classList.add('scale-100', 'opacity-100');
-        }, 10);
-    };
-
-    window.closeEditModal = function() {
-        editModalContent.classList.remove('scale-100', 'opacity-100');
-        editModalContent.classList.add('scale-95', 'opacity-0');
-        setTimeout(() => {
-            editModal.classList.remove('flex');
-            editModal.classList.add('hidden');
-        }, 300);
-    };
-
-    async function executeDeleteProject(projectId) {
-        try {
-            const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
-            await deleteDoc(docRef);
-            showMessage("Project deleted.", false);
-            window.closeDeleteModal();
-        } catch (e) { showMessage("Error deleting project", true); }
-    }
-
-    async function executeDeleteAllProjects() {
-        const total = allProjectsArray.length;
-        try {
-            const batch = writeBatch(db);
-            allProjectsArray.forEach(p => {
-                const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', p.id);
-                batch.delete(docRef);
-            });
-            await batch.commit();
-            showMessage(`Successfully deleted ${total} projects.`, false);
-            window.closeDeleteAllModal();
-        } catch (e) {
-            console.error(e);
-            showMessage("Failed to delete all projects.", true);
-        }
-    }
-
+    // Event Listeners
+    if (editForm) editForm.addEventListener('submit', Logic.handleEditFormSubmit);
     confirmDeleteButton.addEventListener('click', () => {
-        const projectId = confirmDeleteButton.getAttribute('data-project-id');
-        if (projectId) executeDeleteProject(projectId);
+        const id = confirmDeleteButton.getAttribute('data-project-id');
+        if (id) Logic.executeDeleteProject(id);
     });
-
-    confirmDeleteAllButton.addEventListener('click', executeDeleteAllProjects);
-
-    async function handleEditFormSubmit(e) {
-        e.preventDefault();
-        const projectId = document.getElementById('edit-project-id').value;
-        const newTitle = document.getElementById('edit-title').value.trim();
-        const newPrompt = document.getElementById('edit-prompt').value.trim();
-        try {
-            const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
-            await updateDoc(docRef, {
-                projectName: newTitle, 
-                prompt: newPrompt,
-                updatedAt: Timestamp.fromDate(new Date())
-            });
-            window.closeEditModal();
-            showMessage("Project updated.", false);
-        } catch (e) { showMessage("Error updating project", true); }
-    }
-
-    if (editForm) editForm.addEventListener('submit', handleEditFormSubmit);
-
-    window.filterProjects = function(query) {
-        const searchTerm = query.toLowerCase().trim();
-        let filteredProjects = allProjectsArray;
-        if (searchTerm) {
-            filteredProjects = allProjectsArray.filter(project => 
-                project.title.toLowerCase().includes(searchTerm) ||
-                project.prompt.toLowerCase().includes(searchTerm)
-            );
-        }
-        renderProjects(filteredProjects);
-    };
-
-    window.toggleProjectMenu = function(projectId) {
-        const menu = document.getElementById(`menu-${projectId}`);
-        if (!menu) return;
-        
-        // Close all other menus first
-        document.querySelectorAll('.project-menu').forEach(m => {
-            if (m.id !== `menu-${projectId}`) m.classList.remove('active');
-        });
-        
-        menu.classList.toggle('active');
-    };
-
-    // Close menus when clicking outside
+    confirmDeleteAllButton.addEventListener('click', Logic.executeDeleteAllProjects);
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.project-menu-trigger') && !e.target.closest('.project-menu')) {
             document.querySelectorAll('.project-menu').forEach(m => m.classList.remove('active'));
         }
     });
 
-    function renderProjects(projectsToRender) {
-        if (!projectsContainer) return;
-        document.getElementById('project-count').textContent = projectsToRender.length;
-        
-        let projectsHtml = `
-            <div onclick="window.location.href='/ai_prompt'"
-                class="bg-white/5 border-2 border-dashed border-white/10 rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:border-ammoue transition duration-300 cursor-pointer hover:shadow-lg min-h-[180px] hover:bg-white/10">
-                <i data-lucide="plus-circle" class="w-10 h-10 text-gray-500 mb-2"></i>
-                <p class="font-semibold text-gray-200">New AI Site</p>
-            </div>
-        `;
-
-        if (projectsToRender.length === 0 && allProjectsArray.length === 0) {
-            projectsContainer.innerHTML = projectsHtml + `<p class="col-span-full text-center text-gray-500 text-lg mt-10">You don't have any projects yet.</p>`;
-            lucide.createIcons();
-            return;
-        }
-
-        projectsToRender.forEach(project => {
-            let lastUpdate = project.updatedAt || project.createdAt;
-            let displayTime = lastUpdate ? timeAgo(lastUpdate.toDate()) : "Recently";
-            const isDeployed = (project.deploymentUrl && project.deploymentUrl.startsWith('http')) || (project.lastDeploymentUrl && project.lastDeploymentUrl.startsWith('http'));
-            
-            // Extract content for live preview iframe
-            let contentForIframe = project.htmlContent;
-            if (!contentForIframe && project.pages) {
-                const pages = project.pages;
-                const targetPage = pages['index.html'] || pages['landing'] || Object.values(pages)[0];
-                contentForIframe = typeof targetPage === 'object' ? targetPage.content : targetPage;
-            }
-            const blobUrl = contentForIframe ? URL.createObjectURL(new Blob([contentForIframe], { type: 'text/html' })) : '';
-
-            projectsHtml += `
-                <div onclick="window.location.href='/editor?id=${project.id}'"
-                    class="glass-card rounded-2xl p-5 flex flex-col justify-between shadow-sm hover:shadow-xl transition duration-300 cursor-pointer group relative">
-                    <div class="mb-4">
-                        <div class="flex items-start justify-between mb-2">
-                            <span class="${isDeployed ? 'bg-teal-500/20 text-teal-400 border border-teal-500/30' : 'bg-white/5 text-gray-400 border border-white/10'} text-[10px] uppercase font-bold px-2 py-0.5 rounded-full">
-                                ${isDeployed ? 'Deployed' : 'Draft'}
-                            </span>
-                            <div class="relative">
-                                <button onclick="event.stopPropagation(); toggleProjectMenu('${project.id}')" class="project-menu-trigger p-1 hover:bg-white/10 rounded-full text-gray-500">
-                                    <i data-lucide="more-vertical" class="w-4 h-4"></i>
-                                </button>
-                                <div id="menu-${project.id}" class="project-menu absolute right-0 mt-1 bg-[#0f0f0f] border border-white/10 shadow-2xl rounded-xl p-1 w-40 overflow-hidden">
-                                    <button onclick="event.stopPropagation(); openEditModal('${project.id}')" class="w-full text-left px-3 py-2 text-xs font-medium text-gray-300 hover:bg-white/5 rounded-lg flex items-center">
-                                        <i data-lucide="pencil" class="w-3.5 h-3.5 mr-2 text-amber-500"></i> Edit Details
-                                    </button>
-                                    <button onclick="event.stopPropagation(); handleCopyCode('${project.id}')" class="w-full text-left px-3 py-2 text-xs font-medium text-gray-300 hover:bg-white/5 rounded-lg flex items-center">
-                                        <i data-lucide="copy" class="w-3.5 h-3.5 mr-2 text-blue-500"></i> Copy Code
-                                    </button>
-                                    <button onclick="event.stopPropagation(); handleDownload('${project.id}')" class="w-full text-left px-3 py-2 text-xs font-medium text-gray-300 hover:bg-white/5 rounded-lg flex items-center">
-                                        <i data-lucide="download" class="w-3.5 h-3.5 mr-2 text-green-500"></i> Download
-                                    </button>
-                                    <hr class="my-1 border-white/5">
-                                    <button onclick="event.stopPropagation(); openDeleteModal('${project.id}')" class="w-full text-left px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-500/10 rounded-lg flex items-center">
-                                        <i data-lucide="trash-2" class="w-3.5 h-3.5 mr-2"></i> Delete
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="preview-window-container">
-                            <div class="preview-placeholder">
-                                <i data-lucide="layout" class="w-8 h-8 text-white/10"></i>
-                            </div>
-                            ${blobUrl ? `<iframe class="preview-iframe" src="${blobUrl}"></iframe>` : ''}
-                        </div>
-
-                        <h3 class="text-lg font-bold text-white truncate mb-1">${project.title}</h3>
-                        <p class="text-xs text-gray-500 line-clamp-2 h-8">${project.prompt}</p>
-                    </div>
-                    <div class="pt-4 border-t border-white/5 flex items-center justify-between">
-                        <span class="text-[10px] text-gray-500 font-medium">Last edited · ${displayTime}</span>
-                        <button onclick="event.stopPropagation(); handlePreview('${project.id}')" 
-                                class="text-ammoue hover:text-teal-300 p-1.5 rounded-lg hover:bg-teal-500/10 transition" title="Preview Site">
-                            <i data-lucide="${isDeployed ? 'globe' : 'eye'}" class="w-5 h-5"></i>
-                        </button>
-                    </div>
-                </div>
-            `;
-        });
-        projectsContainer.innerHTML = projectsHtml;
-        lucide.createIcons();
-    }
-
-    function getProjects(userId) {
-        const projectsRef = collection(db, 'artifacts', appId, 'users', userId, 'projects');
-        const q = query(projectsRef);
-        onSnapshot(q, (snapshot) => {
-            const projects = [];
-            projectsData.clear();
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                const project = {
-                    id: doc.id,
-                    ...data,
-                    title: data.projectName || data.title || "Untitled Project",
-                    prompt: data.prompt ? data.prompt.replace(/\\n/g, '\n') : "No prompt available",
-                    htmlContent: data.htmlContent || '',
-                    pages: data.pages || null,
-                    deploymentUrl: data.lastDeploymentUrl || data.deploymentUrl || null
-                };
-                projectsData.set(doc.id, project);
-                projects.push(project);
-            });
-            projects.sort((a, b) => {
-                const timeA = (a.updatedAt || a.createdAt)?.toMillis() || 0;
-                const timeB = (b.updatedAt || b.createdAt)?.toMillis() || 0;
-                return timeB - timeA;
-            });
-            allProjectsArray = projects;
-            filterProjects(document.getElementById('project-search')?.value || '');
-        });
-    }
-
-    async function loadUserPlanAndGateContent(user) {
-        try {
-            const userDocRef = doc(db, "users", user.uid);
-            const userDoc = await getDoc(userDocRef);
-            let plan = "free";
-            if (userDoc.exists()) {
-                const userData = userDoc.data();
-                plan = userData.plan || "free";
-                userEmailSpan.textContent = userData.username || user.email || user.uid;
-            }
-            currentPlanEl.textContent = plan.toUpperCase();
-            currentPlanEl.className = `text-xl font-extrabold ${plan === "pro" ? "text-yellow-500" : "text-ammoue"}`;
-            if (plan === "pro") {
-                proContent.classList.remove('hidden');
-                upgradeCardWrapper.innerHTML = '';
-            } else {
-                proContent.classList.add('hidden');
-                upgradeCardWrapper.innerHTML = `<button onclick="handleUpgradeClick()" class="px-4 py-2 text-sm font-semibold rounded-xl text-white bg-yellow-500 hover:bg-yellow-600 shadow-md transition-transform hover:scale-105">Upgrade</button>`;
-            }
-        } catch (e) { console.error(e); }
-    }
-
     observeAuth((user) => {
         if (user) {
-            currentUserId = user.uid;
-            getProjects(currentUserId);
-            loadUserPlanAndGateContent(user);
+            Logic.setCurrentUserId(user.uid);
+            Logic.getProjects(user.uid, UI.renderProjects);
+            Logic.loadUserPlanAndGateContent(user, userEmailSpan, currentPlanEl, proContent, upgradeCardWrapper);
             loadingScreen.classList.add('hidden');
             dashboardContent.classList.remove('hidden');
         } else {
