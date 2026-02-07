@@ -1,3 +1,4 @@
+// dashboard.html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -298,19 +299,21 @@
             window.open(project.deploymentUrl, "_blank");
             return;
         }
-        if (!project.encodedHtmlContent) return;
-        const decodedHtml = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
+        if (!project.htmlContent) return;
         const previewWindow = window.open('', '_blank');
         if (previewWindow) {
-            previewWindow.document.write(decodedHtml);
+            previewWindow.document.write(project.htmlContent);
             previewWindow.document.close();
         }
     };
 
     window.handleDownload = function(projectId) {
         const project = projectsData.get(projectId);
-        if (!project || !project.encodedHtmlContent) return;
-        const htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
+        if (!project || !project.htmlContent) {
+            showMessage("No content available for download", true);
+            return;
+        }
+        const htmlContent = project.htmlContent;
         const cleanTitle = project.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'ammoue_project'; 
         const blob = new Blob([htmlContent], { type: 'text/html' });
         const a = document.createElement('a');
@@ -319,6 +322,7 @@
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
     };
 
     window.openExportModal = function() {
@@ -359,10 +363,9 @@
         try {
             const zip = new JSZip();
             allProjectsArray.forEach(project => {
-                if (project.encodedHtmlContent) {
-                    const htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
+                if (project.htmlContent) {
                     const fileName = project.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.html';
-                    zip.file(fileName, htmlContent);
+                    zip.file(fileName, project.htmlContent);
                 }
             });
             const content = await zip.generateAsync({ type: "blob" });
@@ -383,9 +386,8 @@
     
     window.handleCopyCode = function(projectId) {
         const project = projectsData.get(projectId);
-        if (!project || !project.encodedHtmlContent) return;
-        const htmlContent = decodeURIComponent(escape(atob(project.encodedHtmlContent)));
-        navigator.clipboard.writeText(htmlContent).then(() => showMessage("Code copied!", false));
+        if (!project || !project.htmlContent) return;
+        navigator.clipboard.writeText(project.htmlContent).then(() => showMessage("Code copied!", false));
     };
 
     window.handleUpgradeClick = function() {
@@ -603,7 +605,7 @@
                     ...data,
                     title: data.title || "Untitled Project",
                     prompt: data.prompt ? data.prompt.replace(/\\n/g, '\n') : "No prompt available",
-                    encodedHtmlContent: btoa(unescape(encodeURIComponent(data.htmlContent || '')))
+                    htmlContent: data.htmlContent || ''
                 };
                 projectsData.set(doc.id, project);
                 projects.push(project);
