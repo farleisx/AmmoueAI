@@ -50,10 +50,10 @@
             position: absolute;
             right: 0;
             top: 100%;
-            z-index: 20;
+            z-index: 30;
             min-width: 160px;
         }
-        .group:hover .project-menu {
+        .project-menu.active {
             display: block;
         }
         .canvas-grid {
@@ -613,6 +613,25 @@
         renderProjects(filteredProjects);
     };
 
+    window.toggleProjectMenu = function(projectId) {
+        const menu = document.getElementById(`menu-${projectId}`);
+        if (!menu) return;
+        
+        // Close all other menus first
+        document.querySelectorAll('.project-menu').forEach(m => {
+            if (m.id !== `menu-${projectId}`) m.classList.remove('active');
+        });
+        
+        menu.classList.toggle('active');
+    };
+
+    // Close menus when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.project-menu-trigger') && !e.target.closest('.project-menu')) {
+            document.querySelectorAll('.project-menu').forEach(m => m.classList.remove('active'));
+        }
+    });
+
     function renderProjects(projectsToRender) {
         if (!projectsContainer) return;
         document.getElementById('project-count').textContent = projectsToRender.length;
@@ -653,11 +672,11 @@
                             <span class="${isDeployed ? 'bg-teal-500/20 text-teal-400 border border-teal-500/30' : 'bg-white/5 text-gray-400 border border-white/10'} text-[10px] uppercase font-bold px-2 py-0.5 rounded-full">
                                 ${isDeployed ? 'Deployed' : 'Draft'}
                             </span>
-                            <div class="relative group/menu">
-                                <button onclick="event.stopPropagation()" class="p-1 hover:bg-white/10 rounded-full text-gray-500">
+                            <div class="relative">
+                                <button onclick="event.stopPropagation(); toggleProjectMenu('${project.id}')" class="project-menu-trigger p-1 hover:bg-white/10 rounded-full text-gray-500">
                                     <i data-lucide="more-vertical" class="w-4 h-4"></i>
                                 </button>
-                                <div class="project-menu absolute right-0 mt-1 bg-slate-800 border border-white/10 shadow-2xl rounded-xl p-1 w-40 overflow-hidden">
+                                <div id="menu-${project.id}" class="project-menu absolute right-0 mt-1 bg-[#0f0f0f] border border-white/10 shadow-2xl rounded-xl p-1 w-40 overflow-hidden">
                                     <button onclick="event.stopPropagation(); openEditModal('${project.id}')" class="w-full text-left px-3 py-2 text-xs font-medium text-gray-300 hover:bg-white/5 rounded-lg flex items-center">
                                         <i data-lucide="pencil" class="w-3.5 h-3.5 mr-2 text-amber-500"></i> Edit Details
                                     </button>
