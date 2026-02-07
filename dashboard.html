@@ -67,6 +67,43 @@
             backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
+        /* Live Preview Additions */
+        .preview-window-container {
+            position: relative;
+            width: 100%;
+            height: 140px;
+            background: #050505;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 12px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .preview-iframe {
+            width: 1200px;
+            height: 800px;
+            border: none;
+            transform: scale(0.116);
+            transform-origin: 0 0;
+            pointer-events: none;
+            background: white;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        .glass-card:hover .preview-iframe {
+            opacity: 1;
+        }
+        .preview-placeholder {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(45deg, #0a0a0a, #111);
+            transition: opacity 0.3s ease;
+        }
+        .glass-card:hover .preview-placeholder {
+            opacity: 0;
+        }
     </style>
 </head>
 <body class="antialiased min-h-screen canvas-grid">
@@ -599,6 +636,15 @@
             let displayTime = lastUpdate ? timeAgo(lastUpdate.toDate()) : "Recently";
             const isDeployed = (project.deploymentUrl && project.deploymentUrl.startsWith('http')) || (project.lastDeploymentUrl && project.lastDeploymentUrl.startsWith('http'));
             
+            // Extract content for live preview iframe
+            let contentForIframe = project.htmlContent;
+            if (!contentForIframe && project.pages) {
+                const pages = project.pages;
+                const targetPage = pages['index.html'] || pages['landing'] || Object.values(pages)[0];
+                contentForIframe = typeof targetPage === 'object' ? targetPage.content : targetPage;
+            }
+            const blobUrl = contentForIframe ? URL.createObjectURL(new Blob([contentForIframe], { type: 'text/html' })) : '';
+
             projectsHtml += `
                 <div onclick="window.location.href='/editor?id=${project.id}'"
                     class="glass-card rounded-2xl p-5 flex flex-col justify-between shadow-sm hover:shadow-xl transition duration-300 cursor-pointer group relative">
@@ -628,6 +674,14 @@
                                 </div>
                             </div>
                         </div>
+
+                        <div class="preview-window-container">
+                            <div class="preview-placeholder">
+                                <i data-lucide="layout" class="w-8 h-8 text-white/10"></i>
+                            </div>
+                            ${blobUrl ? `<iframe class="preview-iframe" src="${blobUrl}"></iframe>` : ''}
+                        </div>
+
                         <h3 class="text-lg font-bold text-white truncate mb-1">${project.title}</h3>
                         <p class="text-xs text-gray-500 line-clamp-2 h-8">${project.prompt}</p>
                     </div>
