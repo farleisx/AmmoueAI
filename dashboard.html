@@ -9,18 +9,18 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Geist:wght@100;300;400;500;600&display=swap');
         body {
-            font-family: 'Inter', sans-serif;
-            background: radial-gradient(circle at top right, #111827, #0f172a, #042f2e);
-            background-attachment: fixed;
+            font-family: 'Geist', sans-serif;
+            background-color: #030303;
+            color: #ededed;
         }
         .text-ammoue { color: #2dd4bf; }
         .bg-ammoue { background-color: #0d9488; }
         .loading-screen {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #0f172a;
+            background-color: #030303;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -33,13 +33,16 @@
             -webkit-line-clamp: 2;
         }
         .glass-card {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(10, 10, 10, 0.7);
+            backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.3s ease;
         }
         .glass-card:hover {
-            background: rgba(255, 255, 255, 0.07);
+            background: rgba(15, 15, 15, 0.9);
             border-color: #0d9488;
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.5);
         }
         .project-menu {
             display: none;
@@ -52,9 +55,20 @@
         .group:hover .project-menu {
             display: block;
         }
+        .canvas-grid {
+            background-color: #030303;
+            background-image: linear-gradient(#141414 1px, transparent 1px), linear-gradient(90deg, #141414 1px, transparent 1px);
+            background-size: 32px 32px;
+            background-attachment: fixed;
+        }
+        #message-box {
+            background: rgba(10, 10, 10, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
     </style>
 </head>
-<body class="antialiased min-h-screen text-gray-100">
+<body class="antialiased min-h-screen canvas-grid">
 
     <div id="loading-screen" class="loading-screen">
         <svg class="animate-spin h-8 w-8 text-ammoue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -66,50 +80,50 @@
     <div id="message-box" class="p-4 rounded-xl shadow-2xl text-white font-semibold fixed top-4 left-1/2 transform -translate-x-1/2 opacity-0 transition-opacity duration-300 z-50"></div>
     
     <div id="dashboard-content" class="min-h-screen hidden transition-opacity duration-500">
-        <nav class="bg-slate-900/50 backdrop-blur-md border-b border-white/10 p-4 flex justify-between items-center sticky top-0 z-10">
+        <nav class="bg-[#030303] border-b border-white/[0.06] p-4 flex justify-between items-center sticky top-0 z-10">
             <div class="flex items-center gap-2">
                 <img src="Gemini_Generated_Image_qry9pfqry9pfqry9.png" alt="Ammoue Logo" class="h-8 w-8" />
-                <div class="text-2xl font-extrabold text-ammoue">Ammoue Dashboard</div>
+                <div class="text-2xl font-extrabold text-white">Ammoue Dashboard</div>
             </div>
             <div class="flex items-center space-x-4">
-                <span class="text-gray-400 text-sm">Welcome, <span id="user-email" class="font-bold text-gray-100">Loading...</span></span>
+                <span class="text-gray-500 text-sm">Welcome, <span id="user-email" class="font-bold text-gray-100">Loading...</span></span>
                 <a href="/profile" class="px-3 py-2 text-sm font-medium rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-150 shadow-md flex items-center">
                     <i data-lucide="user" class="w-4 h-4 mr-1"></i> Profile
                 </a>
-                <button onclick="handleLogout()" class="px-3 py-2 text-sm font-medium rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150 shadow-md">
+                <button onclick="handleLogout()" class="px-3 py-2 text-sm font-medium rounded-xl text-white bg-red-500/80 hover:bg-red-600 transition duration-150 shadow-md">
                     Log Out
                 </button>
             </div>
         </nav>
 
-        <header class="p-4 md:p-8 max-w-6xl mx-auto flex flex-wrap gap-4 justify-between items-center border-b border-white/10 mb-6">
+        <header class="p-4 md:p-8 max-w-6xl mx-auto flex flex-wrap gap-4 justify-between items-center border-b border-white/[0.06] mb-6">
             <div class="flex items-center space-x-3">
                 <h1 class="text-3xl font-bold text-white">Your Sites</h1>
-                <span id="project-count" class="bg-white/10 text-teal-400 text-xs font-bold px-2.5 py-0.5 rounded-full border border-white/10">0</span>
+                <span id="project-count" class="bg-white/5 text-teal-400 text-xs font-bold px-2.5 py-0.5 rounded-full border border-white/10">0</span>
                 
                 <div class="flex items-center gap-2 ml-4">
-                    <button id="btn-export-all" onclick="openExportModal()" class="px-3 py-1.5 text-xs font-bold rounded-lg text-blue-400 border border-blue-500/30 hover:bg-blue-500/10 transition-all flex items-center">
+                    <button id="btn-export-all" onclick="openExportModal()" class="px-3 py-1.5 text-xs font-bold rounded-lg text-blue-400 border border-blue-500/20 hover:bg-blue-500/10 transition-all flex items-center">
                         <i data-lucide="folder-down" class="w-3.5 h-3.5 mr-1.5"></i> Export All (ZIP)
                     </button>
-                    <button onclick="openDeleteAllModal()" class="px-3 py-1.5 text-xs font-bold rounded-lg text-red-400 border border-red-500/30 hover:bg-red-500/10 transition-all flex items-center">
+                    <button onclick="openDeleteAllModal()" class="px-3 py-1.5 text-xs font-bold rounded-lg text-red-400 border border-red-500/20 hover:bg-red-500/10 transition-all flex items-center">
                         <i data-lucide="trash-2" class="w-3.5 h-3.5 mr-1.5"></i> Delete All
                     </button>
                 </div>
             </div>
             <div class="flex items-center space-x-4">
-                <span class="text-gray-400 text-sm font-medium">Your Plan:</span>
+                <span class="text-gray-500 text-sm font-medium">Your Plan:</span>
                 <span id="current-plan" class="text-xl font-extrabold text-ammoue">Loading...</span>
                 <div id="upgrade-card-wrapper"></div>
             </div>
         </header>
 
         <main class="p-4 md:p-8 pt-0 max-w-6xl mx-auto">
-            <section id="pro-content" class="hidden mb-8 border-2 border-yellow-500/30 bg-yellow-500/5 p-6 rounded-2xl shadow-inner backdrop-blur-sm">
+            <section id="pro-content" class="hidden mb-8 border border-yellow-500/20 bg-yellow-500/5 p-6 rounded-2xl shadow-inner backdrop-blur-sm">
                 <div class="flex items-center justify-between">
                     <h3 class="text-2xl font-bold text-yellow-500 flex items-center">
                         <i data-lucide="gem" class="w-6 h-6 mr-2 fill-yellow-500 text-yellow-500"></i> PRO Exclusive Features
                     </h3>
-                    <span class="text-sm font-semibold text-yellow-900 bg-yellow-500 px-3 py-1 rounded-full">PRO ACTIVE</span>
+                    <span class="text-sm font-semibold text-black bg-yellow-500 px-3 py-1 rounded-full">PRO ACTIVE</span>
                 </div>
                 <p class="mt-3 text-lg text-yellow-200/80">You now have access to advanced AI settings, 5 each separated Deployments, and Our Agent Era 2!</p>
             </section>
@@ -119,26 +133,26 @@
                     <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500"></i>
                     <input type="text" id="project-search" oninput="filterProjects(this.value)"
                             placeholder="Search projects..."
-                            class="w-full bg-white/5 border-white/10 rounded-xl shadow-md focus:border-ammoue focus:ring-ammoue transition duration-150 p-3 pl-10 text-gray-200 placeholder-gray-500">
+                            class="w-full bg-white/5 border border-white/10 rounded-xl shadow-md focus:border-ammoue focus:ring-1 focus:ring-ammoue transition duration-150 p-3 pl-10 text-gray-200 placeholder-gray-600 outline-none">
                 </div>
             </div>
 
             <div id="projects-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 <div onclick="window.location.href='/ai_prompt'"
                     class="bg-white/5 border-2 border-dashed border-white/10 rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:border-ammoue transition duration-300 cursor-pointer hover:shadow-lg h-full min-h-[200px] hover:bg-white/10">
-                    <i data-lucide="plus-circle" class="w-12 h-12 text-gray-500 mb-3"></i>
+                    <i data-lucide="plus-circle" class="w-12 h-12 text-gray-600 mb-3"></i>
                     <p class="text-lg font-semibold text-gray-200">Create New AI Site</p>
                     <p class="text-sm text-gray-500 mt-1">Start generating a new website</p>
                 </div>
-                <p id="no-projects-message" class="col-span-full text-center text-gray-500 text-lg hidden mt-10">
+                <p id="no-projects-message" class="col-span-full text-center text-gray-600 text-lg hidden mt-10">
                     You don't have any projects yet. Create your first AI site to get started!
                 </p>
             </div>
         </main>
     </div>
 
-    <div id="edit-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center">
-        <div class="bg-slate-900 border border-white/10 rounded-xl shadow-2xl p-6 w-full max-w-lg m-4 transform transition-all duration-300 scale-95 opacity-0" id="edit-modal-content">
+    <div id="edit-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden items-center justify-center">
+        <div class="bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-2xl p-6 w-full max-w-lg m-4 transform transition-all duration-300 scale-95 opacity-0" id="edit-modal-content">
             <h2 class="text-2xl font-bold text-white mb-4 flex items-center justify-between">
                 Edit Project Details
                 <button onclick="closeEditModal()" class="text-gray-500 hover:text-gray-300">
@@ -148,56 +162,56 @@
             <form id="edit-project-form">
                 <input type="hidden" id="edit-project-id">
                 <div class="mb-4">
-                    <label for="edit-title" class="block text-sm font-medium text-gray-400 mb-1">Project Title</label>
-                    <input type="text" id="edit-title" required class="w-full bg-white/5 border-white/10 text-white rounded-xl shadow-sm focus:border-ammoue focus:ring-ammoue transition duration-150 p-3">
+                    <label for="edit-title" class="block text-sm font-medium text-gray-500 mb-1 uppercase tracking-widest text-[10px]">Project Title</label>
+                    <input type="text" id="edit-title" required class="w-full bg-white/5 border border-white/10 text-white rounded-xl shadow-sm focus:border-ammoue outline-none transition duration-150 p-3">
                 </div>
                 <div class="mb-6">
-                    <label for="edit-prompt" class="block text-sm font-medium text-gray-400 mb-1">AI Prompt</label>
-                    <textarea id="edit-prompt" rows="6" required class="w-full bg-white/5 border-white/10 text-white rounded-xl shadow-sm focus:border-ammoue focus:ring-ammoue transition duration-150 p-3"></textarea>
+                    <label for="edit-prompt" class="block text-sm font-medium text-gray-500 mb-1 uppercase tracking-widest text-[10px]">AI Prompt</label>
+                    <textarea id="edit-prompt" rows="6" required class="w-full bg-white/5 border border-white/10 text-white rounded-xl shadow-sm focus:border-ammoue outline-none transition duration-150 p-3"></textarea>
                 </div>
                 <div class="flex justify-end space-x-3">
                     <button type="button" onclick="closeEditModal()" class="px-4 py-2 text-sm font-semibold rounded-xl text-gray-400 bg-white/5 hover:bg-white/10 transition duration-150">Cancel</button>
-                    <button type="submit" class="px-4 py-2 text-sm font-semibold rounded-xl text-white bg-ammoue hover:bg-teal-700 transition duration-150 shadow-md">Save Changes</button>
+                    <button type="submit" class="px-4 py-2 text-sm font-semibold rounded-xl text-black bg-white hover:bg-ammoue hover:text-white transition duration-150 shadow-md">Save Changes</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <div id="delete-confirm-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center">
-        <div class="bg-slate-900 border border-white/10 rounded-xl shadow-2xl p-6 w-full max-w-sm m-4 transform transition-all duration-300 scale-95 opacity-0" id="delete-modal-content">
+    <div id="delete-confirm-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden items-center justify-center">
+        <div class="bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-2xl p-6 w-full max-w-sm m-4 transform transition-all duration-300 scale-95 opacity-0" id="delete-modal-content">
             <h2 class="text-xl font-bold text-white mb-3 flex items-center">
                 <i data-lucide="alert-triangle" class="w-6 h-6 text-red-500 mr-2"></i> Confirm Deletion
             </h2>
-            <p class="text-gray-400 mb-6">Are you sure you want to delete the project: **<span id="delete-project-title" class="text-red-400"></span>**? This action cannot be undone.</p>
+            <p class="text-gray-500 mb-6">Are you sure you want to delete the project: **<span id="delete-project-title" class="text-red-400"></span>**? This action cannot be undone.</p>
             <div class="flex justify-end space-x-3">
                 <button type="button" onclick="closeDeleteModal()" class="px-4 py-2 text-sm font-semibold rounded-xl text-gray-400 bg-white/5 hover:bg-white/10 transition duration-150">Cancel</button>
-                <button type="button" id="confirm-delete-button" class="px-4 py-2 text-sm font-semibold rounded-xl text-white bg-red-500 hover:bg-red-600 transition duration-150 shadow-md">Delete Project</button>
+                <button type="button" id="confirm-delete-button" class="px-4 py-2 text-sm font-semibold rounded-xl text-white bg-red-600/80 hover:bg-red-600 transition duration-150 shadow-md">Delete Project</button>
             </div>
         </div>
     </div>
 
-    <div id="delete-all-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center">
-        <div class="bg-slate-900 border border-white/10 rounded-xl shadow-2xl p-6 w-full max-w-sm m-4 transform transition-all duration-300 scale-95 opacity-0" id="delete-all-modal-content">
+    <div id="delete-all-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden items-center justify-center">
+        <div class="bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-2xl p-6 w-full max-w-sm m-4 transform transition-all duration-300 scale-95 opacity-0" id="delete-all-modal-content">
             <h2 class="text-xl font-bold text-white mb-3 flex items-center text-red-500">
                 <i data-lucide="alert-octagon" class="w-6 h-6 mr-2"></i> Delete Everything?
             </h2>
-            <p class="text-gray-400 mb-6">Are you absolutely sure you want to delete <span id="delete-all-count" class="font-bold text-white"></span> projects? This action is permanent.</p>
+            <p class="text-gray-500 mb-6">Are you absolutely sure you want to delete <span id="delete-all-count" class="font-bold text-white"></span> projects? This action is permanent.</p>
             <div class="flex flex-col gap-2">
-                <button type="button" id="confirm-delete-all-button" class="w-full px-4 py-2 text-sm font-bold rounded-xl text-white bg-red-600 hover:bg-red-700 transition duration-150 shadow-md">Yes, Delete All</button>
-                <button type="button" onclick="closeDeleteAllModal()" class="w-full px-4 py-2 text-sm font-semibold rounded-xl text-gray-400 bg-white/5 hover:bg-white/10 transition duration-150">Cancel</button>
+                <button type="button" id="confirm-delete-all-button" class="w-full px-4 py-2 text-sm font-bold rounded-xl text-white bg-red-600/80 hover:bg-red-700 transition duration-150 shadow-md">Yes, Delete All</button>
+                <button type="button" onclick="closeDeleteAllModal()" class="w-full px-4 py-2 text-sm font-semibold rounded-xl text-gray-500 bg-white/5 hover:bg-white/10 transition duration-150">Cancel</button>
             </div>
         </div>
     </div>
 
-    <div id="export-confirm-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center">
-        <div class="bg-slate-900 border border-white/10 rounded-xl shadow-2xl p-6 w-full max-w-sm m-4 transform transition-all duration-300 scale-95 opacity-0" id="export-modal-content">
+    <div id="export-confirm-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden items-center justify-center">
+        <div class="bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-2xl p-6 w-full max-w-sm m-4 transform transition-all duration-300 scale-95 opacity-0" id="export-modal-content">
             <h2 class="text-xl font-bold text-white mb-3 flex items-center">
                 <i data-lucide="folder-down" class="w-6 h-6 text-blue-400 mr-2"></i> Export All Projects?
             </h2>
-            <p class="text-gray-400 mb-6">This will bundle all your projects into a single ZIP file. Are you sure you want to proceed?</p>
+            <p class="text-gray-500 mb-6">This will bundle all your projects into a single ZIP file. Are you sure you want to proceed?</p>
             <div class="flex flex-col gap-2">
-                <button type="button" onclick="handleExportAll()" class="w-full px-4 py-2 text-sm font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-md">Start Export</button>
-                <button type="button" onclick="closeExportModal()" class="w-full px-4 py-2 text-sm font-semibold rounded-xl text-gray-400 bg-white/5 hover:bg-white/10 transition duration-150">Cancel</button>
+                <button type="button" onclick="handleExportAll()" class="w-full px-4 py-2 text-sm font-bold rounded-xl text-black bg-white hover:bg-blue-400 transition duration-150 shadow-md">Start Export</button>
+                <button type="button" onclick="closeExportModal()" class="w-full px-4 py-2 text-sm font-semibold rounded-xl text-gray-500 bg-white/5 hover:bg-white/10 transition duration-150">Cancel</button>
             </div>
         </div>
     </div>
