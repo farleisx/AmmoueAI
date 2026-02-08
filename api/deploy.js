@@ -41,8 +41,17 @@ async function reserveSlug(slug, userId, projectId) {
 
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
-    // Modified logic: If slug exists but belongs to the same user/project, allow re-deployment
-    if (snap.exists && snap.data().userId !== userId) throw new Error("SLUG_TAKEN");
+    
+    if (snap.exists) {
+      const data = snap.data();
+      // Block if owned by another user OR owned by same user but a different project
+      if (data.userId !== userId) {
+        throw new Error("SLUG_TAKEN");
+      }
+      if (data.projectId !== projectId) {
+        throw new Error("SLUG_RESERVED_FOR_OTHER_PROJECT");
+      }
+    }
 
     tx.set(ref, {
       userId,
@@ -365,10 +374,16 @@ export default async function handler(req, res) {
       framework
     });
   } catch (err) {
-    if (finalSlug) await releaseSlug(finalSlug);
+    if (finalSlug && err.message !== "SLUG_TAKEN" && err.message !== "SLUG_RESERVED_FOR_OTHER_PROJECT") {
+      await releaseSlug(finalSlug);
+    }
 
     if (err.message === "SLUG_TAKEN") {
       return res.status(409).json({ error: "Site name already taken" });
+    }
+    
+    if (err.message === "SLUG_RESERVED_FOR_OTHER_PROJECT") {
+      return res.status(409).json({ error: "This site name is already reserved for another of your projects" });
     }
 
     console.error("DEPLOY ERROR:", err);
