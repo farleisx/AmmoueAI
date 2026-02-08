@@ -271,7 +271,25 @@ if (document.getElementById('confirm-publish')) {
             }, null, 2);
 
             updateProgress(50, "Uploading files to Vercel...");
-            const res = await deployProject(currentProjectId, idToken, { slug, files: projectFiles });
+            
+            const deployResponse = await fetch('/api/deploy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+                body: JSON.stringify({ projectId: currentProjectId, slug, files: projectFiles })
+            });
+
+            if (!deployResponse.ok) {
+                const errData = await deployResponse.json();
+                if (deployResponse.status === 409) {
+                    throw new Error("SLUG_TAKEN");
+                } else if (deployResponse.status === 403) {
+                    throw new Error("LIMIT_REACHED");
+                } else {
+                    throw new Error(errData.message || "Deployment failed");
+                }
+            }
+
+            const res = await deployResponse.json();
             
             const deploymentId = res.id || res.deploymentId;
             let isReady = false;
@@ -326,7 +344,15 @@ if (document.getElementById('confirm-publish')) {
                 }
             }
         } catch (e) {
-            showCustomAlert("Publish Failed", e.message);
+            if (e.message === "SLUG_TAKEN") {
+                showCustomAlert("Name Conflict", "This URL slug is already taken by another project. Please try a different name.");
+            } else if (e.message === "LIMIT_REACHED") {
+                showCustomAlert("Limit Reached", "You've reached your deployment limit. Upgrade to Pro for unlimited sites.");
+                document.getElementById('publish-modal').style.display = 'none';
+                document.getElementById('checkout-modal').style.display = 'flex';
+            } else {
+                showCustomAlert("Publish Failed", e.message);
+            }
             if(progressContainer) progressContainer.classList.add('hidden');
         } finally {
             if (!timerExpired) {
