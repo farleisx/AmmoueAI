@@ -34,6 +34,11 @@ import {
 
 import { FrameBridge } from "./frame-bridge.js";
 
+import { refreshFileState, loadExistingProject, handleRenameLogic } from "./project_management_service.js";
+import { syncUsage, startCountdown } from "./usage_service.js";
+import { initCommandPaletteLogic, handleGlobalKeyDown } from "./command_palette_service.js";
+import { handleGitHubExport, handleOpenInTab } from "./export_service.js";
+
 let currentUser = null;
 let currentProjectId = null;
 let projectFiles = {};
@@ -64,11 +69,11 @@ onAuthStateChanged(auth, (user) => {
     if (!user) window.location.href = "/login";
     else { 
         currentUser = user; 
-        syncUsage(); 
+        syncUsageData(); 
         const urlParams = new URLSearchParams(window.location.search);
         const pid = urlParams.get('id');
-        if (pid) loadExistingProject(pid);
-        fetchProjectHistory(currentUser, loadExistingProject); 
+        if (pid) loadProject(pid);
+        fetchProjectHistory(currentUser, loadProject); 
     }
 });
 
@@ -76,43 +81,19 @@ initUIService();
 initAttachmentService('image-upload', 'attach-btn', 'attachment-rack', 'image-preview-modal', 'modal-img');
 initLiveEditor(document.getElementById('preview-frame'));
 
-async function syncUsage() {
-    if (!currentUser) return;
-    const usage = await getUsage(currentUser.uid);
-    const plan = usage.plan === "pro" ? "pro" : "free";
-    const limitVal = plan === "pro" ? 10 : 5;
-    const count = usage.dailyCount || 0;
-    const resetAt = usage.dailyResetAt || (Date.now() + 86400000);
-    
-    const creditEl = document.getElementById('credit-display');
-    if (creditEl && currentUsageData.count !== count) {
-        creditEl.classList.add('scale-110', 'text-emerald-400');
-        setTimeout(() => creditEl.classList.remove('scale-110', 'text-emerald-400'), 400);
-    }
-
-    currentUsageData = { count, limit: limitVal, resetAt };
-    
-    if (creditEl) {
-        creditEl.innerText = `Credits: ${limitVal}/${count}`;
-        if (count >= limitVal && Date.now() < resetAt) {
-            creditEl.classList.add('text-red-500', 'bg-red-500/10');
-            creditEl.classList.remove('text-white/40', 'bg-white/5');
-        } else {
-            creditEl.classList.remove('text-red-500', 'bg-red-500/10');
-            creditEl.classList.add('text-white/40', 'bg-white/5');
+async function syncUsageData() {
+    const data = await syncUsage(currentUser);
+    if (data) {
+        if (currentUsageData.count !== data.count) {
+            const creditEl = document.getElementById('credit-display');
+            if (creditEl) {
+                creditEl.classList.add('scale-110', 'text-emerald-400');
+                setTimeout(() => creditEl.classList.remove('scale-110', 'text-emerald-400'), 400);
+            }
         }
+        currentUsageData = data;
+        startCountdown(data.resetAt, updateCountdown, syncUsageData);
     }
-    startCountdown(resetAt);
-}
-
-function startCountdown(resetAt) {
-    if (window.usageInterval) clearInterval(window.usageInterval);
-    window.usageInterval = setInterval(() => {
-        const now = Date.now();
-        const timeLeft = Math.max(0, Math.floor((resetAt - now) / 1000));
-        updateCountdown(timeLeft);
-        if (timeLeft <= 0) syncUsage();
-    }, 1000);
 }
 
 const setPreviewSize = (type) => {
@@ -204,18 +185,7 @@ if (document.getElementById('confirm-download')) {
 
 if (document.getElementById('confirm-rename')) {
     document.getElementById('confirm-rename').onclick = async () => {
-        const newName = document.getElementById('new-project-name').value;
-        if (!currentProjectId) {
-            document.getElementById('rename-modal').style.display = 'none';
-            showCustomAlert("Error", "No active project to rename. Start building first!");
-            return;
-        }
-        const idToken = await currentUser.getIdToken();
-        const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", String(currentProjectId));
-        await updateDoc(projectRef, { projectName: newName });
-        await renameRemoteProject(currentProjectId, idToken, newName);
-        document.getElementById('project-name-display').innerText = newName;
-        document.getElementById('rename-modal').style.display = 'none';
+        await handleRenameLogic(currentProjectId, currentUser, db, updateDoc, doc, renameRemoteProject, showCustomAlert);
     };
 }
 
@@ -419,15 +389,14 @@ if (document.getElementById('generate-btn')) {
                     updateFileTabsUI(projectFiles, activeFile);
                     displayActiveFile(projectFiles, activeFile);
                     
-                    // Live Update Preview and Bridge if current active file is being streamed
                     if (projectFiles[activeFile]) {
                         bridge.update(projectFiles[activeFile]);
                     }
                 },
                 async (statusUpdate) => {
                     if (statusUpdate && statusUpdate.status === 'completed') {
-                        await syncUsage();
-                        await refreshFileState();
+                        await syncUsageData();
+                        await refreshFiles();
                         resetGenerateButton();
                         isGenerating = false;
                         updateSaveIndicator("Saved");
@@ -460,87 +429,27 @@ window.switchFile = (fileName) => {
     updateFileTabsUI(projectFiles, activeFile);
     displayActiveFile(projectFiles, activeFile);
     
-    // Update the Preview Frame when switching files
     if (projectFiles[fileName]) {
         bridge.update(projectFiles[fileName]);
     }
 };
 
-async function refreshFileState() {
-    if (!currentProjectId || !currentUser) return;
-    const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", currentProjectId);
-    const snap = await getDoc(projectRef);
-    if (snap.exists()) {
-        const data = snap.data().pages || {};
-        projectFiles = {};
-        Object.keys(data).forEach(k => { projectFiles[k] = data[k].content || ""; });
-        if (snap.data().lastDeploymentUrl) {
-            const linkArea = document.getElementById('deployment-link-area');
-            if(linkArea) {
-                const url = snap.data().lastDeploymentUrl;
-                linkArea.innerHTML = `<a href="${url}" target="_blank" class="text-emerald-400 text-xs font-mono hover:underline flex items-center justify-center gap-1 mt-2"><i data-lucide="external-link" class="w-3 h-3"></i> ${url}</a>`;
-                linkArea.classList.remove('hidden');
-                lucide.createIcons();
-            }
-        }
-        updateFileTabsUI(projectFiles, activeFile);
-        displayActiveFile(projectFiles, activeFile);
-        
-        // Initial Frame Load
-        if (projectFiles[activeFile]) {
-            bridge.update(projectFiles[activeFile]);
-        }
-    }
+async function refreshFiles() {
+    projectFiles = await refreshFileState(currentProjectId, currentUser, updateFileTabsUI, displayActiveFile, activeFile, bridge);
 }
 
-async function loadExistingProject(pid) {
-    currentProjectId = pid;
-    await refreshFileState();
-    const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", pid);
-    const snap = await getDoc(projectRef);
-    if (snap.exists()) {
-        document.getElementById('project-name-display').innerText = snap.data().projectName || "Untitled";
-        const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?id=' + pid;
-        window.history.pushState({ path: newUrl }, '', newUrl);
-    }
+async function loadProject(pid) {
+    await loadExistingProject(pid, currentUser, async (id) => {
+        currentProjectId = id;
+        await refreshFiles();
+    });
 }
 
 document.addEventListener('keydown', e => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        const palette = document.getElementById('command-palette');
-        palette.classList.toggle('hidden');
-        if (!palette.classList.contains('hidden')) document.getElementById('command-input').focus();
-    }
-    if (e.key === 'Enter' && document.activeElement.id === 'prompt-input' && !e.shiftKey) {
-        e.preventDefault();
-        document.getElementById('generate-btn').click();
-    }
+    handleGlobalKeyDown(e, 'generate-btn');
 });
 
-if (document.getElementById('command-input')) {
-    const cmds = [
-        { label: 'Publish to Web', action: () => document.getElementById('publish-btn').click() },
-        { label: 'Export ZIP', action: () => document.getElementById('download-btn').click() },
-        { label: 'Rename Project', action: () => document.getElementById('project-name-display').click() },
-        { label: 'Switch to Mobile View', action: () => setPreviewSize('mobile') },
-        { label: 'Switch to Desktop View', action: () => setPreviewSize('desktop') },
-        { label: 'Toggle Code', action: () => document.getElementById('toggle-code').click() },
-        { label: 'Toggle Theme', action: () => document.getElementById('theme-toggle').click() }
-    ];
-    document.getElementById('command-input').oninput = (e) => {
-        const val = e.target.value.toLowerCase();
-        const results = cmds.filter(c => c.label.toLowerCase().includes(val));
-        const resCont = document.getElementById('command-results');
-        resCont.innerHTML = results.map((r, i) => `<div class="p-3 hover:bg-white/5 rounded-lg cursor-pointer transition cmd-item" data-idx="${i}">${r.label}</div>`).join('');
-        document.querySelectorAll('.cmd-item').forEach(el => {
-            el.onclick = () => {
-                cmds[el.dataset.idx].action();
-                document.getElementById('command-palette').classList.add('hidden');
-            };
-        });
-    };
-}
+initCommandPaletteLogic(setPreviewSize);
 
 if (document.getElementById('theme-toggle')) {
     document.getElementById('theme-toggle').onclick = () => {
@@ -581,50 +490,13 @@ if (document.getElementById('checkout-pro-btn')) {
 
 if (document.getElementById('export-github-btn')) {
     document.getElementById('export-github-btn').onclick = async () => {
-        if (!currentProjectId) return;
-        const btn = document.getElementById('export-github-btn');
-        const idToken = await currentUser.getIdToken();
-        const userGitHubToken = localStorage.getItem('gh_access_token');
-        const projectName = document.getElementById('project-name-display').innerText;
-
-        if (!userGitHubToken) {
-            showCustomAlert("GitHub Auth Error", "You must be logged in through GitHub to export. Please re-login with GitHub.");
-            return;
-        }
-
-        btn.disabled = true;
-        btn.innerText = "Pushing...";
-
-        try {
-            const res = await fetch('/api/github/export', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-                body: JSON.stringify({ projectId: currentProjectId, projectName, files: projectFiles, userGitHubToken })
-            });
-            const data = await res.json();
-            if (data.repoUrl) {
-                window.open(data.repoUrl, '_blank');
-            } else {
-                throw new Error(data.message || "Unknown error during export.");
-            }
-        } catch (e) { 
-            showCustomAlert("GitHub Export Error", e.message); 
-        } finally { 
-            btn.disabled = false; 
-            btn.innerHTML = `<i data-lucide="github" class="w-4 h-4"></i> Push to GitHub`; 
-            lucide.createIcons(); 
-        }
+        await handleGitHubExport(currentProjectId, currentUser, projectFiles, showCustomAlert);
     };
 }
 
 if (document.getElementById('open-tab-btn')) {
     document.getElementById('open-tab-btn').onclick = () => {
-        const content = projectFiles[activeFile] || "";
-        const win = window.open('about:blank', '_blank');
-        if (win) {
-            win.document.write(activeFile.endsWith('.html') ? content : `<pre>${content}</pre>`);
-            win.document.close();
-        }
+        handleOpenInTab(activeFile, projectFiles);
     };
 }
 
