@@ -1,4 +1,6 @@
 // project_ui_service.js
+import { clearLogs } from "./ui_service.js";
+
 export function updateFileTabsUI(projectFiles, activeFile) {
     const tabContainer = document.getElementById('file-tabs');
     if (!tabContainer) return;
@@ -19,6 +21,10 @@ export function displayActiveFile(projectFiles, activeFile) {
 export function updatePreview(projectFiles, activeFile) {
     const frame = document.getElementById('preview-frame');
     if (!frame) return;
+    
+    // Clear logs on fresh build
+    clearLogs();
+    
     const content = projectFiles[activeFile] || "";
     if (!content && activeFile === "index.html") return;
     let blob;
@@ -47,6 +53,7 @@ export function updatePreview(projectFiles, activeFile) {
             const frameDoc = frame.contentDocument || frame.contentWindow.document;
             const errorHandler = `
                 window.onerror = function(msg, url, line) {
+                    window.parent.postMessage({ type: 'CONSOLE_LOG', logType: 'error', message: msg + ' (Line: ' + line + ')' }, '*');
                     document.body.innerHTML = \`
                         <div style="background:#0a0a0a;color:#ef4444;padding:40px;font-family:monospace;height:100vh;">
                             <h2 style="font-size:18px;">Runtime Error</h2>
@@ -55,6 +62,26 @@ export function updatePreview(projectFiles, activeFile) {
                         </div>\`;
                     return true;
                 };
+
+                // Console Interceptor
+                (function() {
+                    const originalLog = console.log;
+                    const originalError = console.error;
+                    const originalWarn = console.warn;
+                    
+                    console.log = function(...args) {
+                        window.parent.postMessage({ type: 'CONSOLE_LOG', logType: 'info', message: args.join(' ') }, '*');
+                        originalLog.apply(console, args);
+                    };
+                    console.error = function(...args) {
+                        window.parent.postMessage({ type: 'CONSOLE_LOG', logType: 'error', message: args.join(' ') }, '*');
+                        originalError.apply(console, args);
+                    };
+                    console.warn = function(...args) {
+                        window.parent.postMessage({ type: 'CONSOLE_LOG', logType: 'warn', message: args.join(' ') }, '*');
+                        originalWarn.apply(console, args);
+                    };
+                })();
             `;
             const script = frameDoc.createElement('script');
             script.textContent = errorHandler;
