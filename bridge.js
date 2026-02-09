@@ -1,7 +1,7 @@
 // bridge.js
 import { auth, getUsage, autoSaveProject, db } from "./fire_prompt.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
-import { doc, updateDoc, getDoc, collection, getDocs, query, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+import { doc, updateDoc, getDoc, collection, getDocs, query, orderBy, limit, onSnapshot, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 import { generateProjectStream } from "./generator_service.js";
 import { deployProject, renameRemoteProject } from "./deployment_service.js";
 import { downloadProjectFiles, listProjectFiles, generateCoolName } from "./download_service.js";
@@ -239,6 +239,37 @@ if (document.getElementById('confirm-publish')) {
                 "trailingSlash": false,
                 "outputDirectory": "." 
             }, null, 2);
+
+            // LOG RELAY INJECTION START
+            const firebaseConfig = {
+                apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
+                authDomain: "ammoueai.firebaseapp.com",
+                projectId: "ammoueai",
+                storageBucket: "ammoueai.firebasestorage.app",
+                messagingSenderId: "135818868149",
+                appId: "1:135818868149:web:db9280baf9540a3339d5fc"
+            };
+
+            const relayScript = `
+            <script type="module">
+              import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+              import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+              const app = initializeApp(${JSON.stringify(firebaseConfig)});
+              const db = getFirestore(app);
+              const sendLog = async (msg) => {
+                try { await addDoc(collection(db, "artifacts", "ammoueai", "projects", "${currentProjectId}", "live_logs"), {
+                  message: msg, type: "error", timestamp: serverTimestamp()
+                }); } catch(e) {}
+              };
+              window.onerror = (m, u, l, c, e) => sendLog(m + " at line " + l);
+              const orig = console.error;
+              console.error = (...args) => { sendLog(args.join(" ")); orig.apply(console, args); };
+            </script>`;
+
+            if (projectFiles['index.html']) {
+                projectFiles['index.html'] = projectFiles['index.html'].replace('</head>', relayScript + '</head>');
+            }
+            // LOG RELAY INJECTION END
 
             updateProgress(50, "Uploading files to Vercel...");
             
@@ -511,3 +542,42 @@ document.addEventListener('DOMContentLoaded', () => {
     if (nameDisplay && nameDisplay.innerText === 'lovable-clone') nameDisplay.innerText = generateCoolName();
     runTypingEffect();
 });
+
+// SELF-HEALING LOGIC APPENDED
+if (document.getElementById('toggle-logs')) {
+    document.getElementById('toggle-logs').onclick = () => {
+        const terminal = document.getElementById('logs-terminal');
+        const frame = document.getElementById('preview-frame');
+        const isHidden = terminal.style.display === 'none' || !terminal.style.display;
+        terminal.style.display = isHidden ? 'flex' : 'none';
+        frame.style.display = isHidden ? 'none' : 'block';
+        if (isHidden && currentProjectId) {
+            const logsRef = collection(db, "artifacts", "ammoueai", "projects", currentProjectId, "live_logs");
+            const q = query(logsRef, orderBy("timestamp", "desc"), limit(50));
+            onSnapshot(q, (snap) => {
+                terminal.innerHTML = '';
+                snap.docs.forEach(d => {
+                    const l = d.data();
+                    const entry = document.createElement('div');
+                    entry.className = 'log-entry log-type-error';
+                    const time = l.timestamp?.toDate().toLocaleTimeString() || '...';
+                    entry.innerHTML = `
+                        <span class="log-time">[${time}]</span>
+                        <span class="log-msg">${l.message}</span>
+                        <button class="ml-auto bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded text-[10px] hover:bg-emerald-500 hover:text-white transition flex items-center gap-1" onclick="window.selfHeal('${btoa(l.message)}')">
+                            <i data-lucide="wand-2" class="w-2.5 h-2.5"></i> Fix
+                        </button>`;
+                    terminal.appendChild(entry);
+                });
+                lucide.createIcons();
+            });
+        }
+    };
+}
+
+window.selfHeal = (b64) => {
+    const msg = atob(b64);
+    const input = document.getElementById('prompt-input');
+    input.value = `FIX ERROR: ${msg}. Please examine the code and repair the bug.`;
+    document.getElementById('generate-btn').click();
+};
