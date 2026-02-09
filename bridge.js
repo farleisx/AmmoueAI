@@ -544,6 +544,8 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // SELF-HEALING LOGIC APPENDED
+let logsUnsubscribe = null;
+
 if (document.getElementById('toggle-logs')) {
     document.getElementById('toggle-logs').onclick = () => {
         const terminal = document.getElementById('logs-terminal');
@@ -552,9 +554,10 @@ if (document.getElementById('toggle-logs')) {
         terminal.style.display = isHidden ? 'flex' : 'none';
         frame.style.display = isHidden ? 'none' : 'block';
         if (isHidden && currentProjectId) {
+            if (logsUnsubscribe) logsUnsubscribe();
             const logsRef = collection(db, "artifacts", "ammoueai", "projects", currentProjectId, "live_logs");
             const q = query(logsRef, orderBy("timestamp", "desc"), limit(50));
-            onSnapshot(q, (snap) => {
+            logsUnsubscribe = onSnapshot(q, (snap) => {
                 terminal.innerHTML = '';
                 snap.docs.forEach(d => {
                     const l = d.data();
@@ -578,6 +581,13 @@ if (document.getElementById('toggle-logs')) {
 window.selfHeal = (b64) => {
     const msg = atob(b64);
     const input = document.getElementById('prompt-input');
+    const terminal = document.getElementById('logs-terminal');
+    const frame = document.getElementById('preview-frame');
+    
+    // Switch back to preview so user sees the change
+    terminal.style.display = 'none';
+    frame.style.display = 'block';
+    
     input.value = `FIX ERROR: ${msg}. Please examine the code and repair the bug.`;
     document.getElementById('generate-btn').click();
 };
