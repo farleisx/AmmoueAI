@@ -1,4 +1,5 @@
 // frame-bridge.js
+import { addLogEntry } from "./ui_service.js";
 
 export class FrameBridge {
     constructor(config) {
@@ -15,6 +16,9 @@ export class FrameBridge {
             }
             if (event.data.type === 'SWITCH_PAGE_INTERNAL') {
                 this.callbacks.onSwitchPage(event.data.pageName);
+            }
+            if (event.data.type === 'CONSOLE_LOG') {
+                addLogEntry(event.data.logType, event.data.message);
             }
         });
     }
