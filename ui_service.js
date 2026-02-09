@@ -1,3 +1,4 @@
+// ui_service.js
 export function initUIService() {
     // Project Rename Logic
     const nameDisplay = document.getElementById('project-name-display');
