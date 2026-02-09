@@ -209,6 +209,22 @@ function validateGeneratedOutput(fullText) {
   const errors = [];
   if (!/\/\*\s*\[NEW_PAGE:/i.test(fullText)) errors.push("Missing file boundary markers");
   if (!/\/\*\s*\[END_PAGE\]\s*\*\//i.test(fullText)) errors.push("Missing END_PAGE markers");
+  
+  const files = extractFilesStrict(fullText);
+  if (files['package.json']) {
+    try {
+      const pkg = JSON.parse(files['package.json']);
+      const deps = pkg.dependencies || {};
+      const allContent = Object.values(files).join("\n");
+      const radixMatches = allContent.match(/@radix-ui\/react-[a-z-]+/g) || [];
+      radixMatches.forEach(dep => {
+        if (!deps[dep]) errors.push(`Dependency mismatch: ${dep} is imported but missing in package.json`);
+      });
+    } catch (e) {
+      errors.push("Invalid package.json format");
+    }
+  }
+  
   return errors;
 }
 
@@ -305,7 +321,7 @@ STRICT TECHNICAL RULES:
    - Build charts and progress bars manually using pure Tailwind CSS and Framer Motion.
    - For icons, ONLY use 'lucide-react'. NEVER use 'Funnel'. Use 'Filter', 'BarChart', 'Zap', or 'TrendingUp'.
    - EVERY package imported in your code MUST be listed in 'dependencies' in package.json.
-5. package.json MUST include: "framer-motion", "lucide-react", "clsx", "tailwind-merge", "class-variance-authority", "react-intersection-observer", "@radix-ui/react-slot", "@radix-ui/react-dialog", "@radix-ui/react-dropdown-menu", "@radix-ui/react-tabs", "@radix-ui/react-popover", "@radix-ui/react-accordion", "lucide-react".
+5. package.json MUST include: "framer-motion", "lucide-react", "clsx", "tailwind-merge", "class-variance-authority", "react-intersection-observer", "date-fns", "react-hook-form", "zod", "@radix-ui/react-slot", "@radix-ui/react-label", "@radix-ui/react-dialog", "@radix-ui/react-dropdown-menu", "@radix-ui/react-tabs", "@radix-ui/react-popover", "@radix-ui/react-accordion", "@radix-ui/react-scroll-area", "@radix-ui/react-select", "@radix-ui/react-separator", "@radix-ui/react-switch", "@radix-ui/react-tooltip", "@radix-ui/react-avatar", "@radix-ui/react-checkbox", "@radix-ui/react-slider", "@radix-ui/react-radio-group", "@radix-ui/react-progress", "@radix-ui/react-navigation-menu", "lucide-react".
 6. CRITICAL BUILD SAFETY: 
    - You ARE WRITING JAVASCRIPT (.js/.jsx).
    - NEVER use the "type" keyword in imports (e.g., NO "import { type ... }").
