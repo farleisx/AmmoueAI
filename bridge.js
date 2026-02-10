@@ -619,3 +619,11 @@ window.selfHeal = (b64) => {
     input.value = `FIX ERROR: ${msg}. Please examine the code and repair the bug.`;
     document.getElementById('generate-btn').click();
 };
+
+// MOBILE HISTORY TOGGLE LOGIC
+if (document.getElementById('mobile-history-toggle')) {
+    document.getElementById('mobile-history-toggle').onclick = () => {
+        const panel = document.querySelector('.history-panel');
+        panel.classList.toggle('mobile-open');
+    };
+}
