@@ -103,9 +103,20 @@ export function showLoadingSkeleton(show) {
 export function showActionLine(text) {
     const container = document.getElementById('action-lines-container');
     if (!container) return;
+    
+    // Prevent duplicate action lines for the same status
+    const existingLines = Array.from(container.querySelectorAll('.action-line'));
+    if (existingLines.some(l => l.innerText === text)) return;
+
     const line = document.createElement('div');
-    line.className = "action-line bg-white/5 border border-white/5 text-[10px] text-gray-400 px-3 py-1 rounded-full whitespace-nowrap";
-    line.innerText = text;
+    line.className = "action-line animate-in fade-in slide-in-from-bottom-2 duration-300 bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-400 px-3 py-1 rounded-full whitespace-nowrap flex items-center gap-1.5";
+    line.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> ${text}`;
+    
     container.appendChild(line);
-    setTimeout(() => line.remove(), 5000);
+    
+    // Smooth removal
+    setTimeout(() => {
+        line.classList.add('fade-out', 'slide-out-to-top-2');
+        setTimeout(() => line.remove(), 300);
+    }, 4000);
 }
