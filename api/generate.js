@@ -254,7 +254,6 @@ export default async function handler(req) {
 
     const { prompt, framework = "vanilla", projectId } = body;
     
-    // Logic: Identify Framework from Prompt text if present, otherwise use selector value
     let targetFramework = framework;
     const lowerPrompt = prompt.toLowerCase();
     if (lowerPrompt.includes("react") || lowerPrompt.includes("vite")) targetFramework = "react-vite";
@@ -342,7 +341,7 @@ Code goes here...
 /* [END_PAGE] */
 9. Output ONLY code inside markers. No conversation.
 10. MEDIA: Use these URLs: Images: ${JSON.stringify(assets.images)}, Videos: ${JSON.stringify(assets.videos)}
-11. LOGS: Use [ACTION: Task Name] before file blocks.
+11. LOGS: Use [ACTION: Task Name] before file blocks. Use descriptive task names like "Designing glassmorphism navbar" or "Implementing 3D hero hover effect".
 12. SYNTAX POLICE: Double check every bracket, brace, and parenthesis. Ensure every opening '{' has a closing '}' and every '[' has a ']'. A single syntax error is a total failure.
 13. DIRECTORY ENFORCEMENT (NEXT.js): If framework is Next.js, all page components MUST be prefixed with 'app/' (e.g., 'app/page.jsx', 'app/layout.jsx').
 `;
@@ -389,7 +388,6 @@ Code goes here...
               const sanitized = sanitizeOutput(fullGeneratedText);
               const files = extractFilesStrict(sanitized);
               
-              // Merge Logic: New files overwrite old ones, missing files are preserved from history
               const mergedFiles = { ...existingFiles };
               Object.keys(files).forEach(f => {
                 mergedFiles[f] = files[f];
@@ -399,7 +397,7 @@ Code goes here...
               let logsHTML = "";
               let actionMatch;
               while ((actionMatch = actionRegex.exec(fullGeneratedText)) !== null) {
-                logsHTML += `<div class="text-[10px] text-slate-400 font-medium"><span class="text-emerald-500 mr-2">✔</span>${actionMatch[1]}</div>`;
+                logsHTML += `<div class="text-[10px] text-slate-400 font-medium mb-1"><span class="text-emerald-500 mr-2">✔</span>${actionMatch[1]}</div>`;
               }
 
               const commitBody = {
