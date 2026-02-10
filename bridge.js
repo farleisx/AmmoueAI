@@ -416,7 +416,15 @@ if (document.getElementById('generate-btn')) {
             await generateProjectStream(prompt, "vanilla", currentProjectId, idToken, 
                 (chunk) => {
                     fullRawText += chunk;
-                    projectFiles = renderFileTabsFromRaw(fullRawText, activeFile);
+                    
+                    // ADDITIVE: Action Line Extraction & Logic
+                    const { fileMap, lastAction } = renderFileTabsFromRaw(fullRawText, activeFile);
+                    projectFiles = fileMap;
+                    
+                    if (lastAction) {
+                        showActionLine(lastAction);
+                    }
+
                     updateFileTabsUI(projectFiles, activeFile);
                     displayActiveFile(projectFiles, activeFile);
                     
@@ -550,9 +558,20 @@ if (document.getElementById('toggle-logs')) {
     document.getElementById('toggle-logs').onclick = () => {
         const terminal = document.getElementById('logs-terminal');
         const frame = document.getElementById('preview-frame');
+        const logBtn = document.getElementById('toggle-logs');
         const isHidden = terminal.style.display === 'none' || !terminal.style.display;
-        terminal.style.display = isHidden ? 'flex' : 'none';
-        frame.style.display = isHidden ? 'none' : 'block';
+        
+        terminal.style.setProperty('display', isHidden ? 'flex' : 'none', 'important');
+        frame.style.setProperty('display', isHidden ? 'none' : 'block', 'important');
+        
+        // ADDITIVE: Icon and Text update for the Toggle Button
+        if (isHidden) {
+            logBtn.innerHTML = `<i data-lucide="monitor" class="w-3 h-3"></i> Preview`;
+        } else {
+            logBtn.innerHTML = `<i data-lucide="terminal" class="w-3 h-3"></i> Logs`;
+        }
+        lucide.createIcons();
+
         if (isHidden && currentProjectId) {
             if (logsUnsubscribe) logsUnsubscribe();
             const logsRef = collection(db, "artifacts", "ammoueai", "projects", currentProjectId, "live_logs");
@@ -574,6 +593,11 @@ if (document.getElementById('toggle-logs')) {
                 });
                 lucide.createIcons();
             });
+        } else {
+            if (logsUnsubscribe) {
+                logsUnsubscribe();
+                logsUnsubscribe = null;
+            }
         }
     };
 }
@@ -583,10 +607,14 @@ window.selfHeal = (b64) => {
     const input = document.getElementById('prompt-input');
     const terminal = document.getElementById('logs-terminal');
     const frame = document.getElementById('preview-frame');
+    const logBtn = document.getElementById('toggle-logs');
     
-    // Switch back to preview so user sees the change
-    terminal.style.display = 'none';
-    frame.style.display = 'block';
+    terminal.style.setProperty('display', 'none', 'important');
+    frame.style.setProperty('display', 'block', 'important');
+    if (logBtn) {
+        logBtn.innerHTML = `<i data-lucide="terminal" class="w-3 h-3"></i> Logs`;
+        lucide.createIcons();
+    }
     
     input.value = `FIX ERROR: ${msg}. Please examine the code and repair the bug.`;
     document.getElementById('generate-btn').click();
