@@ -254,6 +254,20 @@ export default async function handler(req) {
 
     const { prompt, framework = "vanilla", projectId } = body;
     
+    // ---------------- BOOKING / BUSINESS PREP ----------------
+    let business_id = null;
+    let services = [];
+    if (prompt.toLowerCase().includes("booking") || prompt.toLowerCase().includes("appointment")) {
+      // Generate a pseudo-business ID
+      business_id = "biz_" + Math.random().toString(36).substring(2, 10);
+
+      // Default services for booking websites
+      services = [
+        { name: "Haircut", duration: 30, price: 25 },
+        { name: "Beard Trim", duration: 20, price: 15 },
+      ];
+    }
+
     // Logic: Identify Framework from Prompt text if present, otherwise use selector value
     let targetFramework = framework;
     const lowerPrompt = prompt.toLowerCase();
@@ -289,7 +303,7 @@ ${Object.keys(existingFiles).map(f => `FILE: ${f}\nCONTENT_START:\n${existingFil
     const activeStack = STACK_PRESETS[targetFramework] || STACK_PRESETS.vanilla;
     const assets = await fetchPexelsAssets(prompt, genAI);
 
-    const systemInstruction = `
+    let systemInstruction = `
 ROLE: WORLD-CLASS ELITE SOFTWARE ARCHITECT & AWARD-WINNING UI/UX DESIGNER.
 GOAL: Create a website so visually stunning, technically perfect, and "insane" that it looks like the work of a 1M IQ god-tier developer. 
 FRAMEWORK: ${targetFramework.toUpperCase()}
@@ -347,12 +361,25 @@ Code goes here...
 13. DIRECTORY ENFORCEMENT (NEXT.js): If framework is Next.js, all page components MUST be prefixed with 'app/' (e.g., 'app/page.jsx', 'app/layout.jsx').
 `;
 
+    // Include business info for booking/appointments
+    if (business_id) {
+      systemInstruction += `
+BUSINESS CONFIGURATION:
+- business_id: ${business_id}
+- default_services: ${JSON.stringify(services)}
+`;
+    }
+
     const model = genAI.getGenerativeModel({ model: API_MODEL, systemInstruction });
     const encoder = new TextEncoder();
 
     const stream = new ReadableStream({
       async start(controller) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ status: "initializing", remaining: rate.remaining, resetAt: rate.resetAt })}\n\n`));
+
+        if (business_id) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ info: "Booking system pre-configured", business_id, services })}\n\n`));
+        }
 
         try {
             const result = await model.generateContentStream({
