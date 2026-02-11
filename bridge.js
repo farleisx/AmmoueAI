@@ -591,3 +591,33 @@ window.selfHeal = (b64) => {
     input.value = `FIX ERROR: ${msg}. Please examine the code and repair the bug.`;
     document.getElementById('generate-btn').click();
 };
+
+// ---------------- SUPABASE BOOKING LOGIC ----------------
+async function createBooking(business_id, service_id, customer_name, customer_email, booking_date, booking_time) {
+    try {
+        const res = await fetch('/api/bookings', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                business_id,
+                service_id,
+                customer_name,
+                customer_email,
+                booking_date,
+                booking_time
+            })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Booking failed');
+        return data;
+    } catch (err) {
+        console.error("Booking error:", err);
+        showCustomAlert("Booking Error", err.message);
+        return null;
+    }
+}
+
+window.createBooking = createBooking;
