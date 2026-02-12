@@ -1,4 +1,4 @@
-// dashboard-logic.js file
+// dashboard-logic.js
 import { 
     db, 
     appId, 
@@ -274,21 +274,68 @@ export function getProjects(userId, renderCallback) {
 export async function loadUserPlanAndGateContent(user, userEmailSpan, currentPlanEl, proContent, upgradeCardWrapper) {
     try {
         const userDocRef = doc(db, "users", user.uid);
-        const userDoc = await getDoc(userDocRef);
-        let plan = "free";
-        if (userDoc.exists()) {
-            const userData = userDoc.data();
-            plan = userData.plan || "free";
-            userEmailSpan.textContent = userData.username || user.email || user.uid;
-        }
-        currentPlanEl.textContent = plan.toUpperCase();
-        currentPlanEl.className = `text-xl font-extrabold ${plan === "pro" ? "text-yellow-500" : "text-ammoue"}`;
-        if (plan === "pro") {
-            proContent.classList.remove('hidden');
-            upgradeCardWrapper.innerHTML = '';
-        } else {
-            proContent.classList.add('hidden');
-            upgradeCardWrapper.innerHTML = `<button onclick="handleUpgradeClick()" class="px-4 py-2 text-sm font-semibold rounded-xl text-white bg-yellow-500 hover:bg-yellow-600 shadow-md transition-transform hover:scale-105">Upgrade</button>`;
-        }
+        
+        onSnapshot(userDocRef, (userDoc) => {
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+                const plan = userData.plan || "free";
+                const credits = userData.credits ?? 0;
+                const maxCredits = plan === "pro" ? 500 : 10;
+
+                userEmailSpan.textContent = userData.username || user.email || user.uid;
+
+                currentPlanEl.textContent = plan.toUpperCase();
+                currentPlanEl.className = `text-xl font-extrabold ${plan === "pro" ? "text-yellow-500" : "text-ammoue"}`;
+
+                const creditEl = document.getElementById('user-credits');
+                const progressEl = document.getElementById('credit-progress');
+                const popUpgradeBtn = document.getElementById('pop-upgrade-btn');
+                const warningBadge = document.getElementById('low-credit-warning');
+
+                if (creditEl) {
+                    creditEl.textContent = credits;
+                    if (credits <= 3) {
+                        creditEl.classList.add('text-red-500');
+                        creditEl.classList.remove('text-white');
+                    } else {
+                        creditEl.classList.remove('text-red-500');
+                        creditEl.classList.add('text-white');
+                    }
+                }
+
+                if (progressEl) {
+                    const percentage = Math.min((credits / maxCredits) * 100, 100);
+                    progressEl.style.width = `${percentage}%`;
+                    if (credits <= 3) {
+                        progressEl.className = 'h-full transition-all duration-1000 bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]';
+                    } else if (credits <= 5 && plan === "free") {
+                        progressEl.className = 'h-full transition-all duration-1000 bg-yellow-500';
+                    } else {
+                        progressEl.className = 'h-full transition-all duration-1000 bg-ammoue shadow-[0_0_10px_rgba(45,212,191,0.4)]';
+                    }
+                }
+
+                if (warningBadge) {
+                    if (credits <= 3) {
+                        warningBadge.classList.remove('hidden');
+                        warningBadge.classList.add('flex');
+                        lucide.createIcons();
+                    } else {
+                        warningBadge.classList.add('hidden');
+                        warningBadge.classList.remove('flex');
+                    }
+                }
+
+                if (plan === "pro") {
+                    proContent.classList.remove('hidden');
+                    upgradeCardWrapper.innerHTML = '';
+                    if (popUpgradeBtn) popUpgradeBtn.classList.add('hidden');
+                } else {
+                    proContent.classList.add('hidden');
+                    upgradeCardWrapper.innerHTML = `<button onclick="handleUpgradeClick()" class="px-4 py-2 text-sm font-semibold rounded-xl text-white bg-yellow-500 hover:bg-yellow-600 shadow-md transition-transform hover:scale-105">Upgrade</button>`;
+                    if (popUpgradeBtn) popUpgradeBtn.classList.remove('hidden');
+                }
+            }
+        });
     } catch (e) { console.error(e); }
 }
