@@ -1,3 +1,4 @@
+// editor_service.js
 export function initLiveEditor(iframe) {
     iframe.addEventListener('load', () => {
         const doc = iframe.contentDocument || iframe.contentWindow.document;
