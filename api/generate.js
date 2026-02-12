@@ -466,7 +466,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const formData = new FormData(f);
                 const payload = Object.fromEntries(formData.entries());
                 
-                const res = await fetch('https://ammoue-ai.vercel.app/api/create-booking.js', {
+                const res = await fetch('https://ammoue-ai.vercel.app/api/create-booking', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
