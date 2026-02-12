@@ -281,9 +281,11 @@ export async function loadUserPlanAndGateContent(user, userEmailSpan, currentPla
         onSnapshot(userDocRef, (userDoc) => {
             if (userDoc.exists()) {
                 const userData = userDoc.data();
-                const plan = userData.plan || "free";
-                const count = userData.count ?? 0;
-                const limitValue = userData.limit ?? (plan === "pro" ? 500 : 10);
+                const plan = userData.plan === "pro" ? "pro" : "free";
+                const count = userData.dailyCount || 0;
+                
+                // STRICT LIMITS FROM USAGE_SERVICE.JS: PRO = 10, FREE = 5
+                const limitValue = plan === "pro" ? 10 : 5;
                 const remaining = Math.max(0, limitValue - count);
 
                 userEmailSpan.textContent = userData.username || user.email || user.uid;
@@ -298,7 +300,7 @@ export async function loadUserPlanAndGateContent(user, userEmailSpan, currentPla
 
                 if (creditEl) {
                     creditEl.textContent = remaining;
-                    if (remaining <= 3) {
+                    if (remaining <= 1) {
                         creditEl.classList.add('text-red-500');
                         creditEl.classList.remove('text-white');
                     } else {
@@ -310,9 +312,9 @@ export async function loadUserPlanAndGateContent(user, userEmailSpan, currentPla
                 if (progressEl) {
                     const percentage = Math.min((remaining / limitValue) * 100, 100);
                     progressEl.style.width = `${percentage}%`;
-                    if (remaining <= 3) {
+                    if (remaining <= 1) {
                         progressEl.className = 'h-full transition-all duration-1000 bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]';
-                    } else if (remaining <= 5 && plan === "free") {
+                    } else if (remaining <= 2 && plan === "free") {
                         progressEl.className = 'h-full transition-all duration-1000 bg-yellow-500';
                     } else {
                         progressEl.className = 'h-full transition-all duration-1000 bg-ammoue shadow-[0_0_10px_rgba(45,212,191,0.4)]';
@@ -320,7 +322,7 @@ export async function loadUserPlanAndGateContent(user, userEmailSpan, currentPla
                 }
 
                 if (warningBadge) {
-                    if (remaining <= 3) {
+                    if (remaining <= 1) {
                         warningBadge.classList.remove('hidden');
                         warningBadge.classList.add('flex');
                     } else {
