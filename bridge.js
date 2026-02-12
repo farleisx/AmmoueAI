@@ -612,7 +612,7 @@ window.selfHeal = (b64) => {
 // ---------------- SUPABASE BOOKING LOGIC ----------------
 async function createBooking(business_id, service_id, customer_name, customer_email, booking_date, booking_time) {
     try {
-        const res = await fetch('/api/bookings', {
+        const res = await fetch('/api/booking', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
