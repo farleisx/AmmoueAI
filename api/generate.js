@@ -279,7 +279,7 @@ export default async function handler(req) {
                 text: `The user wants a website for this business: "${prompt}". 
                        Generate 3-5 relevant services this business would realistically offer. 
                        Return the output as a JSON array of objects like:
-                       [{ "name": "Service Name", "duration": 30, "price": 25 }, ...]`
+                       [{ "id": "unique-slug", "name": "Service Name", "duration": 30, "price": 25 }, ...]`
               }]
             }]
           });
@@ -287,10 +287,10 @@ export default async function handler(req) {
             const aiText = result.response.text();
             services = JSON.parse(aiText);
           } catch {
-            services = [{ name: "General Service", duration: 30, price: 25 }];
+            services = [{ id: "general", name: "General Service", duration: 30, price: 25 }];
           }
         } catch (e) {
-          services = [{ name: "General Service", duration: 30, price: 25 }];
+          services = [{ id: "general", name: "General Service", duration: 30, price: 25 }];
         }
       }
     }
@@ -392,8 +392,13 @@ Code goes here...
     if (business_id) {
       systemInstruction += `
 BUSINESS CONFIGURATION:
-- business_id: ${business_id}
+- business_id: "${business_id}"
 - default_services: ${JSON.stringify(services)}
+
+INSTRUCTIONS FOR BOOKING FORMS:
+1. Every booking form MUST have the attribute 'data-booking'.
+2. The form MUST contain these input names: 'customer_name', 'customer_email', 'booking_date', 'booking_time', and 'service_id'.
+3. Always include a hidden input: <input type="hidden" name="business_id" value="${business_id}">.
 `;
     }
 
@@ -443,23 +448,43 @@ BUSINESS CONFIGURATION:
               const sanitized = sanitizeOutput(fullGeneratedText);
               const files = extractFilesStrict(sanitized);
               
-              // Optional: inject booking JS for form submissions
+              // REPAIRED: Clean injection for form submissions - NO MOCK LOGS
               if (business_id && files['index.html']) {
                   const bookingScript = `
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    const forms = document.querySelectorAll('form[data-booking]');
-    forms.forEach(f => {
-        f.onsubmit = async (e) => {
+    document.body.addEventListener('submit', async (e) => {
+        if (e.target.matches('form[data-booking]')) {
             e.preventDefault();
-            const data = Object.fromEntries(new FormData(f).entries());
-            await fetch('/api/bookings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            alert('Booking request sent!');
-        };
+            const f = e.target;
+            const btn = f.querySelector('button[type="submit"]');
+            const originalText = btn ? btn.innerText : 'Submit';
+            
+            if (btn) { btn.disabled = true; btn.innerText = 'Booking...'; }
+
+            try {
+                const formData = new FormData(f);
+                const payload = Object.fromEntries(formData.entries());
+                
+                const res = await fetch('/api/bookings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await res.json();
+                if (res.ok) {
+                    alert('Success! Your appointment is confirmed.');
+                    f.reset();
+                } else {
+                    throw new Error(result.error || 'Failed to book');
+                }
+            } catch (err) {
+                alert('Error: ' + err.message);
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerText = originalText; }
+            }
+        }
     });
 });
 </script>
