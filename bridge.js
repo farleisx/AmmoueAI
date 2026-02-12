@@ -205,12 +205,14 @@ if (document.getElementById('confirm-publish')) {
         const progressContainer = document.getElementById('publish-progress-container');
         const progressBar = document.getElementById('publish-progress-bar');
         const progressText = document.getElementById('publish-progress-text');
+        const redeployBtn = document.getElementById('redeploy-btn');
 
         btn.disabled = true;
         btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto"></i>`;
         lucide.createIcons();
 
         if(progressContainer) progressContainer.classList.remove('hidden');
+        if(redeployBtn) redeployBtn.classList.add('hidden');
         
         const updateProgress = (pct, msg) => {
             if(progressBar) progressBar.style.width = `${pct}%`;
@@ -225,6 +227,7 @@ if (document.getElementById('confirm-publish')) {
                 btn.innerHTML = "See Deployment";
                 btn.disabled = false;
                 btn.onclick = () => window.open(finalDeploymentUrl, '_blank');
+                if(redeployBtn) redeployBtn.classList.remove('hidden');
             }
         }, 30000);
 
@@ -320,11 +323,13 @@ if (document.getElementById('confirm-publish')) {
                             window.open(finalDeploymentUrl, '_blank');
                             document.getElementById('publish-modal').style.display = 'none';
                             if(progressContainer) progressContainer.classList.add('hidden');
+                            if(redeployBtn) redeployBtn.classList.remove('hidden');
                         }, 1000);
                     } else {
                         btn.innerHTML = "See Deployment";
                         btn.disabled = false;
                         btn.onclick = () => window.open(finalDeploymentUrl, '_blank');
+                        if(redeployBtn) redeployBtn.classList.remove('hidden');
                     }
                 } else if (statusData.status === 'ERROR' || statusData.status === 'FAILED') {
                     throw new Error("Vercel build failed.");
@@ -339,6 +344,7 @@ if (document.getElementById('confirm-publish')) {
                         btn.innerHTML = "See Deployment";
                         btn.disabled = false;
                         btn.onclick = () => window.open(finalDeploymentUrl, '_blank');
+                        if(redeployBtn) redeployBtn.classList.remove('hidden');
                     }
 
                     await new Promise(r => setTimeout(r, 2000));
@@ -361,6 +367,17 @@ if (document.getElementById('confirm-publish')) {
                 btn.innerHTML = originalContent;
                 lucide.createIcons();
             }
+        }
+    };
+}
+
+if (document.getElementById('redeploy-btn')) {
+    document.getElementById('redeploy-btn').onclick = () => {
+        const confirmBtn = document.getElementById('confirm-publish');
+        if (confirmBtn) {
+            confirmBtn.innerHTML = "Deploy Now";
+            confirmBtn.onclick = async () => { /* Logic repeated within handler above */ };
+            confirmBtn.click();
         }
     };
 }
