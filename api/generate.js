@@ -277,9 +277,9 @@ export default async function handler(req) {
               role: "user",
               parts: [{
                 text: `The user wants a website for this business: "${prompt}". 
-                       Generate 3-5 relevant services this business would realistically offer. 
-                       Return the output as a JSON array of objects like:
-                       [{ "id": "unique-slug", "name": "Service Name", "duration": 30, "price": 25 }, ...]`
+                        Generate 3-5 relevant services this business would realistically offer. 
+                        Return the output as a JSON array of objects like:
+                        [{ "id": "unique-slug", "name": "Service Name", "duration": 30, "price": 25 }, ...]`
               }]
             }]
           });
@@ -397,8 +397,9 @@ BUSINESS CONFIGURATION:
 
 INSTRUCTIONS FOR BOOKING FORMS:
 1. Every booking form MUST have the attribute 'data-booking'.
-2. The form MUST contain these input names: 'customer_name', 'customer_email', 'booking_date', 'booking_time', and 'service_id'.
+2. The form MUST contain these EXACT input name attributes. DO NOT deviate or simplify: 'customer_name', 'customer_email', 'booking_date', 'booking_time', and 'service_id'.
 3. Always include a hidden input: <input type="hidden" name="business_id" value="${business_id}">.
+4. Ensure labels and placeholders match the field intent (e.g., Full Name for 'customer_name').
 `;
     }
 
