@@ -264,8 +264,10 @@ export default async function handler(req) {
     // ---------------- BOOKING / BUSINESS PREP ----------------
     let business_id = null;
     let services = [];
+    let admin_pin = null;
     if (prompt.toLowerCase().includes("booking") || prompt.toLowerCase().includes("appointment")) {
       business_id = "biz_" + Math.random().toString(36).substring(2, 10);
+      admin_pin = Math.random().toString(36).substring(2, 8).toUpperCase();
       
       services = extractServices(prompt);
       if (services.length === 0) {
@@ -393,6 +395,7 @@ Code goes here...
       systemInstruction += `
 BUSINESS CONFIGURATION:
 - business_id: "${business_id}"
+- admin_pin: "${admin_pin}"
 - default_services: ${JSON.stringify(services)}
 
 INSTRUCTIONS FOR BOOKING FORMS:
@@ -401,12 +404,14 @@ INSTRUCTIONS FOR BOOKING FORMS:
 3. Always include a hidden input: <input type="hidden" name="business_id" value="${business_id}">.
 4. Ensure labels and placeholders match the field intent (e.g., Full Name for 'customer_name').
 
-ADMIN CAPABILITY:
+ADMIN CAPABILITY & SECURITY:
 If the user asks for an admin area, dashboard, or a way to see bookings:
 1. Create a dedicated route (e.g., 'app/admin/page.jsx' or 'admin.html').
-2. This page MUST fetch data from: 'https://ammoue-ai.vercel.app/api/get-bookings?business_id=${business_id}'.
-3. Build a high-end dashboard UI using Tailwind CSS glassmorphism.
-4. Use Lucide icons (User, Calendar, Clock) for columns: Customer, Email, Service, Date, Time.
+2. MANDATORY AUTH: The admin page MUST include a login modal/overlay that requires the 'admin_pin'.
+3. HINT: Display a subtle message: "Check README.md for your Admin PIN".
+4. Upon successful PIN entry, fetch data from: 'https://ammoue-ai.vercel.app/api/get-bookings?business_id=${business_id}'.
+5. Build a high-end dashboard UI using Tailwind CSS glassmorphism and Lucide icons.
+6. YOU MUST DOCUMENT THE ADMIN PIN IN THE README.md FILE.
 `;
     }
 
