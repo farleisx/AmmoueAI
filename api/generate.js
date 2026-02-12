@@ -409,7 +409,7 @@ If the user asks for an admin area, dashboard, or a way to see bookings:
 1. Create a dedicated route (e.g., 'app/admin/page.jsx' or 'admin.html').
 2. MANDATORY AUTH: The admin page MUST include a login modal/overlay that requires the 'admin_pin'.
 3. HINT: Display a subtle message: "Check README.md for your Admin PIN".
-4. Upon successful PIN entry, fetch data from: 'https://ammoue-ai.vercel.app/api/get-bookings?business_id=${business_id}'.
+4. Upon successful PIN entry, fetch data from: 'https://ammoue-ai.vercel.app/api/booking?business_id=${business_id}'.
 5. Build a high-end dashboard UI using Tailwind CSS glassmorphism and Lucide icons.
 6. YOU MUST DOCUMENT THE ADMIN PIN IN THE README.md FILE.
 `;
@@ -479,7 +479,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const formData = new FormData(f);
                 const payload = Object.fromEntries(formData.entries());
                 
-                const res = await fetch('https://ammoue-ai.vercel.app/api/create-booking', {
+                const res = await fetch('https://ammoue-ai.vercel.app/api/booking
+          ', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
