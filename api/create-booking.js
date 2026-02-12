@@ -25,21 +25,16 @@ export default async function handler(req, res) {
   try {
     const data = req.body
 
-    const {
-      business_id,
-      service_id,
-      customer_name,
-      customer_email,
-      booking_date,
-      booking_time
-    } = {
-      business_id: data.business_id,
-      service_id: data.service_id || data.service || 'general',
-      customer_name: data.customer_name || data.name || data.customer,
-      customer_email: data.customer_email || data.email,
-      booking_date: data.booking_date || data.date,
-      booking_time: data.booking_time || data.time
-    }
+    // Map potential incoming field names from AI-generated forms to database columns
+    const business_id = data.business_id
+    const service_id = data.service_id || data.service || 'general'
+    
+    // Expanded mapping to catch common AI naming variations
+    const customer_name = data.customer_name || data.name || data.customer || data['customer-name'] || data.full_name
+    const customer_email = data.customer_email || data.email || data['customer-email'] || data.user_email
+    
+    const booking_date = data.booking_date || data.date || data.day
+    const booking_time = data.booking_time || data.time || data.slot
 
     // Basic validation
     if (!business_id || !customer_name || !customer_email) {
@@ -48,7 +43,8 @@ export default async function handler(req, res) {
         received: {
           business_id: !!business_id,
           customer_name: !!customer_name,
-          customer_email: !!customer_email
+          customer_email: !!customer_email,
+          raw_keys: Object.keys(data) // Diagnostic help
         }
       })
     }
