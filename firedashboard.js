@@ -15,10 +15,12 @@ import {
   Timestamp,
   updateDoc,
   getDoc,
-  writeBatch // Added this
+  setDoc,
+  increment,
+  serverTimestamp,
+  writeBatch
 } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
-/* ... config same as before ... */
 const firebaseConfig = {
   apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
   authDomain: "ammoueai.firebaseapp.com",
@@ -51,5 +53,8 @@ export {
   Timestamp,
   updateDoc,
   getDoc,
-  writeBatch // Added this
+  setDoc,
+  increment,
+  serverTimestamp,
+  writeBatch
 };
