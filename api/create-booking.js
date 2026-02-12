@@ -23,7 +23,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const data = req.body
+    // PATCH: Ensure data is parsed if arriving as string
+    const data = typeof req.body === 'string' ? JSON.parse(req.body) : req.body
 
     // Map potential incoming field names from AI-generated forms to database columns
     const business_id = data.business_id
