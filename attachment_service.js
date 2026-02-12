@@ -1,4 +1,4 @@
-// attachment_service.js
+// attachment_service.js file
 let attachedImages = [];
 let uploadInput, attachBtn, rack, previewModal, modalImg;
 
