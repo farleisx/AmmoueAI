@@ -1,3 +1,4 @@
+// api/create-booking.js
 import { supabaseAdmin } from '../lib/supabase.js'
 
 export default async function handler(req, res) {
@@ -22,6 +23,8 @@ export default async function handler(req, res) {
   }
 
   try {
+    const data = req.body
+
     const {
       business_id,
       service_id,
@@ -29,11 +32,25 @@ export default async function handler(req, res) {
       customer_email,
       booking_date,
       booking_time
-    } = req.body
+    } = {
+      business_id: data.business_id,
+      service_id: data.service_id || data.service || 'general',
+      customer_name: data.customer_name || data.name || data.customer,
+      customer_email: data.customer_email || data.email,
+      booking_date: data.booking_date || data.date,
+      booking_time: data.booking_time || data.time
+    }
 
     // Basic validation
     if (!business_id || !customer_name || !customer_email) {
-      return res.status(400).json({ error: 'Missing required fields' })
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        received: {
+          business_id: !!business_id,
+          customer_name: !!customer_name,
+          customer_email: !!customer_email
+        }
+      })
     }
 
     const { error } = await supabaseAdmin
