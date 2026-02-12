@@ -1,4 +1,4 @@
-// api/generate.js file
+// api/generate.js
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // ---------------- VERCEL RUNTIME CONFIG ----------------
@@ -400,6 +400,13 @@ INSTRUCTIONS FOR BOOKING FORMS:
 2. The form MUST contain these EXACT input name attributes. DO NOT deviate or simplify: 'customer_name', 'customer_email', 'booking_date', 'booking_time', and 'service_id'.
 3. Always include a hidden input: <input type="hidden" name="business_id" value="${business_id}">.
 4. Ensure labels and placeholders match the field intent (e.g., Full Name for 'customer_name').
+
+ADMIN CAPABILITY:
+If the user asks for an admin area, dashboard, or a way to see bookings:
+1. Create a dedicated route (e.g., 'app/admin/page.jsx' or 'admin.html').
+2. This page MUST fetch data from: 'https://ammoue-ai.vercel.app/api/get-bookings?business_id=${business_id}'.
+3. Build a high-end dashboard UI using Tailwind CSS glassmorphism.
+4. Use Lucide icons (User, Calendar, Clock) for columns: Customer, Email, Service, Date, Time.
 `;
     }
 
