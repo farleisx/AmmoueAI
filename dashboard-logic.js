@@ -11,6 +11,9 @@ import {
     Timestamp, 
     updateDoc, 
     getDoc,
+    setDoc,
+    increment,
+    serverTimestamp,
     writeBatch 
 } from "./firedashboard.js";
 
@@ -279,8 +282,9 @@ export async function loadUserPlanAndGateContent(user, userEmailSpan, currentPla
             if (userDoc.exists()) {
                 const userData = userDoc.data();
                 const plan = userData.plan || "free";
-                const credits = userData.credits ?? 0;
-                const maxCredits = plan === "pro" ? 500 : 10;
+                const count = userData.count ?? 0;
+                const limitValue = userData.limit ?? (plan === "pro" ? 500 : 10);
+                const remaining = Math.max(0, limitValue - count);
 
                 userEmailSpan.textContent = userData.username || user.email || user.uid;
 
@@ -293,8 +297,8 @@ export async function loadUserPlanAndGateContent(user, userEmailSpan, currentPla
                 const warningBadge = document.getElementById('low-credit-warning');
 
                 if (creditEl) {
-                    creditEl.textContent = credits;
-                    if (credits <= 3) {
+                    creditEl.textContent = remaining;
+                    if (remaining <= 3) {
                         creditEl.classList.add('text-red-500');
                         creditEl.classList.remove('text-white');
                     } else {
@@ -304,11 +308,11 @@ export async function loadUserPlanAndGateContent(user, userEmailSpan, currentPla
                 }
 
                 if (progressEl) {
-                    const percentage = Math.min((credits / maxCredits) * 100, 100);
+                    const percentage = Math.min((remaining / limitValue) * 100, 100);
                     progressEl.style.width = `${percentage}%`;
-                    if (credits <= 3) {
+                    if (remaining <= 3) {
                         progressEl.className = 'h-full transition-all duration-1000 bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]';
-                    } else if (credits <= 5 && plan === "free") {
+                    } else if (remaining <= 5 && plan === "free") {
                         progressEl.className = 'h-full transition-all duration-1000 bg-yellow-500';
                     } else {
                         progressEl.className = 'h-full transition-all duration-1000 bg-ammoue shadow-[0_0_10px_rgba(45,212,191,0.4)]';
@@ -316,10 +320,9 @@ export async function loadUserPlanAndGateContent(user, userEmailSpan, currentPla
                 }
 
                 if (warningBadge) {
-                    if (credits <= 3) {
+                    if (remaining <= 3) {
                         warningBadge.classList.remove('hidden');
                         warningBadge.classList.add('flex');
-                        lucide.createIcons();
                     } else {
                         warningBadge.classList.add('hidden');
                         warningBadge.classList.remove('flex');
@@ -338,4 +341,32 @@ export async function loadUserPlanAndGateContent(user, userEmailSpan, currentPla
             }
         });
     } catch (e) { console.error(e); }
+}
+
+/* ================= USAGE COUNTERS ================= */
+
+export async function incrementCounter(userId, field) {
+  try {
+    const userRef = doc(db, "users", userId);
+    await setDoc(userRef, {
+      [field]: increment(1),
+      lastActive: serverTimestamp()
+    }, { merge: true });
+  } catch (e) {
+    console.error(`Failed to increment ${field}:`, e);
+  }
+}
+
+export async function getUsage(userId) {
+  try {
+    const ref = doc(db, "users", userId);
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      return snap.data();
+    }
+    return { dailyCount: 0, plan: "free", dailyResetAt: 0 };
+  } catch (e) {
+    console.error("Failed to fetch usage:", e);
+    return { dailyCount: 0, plan: "free", dailyResetAt: 0 };
+  }
 }
