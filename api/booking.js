@@ -1,14 +1,14 @@
-// api/main-handler.js
+// api/booking.js
 import { supabaseAdmin } from '../lib/supabase.js'
 
 export default async function handler(req, res) {
-  // 1️⃣ ADD CORS HEADERS
+  // 1️⃣ FORCE CORS HEADERS
   res.setHeader('Access-Control-Allow-Credentials', true)
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT')
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Content-Type'
   )
 
   // 2️⃣ HANDLE PREFLIGHT
@@ -16,9 +16,8 @@ export default async function handler(req, res) {
     return res.status(200).end()
   }
 
-  // 3️⃣ ROUTE LOGIC BASED ON METHOD AND BODY/QUERY
   try {
-    // --- GET LOGIC (From get-bookings.js) ---
+    // --- GET: FETCH BOOKINGS FOR ADMIN ---
     if (req.method === 'GET') {
       const { business_id } = req.query;
 
@@ -37,17 +36,17 @@ export default async function handler(req, res) {
       return res.status(200).json(data);
     }
 
-    // --- POST LOGIC ---
+    // --- POST: CREATE BUSINESS OR BOOKING ---
     if (req.method === 'POST') {
       const data = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-      const { action } = req.query; // Use a query param to differentiate POST actions
+      const { action } = req.query;
 
-      // ACTION: SETUP OR CREATE BUSINESS (From setup-business.js / create-business logic)
-      if (action === 'setup' || data.owner_email && data.services) {
+      // ACTION: SETUP BUSINESS (Called when site is first generated)
+      if (action === 'setup' || (data.owner_email && data.services)) {
         const { owner_email, business_name, services } = data;
 
         if (!owner_email || !services || !Array.isArray(services)) {
-          return res.status(400).json({ error: 'Missing or invalid fields' });
+          return res.status(400).json({ error: 'Missing or invalid fields for setup' });
         }
 
         const { data: business, error: bError } = await supabaseAdmin
@@ -74,25 +73,26 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true, business_id: business.id });
       }
 
-      // ACTION: CREATE BOOKING (From create-booking.js)
+      // ACTION: CREATE BOOKING (Called by the customer form)
       else {
         const business_id = data.business_id;
-        const service_id = data.service_id || data.service || 'general';
+        // Strict Type Enforcement to avoid UUID errors
+        const service_id = String(data.service_id || data.service || 'general');
         
         const customer_name = data.customer_name || data.name || data.customer || data['customer-name'] || data.full_name;
         const customer_email = data.customer_email || data.email || data['customer-email'] || data.user_email;
         
-        const booking_date = data.booking_date || data.date || data.day;
-        const booking_time = data.booking_time || data.time || data.slot;
+        // Ensure empty dates/times are sent as null, not empty strings
+        const booking_date = data.booking_date || data.date || data.day || null;
+        const booking_time = data.booking_time || data.time || data.slot || null;
 
         if (!business_id || !customer_name || !customer_email) {
           return res.status(400).json({ 
             error: 'Missing required fields',
-            received: {
-              business_id: !!business_id,
-              customer_name: !!customer_name,
-              customer_email: !!customer_email,
-              raw_keys: Object.keys(data)
+            received: { 
+              business_id: !!business_id, 
+              customer_name: !!customer_name, 
+              customer_email: !!customer_email 
             }
           });
         }
@@ -101,16 +101,19 @@ export default async function handler(req, res) {
           .from('bookings')
           .insert([
             {
-              business_id,
-              service_id,
+              business_id: String(business_id),
+              service_id: service_id,
               customer_name,
               customer_email,
-              booking_date,
-              booking_time
+              booking_date: booking_date === "" ? null : booking_date,
+              booking_time: booking_time === "" ? null : booking_time
             }
           ]);
 
-        if (bookingError) throw bookingError;
+        if (bookingError) {
+          console.error('Supabase Booking Error:', bookingError.message);
+          return res.status(500).json({ error: bookingError.message });
+        }
 
         return res.status(200).json({ success: true });
       }
@@ -118,7 +121,7 @@ export default async function handler(req, res) {
 
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
-    console.error('API Error:', err.message);
+    console.error('Unified API Error:', err.message);
     return res.status(500).json({ error: err.message });
   }
 }
