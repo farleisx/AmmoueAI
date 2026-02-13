@@ -1,4 +1,4 @@
-/* [NEW_PAGE: api/booking.js] */
+// /* [NEW_PAGE: api/booking.js] */ file
 import { supabaseAdmin } from '../lib/supabase.js'
 
 export default async function handler(req, res) {
