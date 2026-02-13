@@ -400,18 +400,15 @@ BUSINESS CONFIGURATION:
 
 INSTRUCTIONS FOR BOOKING FORMS:
 1. Every booking form MUST have the attribute 'data-booking'.
-2. The form MUST contain these EXACT input name attributes. DO NOT deviate or simplify: 'customer_name', 'customer_email', 'booking_date', 'booking_time', and 'service_id'.
+2. The form MUST contain these EXACT input name attributes: 'customer_name', 'customer_email', 'booking_date', 'booking_time', and 'service_id'.
 3. Always include a hidden input: <input type="hidden" name="business_id" value="${business_id}">.
-4. Ensure labels and placeholders match the field intent (e.g., Full Name for 'customer_name').
 
-ADMIN CAPABILITY & SECURITY:
-If the user asks for an admin area, dashboard, or a way to see bookings:
-1. Create a dedicated route (e.g., 'app/admin/page.jsx' or 'admin.html').
-2. MANDATORY AUTH: The admin page MUST include a login modal/overlay that requires the 'admin_pin'.
-3. HINT: Display a subtle message: "Check README.md for your Admin PIN".
-4. Upon successful PIN entry, fetch data from: 'https://ammoue-ai.vercel.app/api/booking?business_id=${business_id}'.
-5. Build a high-end dashboard UI using Tailwind CSS glassmorphism and Lucide icons.
-6. YOU MUST DOCUMENT THE ADMIN PIN IN THE README.md FILE.
+ADMIN CAPABILITY & USER ACCESS:
+1. ALWAYS include a small, elegant link or button in the Navigation Bar or Footer labeled "Admin" or "Manage Bookings".
+2. Create a dedicated route for the dashboard (e.g., 'app/admin/page.jsx' or 'admin.html').
+3. MANDATORY AUTH: The admin page MUST include a login modal/overlay that requires the 'admin_pin'.
+4. FETCH LOGIC: Fetch data from: 'https://ammoue-ai.vercel.app/api/booking?business_id=${business_id}'.
+5. YOU MUST DOCUMENT THE ADMIN PIN IN THE README.md FILE.
 `;
     }
 
@@ -433,8 +430,8 @@ If the user asks for an admin area, dashboard, or a way to see bookings:
               EXECUTION PLAN:
               1. Review the EXISTING code provided in context.
               2. Apply the requested changes while maintaining 100% style and theme consistency.
-              3. If you add new pages, you MUST also output the modified version of existing navigation files (e.g. App.jsx, index.html) to include links to the new pages.
-              4. You MUST output the FULL code for every file you touch or create. 
+              3. Ensure a "Manage Bookings" button exists in the header/footer.
+              4. All booking POST requests must hit https://ammoue-ai.vercel.app/api/booking.
               5. Ensure all imports and package.json are in sync.
               6. NEVER use TypeScript syntax.
               7. FOR NEXT.js: ALL PAGES IN 'app/' DIRECTORY.` }] }]
@@ -461,7 +458,7 @@ If the user asks for an admin area, dashboard, or a way to see bookings:
               const sanitized = sanitizeOutput(fullGeneratedText);
               const files = extractFilesStrict(sanitized);
               
-              // REPAIRED: Clean injection for form submissions - NO MOCK LOGS
+              // REPAIRED: Clean injection for form submissions targeting unified API
               if (business_id && files['index.html']) {
                   const bookingScript = `
 <script>
@@ -479,8 +476,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const formData = new FormData(f);
                 const payload = Object.fromEntries(formData.entries());
                 
-                const res = await fetch('https://ammoue-ai.vercel.app/api/booking
-          ', {
+                const res = await fetch('https://ammoue-ai.vercel.app/api/booking', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -506,7 +502,6 @@ document.addEventListener('DOMContentLoaded', () => {
                   files['index.html'] = files['index.html'].replace('</body>', bookingScript);
               }
 
-              // Merge Logic: New files overwrite old ones, missing files are preserved from history
               const mergedFiles = { ...existingFiles };
               Object.keys(files).forEach(f => {
                 mergedFiles[f] = files[f];
