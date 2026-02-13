@@ -1,4 +1,4 @@
-// api/generate.js
+/* [NEW_PAGE: api/generate.js] */
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // ---------------- VERCEL RUNTIME CONFIG ----------------
@@ -458,11 +458,13 @@ ADMIN CAPABILITY & USER ACCESS:
               const sanitized = sanitizeOutput(fullGeneratedText);
               const files = extractFilesStrict(sanitized);
               
-              // REPAIRED: Clean injection for form submissions targeting unified API
+              // REPAIRED: Clean injection for form submissions targeting unified API with ROBUST ERROR LOGS
               if (business_id && files['index.html']) {
                   const bookingScript = `
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('%c[AMM-AI] Booking System Initialized', 'color: #10b981; font-weight: bold;');
+    
     document.body.addEventListener('submit', async (e) => {
         if (e.target.matches('form[data-booking]')) {
             e.preventDefault();
@@ -470,12 +472,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const btn = f.querySelector('button[type="submit"]');
             const originalText = btn ? btn.innerText : 'Submit';
             
-            if (btn) { btn.disabled = true; btn.innerText = 'Booking...'; }
+            console.log('%c[AMM-AI] Intercepted Booking Submission', 'color: #3b82f6;');
+
+            if (btn) { btn.disabled = true; btn.innerText = 'Processing...'; }
 
             try {
                 const formData = new FormData(f);
                 const payload = Object.fromEntries(formData.entries());
                 
+                console.log('%c[AMM-AI] Payload:', 'color: #94a3b8;', payload);
+
                 const res = await fetch('https://ammoue-ai.vercel.app/api/booking', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -483,14 +489,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 
                 const result = await res.json();
+                
                 if (res.ok) {
+                    console.log('%c[AMM-AI] Success:', 'color: #10b981;', result);
                     alert('Success! Your appointment is confirmed.');
                     f.reset();
                 } else {
+                    console.error('%c[AMM-AI] Server Error:', 'color: #ef4444;', result);
                     throw new Error(result.error || 'Failed to book');
                 }
             } catch (err) {
-                alert('Error: ' + err.message);
+                console.error('%c[AMM-AI] Critical Error:', 'color: #ef4444;', err.message);
+                alert('Booking Error: ' + err.message);
             } finally {
                 if (btn) { btn.disabled = false; btn.innerText = originalText; }
             }
