@@ -1,4 +1,4 @@
-// frame-bridge.js
+// frame-bridge.js file
 import { addLogEntry } from "./ui_service.js";
 
 export class FrameBridge {
