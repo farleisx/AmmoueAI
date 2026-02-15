@@ -1,8 +1,8 @@
-// /* [NEW_PAGE: api/booking.js] */ file
+/* [NEW_PAGE: api/booking.js] */
 import { supabaseAdmin } from '../lib/supabase.js'
 
 export default async function handler(req, res) {
-  // 1️⃣ FORCE CORS HEADERS - Allowing all origins for generated sites
+  // 1️⃣ FORCE CORS HEADERS
   res.setHeader('Access-Control-Allow-Credentials', true)
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT')
@@ -16,13 +16,12 @@ export default async function handler(req, res) {
     return res.status(200).end()
   }
 
-  console.log(`%c[API] ${req.method} Request Received`, 'color: #3b82f6; font-weight: bold;');
+  console.log(`[API] ${req.method} Request Received`);
 
   try {
-    // --- GET: FETCH BOOKINGS FOR ADMIN ---
+    // --- GET: FETCH BOOKINGS ---
     if (req.method === 'GET') {
       const { business_id } = req.query;
-
       if (!business_id) {
         console.error('[API] GET Failed: Missing business_id');
         return res.status(400).json({ error: 'business_id is required' });
@@ -40,18 +39,16 @@ export default async function handler(req, res) {
         throw error;
       }
       
-      console.log(`[API] Successfully fetched ${data.length} bookings for ${business_id}`);
+      console.log(`[API] Successfully fetched ${data.length} bookings`);
       return res.status(200).json(data);
     }
 
-    // --- POST: CREATE BUSINESS OR BOOKING ---
+    // --- POST: CREATE BOOKING OR SETUP ---
     if (req.method === 'POST') {
       const data = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
       const { action } = req.query;
 
-      console.log('[API] POST Data received:', data);
-
-      // ACTION: SETUP BUSINESS (Called when site is first generated)
+      // Action: Setup Business
       if (action === 'setup' || (data.owner_email && data.services)) {
         const { owner_email, business_name, services } = data;
 
@@ -89,46 +86,57 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true, business_id: business.id });
       }
 
-      // ACTION: CREATE BOOKING (Called by the customer form)
+      // Action: Standard Booking
       else {
-        // NORMALIZE INPUTS: Handle every variation the AI might generate
-        const business_id = String(data.business_id || '');
-        const service_id = String(data.service_id || data.service || 'general');
-        const customer_name = String(data.customer_name || data.name || data.customer || data['customer-name'] || data.full_name || 'Guest');
-        const customer_email = String(data.customer_email || data.email || data['customer-email'] || data.user_email || 'no-email@test.com');
-        
-        // Ensure empty dates/times are sent as null, not empty strings
-        const booking_date = data.booking_date || data.date || data.day || null;
-        const booking_time = data.booking_time || data.time || data.slot || null;
-
-        if (!business_id || business_id === '') {
-          console.error('[API] Booking Failed: No business_id in payload');
-          return res.status(400).json({ error: 'business_id is required to save a booking' });
-        }
-
         const payload = {
-          business_id: business_id,
-          service_id: service_id,
-          customer_name: customer_name,
-          customer_email: customer_email,
-          booking_date: booking_date === "" ? null : booking_date,
-          booking_time: booking_time === "" ? null : booking_time
+          business_id: String(data.business_id || ''),
+          service_id: String(data.service_id || data.service || 'general'),
+          customer_name: String(data.customer_name || data.name || data.customer || 'Guest'),
+          customer_email: String(data.customer_email || data.email || 'no-email@test.com'),
+          booking_date: data.booking_date || data.date || null,
+          booking_time: data.booking_time || data.time || null
         };
 
-        console.log('[API] Attempting Supabase Insert with payload:', payload);
+        if (!payload.business_id) {
+          return res.status(400).json({ error: 'business_id is required' });
+        }
 
         const { error: bookingError } = await supabaseAdmin
           .from('bookings')
           .insert([payload]);
 
         if (bookingError) {
-          console.error('[API] Supabase Booking Insert Error:', bookingError.message);
+          console.error('[API] Supabase Booking Error:', bookingError.message);
           return res.status(500).json({ error: bookingError.message });
         }
 
-        console.log('[API] Booking Success saved to DB');
         return res.status(200).json({ success: true });
       }
+    }
+
+    // --- DELETE: REMOVE A BOOKING ---
+    if (req.method === 'DELETE') {
+      const { id } = req.query;
+
+      if (!id) {
+        console.error('[API] DELETE Failed: Missing id');
+        return res.status(400).json({ error: 'Booking ID is required' });
+      }
+
+      console.log(`[API] Attempting to delete booking: ${id}`);
+
+      const { error } = await supabaseAdmin
+        .from('bookings')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('[API] Supabase Delete Error:', error.message);
+        return res.status(500).json({ error: error.message });
+      }
+
+      console.log(`[API] Successfully deleted booking: ${id}`);
+      return res.status(200).json({ success: true, deleted: id });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
