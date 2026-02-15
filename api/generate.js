@@ -53,6 +53,7 @@ async function fetchPexelsAssets(prompt, genAI) {
     const extractionModel = genAI.getGenerativeModel({ model: API_MODEL });
     const extractionResult = await extractionModel.generateContent(
       `Extract exactly 3 highly descriptive search keywords from this prompt for a stock photo search. 
+        Focus on the literal industry (e.g., 'Dentist', 'Barber Shop', 'Modern Bakery').
         Return ONLY the keywords separated by commas. Prompt: "${prompt}"`
     );
     const query = extractionResult.response.text().trim() || prompt;
@@ -384,7 +385,8 @@ STRICT TECHNICAL RULES:
 Code goes here...
 /* [END_PAGE] */
 9. Output ONLY code inside markers. No conversation.
-10. MEDIA: Use these URLs: Images: ${JSON.stringify(assets.images)}, Videos: ${JSON.stringify(assets.videos)}
+10. MEDIA: Use these URLs: Images: ${JSON.stringify(assets.images)}, Videos: ${JSON.stringify(assets.videos)}. 
+    ENSURE images are placed in contexts that match their visual content (e.g., dentist images for clinic sections).
 11. LOGS: Use [ACTION: Task Name] before file blocks.
 12. SYNTAX POLICE: Double check every bracket, brace, and parenthesis. Ensure every opening '{' has a closing '}' and every '[' has a ']'. A single syntax error is a total failure.
 13. DIRECTORY ENFORCEMENT (NEXT.js): If framework is Next.js, all page components MUST be prefixed with 'app/' (e.g., 'app/page.jsx', 'app/layout.jsx').
@@ -407,11 +409,13 @@ ADMIN CAPABILITY & USER ACCESS:
 1. ALWAYS include a small, elegant link or button in the Navigation Bar or Footer labeled "Admin" or "Manage Bookings".
 2. Create a dedicated route for the dashboard (e.g., 'app/admin/page.jsx' or 'admin.html').
 3. MANDATORY AUTH: The admin page MUST include a login modal/overlay that requires the 'admin_pin'.
-4. FETCH LOGIC: Fetch data from: 'https://ammoue-ai.vercel.app/api/booking?business_id=${business_id}'.
-5. DELETE LOGIC: You MUST implement delete functionality using DELETE method to 'https://ammoue-ai.vercel.app/api/booking?id={BOOKING_ID}'.
-6. NOTIFICATIONS: Note that the owner will receive email notifications automatically via Resend when a booking is created.
-7. DESIGN REQ: The Admin dashboard must be ultra-clean (Bento Grid or Modern Table), use 'lucide-react' for icons, and ensure all JS logic for fetching/deleting is correctly wrapped in error boundaries/try-catch.
-8. YOU MUST DOCUMENT THE ADMIN PIN IN THE README.md FILE.
+4. AUTH LOGIC SAFETY: Ensure the PIN input and login button have clear IDs or refs. In React, use state for PIN input. In Vanilla, use direct DOM event listeners. 
+   THE PIN INPUT MUST WORK: Ensure there are no overlapping divs or 'pointer-events-none' classes blocking the input field.
+5. FETCH LOGIC: Fetch data from: 'https://ammoue-ai.vercel.app/api/booking?business_id=${business_id}'.
+6. DELETE LOGIC: You MUST implement delete functionality using DELETE method to 'https://ammoue-ai.vercel.app/api/booking?id={BOOKING_ID}'.
+7. NOTIFICATIONS: Note that the owner will receive email notifications automatically via Resend when a booking is created.
+8. DESIGN REQ: The Admin dashboard must be ultra-clean (Bento Grid or Modern Table), use 'lucide-react' for icons, and ensure all JS logic for fetching/deleting is correctly wrapped in error boundaries/try-catch.
+9. YOU MUST DOCUMENT THE ADMIN PIN IN THE README.md FILE.
 `;
     }
 
@@ -434,12 +438,14 @@ ADMIN CAPABILITY & USER ACCESS:
               EXECUTION PLAN:
               1. Review the EXISTING code provided in context.
               2. Apply the requested changes while maintaining 100% style and theme consistency.
-              3. Ensure a "Manage Bookings" button exists in the header/footer.
-              4. All booking POST requests must hit https://ammoue-ai.vercel.app/api/booking.
-              5. The Admin dashboard MUST support deleting bookings using the DELETE method.
-              6. Ensure all imports and package.json are in sync.
-              7. NEVER use TypeScript syntax.
-              8. FOR NEXT.js: ALL PAGES IN 'app/' DIRECTORY.` }] }]
+              3. Use the industry-specific Pexels keywords for perfectly relevant imagery.
+              4. Ensure a "Manage Bookings" button exists in the header/footer.
+              5. All booking POST requests must hit https://ammoue-ai.vercel.app/api/booking.
+              6. CRITICAL: The Admin page login modal must be 100% functional. PIN input must be clickable and the button must trigger validation.
+              7. The Admin dashboard MUST support deleting bookings using the DELETE method.
+              8. Ensure all imports and package.json are in sync.
+              9. NEVER use TypeScript syntax.
+              10. FOR NEXT.js: ALL PAGES IN 'app/' DIRECTORY.` }] }]
             });
 
             let fullGeneratedText = "";
