@@ -110,6 +110,46 @@ export default async function handler(req, res) {
           return res.status(500).json({ error: bookingError.message });
         }
 
+        // --- ADDED: OWNER EMAIL NOTIFICATION (RESEND) ---
+        const RESEND_API_KEY = process.env.RESEND_API_KEY;
+        if (RESEND_API_KEY && payload.business_id) {
+          try {
+            const { data: bizInfo } = await supabaseAdmin
+              .from('businesses')
+              .select('owner_email, name')
+              .eq('id', payload.business_id)
+              .single();
+
+            if (bizInfo && bizInfo.owner_email) {
+              await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${RESEND_API_KEY}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  from: 'Booking Alert <onboarding@resend.dev>',
+                  to: bizInfo.owner_email,
+                  subject: `New Booking: ${payload.customer_name}`,
+                  html: `
+                    <div style="font-family: sans-serif; padding: 20px;">
+                      <h2>New Appointment for ${bizInfo.name}</h2>
+                      <p><strong>Customer:</strong> ${payload.customer_name}</p>
+                      <p><strong>Service:</strong> ${payload.service_id}</p>
+                      <p><strong>Date:</strong> ${payload.booking_date}</p>
+                      <p><strong>Time:</strong> ${payload.booking_time}</p>
+                      <p><strong>Customer Email:</strong> ${payload.customer_email}</p>
+                    </div>
+                  `
+                })
+              });
+              console.log(`[API] Notification sent to ${bizInfo.owner_email}`);
+            }
+          } catch (notifErr) {
+            console.error('[API] Notification failed:', notifErr.message);
+          }
+        }
+
         return res.status(200).json({ success: true });
       }
     }
