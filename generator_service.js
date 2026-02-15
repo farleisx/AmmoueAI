@@ -1,5 +1,5 @@
 // generator_service.js
-export async function generateProjectStream(prompt, framework, projectId, idToken, onChunk, onStatus, onThinking, signal) {
+export async function generateProjectStream(prompt, framework, projectId, idToken, onChunk, onStatus, onThinking, onAction, signal) {
     try {
         const response = await fetch('/api/generate', {
             method: 'POST',
@@ -22,6 +22,7 @@ export async function generateProjectStream(prompt, framework, projectId, idToke
         let buffer = "";
         let accumulatedText = "";
         let seenFiles = new Set();
+        let processedActions = new Set();
 
         while (true) {
             const { value, done } = await reader.read();
@@ -48,6 +49,17 @@ export async function generateProjectStream(prompt, framework, projectId, idToke
                         if (data.status) onStatus(data);
                         else if (data.text) {
                             accumulatedText += data.text;
+                            
+                            // Parse Actions from stream: [ACTION: Task Name]
+                            const actionMatches = data.text.matchAll(/\[ACTION:\s*(.*?)\s*\]/g);
+                            for (const match of actionMatches) {
+                                const actionName = match[1].trim();
+                                if (!processedActions.has(actionName)) {
+                                    processedActions.add(actionName);
+                                    onAction(actionName);
+                                }
+                            }
+
                             const fileMatch = data.text.match(/\/\*\s*\[NEW_PAGE:\s*(.*?)\s*\]\s*\*\//);
                             if (fileMatch) {
                                 seenFiles.add(fileMatch[1].trim());
