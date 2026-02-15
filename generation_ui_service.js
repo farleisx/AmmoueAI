@@ -30,3 +30,68 @@ export function renderFileTabsFromRaw(rawText, activeFile) {
     }
     return fileMap;
 }
+
+// --- NEW: AI PROTOCOL UI LOGIC ---
+
+let unreadActionCount = 0;
+
+export function addAiActionLine(actionText) {
+    const container = document.getElementById('ai-actions-list');
+    const badge = document.getElementById('ai-action-badge');
+    const protocolBtn = document.getElementById('ai-protocol-btn');
+    const feedVisible = !document.getElementById('ai-actions-feed').classList.contains('hidden');
+
+    if (!container) return;
+
+    const entry = document.createElement('div');
+    entry.className = 'action-line flex gap-3 group animate-in slide-in-from-bottom-2 duration-300';
+    entry.innerHTML = `
+        <div class="flex-shrink-0 mt-1">
+            <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+        </div>
+        <div class="flex flex-col gap-1">
+            <span class="text-[11px] text-gray-300 leading-relaxed font-medium">${actionText}</span>
+            <span class="text-[8px] text-gray-600 font-mono">${new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+        </div>
+    `;
+    container.appendChild(entry);
+    container.scrollTop = container.scrollHeight;
+
+    if (!feedVisible) {
+        unreadActionCount++;
+        if (badge) {
+            badge.innerText = unreadActionCount;
+            badge.classList.remove('hidden');
+        }
+        if (protocolBtn) {
+            protocolBtn.classList.add('pulse-active', 'border-red-500/30');
+        }
+    }
+}
+
+export function clearAiActions() {
+    const container = document.getElementById('ai-actions-list');
+    const badge = document.getElementById('ai-action-badge');
+    const protocolBtn = document.getElementById('ai-protocol-btn');
+    
+    if (container) container.innerHTML = '';
+    unreadActionCount = 0;
+    if (badge) badge.classList.add('hidden');
+    if (protocolBtn) protocolBtn.classList.remove('pulse-active', 'border-red-500/30');
+}
+
+export function toggleAiActionsFeed() {
+    const feed = document.getElementById('ai-actions-feed');
+    const badge = document.getElementById('ai-action-badge');
+    const protocolBtn = document.getElementById('ai-protocol-btn');
+    const isVisible = !feed.classList.contains('hidden');
+
+    if (isVisible) {
+        feed.classList.add('hidden');
+    } else {
+        feed.classList.remove('hidden');
+        unreadActionCount = 0;
+        if (badge) badge.classList.add('hidden');
+        if (protocolBtn) protocolBtn.classList.remove('pulse-active', 'border-red-500/30');
+    }
+}
