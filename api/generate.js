@@ -420,6 +420,7 @@ ADMIN CAPABILITY & USER ACCESS:
 
     const stream = new ReadableStream({
       async start(controller) {
+        // --- 1️⃣ IMMEDIATE HEARTBEAT ENQUEUE (BLOCKS TIMEOUT) ---
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ status: "initializing", remaining: rate.remaining, resetAt: rate.resetAt })}\n\n`));
 
         if (business_id) {
