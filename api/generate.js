@@ -1,4 +1,4 @@
- // api/generate.js
+// api/generate.js
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // ---------------- VERCEL RUNTIME CONFIG ----------------
@@ -408,9 +408,10 @@ ADMIN CAPABILITY & USER ACCESS:
 2. Create a dedicated route for the dashboard (e.g., 'app/admin/page.jsx' or 'admin.html').
 3. MANDATORY AUTH: The admin page MUST include a login modal/overlay that requires the 'admin_pin'.
 4. FETCH LOGIC: Fetch data from: 'https://ammoue-ai.vercel.app/api/booking?business_id=${business_id}'.
-5. DELETE LOGIC: You can delete a booking by calling 'DELETE' on 'https://ammoue-ai.vercel.app/api/booking?id={BOOKING_ID}'.
-6. DESIGN REQ: The Admin dashboard must be ultra-clean (Bento Grid or Modern Table), use 'lucide-react' for icons, and ensure all JS logic for fetching/deleting is correctly wrapped in error boundaries/try-catch.
-7. YOU MUST DOCUMENT THE ADMIN PIN IN THE README.md FILE.
+5. DELETE LOGIC: You MUST implement delete functionality using DELETE method to 'https://ammoue-ai.vercel.app/api/booking?id={BOOKING_ID}'.
+6. NOTIFICATIONS: Note that the owner will receive email notifications automatically via Resend when a booking is created.
+7. DESIGN REQ: The Admin dashboard must be ultra-clean (Bento Grid or Modern Table), use 'lucide-react' for icons, and ensure all JS logic for fetching/deleting is correctly wrapped in error boundaries/try-catch.
+8. YOU MUST DOCUMENT THE ADMIN PIN IN THE README.md FILE.
 `;
     }
 
