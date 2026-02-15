@@ -29,7 +29,10 @@ import {
 import {
     updateGenerateButtonToStop,
     resetGenerateButton,
-    renderFileTabsFromRaw
+    renderFileTabsFromRaw,
+    addAiActionLine,
+    clearAiActions,
+    toggleAiActionsFeed
 } from "./generation_ui_service.js";
 
 import { FrameBridge } from "./frame-bridge.js";
@@ -416,6 +419,9 @@ if (document.getElementById('generate-btn')) {
         abortController = new AbortController();
         updateGenerateButtonToStop();
 
+        // Clear previous actions at start of new generation
+        clearAiActions();
+
         updateSaveIndicator("Saving...");
         showLoadingSkeleton(true);
         const startTime = Date.now();
@@ -455,7 +461,11 @@ if (document.getElementById('generate-btn')) {
                 },
                 (file) => {
                     const status = document.getElementById('thinking-status');
-                    if (status) status.innerText = `Architecting: ${file}`;
+                    if (status) status.innerText = `Writing ${file}...`;
+                },
+                (actionName) => {
+                    // NEW: Handle action lines
+                    addAiActionLine(actionName);
                 },
                 abortController.signal
             );
@@ -467,6 +477,10 @@ if (document.getElementById('generate-btn')) {
             showLoadingSkeleton(false);
             resetGenerateButton();
             isGenerating = false;
+        } finally {
+            resetGenerateButton();
+            const status = document.getElementById('thinking-status');
+            if (status) status.innerText = 'Idle';
         }
         clearAttachments();
     };
@@ -558,6 +572,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const nameDisplay = document.getElementById('project-name-display');
     if (nameDisplay && nameDisplay.innerText === 'lovable-clone') nameDisplay.innerText = generateCoolName();
     runTypingEffect();
+
+    document.getElementById('ai-protocol-btn')?.addEventListener('click', () => {
+        toggleAiActionsFeed();
+    });
+
+    document.getElementById('clear-actions')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        clearAiActions();
+    });
 });
 
 // SELF-HEALING LOGIC APPENDED
