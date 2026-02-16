@@ -24,7 +24,7 @@ export default async function handler(req, res) {
       const { business_id } = req.query;
       if (!business_id) {
         console.error('[API] GET Failed: Missing business_id');
-        return res.status(400).json({ error: 'business_id is required' });
+        return res.status(400).json({ error: 'business_id is required', bookings: [] });
       }
 
       const { data, error } = await supabaseAdmin
@@ -36,11 +36,15 @@ export default async function handler(req, res) {
 
       if (error) {
         console.error('[API] Supabase Fetch Error:', error.message);
-        throw error;
+        // Returning 200 with an empty array is safer for the UI than a 500 crash
+        return res.status(200).json([]);
       }
       
-      console.log(`[API] Successfully fetched ${data.length} bookings`);
-      return res.status(200).json(data);
+      // SAFETY CHECK: Ensure data is never undefined/null
+      const safeData = data || [];
+      
+      console.log(`[API] Successfully fetched ${safeData.length} bookings`);
+      return res.status(200).json(safeData);
     }
 
     // --- POST: CREATE BOOKING OR SETUP ---
@@ -110,7 +114,7 @@ export default async function handler(req, res) {
           return res.status(500).json({ error: bookingError.message });
         }
 
-        // --- ADDED: OWNER EMAIL NOTIFICATION (RESEND) ---
+        // --- OWNER EMAIL NOTIFICATION (RESEND) ---
         const RESEND_API_KEY = process.env.RESEND_API_KEY;
         if (RESEND_API_KEY && payload.business_id) {
           try {
