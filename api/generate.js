@@ -391,6 +391,7 @@ Code goes here...
     - AVOID: "Generating index.html", "Reviewing code".
     - USE: "Sculpting the glassmorphic hero section", "Engineering the premium booking engine", "Injecting 3D hover micro-interactions", "Crafting the Obsidian & Gold color palette", "Hardening security protocols for Admin access".
     - BE VIVID: Act like a god-tier developer explaining their masterpiece to a client. Use high-energy, sophisticated tech-art language.
+    - PLACEMENT RULE: You MUST ensure that [ACTION:] tags are ALWAYS outside of file markers. They must NEVER appear between [NEW_PAGE:] and [END_PAGE].
 12. SYNTAX POLICE: Double check every bracket, brace, and parenthesis. Ensure every opening '{' has a closing '}' and every '[' has a ']'. A single syntax error is a total failure.
 13. DIRECTORY ENFORCEMENT (NEXT.js): If framework is Next.js, all page components MUST be prefixed with 'app/' (e.g., 'app/page.jsx', 'app/layout.jsx').
 14. CODE ORIGINALITY & BYPASS: To prevent RECITATION errors, you MUST generate all code with high structural variance.
@@ -398,6 +399,9 @@ Code goes here...
     - Vary the order of CSS classes in Tailwind strings randomly.
     - Add unique, descriptive comments inside your functions (e.g., // Initializing the neural-sync heartbeat logic).
     - If generating a common component (like a navbar), change the nesting structure slightly to ensure the code signature is unique.
+15. JSON PURITY: For files ending in .json, you MUST output ONLY valid JSON. 
+    - NO action tags, NO comments, and NO narrative text inside the [NEW_PAGE] markers for JSON files.
+    - Ensure there are no trailing commas.
 `;
 
         // Include business info for booking/appointments
@@ -462,7 +466,8 @@ ADMIN CAPABILITY & USER ACCESS:
               9. The Admin dashboard MUST support deleting bookings using the DELETE method.
               10. Ensure all imports and package.json are in sync.
               11. NEVER use TypeScript syntax.
-              12. FOR NEXT.js: ALL PAGES IN 'app/' DIRECTORY.` }]
+              12. FOR NEXT.js: ALL PAGES IN 'app/' DIRECTORY.
+              13. SAFETY: NEVER place [ACTION:] tags inside JSON file boundaries.` }]
                         }]
                     });
 
