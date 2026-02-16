@@ -10,6 +10,15 @@ export async function refreshFileState(currentProjectId, currentUser, updateFile
     if (snap.exists()) {
         const data = snap.data().pages || {};
         Object.keys(data).forEach(k => { files[k] = data[k].content || ""; });
+        
+        // Restore Persistent AI Action Logs
+        const logsContent = snap.data().logsContent || "";
+        const actionContainer = document.getElementById('ai-actions-list');
+        if (actionContainer && logsContent) {
+            actionContainer.innerHTML = logsContent;
+            actionContainer.scrollTop = actionContainer.scrollHeight;
+        }
+
         if (snap.data().lastDeploymentUrl) {
             const linkArea = document.getElementById('deployment-link-area');
             if(linkArea) {
