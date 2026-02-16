@@ -5,7 +5,7 @@ export function updateGenerateButtonToStop() {
         btn.innerHTML = `<i data-lucide="square" class="w-4 h-4 mr-2 fill-current"></i> Stop`;
         btn.classList.add('bg-red-500/10', 'text-red-500', 'border', 'border-red-500/20');
         btn.classList.remove('bg-[#ededed]', 'text-black');
-        lucide.createIcons();
+        if (window.lucide) lucide.createIcons();
     }
 }
 
@@ -15,7 +15,7 @@ export function resetGenerateButton() {
         btn.innerHTML = `<i data-lucide="rocket" class="rocket-icon w-4 h-4"></i> Generate`;
         btn.classList.remove('bg-red-500/10', 'text-red-500', 'border', 'border-red-500/20');
         btn.classList.add('bg-[#ededed]', 'text-black');
-        lucide.createIcons();
+        if (window.lucide) lucide.createIcons();
     }
 }
 
@@ -31,7 +31,7 @@ export function renderFileTabsFromRaw(rawText, activeFile) {
     return fileMap;
 }
 
-// --- NEW: AI PROTOCOL UI LOGIC ---
+// --- AI PROTOCOL UI LOGIC ---
 
 let unreadActionCount = 0;
 
@@ -39,12 +39,12 @@ export function addAiActionLine(actionText) {
     const container = document.getElementById('ai-actions-list');
     const badge = document.getElementById('ai-action-badge');
     const protocolBtn = document.getElementById('ai-protocol-btn');
-    const feedVisible = !document.getElementById('ai-actions-feed').classList.contains('hidden');
+    const feedVisible = document.getElementById('ai-actions-feed') && !document.getElementById('ai-actions-feed').classList.contains('hidden');
 
     if (!container) return;
 
     const entry = document.createElement('div');
-    entry.className = 'action-line flex gap-3 group animate-in slide-in-from-bottom-2 duration-300';
+    entry.className = 'action-line flex gap-3 group animate-in slide-in-from-bottom-2 duration-300 mb-3';
     entry.innerHTML = `
         <div class="flex-shrink-0 mt-1">
             <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
@@ -74,6 +74,7 @@ export function clearAiActions() {
     const badge = document.getElementById('ai-action-badge');
     const protocolBtn = document.getElementById('ai-protocol-btn');
     
+    // UI ONLY CLEAR: This does not affect the Firestore logsContent field
     if (container) container.innerHTML = '';
     unreadActionCount = 0;
     if (badge) badge.classList.add('hidden');
@@ -84,6 +85,8 @@ export function toggleAiActionsFeed() {
     const feed = document.getElementById('ai-actions-feed');
     const badge = document.getElementById('ai-action-badge');
     const protocolBtn = document.getElementById('ai-protocol-btn');
+    
+    if (!feed) return;
     const isVisible = !feed.classList.contains('hidden');
 
     if (isVisible) {
