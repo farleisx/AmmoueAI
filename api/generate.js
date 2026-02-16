@@ -536,8 +536,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         const actionRegex = /\[ACTION:\s*(.*?)\s*\]/g;
                         let logsHTML = "";
                         let actionMatch;
+                        const seenActions = new Set();
                         while ((actionMatch = actionRegex.exec(fullGeneratedText)) !== null) {
-                            logsHTML += `<div class="text-[10px] text-slate-400 font-medium"><span class="text-emerald-500 mr-2">✔</span>${actionMatch[1]}</div>`;
+                            const actionText = actionMatch[1].trim();
+                            if (!seenActions.has(actionText)) {
+                                seenActions.add(actionText);
+                                logsHTML += `
+                                    <div class="flex gap-2 items-center mb-2 animate-in fade-in duration-500">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]"></span>
+                                        <span class="text-[10px] text-slate-300 font-medium">${actionText}</span>
+                                    </div>`;
+                            }
                         }
 
                         const commitBody = {
