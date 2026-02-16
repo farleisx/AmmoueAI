@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // ---------------- VERCEL RUNTIME CONFIG ----------------
 export const config = {
-  runtime: 'edge',
+    runtime: 'edge',
 };
 
 // ---------------- CONFIG ----------------
@@ -19,321 +19,321 @@ const LIMITS = { free: 5, pro: 10 };
 
 // ---------------- STACK PRESETS ----------------
 const STACK_PRESETS = {
-  "vanilla": {
-    frontend: "HTML5, Tailwind CSS (CDN ONLY), Vanilla JS (INLINE ONLY)",
-    backend: "None",
-    structure: "Root-level index.html",
-    requiredFiles: ["package.json", "vercel.json", "README.md", "index.html", "404.html"]
-  },
-  "react-vite": {
-    frontend: "React 18+, Vite, Tailwind CSS",
-    backend: "Vercel Serverless Functions",
-    structure: "Vite Project Structure",
-    requiredFiles: ["package.json", "vite.config.js", "index.html", "src/main.jsx", "src/App.jsx", "src/index.css", "src/context/ThemeContext.jsx", "src/lib/utils.js", "vercel.json", "README.md"]
-  },
-  "nextjs": {
-    frontend: "Next.js (App Router), Tailwind CSS",
-    backend: "Next.js API Routes",
-    structure: "Next.js Project Structure",
-    requiredFiles: ["package.json", "next.config.js", "app/layout.jsx", "app/page.jsx", "app/globals.css", "lib/utils.js", "vercel.json", "README.md"]
-  },
-  "react-node": {
-    frontend: "React (Vite), Tailwind CSS (CDN ONLY, INLINE ONLY)",
-    backend: "Node.js (Express Serverless)",
-    structure: "Standard Vite + Express project",
-    requiredFiles: ["package.json", "vercel.json", "src/main.jsx", "src/App.jsx", "api/index.js", "README.md"]
-  }
+    "vanilla": {
+        frontend: "HTML5, Tailwind CSS (CDN ONLY), Vanilla JS (INLINE ONLY)",
+        backend: "None",
+        structure: "Root-level index.html",
+        requiredFiles: ["package.json", "vercel.json", "README.md", "index.html", "404.html"]
+    },
+    "react-vite": {
+        frontend: "React 18+, Vite, Tailwind CSS",
+        backend: "Vercel Serverless Functions",
+        structure: "Vite Project Structure",
+        requiredFiles: ["package.json", "vite.config.js", "index.html", "src/main.jsx", "src/App.jsx", "src/index.css", "src/context/ThemeContext.jsx", "src/lib/utils.js", "vercel.json", "README.md"]
+    },
+    "nextjs": {
+        frontend: "Next.js (App Router), Tailwind CSS",
+        backend: "Next.js API Routes",
+        structure: "Next.js Project Structure",
+        requiredFiles: ["package.json", "next.config.js", "app/layout.jsx", "app/page.jsx", "app/globals.css", "lib/utils.js", "vercel.json", "README.md"]
+    },
+    "react-node": {
+        frontend: "React (Vite), Tailwind CSS (CDN ONLY, INLINE ONLY)",
+        backend: "Node.js (Express Serverless)",
+        structure: "Standard Vite + Express project",
+        requiredFiles: ["package.json", "vercel.json", "src/main.jsx", "src/App.jsx", "api/index.js", "README.md"]
+    }
 };
 
 // ---------------- PEXELS ASSET FETCHING ----------------
 async function fetchPexelsAssets(prompt, genAI) {
-  if (!PEXELS_API_KEY) return { images: [], videos: [] };
-  
-  try {
-    const extractionModel = genAI.getGenerativeModel({ model: API_MODEL });
-    const extractionResult = await extractionModel.generateContent(
-      `Extract exactly 3 highly descriptive search keywords from this prompt for a stock photo search. 
+    if (!PEXELS_API_KEY) return { images: [], videos: [] };
+
+    try {
+        const extractionModel = genAI.getGenerativeModel({ model: API_MODEL });
+        const extractionResult = await extractionModel.generateContent(
+            `Extract exactly 3 highly descriptive search keywords from this prompt for a stock photo search. 
         Focus on the literal industry (e.g., 'Dentist', 'Barber Shop', 'Modern Bakery').
         Return ONLY the keywords separated by commas. Prompt: "${prompt}"`
-    );
-    const query = extractionResult.response.text().trim() || prompt;
+        );
+        const query = extractionResult.response.text().trim() || prompt;
 
-    const [imgRes, vidRes] = await Promise.all([
-      fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=6`, {
-        headers: { Authorization: PEXELS_API_KEY }
-      }),
-      fetch(`https://api.pexels.com/videos/search?query=${encodeURIComponent(query)}&per_page=2`, {
-        headers: { Authorization: PEXELS_API_KEY }
-      })
-    ]);
+        const [imgRes, vidRes] = await Promise.all([
+            fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=6`, {
+                headers: { Authorization: PEXELS_API_KEY }
+            }),
+            fetch(`https://api.pexels.com/videos/search?query=${encodeURIComponent(query)}&per_page=2`, {
+                headers: { Authorization: PEXELS_API_KEY }
+            })
+        ]);
 
-    const imgData = await imgRes.json();
-    const vidData = await vidRes.json();
+        const imgData = await imgRes.json();
+        const vidData = await vidRes.json();
 
-    return {
-      images: imgData.photos?.map(p => p.src.large) || [],
-      videos: vidData.videos?.map(v => v.video_files[0].link) || []
-    };
-  } catch (e) {
-    console.error("Asset fetch error:", e);
-    return { images: [], videos: [] };
-  }
+        return {
+            images: imgData.photos?.map(p => p.src.large) || [],
+            videos: vidData.videos?.map(v => v.video_files[0].link) || []
+        };
+    } catch (e) {
+        console.error("Asset fetch error:", e);
+        return { images: [], videos: [] };
+    }
 }
 
 // ---------------- EDGE AUTH (WEB CRYPTO) ----------------
 async function getAccessToken() {
-  const iat = Math.floor(Date.now() / 1000);
-  const exp = iat + 3600;
-  const header = { alg: "RS256", typ: "JWT" };
-  const payload = {
-    iss: SERVICE_ACCOUNT.client_email,
-    sub: SERVICE_ACCOUNT.client_email,
-    aud: "https://firestore.googleapis.com/google.firestore.v1.Firestore",
-    iat, exp,
-    scope: "https://www.googleapis.com/auth/datastore"
-  };
+    const iat = Math.floor(Date.now() / 1000);
+    const exp = iat + 3600;
+    const header = { alg: "RS256", typ: "JWT" };
+    const payload = {
+        iss: SERVICE_ACCOUNT.client_email,
+        sub: SERVICE_ACCOUNT.client_email,
+        aud: "https://firestore.googleapis.com/google.firestore.v1.Firestore",
+        iat, exp,
+        scope: "https://www.googleapis.com/auth/datastore"
+    };
 
-  const b64 = (obj) =>
-    btoa(JSON.stringify(obj))
-      .replace(/=/g, "")
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_");
+    const b64 = (obj) =>
+        btoa(JSON.stringify(obj))
+            .replace(/=/g, "")
+            .replace(/\+/g, "-")
+            .replace(/\//g, "_");
 
-  const unsignedToken = `${b64(header)}.${b64(payload)}`;
+    const unsignedToken = `${b64(header)}.${b64(payload)}`;
 
-  const pemContents = SERVICE_ACCOUNT.private_key
-    .replace(/-----BEGIN PRIVATE KEY-----/g, "")
-    .replace(/-----END PRIVATE KEY-----/g, "")
-    .replace(/\s/g, "");
+    const pemContents = SERVICE_ACCOUNT.private_key
+        .replace(/-----BEGIN PRIVATE KEY-----/g, "")
+        .replace(/-----END PRIVATE KEY-----/g, "")
+        .replace(/\s/g, "");
 
-  const binaryDer = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
+    const binaryDer = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
 
-  const cryptoKey = await crypto.subtle.importKey(
-    "pkcs8",
-    binaryDer,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
+    const cryptoKey = await crypto.subtle.importKey(
+        "pkcs8",
+        binaryDer,
+        { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+        false,
+        ["sign"]
+    );
 
-  const signature = await crypto.subtle.sign(
-    "RSASSA-PKCS1-v1_5",
-    cryptoKey,
-    new TextEncoder().encode(unsignedToken)
-  );
+    const signature = await crypto.subtle.sign(
+        "RSASSA-PKCS1-v1_5",
+        cryptoKey,
+        new TextEncoder().encode(unsignedToken)
+    );
 
-  const encodedSignature = btoa(
-    String.fromCharCode(...new Uint8Array(signature))
-  )
-    .replace(/=/g, "")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_");
+    const encodedSignature = btoa(
+        String.fromCharCode(...new Uint8Array(signature))
+    )
+        .replace(/=/g, "")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_");
 
-  return `${unsignedToken}.${encodedSignature}`;
+    return `${unsignedToken}.${encodedSignature}`;
 }
 
 // ---------------- FIRESTORE REST ----------------
 async function fetchFirestore(path, method = "GET", body = null) {
-  const token = await getAccessToken();
-  const isCommit = method === "COMMIT";
+    const token = await getAccessToken();
+    const isCommit = method === "COMMIT";
 
-  const url = isCommit
-    ? `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents:commit`
-    : `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/${path}`;
+    const url = isCommit
+        ? `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents:commit`
+        : `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/${path}`;
 
-  const res = await fetch(url, {
-    method: isCommit ? "POST" : method,
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`
-    },
-    body: body ? JSON.stringify(body) : null
-  });
+    const res = await fetch(url, {
+        method: isCommit ? "POST" : method,
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+        },
+        body: body ? JSON.stringify(body) : null
+    });
 
-  return res.json();
+    return res.json();
 }
 
 // ---------------- DAILY LIMIT ----------------
 async function enforceDailyLimit(uid) {
-  const path = `users/${uid}`;
-  const doc = await fetchFirestore(path);
-  const fields = doc.fields || {};
-  const now = Date.now();
+    const path = `users/${uid}`;
+    const doc = await fetchFirestore(path);
+    const fields = doc.fields || {};
+    const now = Date.now();
 
-  const plan = fields.plan?.stringValue === "pro" ? "pro" : "free";
-  const limit = LIMITS[plan];
+    const plan = fields.plan?.stringValue === "pro" ? "pro" : "free";
+    const limit = LIMITS[plan];
 
-  let count = parseInt(fields.dailyCount?.integerValue || "0");
-  let resetAt = parseInt(fields.dailyResetAt?.integerValue || "0");
+    let count = parseInt(fields.dailyCount?.integerValue || "0");
+    let resetAt = parseInt(fields.dailyResetAt?.integerValue || "0");
 
-  if (now > resetAt) {
-    count = 0;
-    resetAt = now + 86400000;
-  }
-
-  if (count >= limit) {
-    return { allowed: false, plan, limit, resetAt };
-  }
-
-  const newCount = count + 1;
-
-  await fetchFirestore(
-    `${path}?updateMask.fieldPaths=dailyCount&updateMask.fieldPaths=dailyResetAt`,
-    "PATCH",
-    {
-      fields: {
-        dailyCount: { integerValue: newCount.toString() },
-        dailyResetAt: { integerValue: resetAt.toString() }
-      }
+    if (now > resetAt) {
+        count = 0;
+        resetAt = now + 86400000;
     }
-  );
 
-  return { allowed: true, plan, remaining: limit - newCount, resetAt };
+    if (count >= limit) {
+        return { allowed: false, plan, limit, resetAt };
+    }
+
+    const newCount = count + 1;
+
+    await fetchFirestore(
+        `${path}?updateMask.fieldPaths=dailyCount&updateMask.fieldPaths=dailyResetAt`,
+        "PATCH",
+        {
+            fields: {
+                dailyCount: { integerValue: newCount.toString() },
+                dailyResetAt: { integerValue: resetAt.toString() }
+            }
+        }
+    );
+
+    return { allowed: true, plan, remaining: limit - newCount, resetAt };
 }
 
 // ---------------- STRICT FILE PARSER (NO BLEED) ----------------
 function extractFilesStrict(text) {
-  const fileMap = {};
-  const regex = /\/\*\s*\[NEW_PAGE:\s*(.*?)\s*\]\s*\*\/([\s\S]*?)\/\*\s*\[END_PAGE\]\s*\*\//g;
-  let match;
-  while ((match = regex.exec(text)) !== null) {
-    const fileName = match[1].trim();
-    let content = match[2].trim();
-    content = content.replace(/^```[a-z]*\n?/gi, "").replace(/```$/g, "");
-    fileMap[fileName] = content;
-  }
-  return fileMap;
+    const fileMap = {};
+    const regex = /\/\*\s*\[NEW_PAGE:\s*(.*?)\s*\]\s*\*\/([\s\S]*?)\/\*\s*\[END_PAGE\]\s*\*\//g;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+        const fileName = match[1].trim();
+        let content = match[2].trim();
+        content = content.replace(/^```[a-z]*\n?/gi, "").replace(/```$/g, "");
+        fileMap[fileName] = content;
+    }
+    return fileMap;
 }
 
 // ---------------- RULE VALIDATION (HARD FAIL) ----------------
 function validateGeneratedOutput(fullText) {
-  const errors = [];
-  if (!/\/\*\s*\[NEW_PAGE:/i.test(fullText)) errors.push("Missing file boundary markers");
-  if (!/\/\*\s*\[END_PAGE\]\s*\*\//i.test(fullText)) errors.push("Missing END_PAGE markers");
-  
-  const files = extractFilesStrict(fullText);
-  if (files['package.json']) {
-    try {
-      const pkg = JSON.parse(files['package.json']);
-      const deps = pkg.dependencies || {};
-      const allContent = Object.values(files).join("\n");
-      const radixMatches = allContent.match(/@radix-ui\/react-[a-z-]+/g) || [];
-      radixMatches.forEach(dep => {
-        if (!deps[dep]) errors.push(`Dependency mismatch: ${dep} is imported but missing in package.json`);
-      });
-    } catch (e) {
-      errors.push("Invalid package.json format");
+    const errors = [];
+    if (!/\/\*\s*\[NEW_PAGE:/i.test(fullText)) errors.push("Missing file boundary markers");
+    if (!/\/\*\s*\[END_PAGE\]\s*\*\//i.test(fullText)) errors.push("Missing END_PAGE markers");
+
+    const files = extractFilesStrict(fullText);
+    if (files['package.json']) {
+        try {
+            const pkg = JSON.parse(files['package.json']);
+            const deps = pkg.dependencies || {};
+            const allContent = Object.values(files).join("\n");
+            const radixMatches = allContent.match(/@radix-ui\/react-[a-z-]+/g) || [];
+            radixMatches.forEach(dep => {
+                if (!deps[dep]) errors.push(`Dependency mismatch: ${dep} is imported but missing in package.json`);
+            });
+        } catch (e) {
+            errors.push("Invalid package.json format");
+        }
     }
-  }
-  
-  return errors;
+
+    return errors;
 }
 
 // ---------------- OUTPUT SANITIZER ----------------
 function sanitizeOutput(text) {
-  const secrets = [GEMINI_API_KEY, PEXELS_API_KEY, GOOGLE_SEARCH_KEY].filter(Boolean);
-  let sanitized = text;
-  secrets.forEach(s => { sanitized = sanitized.split(s).join("[REDACTED]"); });
-  return sanitized;
+    const secrets = [GEMINI_API_KEY, PEXELS_API_KEY, GOOGLE_SEARCH_KEY].filter(Boolean);
+    let sanitized = text;
+    secrets.forEach(s => { sanitized = sanitized.split(s).join("[REDACTED]"); });
+    return sanitized;
 }
 
 // ---------------- DYNAMIC SERVICE EXTRACTION ----------------
 function extractServices(prompt) {
-  const keywords = ["haircut", "beard trim", "coloring", "facial massage"];
-  const found = keywords.filter(s => prompt.toLowerCase().includes(s));
-  return found.map(s => ({ name: s.charAt(0).toUpperCase() + s.slice(1), duration: 30, price: 25 }));
+    const keywords = ["haircut", "beard trim", "coloring", "facial massage"];
+    const found = keywords.filter(s => prompt.toLowerCase().includes(s));
+    return found.map(s => ({ name: s.charAt(0).toUpperCase() + s.slice(1), duration: 30, price: 25 }));
 }
 
 // ---------------- MAIN HANDLER ----------------
 export default async function handler(req) {
-  if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
+    if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
 
-  try {
-    const body = await req.json();
-    const authHeader = req.headers.get("authorization") || "";
-    const userToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-    if (!userToken) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    try {
+        const body = await req.json();
+        const authHeader = req.headers.get("authorization") || "";
+        const userToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+        if (!userToken) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
 
-    const payload = JSON.parse(atob(userToken.split(".")[1]));
-    const uid = payload.user_id || payload.sub;
+        const payload = JSON.parse(atob(userToken.split(".")[1]));
+        const uid = payload.user_id || payload.sub;
 
-    const rate = await enforceDailyLimit(uid);
-    if (!rate.allowed) return new Response(JSON.stringify({ error: "Daily limit reached", limit: rate.limit, resetAt: rate.resetAt }), { status: 429 });
+        const rate = await enforceDailyLimit(uid);
+        if (!rate.allowed) return new Response(JSON.stringify({ error: "Daily limit reached", limit: rate.limit, resetAt: rate.resetAt }), { status: 429 });
 
-    const { prompt, framework = "vanilla", projectId } = body;
-    
-    // ---------------- BOOKING / BUSINESS PREP ----------------
-    let business_id = null;
-    let services = [];
-    let admin_pin = null;
-    if (prompt.toLowerCase().includes("booking") || prompt.toLowerCase().includes("appointment")) {
-      business_id = "biz_" + Math.random().toString(36).substring(2, 10);
-      admin_pin = Math.random().toString(36).substring(2, 8).toUpperCase();
-      
-      services = extractServices(prompt);
-      if (services.length === 0) {
-        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: API_MODEL });
-        try {
-          const result = await model.generateContent({
-            contents: [{
-              role: "user",
-              parts: [{
-                text: `The user wants a website for this business: "${prompt}". 
+        const { prompt, framework = "vanilla", projectId } = body;
+
+        // ---------------- BOOKING / BUSINESS PREP ----------------
+        let business_id = null;
+        let services = [];
+        let admin_pin = null;
+        if (prompt.toLowerCase().includes("booking") || prompt.toLowerCase().includes("appointment")) {
+            business_id = "biz_" + Math.random().toString(36).substring(2, 10);
+            admin_pin = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+            services = extractServices(prompt);
+            if (services.length === 0) {
+                const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+                const model = genAI.getGenerativeModel({ model: API_MODEL });
+                try {
+                    const result = await model.generateContent({
+                        contents: [{
+                            role: "user",
+                            parts: [{
+                                text: `The user wants a website for this business: "${prompt}". 
                         Generate 3-5 relevant services this business would realistically offer. 
                         Return the output as a JSON array of objects like:
                         [{ "id": "unique-slug", "name": "Service Name", "duration": 30, "price": 25 }, ...]`
-              }]
-            }]
-          });
-          try {
-            const aiText = result.response.text();
-            services = JSON.parse(aiText);
-          } catch {
-            services = [{ id: "general", name: "General Service", duration: 30, price: 25 }];
-          }
-        } catch (e) {
-          services = [{ id: "general", name: "General Service", duration: 30, price: 25 }];
+                            }]
+                        }]
+                    });
+                    try {
+                        const aiText = result.response.text();
+                        services = JSON.parse(aiText);
+                    } catch {
+                        services = [{ id: "general", name: "General Service", duration: 30, price: 25 }];
+                    }
+                } catch (e) {
+                    services = [{ id: "general", name: "General Service", duration: 30, price: 25 }];
+                }
+            }
         }
-      }
-    }
 
-    // Logic: Identify Framework from Prompt text if present, otherwise use selector value
-    let targetFramework = framework;
-    const lowerPrompt = prompt.toLowerCase();
-    if (lowerPrompt.includes("react") || lowerPrompt.includes("vite")) targetFramework = "react-vite";
-    else if (lowerPrompt.includes("nextjs") || lowerPrompt.includes("next.js")) targetFramework = "nextjs";
-    else if (lowerPrompt.includes("node") || lowerPrompt.includes("express")) targetFramework = "react-node";
+        // Logic: Identify Framework from Prompt text if present, otherwise use selector value
+        let targetFramework = framework;
+        const lowerPrompt = prompt.toLowerCase();
+        if (lowerPrompt.includes("react") || lowerPrompt.includes("vite")) targetFramework = "react-vite";
+        else if (lowerPrompt.includes("nextjs") || lowerPrompt.includes("next.js")) targetFramework = "nextjs";
+        else if (lowerPrompt.includes("node") || lowerPrompt.includes("express")) targetFramework = "react-node";
 
-    // ---------------- HISTORY FETCHING FOR REFINEMENT ----------------
-    let previousContext = "";
-    let existingFiles = {};
-    if (projectId) {
-      const projectDoc = await fetchFirestore(`artifacts/ammoueai/users/${uid}/projects/${projectId}`);
-      if (projectDoc && projectDoc.fields) {
-        const historyPrompt = projectDoc.fields.promptText?.stringValue || "";
-        const pagesMap = projectDoc.fields.pages?.mapValue?.fields || {};
-        
-        Object.keys(pagesMap).forEach(fileName => {
-          existingFiles[fileName] = pagesMap[fileName].mapValue?.fields?.content?.stringValue || "";
-        });
+        // ---------------- HISTORY FETCHING FOR REFINEMENT ----------------
+        let previousContext = "";
+        let existingFiles = {};
+        if (projectId) {
+            const projectDoc = await fetchFirestore(`artifacts/ammoueai/users/${uid}/projects/${projectId}`);
+            if (projectDoc && projectDoc.fields) {
+                const historyPrompt = projectDoc.fields.promptText?.stringValue || "";
+                const pagesMap = projectDoc.fields.pages?.mapValue?.fields || {};
 
-        if (historyPrompt) {
-          previousContext = `
+                Object.keys(pagesMap).forEach(fileName => {
+                    existingFiles[fileName] = pagesMap[fileName].mapValue?.fields?.content?.stringValue || "";
+                });
+
+                if (historyPrompt) {
+                    previousContext = `
 ORIGINAL PROJECT THEME: ${historyPrompt}
 CURRENT EXISTING FILES ARCHITECTURE: ${Object.keys(existingFiles).join(", ")}
 STRICT REFERENCE CODE FOR EXISTING COMPONENTS:
 ${Object.keys(existingFiles).map(f => `FILE: ${f}\nCONTENT_START:\n${existingFiles[f]}\nCONTENT_END`).join("\n")}
 `;
+                }
+            }
         }
-      }
-    }
 
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const activeStack = STACK_PRESETS[targetFramework] || STACK_PRESETS.vanilla;
-    const assets = await fetchPexelsAssets(prompt, genAI);
+        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+        const activeStack = STACK_PRESETS[targetFramework] || STACK_PRESETS.vanilla;
+        const assets = await fetchPexelsAssets(prompt, genAI);
 
-    let systemInstruction = `
+        let systemInstruction = `
 ROLE: WORLD-CLASS ELITE SOFTWARE ARCHITECT & AWARD-WINNING UI/UX DESIGNER.
 GOAL: Create a website so visually stunning, technically perfect, and "insane" that it looks like the work of a 1M IQ god-tier developer. 
 FRAMEWORK: ${targetFramework.toUpperCase()}
@@ -386,15 +386,15 @@ Code goes here...
 /* [END_PAGE] */
 9. Output ONLY code inside markers. No conversation.
 10. MEDIA: Use these URLs: Images: ${JSON.stringify(assets.images)}, Videos: ${JSON.stringify(assets.videos)}. 
-    ENSURE images are placed in contexts that match their visual content (e.g., dentist images for clinic sections).
-11. LOGS: Use [ACTION: Task Name] before file blocks.
+   ENSURE images are placed in contexts that match their visual content (e.g., dentist images for clinic sections).
+11. LOGS: You MUST output [ACTION: Task Name] immediately before every code block. This is mandatory for the UI status feed.
 12. SYNTAX POLICE: Double check every bracket, brace, and parenthesis. Ensure every opening '{' has a closing '}' and every '[' has a ']'. A single syntax error is a total failure.
 13. DIRECTORY ENFORCEMENT (NEXT.js): If framework is Next.js, all page components MUST be prefixed with 'app/' (e.g., 'app/page.jsx', 'app/layout.jsx').
 `;
 
-    // Include business info for booking/appointments
-    if (business_id) {
-      systemInstruction += `
+        // Include business info for booking/appointments
+        if (business_id) {
+            systemInstruction += `
 BUSINESS CONFIGURATION:
 - business_id: "${business_id}"
 - admin_pin: "${admin_pin}"
@@ -417,61 +417,66 @@ ADMIN CAPABILITY & USER ACCESS:
 8. DESIGN REQ: The Admin dashboard must be ultra-clean (Bento Grid or Modern Table), use 'lucide-react' for icons, and ensure all JS logic for fetching/deleting is correctly wrapped in error boundaries/try-catch.
 9. YOU MUST DOCUMENT THE ADMIN PIN IN THE README.md FILE.
 `;
-    }
-
-    const model = genAI.getGenerativeModel({ model: API_MODEL, systemInstruction });
-    const encoder = new TextEncoder();
-
-    const stream = new ReadableStream({
-      async start(controller) {
-        // --- 1️⃣ IMMEDIATE HEARTBEAT ENQUEUE (BLOCKS TIMEOUT) ---
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ status: "initializing", remaining: rate.remaining, resetAt: rate.resetAt })}\n\n`));
-
-        if (business_id) {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ info: "Booking system pre-configured", business_id, services })}\n\n`));
         }
 
-        try {
-            const result = await model.generateContentStream({
-              contents: [{ role: "user", parts: [{ text: `TASK: ${prompt}. 
-              
-              EXECUTION PLAN:
-              1. Review the EXISTING code provided in context.
-              2. Apply the requested changes while maintaining 100% style and theme consistency.
-              3. Use the industry-specific Pexels keywords for perfectly relevant imagery.
-              4. Ensure a "Manage Bookings" button exists in the header/footer.
-              5. All booking POST requests must hit https://ammoue-ai.vercel.app/api/booking.
-              6. CRITICAL: The Admin page login modal must be 100% functional. PIN input must be clickable and the button must trigger validation.
-              7. The Admin dashboard MUST support deleting bookings using the DELETE method.
-              8. Ensure all imports and package.json are in sync.
-              9. NEVER use TypeScript syntax.
-              10. FOR NEXT.js: ALL PAGES IN 'app/' DIRECTORY.` }] }]
-            });
+        const model = genAI.getGenerativeModel({ model: API_MODEL, systemInstruction });
+        const encoder = new TextEncoder();
 
-            let fullGeneratedText = "";
-            try {
-                for await (const chunk of result.stream) {
-                  try {
-                    const text = chunk.text();
-                    fullGeneratedText += text;
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
-                  } catch (chunkErr) {
-                    console.error("Chunk parsing error:", chunkErr);
-                    continue;
-                  }
+        const stream = new ReadableStream({
+            async start(controller) {
+                // --- 1️⃣ IMMEDIATE HEARTBEAT ENQUEUE (BLOCKS TIMEOUT) ---
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ status: "initializing", remaining: rate.remaining, resetAt: rate.resetAt })}\n\n`));
+
+                if (business_id) {
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ info: "Booking system pre-configured", business_id, services })}\n\n`));
                 }
-            } catch (streamIterErr) {
-                console.error("Stream iteration error:", streamIterErr);
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: "Stream interrupted" })}\n\n`));
-            }
 
-            if (projectId && fullGeneratedText) {
-              const sanitized = sanitizeOutput(fullGeneratedText);
-              const files = extractFilesStrict(sanitized);
+                try {
+                    const result = await model.generateContentStream({
+                        contents: [{
+                            role: "user", parts: [{
+                                text: `TASK: ${prompt}. 
               
-              // REPAIRED: Clean injection for form submissions targeting unified API with ROBUST ERROR LOGS
-              if (business_id && files['index.html']) {
-                  const bookingScript = `
+              STRICT EXECUTION PROTOCOL:
+              1. Output [ACTION: Reviewing Architecture]
+              2. Review the EXISTING code provided in context.
+              3. For every file generated, first output [ACTION: Generating filename]
+              4. Apply the requested changes while maintaining 100% style and theme consistency.
+              5. Use the industry-specific Pexels keywords for perfectly relevant imagery.
+              6. Ensure a "Manage Bookings" button exists in the header/footer.
+              7. All booking POST requests must hit https://ammoue-ai.vercel.app/api/booking.
+              8. CRITICAL: The Admin page login modal must be 100% functional. PIN input must be clickable and the button must trigger validation.
+              9. The Admin dashboard MUST support deleting bookings using the DELETE method.
+              10. Ensure all imports and package.json are in sync.
+              11. NEVER use TypeScript syntax.
+              12. FOR NEXT.js: ALL PAGES IN 'app/' DIRECTORY.` }]
+                        }]
+                    });
+
+                    let fullGeneratedText = "";
+                    try {
+                        for await (const chunk of result.stream) {
+                            try {
+                                const text = chunk.text();
+                                fullGeneratedText += text;
+                                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
+                            } catch (chunkErr) {
+                                console.error("Chunk parsing error:", chunkErr);
+                                continue;
+                            }
+                        }
+                    } catch (streamIterErr) {
+                        console.error("Stream iteration error:", streamIterErr);
+                        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: "Stream interrupted" })}\n\n`));
+                    }
+
+                    if (projectId && fullGeneratedText) {
+                        const sanitized = sanitizeOutput(fullGeneratedText);
+                        const files = extractFilesStrict(sanitized);
+
+                        // REPAIRED: Clean injection for form submissions targeting unified API with ROBUST ERROR LOGS
+                        if (business_id && files['index.html']) {
+                            const bookingScript = `
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     console.log('%c[AMM-AI] Booking System Initialized', 'color: #10b981; font-weight: bold;');
@@ -520,60 +525,60 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 </body>`;
-                  files['index.html'] = files['index.html'].replace('</body>', bookingScript);
-              }
-
-              const mergedFiles = { ...existingFiles };
-              Object.keys(files).forEach(f => {
-                mergedFiles[f] = files[f];
-              });
-
-              const actionRegex = /\[ACTION:\s*(.*?)\s*\]/g;
-              let logsHTML = "";
-              let actionMatch;
-              while ((actionMatch = actionRegex.exec(fullGeneratedText)) !== null) {
-                logsHTML += `<div class="text-[10px] text-slate-400 font-medium"><span class="text-emerald-500 mr-2">✔</span>${actionMatch[1]}</div>`;
-              }
-
-              const commitBody = {
-                writes: [{
-                  update: {
-                    name: `projects/${PROJECT_ID}/databases/(default)/documents/artifacts/ammoueai/users/${uid}/projects/${projectId}`,
-                    fields: {
-                      pages: {
-                        mapValue: {
-                          fields: Object.keys(mergedFiles).reduce((acc, key) => {
-                            acc[key] = { mapValue: { fields: { content: { stringValue: mergedFiles[key] } } } };
-                            return acc;
-                          }, {})
+                            files['index.html'] = files['index.html'].replace('</body>', bookingScript);
                         }
-                      },
-                      framework: { stringValue: targetFramework },
-                      promptText: { stringValue: prompt },
-                      logsContent: { stringValue: logsHTML },
-                      lastUpdated: { integerValue: Date.now().toString() }
+
+                        const mergedFiles = { ...existingFiles };
+                        Object.keys(files).forEach(f => {
+                            mergedFiles[f] = files[f];
+                        });
+
+                        const actionRegex = /\[ACTION:\s*(.*?)\s*\]/g;
+                        let logsHTML = "";
+                        let actionMatch;
+                        while ((actionMatch = actionRegex.exec(fullGeneratedText)) !== null) {
+                            logsHTML += `<div class="text-[10px] text-slate-400 font-medium"><span class="text-emerald-500 mr-2">✔</span>${actionMatch[1]}</div>`;
+                        }
+
+                        const commitBody = {
+                            writes: [{
+                                update: {
+                                    name: `projects/${PROJECT_ID}/databases/(default)/documents/artifacts/ammoueai/users/${uid}/projects/${projectId}`,
+                                    fields: {
+                                        pages: {
+                                            mapValue: {
+                                                fields: Object.keys(mergedFiles).reduce((acc, key) => {
+                                                    acc[key] = { mapValue: { fields: { content: { stringValue: mergedFiles[key] } } } };
+                                                    return acc;
+                                                }, {})
+                                            }
+                                        },
+                                        framework: { stringValue: targetFramework },
+                                        promptText: { stringValue: prompt },
+                                        logsContent: { stringValue: logsHTML },
+                                        lastUpdated: { integerValue: Date.now().toString() }
+                                    }
+                                },
+                                updateMask: { fieldPaths: ["pages", "framework", "promptText", "logsContent", "lastUpdated"] }
+                            }]
+                        };
+                        await fetchFirestore(null, "COMMIT", commitBody);
                     }
-                  },
-                  updateMask: { fieldPaths: ["pages", "framework", "promptText", "logsContent", "lastUpdated"] }
-                }]
-              };
-              await fetchFirestore(null, "COMMIT", commitBody);
+                } catch (genErr) {
+                    console.error("Generation startup error:", genErr);
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: genErr.message })}\n\n`));
+                }
+
+                controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+                controller.close();
             }
-        } catch (genErr) {
-            console.error("Generation startup error:", genErr);
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: genErr.message })}\n\n`));
-        }
+        });
 
-        controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
-        controller.close();
-      }
-    });
+        return new Response(stream, {
+            headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" }
+        });
 
-    return new Response(stream, {
-      headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" }
-    });
-
-  } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
-  }
+    } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    }
 }
