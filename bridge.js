@@ -192,194 +192,196 @@ if (document.getElementById('confirm-rename')) {
     };
 }
 
-if (document.getElementById('confirm-publish')) {
-    document.getElementById('confirm-publish').onclick = async () => {
-        const slugInput = document.getElementById('publish-slug');
-        const projectNameDisplay = document.getElementById('project-name-display');
-        const slug = (slugInput && slugInput.value) ? slugInput.value : (projectNameDisplay ? projectNameDisplay.innerText : null);
-        
-        if (!currentProjectId) {
-            document.getElementById('publish-modal').style.display = 'none';
-            showCustomAlert("Hold on!", "You need to save or generate a project before publishing.");
-            return;
+// SHARED DEPLOYMENT LOGIC (REUSABLE)
+async function executeDeploymentFlow() {
+    const slugInput = document.getElementById('publish-slug');
+    const projectNameDisplay = document.getElementById('project-name-display');
+    const slug = (slugInput && slugInput.value) ? slugInput.value : (projectNameDisplay ? projectNameDisplay.innerText : null);
+    
+    if (!currentProjectId) {
+        document.getElementById('publish-modal').style.display = 'none';
+        showCustomAlert("Hold on!", "You need to save or generate a project before publishing.");
+        return;
+    }
+    const btn = document.getElementById('confirm-publish');
+    const originalContent = `<i data-lucide="rocket" class="w-4 h-4"></i> Deploy Now`;
+    const progressContainer = document.getElementById('publish-progress-container');
+    const progressBar = document.getElementById('publish-progress-bar');
+    const progressText = document.getElementById('publish-progress-text');
+    const redeployBtn = document.getElementById('redeploy-btn');
+    const linkArea = document.getElementById('deployment-link-area');
+
+    btn.disabled = true;
+    btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto"></i>`;
+    lucide.createIcons();
+
+    if(progressContainer) progressContainer.classList.remove('hidden');
+    if(redeployBtn) redeployBtn.classList.add('hidden');
+    if(linkArea) linkArea.classList.add('hidden');
+    
+    const updateProgress = (pct, msg) => {
+        if(progressBar) progressBar.style.width = `${pct}%`;
+        if(progressText) progressText.innerText = msg;
+    };
+
+    let timerExpired = false;
+    let finalDeploymentUrl = null;
+    setTimeout(() => {
+        timerExpired = true;
+        if (finalDeploymentUrl) {
+            btn.innerHTML = "See Deployment";
+            btn.disabled = false;
+            btn.onclick = () => window.open(finalDeploymentUrl, '_blank');
+            if(redeployBtn) redeployBtn.classList.remove('hidden');
         }
-        const btn = document.getElementById('confirm-publish');
-        const originalContent = btn.innerHTML;
-        const progressContainer = document.getElementById('publish-progress-container');
-        const progressBar = document.getElementById('publish-progress-bar');
-        const progressText = document.getElementById('publish-progress-text');
-        const redeployBtn = document.getElementById('redeploy-btn');
+    }, 30000);
 
-        btn.disabled = true;
-        btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto"></i>`;
-        lucide.createIcons();
-
-        if(progressContainer) progressContainer.classList.remove('hidden');
-        if(redeployBtn) redeployBtn.classList.add('hidden');
+    try {
+        updateProgress(10, "Initializing deployment...");
+        const idToken = await currentUser.getIdToken();
+        updateProgress(30, "Optimizing assets...");
         
-        const updateProgress = (pct, msg) => {
-            if(progressBar) progressBar.style.width = `${pct}%`;
-            if(progressText) progressText.innerText = msg;
+        projectFiles['vercel.json'] = JSON.stringify({ 
+            "version": 2, 
+            "cleanUrls": true, 
+            "trailingSlash": false,
+            "outputDirectory": "." 
+        }, null, 2);
+
+        // LOG RELAY INJECTION START
+        const firebaseConfig = {
+            apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
+            authDomain: "ammoueai.firebaseapp.com",
+            projectId: "ammoueai",
+            storageBucket: "ammoueai.firebasestorage.app",
+            messagingSenderId: "135818868149",
+            appId: "1:135818868149:web:db9280baf9540a3339d5fc"
         };
 
-        let timerExpired = false;
-        let finalDeploymentUrl = null;
-        setTimeout(() => {
-            timerExpired = true;
-            if (finalDeploymentUrl) {
-                btn.innerHTML = "See Deployment";
-                btn.disabled = false;
-                btn.onclick = () => window.open(finalDeploymentUrl, '_blank');
-                if(redeployBtn) redeployBtn.classList.remove('hidden');
-            }
-        }, 30000);
+        const relayScript = `
+        <script type="module">
+          import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+          import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+          const app = initializeApp(${JSON.stringify(firebaseConfig)});
+          const db = getFirestore(app);
+          const sendLog = async (msg) => {
+            try { await addDoc(collection(db, "artifacts", "ammoueai", "projects", "${currentProjectId}", "live_logs"), {
+              message: msg, type: "error", timestamp: serverTimestamp()
+            }); } catch(e) {}
+          };
+          window.onerror = (m, u, l, c, e) => sendLog(m + " at line " + l);
+          const orig = console.error;
+          console.error = (...args) => { sendLog(args.join(" ")); orig.apply(console, args); };
+        </script>`;
 
-        try {
-            updateProgress(10, "Initializing deployment...");
-            const idToken = await currentUser.getIdToken();
-            updateProgress(30, "Optimizing assets...");
-            
-            projectFiles['vercel.json'] = JSON.stringify({ 
-                "version": 2, 
-                "cleanUrls": true, 
-                "trailingSlash": false,
-                "outputDirectory": "." 
-            }, null, 2);
+        if (projectFiles['index.html']) {
+            projectFiles['index.html'] = projectFiles['index.html'].replace('</head>', relayScript + '</head>');
+        }
+        // LOG RELAY INJECTION END
 
-            // LOG RELAY INJECTION START
-            const firebaseConfig = {
-                apiKey: "AIzaSyAmnZ69YDcEFcmuXIhmGxDUSPULxpI-Bmg",
-                authDomain: "ammoueai.firebaseapp.com",
-                projectId: "ammoueai",
-                storageBucket: "ammoueai.firebasestorage.app",
-                messagingSenderId: "135818868149",
-                appId: "1:135818868149:web:db9280baf9540a3339d5fc"
-            };
+        updateProgress(50, "Uploading files to Vercel...");
+        
+        const deployResponse = await fetch('/api/deploy', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+            body: JSON.stringify({ projectId: currentProjectId, slug, files: projectFiles })
+        });
 
-            const relayScript = `
-            <script type="module">
-              import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-              import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
-              const app = initializeApp(${JSON.stringify(firebaseConfig)});
-              const db = getFirestore(app);
-              const sendLog = async (msg) => {
-                try { await addDoc(collection(db, "artifacts", "ammoueai", "projects", "${currentProjectId}", "live_logs"), {
-                  message: msg, type: "error", timestamp: serverTimestamp()
-                }); } catch(e) {}
-              };
-              window.onerror = (m, u, l, c, e) => sendLog(m + " at line " + l);
-              const orig = console.error;
-              console.error = (...args) => { sendLog(args.join(" ")); orig.apply(console, args); };
-            </script>`;
-
-            if (projectFiles['index.html']) {
-                projectFiles['index.html'] = projectFiles['index.html'].replace('</head>', relayScript + '</head>');
-            }
-            // LOG RELAY INJECTION END
-
-            updateProgress(50, "Uploading files to Vercel...");
-            
-            const deployResponse = await fetch('/api/deploy', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-                body: JSON.stringify({ projectId: currentProjectId, slug, files: projectFiles })
-            });
-
-            if (!deployResponse.ok) {
-                const errData = await deployResponse.json();
-                if (deployResponse.status === 409) {
-                    throw new Error("SLUG_TAKEN");
-                } else if (deployResponse.status === 403) {
-                    throw new Error("LIMIT_REACHED");
-                } else {
-                    throw new Error(errData.message || "Deployment failed");
-                }
-            }
-
-            const res = await deployResponse.json();
-            
-            const deploymentId = res.id || res.deploymentId;
-            let isReady = false;
-            let attempts = 0;
-
-            while (!isReady && attempts < 60) {
-                const checkRes = await fetch(`/api/check-deployment?deploymentId=${deploymentId}`);
-                const statusData = await checkRes.json();
-                
-                if (statusData.status === 'READY') {
-                    isReady = true;
-                    finalDeploymentUrl = `https://${slug}.vercel.app`;
-                    updateProgress(100, "Site is live!");
-                    
-                    const linkArea = document.getElementById('deployment-link-area');
-                    if(linkArea) {
-                        linkArea.innerHTML = `<a href="${finalDeploymentUrl}" target="_blank" class="text-emerald-400 text-xs font-mono hover:underline flex items-center justify-center gap-1 mt-2"><i data-lucide="external-link" class="w-3 h-3"></i> ${finalDeploymentUrl}</a>`;
-                        linkArea.classList.remove('hidden');
-                        lucide.createIcons();
-                    }
-                    
-                    const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", currentProjectId);
-                    await updateDoc(projectRef, { lastDeploymentUrl: finalDeploymentUrl });
-
-                    if (!timerExpired) {
-                        setTimeout(() => {
-                            window.open(finalDeploymentUrl, '_blank');
-                            document.getElementById('publish-modal').style.display = 'none';
-                            if(progressContainer) progressContainer.classList.add('hidden');
-                            if(redeployBtn) redeployBtn.classList.remove('hidden');
-                        }, 1000);
-                    } else {
-                        btn.innerHTML = "See Deployment";
-                        btn.disabled = false;
-                        btn.onclick = () => window.open(finalDeploymentUrl, '_blank');
-                        if(redeployBtn) redeployBtn.classList.remove('hidden');
-                    }
-                } else if (statusData.status === 'ERROR' || statusData.status === 'FAILED') {
-                    throw new Error("Vercel build failed.");
-                } else {
-                    attempts++;
-                    const progressVal = Math.min(95, 50 + (attempts * 4));
-                    updateProgress(progressVal, "Vercel is building your site...");
-                    
-                    finalDeploymentUrl = `https://${slug}.vercel.app`;
-
-                    if (timerExpired && finalDeploymentUrl) {
-                        btn.innerHTML = "See Deployment";
-                        btn.disabled = false;
-                        btn.onclick = () => window.open(finalDeploymentUrl, '_blank');
-                        if(redeployBtn) redeployBtn.classList.remove('hidden');
-                    }
-
-                    await new Promise(r => setTimeout(r, 2000));
-                }
-            }
-        } catch (e) {
-            if (e.message === "SLUG_TAKEN") {
-                showCustomAlert("Name Conflict", "This URL slug is already taken by another project. Please try a different name.");
-            } else if (e.message === "LIMIT_REACHED") {
-                showCustomAlert("Limit Reached", "You've reached your deployment limit. Upgrade to Pro for unlimited sites.");
-                document.getElementById('publish-modal').style.display = 'none';
-                document.getElementById('checkout-modal').style.display = 'flex';
+        if (!deployResponse.ok) {
+            const errData = await deployResponse.json();
+            if (deployResponse.status === 409) {
+                throw new Error("SLUG_TAKEN");
+            } else if (deployResponse.status === 403) {
+                throw new Error("LIMIT_REACHED");
             } else {
-                showCustomAlert("Publish Failed", e.message);
-            }
-            if(progressContainer) progressContainer.classList.add('hidden');
-        } finally {
-            if (!timerExpired) {
-                btn.disabled = false;
-                btn.innerHTML = originalContent;
-                lucide.createIcons();
+                throw new Error(errData.message || "Deployment failed");
             }
         }
-    };
+
+        const res = await deployResponse.json();
+        const deploymentId = res.id || res.deploymentId;
+        let isReady = false;
+        let attempts = 0;
+
+        while (!isReady && attempts < 60) {
+            const checkRes = await fetch(`/api/check-deployment?deploymentId=${deploymentId}`);
+            const statusData = await checkRes.json();
+            
+            if (statusData.status === 'READY') {
+                isReady = true;
+                finalDeploymentUrl = `https://${slug}.vercel.app`;
+                updateProgress(100, "Site is live!");
+                
+                if(linkArea) {
+                    linkArea.innerHTML = `<a href="${finalDeploymentUrl}" target="_blank" class="text-emerald-400 text-xs font-mono hover:underline flex items-center justify-center gap-1 mt-2"><i data-lucide="external-link" class="w-3 h-3"></i> ${finalDeploymentUrl}</a>`;
+                    linkArea.classList.remove('hidden');
+                    lucide.createIcons();
+                }
+                
+                const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", currentProjectId);
+                await updateDoc(projectRef, { lastDeploymentUrl: finalDeploymentUrl });
+
+                if (!timerExpired) {
+                    setTimeout(() => {
+                        window.open(finalDeploymentUrl, '_blank');
+                        document.getElementById('publish-modal').style.display = 'none';
+                        if(progressContainer) progressContainer.classList.add('hidden');
+                        if(redeployBtn) redeployBtn.classList.remove('hidden');
+                    }, 1000);
+                } else {
+                    btn.innerHTML = "See Deployment";
+                    btn.disabled = false;
+                    btn.onclick = () => window.open(finalDeploymentUrl, '_blank');
+                    if(redeployBtn) redeployBtn.classList.remove('hidden');
+                }
+            } else if (statusData.status === 'ERROR' || statusData.status === 'FAILED') {
+                throw new Error("Vercel build failed.");
+            } else {
+                attempts++;
+                const progressVal = Math.min(95, 50 + (attempts * 4));
+                updateProgress(progressVal, "Vercel is building your site...");
+                finalDeploymentUrl = `https://${slug}.vercel.app`;
+
+                if (timerExpired && finalDeploymentUrl) {
+                    btn.innerHTML = "See Deployment";
+                    btn.disabled = false;
+                    btn.onclick = () => window.open(finalDeploymentUrl, '_blank');
+                    if(redeployBtn) redeployBtn.classList.remove('hidden');
+                }
+                await new Promise(r => setTimeout(r, 2000));
+            }
+        }
+    } catch (e) {
+        if (e.message === "SLUG_TAKEN") {
+            showCustomAlert("Name Conflict", "This URL slug is already taken by another project. Please try a different name.");
+        } else if (e.message === "LIMIT_REACHED") {
+            showCustomAlert("Limit Reached", "You've reached your deployment limit. Upgrade to Pro for unlimited sites.");
+            document.getElementById('publish-modal').style.display = 'none';
+            document.getElementById('checkout-modal').style.display = 'flex';
+        } else {
+            showCustomAlert("Publish Failed", e.message);
+        }
+        if(progressContainer) progressContainer.classList.add('hidden');
+    } finally {
+        if (!timerExpired) {
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+            btn.onclick = executeDeploymentFlow;
+            lucide.createIcons();
+        }
+    }
+}
+
+if (document.getElementById('confirm-publish')) {
+    document.getElementById('confirm-publish').onclick = executeDeploymentFlow;
 }
 
 if (document.getElementById('redeploy-btn')) {
     document.getElementById('redeploy-btn').onclick = () => {
         const confirmBtn = document.getElementById('confirm-publish');
         if (confirmBtn) {
-            confirmBtn.innerHTML = "Deploy Now";
-            confirmBtn.onclick = async () => { /* Logic repeated within handler above */ };
+            confirmBtn.innerHTML = `<i data-lucide="rocket" class="w-4 h-4"></i> Deploy Now`;
+            confirmBtn.onclick = executeDeploymentFlow;
             confirmBtn.click();
         }
     };
