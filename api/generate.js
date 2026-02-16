@@ -387,7 +387,10 @@ Code goes here...
 9. Output ONLY code inside markers. No conversation.
 10. MEDIA: Use these URLs: Images: ${JSON.stringify(assets.images)}, Videos: ${JSON.stringify(assets.videos)}. 
    ENSURE images are placed in contexts that match their visual content (e.g., dentist images for clinic sections).
-11. LOGS: You MUST output [ACTION: Task Name] immediately before every code block. This is mandatory for the UI status feed.
+11. NARRATIVE LOGS: You MUST output [ACTION: Narrative Description] before every block. 
+    - AVOID: "Generating index.html", "Reviewing code".
+    - USE: "Sculpting the glassmorphic hero section", "Engineering the premium booking engine", "Injecting 3D hover micro-interactions", "Crafting the Obsidian & Gold color palette", "Hardening security protocols for Admin access".
+    - BE VIVID: Act like a god-tier developer explaining their masterpiece to a client. Use high-energy, sophisticated tech-art language.
 12. SYNTAX POLICE: Double check every bracket, brace, and parenthesis. Ensure every opening '{' has a closing '}' and every '[' has a ']'. A single syntax error is a total failure.
 13. DIRECTORY ENFORCEMENT (NEXT.js): If framework is Next.js, all page components MUST be prefixed with 'app/' (e.g., 'app/page.jsx', 'app/layout.jsx').
 `;
@@ -443,9 +446,9 @@ ADMIN CAPABILITY & USER ACCESS:
                                 text: `TASK: ${prompt}. 
               
               STRICT EXECUTION PROTOCOL:
-              1. Output [ACTION: Reviewing Architecture]
+              1. Output [ACTION: Reviewing Architecture and Designing Evolution]
               2. Review the EXISTING code provided in context.
-              3. For every file generated, first output [ACTION: Generating filename]
+              3. For every file generated, first output [ACTION: A specific, creative narrative for what you are building]
               4. Apply the requested changes while maintaining 100% style and theme consistency.
               5. Use the industry-specific Pexels keywords for perfectly relevant imagery.
               6. Ensure a "Manage Bookings" button exists in the header/footer.
