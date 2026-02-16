@@ -51,7 +51,7 @@ export async function generateProjectStream(prompt, framework, projectId, idToke
                             accumulatedText += data.text;
                             
                             // Parse Actions from stream: [ACTION: Task Name]
-                            const actionMatches = data.text.matchAll(/\[ACTION:\s*(.*?)\s*\]/g);
+                            const actionMatches = accumulatedText.matchAll(/\[ACTION:\s*([^\]]+)\]/g);
                             for (const match of actionMatches) {
                                 const actionName = match[1].trim();
                                 if (!processedActions.has(actionName)) {
@@ -62,8 +62,9 @@ export async function generateProjectStream(prompt, framework, projectId, idToke
 
                             const fileMatch = data.text.match(/\/\*\s*\[NEW_PAGE:\s*(.*?)\s*\]\s*\*\//);
                             if (fileMatch) {
-                                seenFiles.add(fileMatch[1].trim());
-                                onThinking(fileMatch[1]);
+                                const fileName = fileMatch[1].trim();
+                                seenFiles.add(fileName);
+                                onThinking(fileName);
                             }
                             onChunk(data.text);
                         }
