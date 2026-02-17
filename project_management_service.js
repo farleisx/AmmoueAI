@@ -1,6 +1,6 @@
 // project_management_service.js
 import { db } from "./fire_prompt.js";
-import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+import { doc, getDoc, updateDoc, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
 export async function refreshFileState(currentProjectId, currentUser, updateFileTabsUI, displayActiveFile, activeFile, bridge) {
     if (!currentProjectId || !currentUser) return {};
@@ -61,4 +61,46 @@ export async function handleRenameLogic(currentProjectId, currentUser, db, updat
     await renameRemoteProject(currentProjectId, idToken, newName);
     document.getElementById('project-name-display').innerText = newName;
     document.getElementById('rename-modal').style.display = 'none';
+}
+
+export async function forkProject(currentProjectId, currentUser) {
+    if (!currentProjectId || !currentUser) return;
+
+    // Show loading overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'remix-loading-overlay';
+    overlay.style = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;color:white;font-family:sans-serif;';
+    overlay.innerHTML = `
+        <div style="border:4px solid #f3f3f3;border-top:4px solid #10b981;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite;margin-bottom:15px;"></div>
+        <div style="font-weight:bold;letter-spacing:0.05em;">REMIXING PROJECT...</div>
+        <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+    `;
+    document.body.appendChild(overlay);
+
+    try {
+        const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", currentProjectId);
+        const snap = await getDoc(projectRef);
+        
+        if (snap.exists()) {
+            const originalData = snap.data();
+            const remixedData = {
+                ...originalData,
+                projectName: `${originalData.projectName || "Untitled"} (Remix)`,
+                createdAt: serverTimestamp(),
+                lastModified: serverTimestamp(),
+                lastDeploymentUrl: null 
+            };
+
+            const projectsCol = collection(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects");
+            const newDoc = await addDoc(projectsCol, remixedData);
+            
+            window.location.href = window.location.origin + window.location.pathname + '?id=' + newDoc.id;
+        }
+    } catch (error) {
+        console.error("Remix failed:", error);
+        if (document.getElementById('remix-loading-overlay')) {
+            document.getElementById('remix-loading-overlay').remove();
+        }
+        alert("Failed to remix project. Please try again.");
+    }
 }
