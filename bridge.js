@@ -50,9 +50,8 @@ import { initMobileDrawer } from "./mobile_ui_service.js";
 import { initSelfHealing } from "./self_healing_service.js";
 import { handleGeneration } from "./generation_service_logic.js";
 
-// ADDED IMPORTS FOR ERROR WATCHER AND SESSION
-import { initErrorWatcher } from "./error_watcher_service.js";
-import { saveSessionState, loadSessionState } from "./session_service.js";
+// REMIX SERVICE IMPORT
+import { forkProject } from "./project_management_service.js";
 
 let currentUser = null;
 let currentProjectId = null;
@@ -264,15 +263,6 @@ if (document.getElementById('new-project-btn')) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // SESSION RESUMPTION LOGIC
-    const savedState = loadSessionState();
-    if (savedState && !new URLSearchParams(window.location.search).get('id')) {
-        if (savedState.currentProjectId) {
-            currentProjectId = savedState.currentProjectId;
-            loadProject(currentProjectId);
-        }
-    }
-
     const nameDisplay = document.getElementById('project-name-display');
     if (nameDisplay && nameDisplay.innerText === 'lovable-clone') nameDisplay.innerText = generateCoolName();
     runTypingEffect();
@@ -329,23 +319,22 @@ document.addEventListener('DOMContentLoaded', () => {
         onSnapshot
     });
 
-    // ERROR WATCHER INITIALIZATION
-    initErrorWatcher({
-        frame: document.getElementById('preview-frame'),
-        onIframeError: (errorData) => {
-            const errorMsg = errorData.error?.msg || errorData.msg;
-            showActionLine(`Error detected: ${errorMsg}`);
-            const status = document.getElementById('thinking-status');
-            if (status) status.innerHTML = `<span class="text-red-400 cursor-pointer" onclick="window.selfHeal('${btoa(errorMsg)}')">Click to Auto-Fix Error</span>`;
-        }
-    });
-
-    // PERSISTENCE HOOK
-    window.addEventListener('beforeunload', () => {
-        if (currentProjectId) {
-            saveSessionState({ activeFile, currentProjectId });
-        }
-    });
+    // FORK PROJECT HANDLER
+    if (document.getElementById('remix-project-btn')) {
+        document.getElementById('remix-project-btn').onclick = () => {
+            forkProject({
+                currentProjectId,
+                currentUser,
+                db,
+                doc,
+                getDoc,
+                addDoc,
+                collection,
+                serverTimestamp,
+                showCustomAlert
+            });
+        };
+    }
 });
 
 async function createBooking(business_id, service_id, customer_name, customer_email, booking_date, booking_time) {
