@@ -71,38 +71,40 @@ export async function forkProject(options) {
         return;
     }
 
-    // Pro Plan Check Logic
+    // --- PRO CHECK LOGIC (Using corrected path from fire_prompt.js) ---
     try {
-        const userRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid);
+        const userRef = doc(db, "users", currentUser.uid); // Path as per your getUserPlan function
         const userSnap = await getDoc(userRef);
         const userData = userSnap.data() || {};
-        
-        if (userData.plan !== 'pro') {
+        const userPlan = (userData.plan || 'free').toLowerCase();
+
+        if (userPlan !== 'pro') {
             const checkoutModal = document.getElementById('checkout-modal');
             if (checkoutModal) {
                 checkoutModal.style.display = 'flex';
             } else if (showCustomAlert) {
-                showCustomAlert("Pro Feature", "Remixing projects is only available for Pro users.");
+                showCustomAlert("Pro Plan Required", "Remixing projects is a Pro feature.");
             }
             return;
         }
     } catch (e) {
-        console.error("Auth check failed:", e);
+        console.error("Plan verification failed:", e);
+        return;
     }
 
-    // Create and Show Remix Loading Overlay
+    // --- UI: SHOW PROGRESS BAR ---
     const overlay = document.createElement('div');
     overlay.id = 'remix-loading-overlay';
-    overlay.style = 'position:fixed;inset:0;background:rgba(3,3,3,0.9);backdrop-filter:blur(10px);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;font-family:Geist,sans-serif;';
+    overlay.style = 'position:fixed;inset:0;background:rgba(3,3,3,0.95);backdrop-filter:blur(10px);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;font-family:Geist,sans-serif;';
     overlay.innerHTML = `
-        <div style="width:300px;text-align:center;">
-            <div style="margin-bottom:20px;display:flex;justify-content:center;">
-                <div style="width:40px;height:40px;border:3px solid rgba(16,185,129,0.1);border-top:3px solid #10b981;border-radius:50%;animation:remix-spin 0.8s linear infinite;"></div>
+        <div style="width:320px;text-align:center;">
+            <div style="margin-bottom:24px;display:flex;justify-content:center;">
+                <div style="width:48px;height:48px;border:3px solid rgba(16,185,129,0.1);border-top:3px solid #10b981;border-radius:50%;animation:remix-spin 0.8s linear infinite;"></div>
             </div>
-            <h2 style="font-size:18px;font-weight:600;letter-spacing:-0.02em;margin-bottom:8px;">Remixing Project</h2>
-            <p style="font-size:12px;color:#666;margin-bottom:24px;">Creating your personal clone and initializing workspace...</p>
-            <div style="width:100%;height:4px;background:rgba(255,255,255,0.05);border-radius:10px;overflow:hidden;">
-                <div id="remix-progress-bar" style="width:0%;height:100%;background:#10b981;transition:width 0.5s ease;"></div>
+            <h2 style="font-size:20px;font-weight:600;letter-spacing:-0.02em;margin-bottom:8px;">Remixing Project</h2>
+            <p id="remix-status-text" style="font-size:13px;color:#888;margin-bottom:32px;">Initializing cloner...</p>
+            <div style="width:100%;height:6px;background:rgba(255,255,255,0.05);border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,0.05);">
+                <div id="remix-progress-bar" style="width:0%;height:100%;background:linear-gradient(90deg, #10b981, #34d399);transition:width 0.4s cubic-bezier(0.4, 0, 0.2, 1);"></div>
             </div>
         </div>
         <style>@keyframes remix-spin { to { transform: rotate(360deg); } }</style>
@@ -110,41 +112,49 @@ export async function forkProject(options) {
     document.body.appendChild(overlay);
 
     const bar = document.getElementById('remix-progress-bar');
+    const status = document.getElementById('remix-status-text');
     
     try {
-        // Step 1: Fetch source
-        if(bar) bar.style.width = '30%';
+        // Step 1: Read Source
+        if(bar) bar.style.width = '25%';
+        if(status) status.innerText = "Reading source project files...";
+        
         const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", currentProjectId);
         const snap = await getDoc(projectRef);
 
-        if (!snap.exists()) throw new Error("Project not found");
+        if (!snap.exists()) throw new Error("Source project not found.");
 
-        // Step 2: Prepare data
-        if(bar) bar.style.width = '60%';
+        // Step 2: Prepare Clone
+        if(bar) bar.style.width = '55%';
+        if(status) status.innerText = "Generating project clone...";
+        
         const sourceData = snap.data();
         const remixedData = {
             ...sourceData,
             projectName: `${sourceData.projectName || "Untitled"} (Remix)`,
             createdAt: serverTimestamp(),
-            lastModified: serverTimestamp(),
-            lastDeploymentUrl: null // Remix starts fresh without a deployment
+            updatedAt: serverTimestamp(),
+            lastDeploymentUrl: null 
         };
 
-        // Step 3: Write new doc
+        // Step 3: Write to Database
+        if(bar) bar.style.width = '85%';
+        if(status) status.innerText = "Finalizing your new workspace...";
+        
         const projectsCol = collection(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects");
         const newDoc = await addDoc(projectsCol, remixedData);
 
-        // Step 4: Finalize
+        // Step 4: Success
         if(bar) bar.style.width = '100%';
+        if(status) status.innerText = "Redirecting...";
+        
         setTimeout(() => {
             window.location.href = window.location.origin + window.location.pathname + '?id=' + newDoc.id;
-        }, 500);
+        }, 600);
 
     } catch (error) {
-        console.error("Remix failure:", error);
+        console.error("Remix failed:", error);
         if (overlay) overlay.remove();
-        if (showCustomAlert) {
-            showCustomAlert("Remix Failed", error.message || "An error occurred while cloning.");
-        }
+        if (showCustomAlert) showCustomAlert("Remix Error", error.message);
     }
 }
