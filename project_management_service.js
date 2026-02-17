@@ -71,6 +71,25 @@ export async function forkProject(options) {
         return;
     }
 
+    // Pro Plan Check Logic
+    try {
+        const userRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid);
+        const userSnap = await getDoc(userRef);
+        const userData = userSnap.data() || {};
+        
+        if (userData.plan !== 'pro') {
+            const checkoutModal = document.getElementById('checkout-modal');
+            if (checkoutModal) {
+                checkoutModal.style.display = 'flex';
+            } else if (showCustomAlert) {
+                showCustomAlert("Pro Feature", "Remixing projects is only available for Pro users.");
+            }
+            return;
+        }
+    } catch (e) {
+        console.error("Auth check failed:", e);
+    }
+
     // Create and Show Remix Loading Overlay
     const overlay = document.createElement('div');
     overlay.id = 'remix-loading-overlay';
