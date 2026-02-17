@@ -63,44 +63,69 @@ export async function handleRenameLogic(currentProjectId, currentUser, db, updat
     document.getElementById('rename-modal').style.display = 'none';
 }
 
-export async function forkProject(currentProjectId, currentUser) {
-    if (!currentProjectId || !currentUser) return;
+export async function forkProject(options) {
+    const { currentProjectId, currentUser, showCustomAlert } = options;
 
-    // Show loading overlay
+    if (!currentProjectId || !currentUser) {
+        if (showCustomAlert) showCustomAlert("Remix Error", "You need an active project to remix.");
+        return;
+    }
+
+    // Create and Show Remix Loading Overlay
     const overlay = document.createElement('div');
     overlay.id = 'remix-loading-overlay';
-    overlay.style = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;color:white;font-family:sans-serif;';
+    overlay.style = 'position:fixed;inset:0;background:rgba(3,3,3,0.9);backdrop-filter:blur(10px);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;font-family:Geist,sans-serif;';
     overlay.innerHTML = `
-        <div style="border:4px solid #f3f3f3;border-top:4px solid #10b981;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite;margin-bottom:15px;"></div>
-        <div style="font-weight:bold;letter-spacing:0.05em;">REMIXING PROJECT...</div>
-        <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+        <div style="width:300px;text-align:center;">
+            <div style="margin-bottom:20px;display:flex;justify-content:center;">
+                <div style="width:40px;height:40px;border:3px solid rgba(16,185,129,0.1);border-top:3px solid #10b981;border-radius:50%;animation:remix-spin 0.8s linear infinite;"></div>
+            </div>
+            <h2 style="font-size:18px;font-weight:600;letter-spacing:-0.02em;margin-bottom:8px;">Remixing Project</h2>
+            <p style="font-size:12px;color:#666;margin-bottom:24px;">Creating your personal clone and initializing workspace...</p>
+            <div style="width:100%;height:4px;background:rgba(255,255,255,0.05);border-radius:10px;overflow:hidden;">
+                <div id="remix-progress-bar" style="width:0%;height:100%;background:#10b981;transition:width 0.5s ease;"></div>
+            </div>
+        </div>
+        <style>@keyframes remix-spin { to { transform: rotate(360deg); } }</style>
     `;
     document.body.appendChild(overlay);
 
+    const bar = document.getElementById('remix-progress-bar');
+    
     try {
+        // Step 1: Fetch source
+        if(bar) bar.style.width = '30%';
         const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", currentProjectId);
         const snap = await getDoc(projectRef);
-        
-        if (snap.exists()) {
-            const originalData = snap.data();
-            const remixedData = {
-                ...originalData,
-                projectName: `${originalData.projectName || "Untitled"} (Remix)`,
-                createdAt: serverTimestamp(),
-                lastModified: serverTimestamp(),
-                lastDeploymentUrl: null 
-            };
 
-            const projectsCol = collection(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects");
-            const newDoc = await addDoc(projectsCol, remixedData);
-            
+        if (!snap.exists()) throw new Error("Project not found");
+
+        // Step 2: Prepare data
+        if(bar) bar.style.width = '60%';
+        const sourceData = snap.data();
+        const remixedData = {
+            ...sourceData,
+            projectName: `${sourceData.projectName || "Untitled"} (Remix)`,
+            createdAt: serverTimestamp(),
+            lastModified: serverTimestamp(),
+            lastDeploymentUrl: null // Remix starts fresh without a deployment
+        };
+
+        // Step 3: Write new doc
+        const projectsCol = collection(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects");
+        const newDoc = await addDoc(projectsCol, remixedData);
+
+        // Step 4: Finalize
+        if(bar) bar.style.width = '100%';
+        setTimeout(() => {
             window.location.href = window.location.origin + window.location.pathname + '?id=' + newDoc.id;
-        }
+        }, 500);
+
     } catch (error) {
-        console.error("Remix failed:", error);
-        if (document.getElementById('remix-loading-overlay')) {
-            document.getElementById('remix-loading-overlay').remove();
+        console.error("Remix failure:", error);
+        if (overlay) overlay.remove();
+        if (showCustomAlert) {
+            showCustomAlert("Remix Failed", error.message || "An error occurred while cloning.");
         }
-        alert("Failed to remix project. Please try again.");
     }
 }
