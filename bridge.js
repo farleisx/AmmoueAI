@@ -37,7 +37,7 @@ import {
 
 import { FrameBridge } from "./frame-bridge.js";
 
-import { refreshFileState, loadExistingProject, handleRenameLogic } from "./project_management_service.js";
+import { refreshFileState, loadExistingProject, handleRenameLogic, getShareableLink } from "./project_management_service.js";
 import { syncUsage, startCountdown } from "./usage_service.js";
 import { initCommandPaletteLogic, handleGlobalKeyDown } from "./command_palette_service.js";
 import { handleGitHubExport, handleOpenInTab } from "./export_service.js";
@@ -363,6 +363,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 serverTimestamp,
                 showCustomAlert
             });
+        };
+    }
+
+    // SHARE PROJECT HANDLER
+    if (document.getElementById('share-project-btn')) {
+        document.getElementById('share-project-btn').onclick = () => {
+            const link = getShareableLink(currentProjectId, currentUser?.uid);
+            if (link) {
+                navigator.clipboard.writeText(link);
+                showCustomAlert("Link Copied", "Your shareable preview link is ready! Send it to anyone.");
+            } else {
+                showCustomAlert("Error", "Start a project first to get a shareable link.");
+            }
         };
     }
 });
