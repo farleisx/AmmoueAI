@@ -1,62 +1,84 @@
 import fs from "fs";
+import path from "path";
 import JavaScriptObfuscator from "javascript-obfuscator";
 
-const htmlFiles = fs
-  .readdirSync(".")
-  .filter(f => f.endsWith(".html") && !f.endsWith(".prod.html"));
+// --- CONFIGURATION ---
+const JS_OPTIONS = {
+    compact: true,
+    controlFlowFlattening: false, // Set to true for higher protection but slower performance
+    deadCodeInjection: false,
+    debugProtection: false,
+    selfDefending: false,
+    stringArray: true,
+    stringArrayEncoding: ["base64"],
+    rotateStringArray: true,
+    renameGlobals: false, // Keep false to prevent breaking Firebase/Library exports
+    target: "browser"
+};
 
-if (!htmlFiles.length) {
-  console.log("⚠️ No HTML files found");
-  process.exit(0);
-}
+// 1. OBFUSCATE ALL STANDALONE JS FILES
+const jsFiles = fs.readdirSync(".").filter(f => 
+    f.endsWith(".js") && 
+    !f.endsWith(".prod.js") && 
+    f !== "obfuscate.js" // Don't obfuscate the build script itself
+);
+
+console.log(`🚀 Processing ${jsFiles.length} JS files...`);
+
+jsFiles.forEach(file => {
+    const output = file.replace(".js", ".prod.js");
+    const code = fs.readFileSync(file, "utf8");
+    
+    try {
+        const obfuscated = JavaScriptObfuscator.obfuscate(code, JS_OPTIONS).getObfuscatedCode();
+        fs.writeFileSync(output, obfuscated, "utf8");
+        console.log(`   ✅ JS: ${file} → ${output}`);
+    } catch (err) {
+        console.error(`   ❌ Failed to obfuscate ${file}:`, err);
+    }
+});
+
+// 2. OBFUSCATE HTML (INLINE SCRIPTS + SRC MAPPING)
+const htmlFiles = fs.readdirSync(".").filter(f => 
+    f.endsWith(".html") && 
+    !f.endsWith(".prod.html")
+);
+
+console.log(`🚀 Processing ${htmlFiles.length} HTML files...`);
 
 htmlFiles.forEach(file => {
-  const output = file.replace(".html", ".prod.html");
-  let html = fs.readFileSync(file, "utf8");
-  let count = 0;
+    const output = file.replace(".html", ".prod.html");
+    let html = fs.readFileSync(file, "utf8");
+    let inlineCount = 0;
+    let srcCount = 0;
 
-  html = html.replace(
-    /<script([^>]*)>([\s\S]*?)<\/script>/gi,
-    (full, attrs, js) => {
-      if (!js.trim()) return full;
+    // Handle <script src="..."> tags (Update references to .prod.js)
+    html = html.replace(/<script([^>]+)src=["']([^"']+)["']([^>]*)>/gi, (full, before, src, after) => {
+        if (src.endsWith(".js") && !src.startsWith("http") && !src.startsWith("//") && !src.includes("https://")) {
+            const newSrc = src.replace(".js", ".prod.js");
+            srcCount++;
+            return `<script${before}src="${newSrc}"${after}>`;
+        }
+        return full;
+    });
 
-      const isModule = /type\s*=\s*["']module["']/i.test(attrs);
+    // Handle Inline Scripts
+    html = html.replace(/<script([^>]*)>([\s\S]*?)<\/script>/gi, (full, attrs, js) => {
+        // Skip if it's a script tag with a src (already handled above)
+        if (attrs.includes('src=')) return full;
+        if (!js.trim()) return full;
 
-      const options = isModule
-        ? {
-            // 🧠 MODULE‑SAFE
-            compact: true,
-            renameGlobals: false,
-            stringArray: true,
-            stringArrayEncoding: ["base64"],
-            rotateStringArray: true,
+        try {
+            const obfuscated = JavaScriptObfuscator.obfuscate(js, JS_OPTIONS).getObfuscatedCode();
+            inlineCount++;
+            return `<script${attrs}>${obfuscated}</script>`;
+        } catch (err) {
+            return full; 
+        }
+    });
 
-            controlFlowFlattening: false,
-            deadCodeInjection: false,
-            selfDefending: false,
-          }
-        : {
-            // 🔥 CLASSIC SCRIPT (STRONGER)
-            compact: true,
-            controlFlowFlattening: true,
-            deadCodeInjection: true,
-            stringArray: true,
-            stringArrayEncoding: ["base64"],
-            rotateStringArray: true,
-
-            renameGlobals: false,
-            selfDefending: false,
-          };
-
-      const obfuscated = JavaScriptObfuscator
-        .obfuscate(js, options)
-        .getObfuscatedCode();
-
-      count++;
-      return `<script${attrs}>${obfuscated}</script>`;
-    }
-  );
-
-  fs.writeFileSync(output, html, "utf8");
-  console.log(`✅ ${file} → ${output} (${count} scripts)`);
+    fs.writeFileSync(output, html, "utf8");
+    console.log(`   ✅ HTML: ${file} → ${output} (${inlineCount} inline, ${srcCount} refs updated)`);
 });
+
+console.log("\n✨ Build Complete. Use the .prod.html files for deployment.");
