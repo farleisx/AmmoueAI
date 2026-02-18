@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="Gemini_Generated_Image_qry9pfqry9pfqry9.png">
     <title>Preview | Ammoue AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #030303; }
-        iframe { width: 100%; height: 100%; border: none; background: white; }
+        iframe { width: 100%; height: 100%; border: none; background: white; transition: opacity 0.3s ease; }
         .badge {
             position: fixed; bottom: 20px; right: 20px;
             background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px);
@@ -18,11 +19,16 @@
             transition: all 0.2s; z-index: 9999;
         }
         .badge:hover { background: rgba(255, 255, 255, 0.2); transform: translateY(-2px); }
+        .loading-ring { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #030303; z-index: 50; }
     </style>
 </head>
 <body>
 
-    <iframe id="output-frame"></iframe>
+    <div id="loader" class="loading-ring">
+        <div class="w-10 h-10 border-4 border-white/10 border-t-white rounded-full animate-spin"></div>
+    </div>
+
+    <iframe id="output-frame" class="opacity-0"></iframe>
 
     <a href="/" class="badge">
         <span>Built with <strong>Ammoue AI</strong></span>
@@ -36,10 +42,6 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-
-        function log(msg) {
-            console.log(`[Preview Debug]: ${msg}`);
-        }
 
         async function loadSharedProject() {
             const params = new URLSearchParams(window.location.search);
@@ -56,40 +58,49 @@
                 const snap = await getDoc(docRef);
 
                 if (snap.exists()) {
-                    log("Document found! Injecting content...");
                     const data = snap.data();
-                    
-                    // THIS IS THE KEY LOG: Check your F12 console for this!
-                    console.log("FULL PROJECT DATA:", data); 
-
                     const frame = document.getElementById('output-frame');
+                    const pages = data.pages || {};
+                    
                     document.title = `${data.projectName || 'Project'} | Ammoue AI`;
 
-                    // Check multiple possible field names for the code
-                    // 1. htmlContent (your current default)
-                    // 2. content (common)
-                    // 3. files[0].content (if you store as a file array)
-                    const content = data.htmlContent || 
-                                    data.content || 
-                                    data.code || 
-                                    (data.files && data.files[0] ? data.files[0].content : null);
+                    // 1. Get Base HTML
+                    let html = pages['index.html'] ? pages['index.html'].content : (data.htmlContent || "");
 
-                    if (content) {
-                        const docBlob = frame.contentWindow.document;
-                        docBlob.open();
-                        docBlob.write(content);
-                        docBlob.close();
-                    } else {
-                        log("Error: Document exists but the content field is missing/empty.");
-                        document.body.innerHTML = "<div style='color:white; padding:50px;'><h1>Empty Project</h1><p>The document exists but no HTML content was found inside it.</p></div>";
+                    if (!html) {
+                        throw new Error("No index.html content found.");
                     }
+
+                    // 2. BUNDLER LOGIC: Inject CSS and JS files from the 'pages' object
+                    // This replaces <link href="style.css"> with <style>...</style>
+                    Object.keys(pages).forEach(filename => {
+                        if (filename.endsWith('.css')) {
+                            const cssContent = `<style>\n${pages[filename].content}\n</style>`;
+                            html = html.replace(new RegExp(`<link[^>]*href=["']${filename}["'][^>]*>`, 'g'), cssContent);
+                        }
+                        if (filename.endsWith('.js') && filename !== 'bridge.js') {
+                            const jsContent = `<script>\n${pages[filename].content}\n<\/script>`;
+                            html = html.replace(new RegExp(`<script[^>]*src=["']${filename}["'][^>]*><\/script>`, 'g'), jsContent);
+                        }
+                    });
+
+                    // 3. Inject into Frame
+                    const docBlob = frame.contentWindow.document;
+                    docBlob.open();
+                    docBlob.write(html);
+                    docBlob.close();
+
+                    // 4. Smooth Reveal
+                    frame.onload = () => {
+                        document.getElementById('loader').classList.add('hidden');
+                        frame.classList.remove('opacity-0');
+                    };
                 } else {
-                    log("Error: Project not found in Firestore.");
                     document.body.innerHTML = "<div style='color:white; padding:50px;'>Project not found.</div>";
                 }
             } catch (e) {
-                console.error("Firebase Error:", e);
-                document.body.innerHTML = "<div style='color:white; padding:50px;'>Error loading preview. Check console.</div>";
+                console.error("Preview Error:", e);
+                document.body.innerHTML = `<div style='color:white; padding:50px;'>Error: ${e.message}</div>`;
             }
         }
 
