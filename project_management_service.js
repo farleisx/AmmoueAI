@@ -158,3 +158,9 @@ export async function forkProject(options) {
         if (showCustomAlert) showCustomAlert("Remix Error", error.message);
     }
 }
+
+export function getShareableLink(projectId, userId) {
+    if (!projectId || !userId) return null;
+    const baseUrl = window.location.origin;
+    return `${baseUrl}/p.html?id=${projectId}&u=${userId}`;
+}
