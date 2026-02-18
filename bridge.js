@@ -62,11 +62,16 @@ let abortController = null;
 let isGenerating = false;
 let currentUsageData = { count: 0, limit: 5, resetAt: 0 };
 
+// SAFETY NET STATE
+let isUnsaved = false;
+
 const bridge = new FrameBridge({
     frame: document.getElementById('preview-frame'),
     codeView: document.getElementById('code-editor'),
     callbacks: {
-        onSyncText: (syncId, content) => {},
+        onSyncText: (syncId, content) => {
+            isUnsaved = true;
+        },
         onSwitchPage: (pageName) => {
             const fileName = pageName.endsWith('.html') ? pageName : `${pageName}.html`;
             if (projectFiles[fileName]) {
@@ -157,6 +162,7 @@ if (document.getElementById('close-code')) {
 
 if (document.getElementById('generate-btn')) {
     document.getElementById('generate-btn').onclick = async () => {
+        isUnsaved = true;
         const result = await handleGeneration({
             currentUser,
             currentProjectId,
@@ -178,6 +184,7 @@ if (document.getElementById('generate-btn')) {
             isGenerating = result.isGenerating;
             abortController = result.abortController;
         }
+        isUnsaved = false;
     };
 }
 
@@ -353,3 +360,11 @@ async function createBooking(business_id, service_id, customer_name, customer_em
     }
 }
 window.createBooking = createBooking;
+
+// SAFETY NET LISTENER
+window.addEventListener('beforeunload', (e) => {
+    if (isUnsaved || isGenerating) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+});
