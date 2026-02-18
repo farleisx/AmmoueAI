@@ -18,10 +18,12 @@
             transition: all 0.2s; z-index: 9999;
         }
         .badge:hover { background: rgba(255, 255, 255, 0.2); transform: translateY(-2px); }
+        #debug-log { position: fixed; top: 10px; left: 10px; color: #4ade80; font-family: monospace; font-size: 10px; pointer-events: none; z-index: 10000; }
     </style>
 </head>
 <body>
 
+    <div id="debug-log"></div>
     <iframe id="output-frame"></iframe>
 
     <a href="/" class="badge">
@@ -37,39 +39,70 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        function log(msg) {
+            console.log(`[Preview Debug]: ${msg}`);
+            // Uncomment the next line if you want to see logs on the screen
+            // document.getElementById('debug-log').innerHTML += msg + '<br>';
+        }
+
         async function loadSharedProject() {
             const params = new URLSearchParams(window.location.search);
             const pid = params.get('id');
-            const uid = params.get('u'); // We pass UID in the link for direct pathing
+            const uid = params.get('u');
+
+            log(`URL Params - ID: ${pid}, UID: ${uid}`);
 
             if (!pid || !uid) {
-                document.body.innerHTML = "<div style='color:white; padding:50px;'>Invalid Preview Link.</div>";
+                const missing = !pid ? 'Project ID (id)' : 'User ID (u)';
+                document.body.innerHTML = `<div style='color:white; padding:50px;'>
+                    <h1 style='color: #ef4444'>Invalid Link</h1>
+                    <p>Missing parameter: <b>${missing}</b></p>
+                    <small style='color: #666'>URL should look like: p.html?id=XXX&u=YYY</small>
+                </div>`;
                 return;
             }
 
             try {
-                // Correct path based on your fire_prompt.js structure
+                // The exact path construction
+                const path = `artifacts/ammoueai/users/${uid}/projects/${pid}`;
+                log(`Attempting to fetch from: ${path}`);
+
                 const docRef = doc(db, "artifacts", "ammoueai", "users", uid, "projects", pid);
                 const snap = await getDoc(docRef);
 
                 if (snap.exists()) {
+                    log("Document found! Injecting content...");
                     const data = snap.data();
                     const frame = document.getElementById('output-frame');
                     
-                    // Set the page title to the project name
                     document.title = `${data.projectName || 'Project'} | Ammoue AI`;
 
-                    // Inject the HTML content
                     const docBlob = frame.contentWindow.document;
                     docBlob.open();
-                    docBlob.write(data.htmlContent || "<h1>No content found</h1>");
+                    // We check both htmlContent and general 'content' just in case
+                    const content = data.htmlContent || data.content || data.code;
+                    
+                    if (!content) {
+                        log("Error: Document exists but fields (htmlContent, content, code) are empty.");
+                        docBlob.write("<h1 style='color:black'>No code found inside this project document.</h1>");
+                    } else {
+                        docBlob.write(content);
+                    }
                     docBlob.close();
                 } else {
-                    document.body.innerHTML = "<div style='color:white; padding:50px;'>Project not found.</div>";
+                    log("Error: Firestore says this document does NOT exist.");
+                    document.body.innerHTML = `<div style='color:white; padding:50px;'>
+                        <h1 style='color: #f59e0b'>Project Not Found</h1>
+                        <p>Path: <code style='background:#222; padding:4px;'>${path}</code></p>
+                        <p>Please check if the project was actually published to this location.</p>
+                    </div>`;
                 }
             } catch (e) {
-                console.error(e);
-                document.body.innerHTML = "<div style='color:white; padding:50px;'>Error loading preview.</div>";
+                console.error("Firebase Error:", e);
+                document.body.innerHTML = `<div style='color:white; padding:50px;'>
+                    <h1 style='color: #ef4444'>Database Error</h1>
+                    <p>${e.message}</p>
+                </div>`;
             }
         }
 
