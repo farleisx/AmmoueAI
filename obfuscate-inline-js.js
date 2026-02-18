@@ -5,80 +5,84 @@ import JavaScriptObfuscator from "javascript-obfuscator";
 // --- CONFIGURATION ---
 const JS_OPTIONS = {
     compact: true,
-    controlFlowFlattening: false, // Set to true for higher protection but slower performance
+    controlFlowFlattening: false, 
     deadCodeInjection: false,
     debugProtection: false,
     selfDefending: false,
     stringArray: true,
     stringArrayEncoding: ["base64"],
     rotateStringArray: true,
-    renameGlobals: false, // Keep false to prevent breaking Firebase/Library exports
+    renameGlobals: false, // Must stay false so your exports (like 'db') stay reachable
     target: "browser"
 };
 
-// 1. OBFUSCATE ALL STANDALONE JS FILES
+// 1. GET ALL JS FILES IN ROOT
 const jsFiles = fs.readdirSync(".").filter(f => 
     f.endsWith(".js") && 
     !f.endsWith(".prod.js") && 
-    f !== "obfuscate.js" // Don't obfuscate the build script itself
+    f !== "obfuscate.js" && 
+    f !== "obfuscate-inline-js.js"
 );
 
-console.log(`🚀 Processing ${jsFiles.length} JS files...`);
+console.log(`🚀 Obfuscating ${jsFiles.length} JS files and updating internal links...`);
 
 jsFiles.forEach(file => {
     const output = file.replace(".js", ".prod.js");
-    const code = fs.readFileSync(file, "utf8");
-    
+    let code = fs.readFileSync(file, "utf8");
+
+    /**
+     * INTERNAL LINKER LOGIC:
+     * This finds: import { x } from "./fire_prompt.js"
+     * And changes it to: import { x } from "./fire_prompt.prod.js"
+     * This works for 'import' and 'export ... from'
+     */
+    code = code.replace(/(from\s+["'])\.\/([^"']+\.js)(["'])/gi, (match, before, fileName, after) => {
+        const newLink = before + "./" + fileName.replace(".js", ".prod.js") + after;
+        return newLink;
+    });
+
     try {
         const obfuscated = JavaScriptObfuscator.obfuscate(code, JS_OPTIONS).getObfuscatedCode();
         fs.writeFileSync(output, obfuscated, "utf8");
-        console.log(`   ✅ JS: ${file} → ${output}`);
+        console.log(`   ✅ JS Linked & Obfuscated: ${file} → ${output}`);
     } catch (err) {
-        console.error(`   ❌ Failed to obfuscate ${file}:`, err);
+        console.error(`   ❌ Failed ${file}:`, err);
     }
 });
 
-// 2. OBFUSCATE HTML (INLINE SCRIPTS + SRC MAPPING)
+// 2. OBFUSCATE HTML & UPDATE ENTRY POINTS
 const htmlFiles = fs.readdirSync(".").filter(f => 
     f.endsWith(".html") && 
     !f.endsWith(".prod.html")
 );
 
-console.log(`🚀 Processing ${htmlFiles.length} HTML files...`);
+console.log(`🚀 Updating ${htmlFiles.length} HTML entry points...`);
 
 htmlFiles.forEach(file => {
     const output = file.replace(".html", ".prod.html");
     let html = fs.readFileSync(file, "utf8");
-    let inlineCount = 0;
-    let srcCount = 0;
 
-    // Handle <script src="..."> tags (Update references to .prod.js)
-    html = html.replace(/<script([^>]+)src=["']([^"']+)["']([^>]*)>/gi, (full, before, src, after) => {
-        if (src.endsWith(".js") && !src.startsWith("http") && !src.startsWith("//") && !src.includes("https://")) {
-            const newSrc = src.replace(".js", ".prod.js");
-            srcCount++;
-            return `<script${before}src="${newSrc}"${after}>`;
-        }
-        return full;
+    // Update <script src="bridge.js"> to <script src="bridge.prod.js">
+    html = html.replace(/<script([^>]+)src=["']\.\/([^"']+\.js)["']([^>]*)>/gi, (match, before, src, after) => {
+        return `<script${before}src="./${src.replace(".js", ".prod.js")}"${after}>`;
+    });
+    
+    // Catch cases without the "./"
+    html = html.replace(/<script([^>]+)src=["']([^"'\.\/]+\.js)["']([^>]*)>/gi, (match, before, src, after) => {
+        return `<script${before}src="${src.replace(".js", ".prod.js")}"${after}>`;
     });
 
-    // Handle Inline Scripts
+    // Handle Inline Scripts (if any)
     html = html.replace(/<script([^>]*)>([\s\S]*?)<\/script>/gi, (full, attrs, js) => {
-        // Skip if it's a script tag with a src (already handled above)
-        if (attrs.includes('src=')) return full;
-        if (!js.trim()) return full;
-
+        if (attrs.includes('src=') || !js.trim()) return full;
         try {
             const obfuscated = JavaScriptObfuscator.obfuscate(js, JS_OPTIONS).getObfuscatedCode();
-            inlineCount++;
             return `<script${attrs}>${obfuscated}</script>`;
-        } catch (err) {
-            return full; 
-        }
+        } catch (err) { return full; }
     });
 
     fs.writeFileSync(output, html, "utf8");
-    console.log(`   ✅ HTML: ${file} → ${output} (${inlineCount} inline, ${srcCount} refs updated)`);
+    console.log(`   ✅ HTML: ${file} → ${output}`);
 });
 
-console.log("\n✨ Build Complete. Use the .prod.html files for deployment.");
+console.log("\n✨ Build Complete. All root-level connections are now secure.");
