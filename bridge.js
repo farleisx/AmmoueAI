@@ -64,6 +64,7 @@ let currentUsageData = { count: 0, limit: 5, resetAt: 0 };
 
 // SAFETY NET STATE
 let isUnsaved = false;
+let saveDebounceTimer = null;
 
 const bridge = new FrameBridge({
     frame: document.getElementById('preview-frame'),
@@ -71,6 +72,28 @@ const bridge = new FrameBridge({
     callbacks: {
         onSyncText: (syncId, content) => {
             isUnsaved = true;
+            if (projectFiles[activeFile] !== undefined) {
+                projectFiles[activeFile] = content;
+            }
+            if (saveDebounceTimer) clearTimeout(saveDebounceTimer);
+            saveDebounceTimer = setTimeout(async () => {
+                if (currentProjectId && currentUser) {
+                    updateSaveIndicator('saving');
+                    const savedId = await autoSaveProject(
+                        projectFiles,
+                        "", 
+                        currentProjectId,
+                        currentUser.uid,
+                        "",
+                        activeFile,
+                        document.getElementById('project-name-display')?.innerText
+                    );
+                    if (savedId) {
+                        updateSaveIndicator('saved');
+                        isUnsaved = false;
+                    }
+                }
+            }, 2000);
         },
         onSwitchPage: (pageName) => {
             const fileName = pageName.endsWith('.html') ? pageName : `${pageName}.html`;
