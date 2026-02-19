@@ -1,5 +1,5 @@
 // login.js
-import { auth, db, googleProvider, githubProvider, onAuthChange } from './firebase.js';
+import { auth, db, googleProvider, githubProvider, onAuthChange, sendPasswordResetEmail } from './firebase.js';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GithubAuthProvider } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 import { doc, setDoc, Timestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
@@ -126,27 +126,56 @@ export async function handleGitHubAuth(button) {
     }
 }
 
+export async function handleReset(event) {
+    event.preventDefault();
+    const resetBtn = document.getElementById('reset-btn');
+    const email = document.getElementById('reset-email').value;
+
+    setLoading(resetBtn, true);
+
+    try {
+        await sendPasswordResetEmail(auth, email);
+        showMessage("Reset link sent! Check your inbox.", false);
+        setTimeout(() => toggleForm('login'), 3000);
+    } catch (error) {
+        let msg = "Could not send reset email.";
+        if (error.code === 'auth/user-not-found') msg = "No account found with this email.";
+        showMessage(msg, true);
+    } finally {
+        setLoading(resetBtn, false);
+    }
+}
+
 // ----------------- Tab Switch -----------------
 export function toggleForm(formType) {
     const loginForm = document.getElementById('login-form');
     const signupForm = document.getElementById('signup-form');
+    const resetForm = document.getElementById('reset-form');
     const loginTab = document.getElementById('login-tab');
     const signupTab = document.getElementById('signup-tab');
 
     if (formType === 'login') {
         loginForm.classList.remove('hidden');
         signupForm.classList.add('hidden');
+        resetForm.classList.add('hidden');
         loginTab.classList.add('bg-white', 'shadow-sm', 'tab-active');
         signupTab.classList.remove('bg-white', 'shadow-sm', 'tab-active');
         loginTab.classList.remove('text-gray-500');
         signupTab.classList.add('text-gray-500');
-    } else {
+    } else if (formType === 'signup') {
         loginForm.classList.add('hidden');
         signupForm.classList.remove('hidden');
+        resetForm.classList.add('hidden');
         signupTab.classList.add('bg-white', 'shadow-sm', 'tab-active');
         loginTab.classList.remove('bg-white', 'shadow-sm', 'tab-active');
         signupTab.classList.remove('text-gray-500');
         loginTab.classList.add('text-gray-500');
+    } else if (formType === 'reset') {
+        loginForm.classList.add('hidden');
+        signupForm.classList.add('hidden');
+        resetForm.classList.remove('hidden');
+        loginTab.classList.remove('bg-white', 'shadow-sm', 'tab-active');
+        signupTab.classList.remove('bg-white', 'shadow-sm', 'tab-active');
     }
 }
 
