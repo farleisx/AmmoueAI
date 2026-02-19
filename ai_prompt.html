@@ -29,7 +29,34 @@
         .code-sidebar { width: 0; transition: width 0.3s ease; border-left: 1px solid rgba(255,255,255,0.06); background: #050505; overflow: hidden; }
         .code-sidebar.open { width: 400px; }
         #image-preview-modal, #rename-modal, #publish-modal, #download-modal, #alert-modal, #checkout-modal { display: none; background: rgba(0,0,0,0.9); z-index: 100; position: fixed; inset: 0; align-items: center; justify-content: center; }
-        #preview-frame { width: 100%; height: 100%; border: none; transition: all 0.3s ease; background: white; }
+        
+        #preview-container {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background: transparent;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #preview-frame { 
+            width: 100%; 
+            height: 100%; 
+            border: none; 
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); 
+            background: white; 
+            margin: 0 auto;
+        }
+
+        .device-mobile {
+            border: 12px solid #1a1a1a !important;
+            border-radius: 36px !important;
+        }
+
+        .device-tablet {
+            border: 10px solid #1a1a1a !important;
+            border-radius: 24px !important;
+        }
         
         #reset-counter { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); width: 45px; overflow: hidden; white-space: nowrap; }
         #reset-counter:hover { width: 130px; background: rgba(255,255,255,0.1); }
