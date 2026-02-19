@@ -173,7 +173,7 @@
                     <div class="space-y-1 relative">
                         <div class="flex justify-between items-center">
                             <label for="login-password" class="block text-sm font-bold text-gray-700">Password</label>
-                            <a href="#" class="text-xs font-bold text-ammoue hover:underline">Forgot?</a>
+                            <a href="javascript:void(0)" onclick="toggleForm('reset')" class="text-xs font-bold text-ammoue hover:underline">Forgot?</a>
                         </div>
                         <div class="relative group">
                             <input id="login-password" type="password" required placeholder="••••••••"
@@ -217,6 +217,25 @@
                         By signing up, you agree to our <a href="/terms.html" target="_blank" class="font-bold text-gray-600 hover:text-ammoue underline">Terms</a> & <a href="/privacy.html" target="_blank" class="font-bold text-gray-600 hover:text-ammoue underline">Privacy</a>.
                     </p>
                 </form>
+
+                <form id="reset-form" class="space-y-5 hidden form-transition" onsubmit="handleReset(event)">
+                    <div class="space-y-1">
+                        <h3 class="text-lg font-bold text-gray-900">Reset Password</h3>
+                        <p class="text-xs text-gray-500">We'll send a recovery link to your email.</p>
+                    </div>
+                    <div class="space-y-1">
+                        <label for="reset-email" class="block text-sm font-bold text-gray-700">Email Address</label>
+                        <input id="reset-email" type="email" required placeholder="name@company.com" 
+                            class="custom-input mt-1 block w-full border border-gray-200 rounded-xl p-3 text-sm transition-all bg-gray-50/50">
+                    </div>
+                    <button id="reset-btn" type="submit" 
+                        class="w-full flex items-center justify-center py-3.5 px-4 rounded-xl shadow-lg shadow-teal-700/20 text-sm font-bold text-white bg-ammoue hover:bg-teal-700 active:scale-[0.98] transition-all duration-200">
+                        Send Reset Link
+                    </button>
+                    <button type="button" onclick="toggleForm('login')" class="w-full text-xs font-bold text-gray-400 hover:text-ammoue">
+                        Back to Login
+                    </button>
+                </form>
                 
                 <div class="mt-8">
                     <div class="relative">
@@ -246,13 +265,14 @@
     </main>
 
    <script type="module">
-import { handleLogin, handleSignup, handleGoogleAuth, handleGitHubAuth, toggleForm } from './login.js';
+import { handleLogin, handleSignup, handleGoogleAuth, handleGitHubAuth, toggleForm, handleReset } from './login.js';
 
 window.handleLogin = handleLogin;
 window.handleSignup = handleSignup;
 window.handleGoogleAuth = handleGoogleAuth;
 window.handleGitHubAuth = handleGitHubAuth;
 window.toggleForm = toggleForm;
+window.handleReset = handleReset;
 
 // New functions for UI logic
 window.togglePasswordVisibility = function(inputId, btn) {
