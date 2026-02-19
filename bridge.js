@@ -154,17 +154,40 @@ const setPreviewSize = (type) => {
         activeBtn.classList.add('text-white', 'bg-white/10');
     }
 
+    frame.classList.remove('device-mobile', 'device-tablet');
+    frame.style.transform = 'scale(1)';
+
     if (type === 'desktop') { 
         container.style.maxWidth = '1100px'; 
         frame.style.width = '100%'; 
+        frame.style.height = '100%';
+        frame.style.borderRadius = '0px';
     }
     else if (type === 'tablet') { 
-        container.style.maxWidth = '768px'; 
+        container.style.maxWidth = '100%'; 
         frame.style.width = '768px'; 
+        frame.style.height = '1024px';
+        frame.classList.add('device-tablet');
+        
+        const availableHeight = container.parentElement.clientHeight - 100;
+        if (availableHeight < 1024) {
+            const scale = availableHeight / 1024;
+            frame.style.transform = `scale(${scale})`;
+            frame.style.transformOrigin = 'top center';
+        }
     }
     else { 
-        container.style.maxWidth = '375px'; 
-        frame.style.width = '375px'; 
+        container.style.maxWidth = '100%'; 
+        frame.style.width = '393px'; 
+        frame.style.height = '852px';
+        frame.classList.add('device-mobile');
+
+        const availableHeight = container.parentElement.clientHeight - 100;
+        if (availableHeight < 852) {
+            const scale = availableHeight / 852;
+            frame.style.transform = `scale(${scale})`;
+            frame.style.transformOrigin = 'top center';
+        }
     }
 };
 
