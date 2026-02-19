@@ -135,7 +135,7 @@ export async function handleReset(event) {
 
     try {
         await sendPasswordResetEmail(auth, email);
-        showMessage("Reset link sent! Check your inbox.", false);
+        showMessage("Reset link sent! Check your inbox. (and spam folder)", false);
         setTimeout(() => toggleForm('login'), 3000);
     } catch (error) {
         let msg = "Could not send reset email.";
