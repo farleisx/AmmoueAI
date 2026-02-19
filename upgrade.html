@@ -12,6 +12,22 @@
     body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
     .text-ammoue { color: #0d9488; }
     .bg-ammoue { background-color: #0d9488; }
+    
+    /* ADDITIVE MODAL STYLES */
+    #pro-modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+    #pro-modal-overlay.active {
+        display: flex;
+    }
 </style>
 </head>
 
@@ -27,10 +43,8 @@
         One-time payment. Lifetime access. 🚀
     </p>
 
-    <!-- PAYPAL BUTTON -->
     <div id="paypal-button-container" class="mb-4"></div>
 
-    <!-- DASHBOARD BUTTON -->
     <a href="/dashboard"
        class="mb-4 inline-flex w-full items-center justify-center gap-2
               rounded-xl bg-ammoue px-6 py-3
@@ -41,11 +55,12 @@
         Go to Dashboard
     </a>
 
-    <!-- STATUS -->
     <p id="status-message" class="mt-4 text-red-600 font-semibold"></p>
 
-    <!-- COMING SOON BOX -->
-    <div class="mt-6 p-4 rounded-xl border border-yellow-300 bg-yellow-50 text-left">
+    <div class="mt-6 p-4 rounded-xl border border-yellow-300 bg-yellow-50 text-left relative">
+        <button id="open-pro-modal" class="absolute top-3 right-3 px-3 py-1 text-xs font-bold text-yellow-700 bg-yellow-200 rounded-lg transition-all hover:bg-yellow-300 hover:scale-105">
+            More
+        </button>
         <div class="flex items-start gap-3">
             <svg xmlns="http://www.w3.org/2000/svg"
                  class="h-5 w-5 text-yellow-500 mt-0.5"
@@ -64,7 +79,7 @@
                 </p>
                 <ul class="mt-2 text-sm text-gray-600 space-y-1">
                     <li>• Custom site names</li>
-                    <li>•  Private and Public Options</li>
+                    <li>• Private and Public Options</li>
                     <li>• Advanced publishing options</li>
                     <li>• Agent 2 Access</li>
                 </ul>
@@ -74,11 +89,71 @@
 
 </div>
 
+<div id="pro-modal-overlay">
+    <div class="max-w-sm w-full bg-white rounded-2xl shadow-2xl p-6 border border-gray-100 animate-in fade-in zoom-in duration-200">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-gray-900">Pro User Additional</h2>
+            <button id="close-pro-modal" class="text-gray-400 hover:text-gray-600">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <div class="space-y-4">
+            <div class="flex items-center gap-3 p-3 rounded-xl bg-teal-50 border border-teal-100">
+                <i data-lucide="zap" class="w-5 h-5 text-teal-600"></i>
+                <span class="text-sm font-medium text-gray-700">10 Credit usage per day</span>
+            </div>
+            <div class="flex items-center gap-3 p-3 rounded-xl bg-teal-50 border border-teal-100">
+                <i data-lucide="globe" class="w-5 h-5 text-teal-600"></i>
+                <span class="text-sm font-medium text-gray-700">5 separated vercel deployed (Lifetime)</span>
+            </div>
+            <div class="flex items-center gap-3 p-3 rounded-xl bg-teal-50 border border-teal-100">
+                <i data-lucide="git-fork" class="w-5 h-5 text-teal-600"></i>
+                <span class="text-sm font-medium text-gray-700">Project remixing</span>
+            </div>
+            <div class="flex items-center gap-3 p-3 rounded-xl bg-teal-50 border border-teal-100">
+                <i data-lucide="bot" class="w-5 h-5 text-teal-600"></i>
+                <span class="text-sm font-medium text-gray-700">Agent 2 Access</span>
+            </div>
+            <div class="flex items-center gap-3 p-3 rounded-xl bg-teal-50 border border-teal-100">
+                <i data-lucide="link" class="w-5 h-5 text-teal-600"></i>
+                <span class="text-sm font-medium text-gray-700">Custom domain Name Integration</span>
+            </div>
+        </div>
+        <button id="close-pro-modal-btn" class="mt-6 w-full py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-gray-800 transition-colors">
+            Got it
+        </button>
+    </div>
+</div>
 
- <!-- PAYPAL SDK (CLIENT ID ONLY – SAFE) -->
-  <script src="https://www.paypal.com/sdk/js?client-id=AZV56OoDaOI2jTtex7U7x0Z_fsc9dm_98alHa81Y0okpIZkoZ-rVYhemDPsQ1FPvJOaF4Xt0dPHfprj1&currency=USD"></script>
 
-  <!-- 🔐 SECURE FIREBASE + PAYPAL LOGIC -->
+ <script src="https://www.paypal.com/sdk/js?client-id=AZV56OoDaOI2jTtex7U7x0Z_fsc9dm_98alHa81Y0okpIZkoZ-rVYhemDPsQ1FPvJOaF4Xt0dPHfprj1&currency=USD"></script>
+
   <script type="module" src="/fireupgrade.js"></script>
+  
+  <script>
+      document.addEventListener('DOMContentLoaded', () => {
+          const modal = document.getElementById('pro-modal-overlay');
+          const openBtn = document.getElementById('open-pro-modal');
+          const closeBtn = document.getElementById('close-pro-modal');
+          const closeBtnBottom = document.getElementById('close-pro-modal-btn');
+
+          const toggleModal = (show) => {
+              if (show) {
+                  modal.classList.add('active');
+                  lucide.createIcons();
+              } else {
+                  modal.classList.remove('active');
+              }
+          };
+
+          openBtn.addEventListener('click', () => toggleModal(true));
+          closeBtn.addEventListener('click', () => toggleModal(false));
+          closeBtnBottom.addEventListener('click', () => toggleModal(false));
+          
+          modal.addEventListener('click', (e) => {
+              if (e.target === modal) toggleModal(false);
+          });
+      });
+  </script>
 </body>
 </html>
