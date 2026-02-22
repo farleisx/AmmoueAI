@@ -1,4 +1,4 @@
-// bridge_ui.js file
+// bridge_ui.js
 import { db } from "./fire_prompt.js";
 import { collection, query, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
