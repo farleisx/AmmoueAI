@@ -282,7 +282,114 @@
             </div>
         </section>
 
-        <section id="pricing" class="py-20 md:py-28 bg-ammoue">
+        <section id="pricing" class="py-16 md:py-24 bg-white">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-8">
+                    <h2 class="text-3xl sm:text-4xl font-extrabold text-gray-900">Simple, Transparent Pricing</h2>
+                    <p class="mt-4 text-xl text-gray-500">Choose the plan that fits your ambition.</p>
+                </div>
+
+                <div class="flex justify-center items-center space-x-4 mb-12">
+                    <span id="monthly-label" class="text-sm font-semibold text-gray-900">Monthly</span>
+                    <button id="billing-toggle" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none bg-gray-200" role="switch" aria-checked="false">
+                        <span id="toggle-handle" aria-hidden="true" class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-0"></span>
+                    </button>
+                    <span id="yearly-label" class="text-sm font-semibold text-gray-500">Yearly <span class="text-ammoue font-bold">(Save 20%)</span></span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div class="border border-gray-200 rounded-3xl p-8 flex flex-col hover:shadow-2xl transition duration-300">
+                        <h3 class="text-lg font-bold text-gray-900 mb-2">Starter</h3>
+                        <div class="flex items-baseline mb-6">
+                            <span class="text-4xl font-extrabold text-gray-900">$0</span>
+                            <span class="text-gray-500 ml-1">/forever</span>
+                        </div>
+                        <ul class="space-y-4 mb-8 flex-grow">
+                            <li class="flex items-center text-gray-600 text-sm">
+                                <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> 1 Vercel Deployment
+                            </li>
+                            <li class="flex items-center text-gray-600 text-sm">
+                                <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> AI Site Editor (Basic)
+                            </li>
+                            <li class="flex items-center text-gray-600 text-sm">
+                                <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> Vercel subdomain
+                            </li>
+                            <li class="flex items-center text-gray-600 text-sm">
+                                <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> 5 credit usage daily
+                            </li>
+                            <li class="flex items-center text-gray-600 text-sm">
+                                <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> Edit through preview
+                            </li>
+                            <li class="flex items-center text-gray-600 text-sm">
+                                <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> Next.js, React, HTML, JS
+                            </li>
+                            <li class="flex items-center text-gray-600 text-sm">
+                                <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> Multi-page websites
+                            </li>
+                            <li class="flex items-center text-gray-600 text-sm">
+                                <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> Supabase integration
+                            </li>
+                        </ul>
+                        <a href="/login" class="block text-center py-3 px-6 rounded-xl border-2 border-ammoue text-ammoue font-bold hover:bg-ammoue hover:text-white transition duration-200">Get Started</a>
+                    </div>
+
+                    <div class="relative border-2 border-ammoue rounded-3xl p-8 flex flex-col shadow-xl bg-white transform md:-translate-y-4">
+                        <div class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-ammoue text-white px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest">Most Popular</div>
+                        <h3 class="text-lg font-bold text-gray-900 mb-2">Pro</h3>
+                        <div class="flex items-baseline mb-6">
+                            <span class="text-4xl font-extrabold text-gray-900" id="pro-price">$19</span>
+                            <span class="text-gray-500 ml-1" id="pro-period">/mo</span>
+                        </div>
+                        <ul class="space-y-4 mb-8 flex-grow">
+                            <li class="flex items-center text-gray-900 font-medium text-sm">
+                                <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> 5 Vercel Deployments
+                            </li>
+                            <li class="flex items-center text-gray-900 font-medium text-sm">
+                                <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> Custom Domains
+                            </li>
+                            <li class="flex items-center text-gray-900 font-medium text-sm">
+                                <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> Project remixing
+                            </li>
+                            <li class="flex items-center text-gray-900 font-medium text-sm">
+                                <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> 10 credits usage daily
+                            </li>
+                            <li class="flex items-center text-gray-900 font-medium text-sm">
+                                <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> Agent 2 Access
+                            </li>
+                            <li class="flex items-center text-gray-900 font-medium text-sm">
+                                <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> Export React/Next.js Code
+                            </li>
+                            <li class="flex items-center text-gray-900 font-medium text-sm">
+                                <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> Advanced AI Tweak Mode
+                            </li>
+                        </ul>
+                        <a href="/login" class="block text-center py-3 px-6 rounded-xl bg-ammoue text-white font-bold hover:bg-teal-700 shadow-lg transition duration-200">Go Pro</a>
+                    </div>
+
+                    <div class="border border-gray-200 rounded-3xl p-8 flex flex-col hover:shadow-2xl transition duration-300">
+                        <h3 class="text-lg font-bold text-gray-900 mb-2">Agency</h3>
+                        <div class="flex items-baseline mb-6">
+                            <span class="text-4xl font-extrabold text-gray-900" id="agency-price">$49</span>
+                            <span class="text-gray-500 ml-1" id="agency-period">/mo</span>
+                        </div>
+                        <ul class="space-y-4 mb-8 flex-grow">
+                            <li class="flex items-center text-gray-600 text-sm">
+                                <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> White-label Export
+                            </li>
+                            <li class="flex items-center text-gray-600 text-sm">
+                                <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> Priority AI Generation
+                            </li>
+                            <li class="flex items-center text-gray-600 text-sm">
+                                <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> 24/7 Priority Support
+                            </li>
+                        </ul>
+                        <a href="/login" class="block text-center py-3 px-6 rounded-xl border-2 border-gray-200 text-gray-600 font-bold hover:border-ammoue hover:text-ammoue transition duration-200">Contact Us</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="py-20 md:py-28 bg-ammoue">
             <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
                 <h2 class="text-4xl sm:text-5xl font-extrabold text-white mb-6">Ready to Build Something Amazing?</h2>
                 <p class="text-xl text-teal-200 mb-10 max-w-2xl mx-auto">
@@ -403,6 +510,48 @@
             loop: true,
             showCursor: true,
             cursorChar: '|'
+        });
+
+        // 5. Pricing Toggle Logic
+        const billingToggle = document.getElementById('billing-toggle');
+        const toggleHandle = document.getElementById('toggle-handle');
+        const monthlyLabel = document.getElementById('monthly-label');
+        const yearlyLabel = document.getElementById('yearly-label');
+        
+        const proPrice = document.getElementById('pro-price');
+        const proPeriod = document.getElementById('pro-period');
+        const agencyPrice = document.getElementById('agency-price');
+        const agencyPeriod = document.getElementById('agency-period');
+
+        let isYearly = false;
+
+        billingToggle.addEventListener('click', () => {
+            isYearly = !isYearly;
+            
+            // Update Toggle UI
+            if (isYearly) {
+                toggleHandle.classList.replace('translate-x-0', 'translate-x-5');
+                billingToggle.classList.replace('bg-gray-200', 'bg-ammoue');
+                yearlyLabel.classList.replace('text-gray-500', 'text-gray-900');
+                monthlyLabel.classList.replace('text-gray-900', 'text-gray-500');
+                
+                // Update Prices (20% discount approx)
+                proPrice.textContent = '$15';
+                proPeriod.textContent = '/mo (billed yearly)';
+                agencyPrice.textContent = '$39';
+                agencyPeriod.textContent = '/mo (billed yearly)';
+            } else {
+                toggleHandle.classList.replace('translate-x-5', 'translate-x-0');
+                billingToggle.classList.replace('bg-ammoue', 'bg-gray-200');
+                yearlyLabel.classList.replace('text-gray-900', 'text-gray-500');
+                monthlyLabel.classList.replace('text-gray-500', 'text-gray-900');
+                
+                // Revert Prices
+                proPrice.textContent = '$19';
+                proPeriod.textContent = '/mo';
+                agencyPrice.textContent = '$49';
+                agencyPeriod.textContent = '/mo';
+            }
         });
     </script>
 </body>
