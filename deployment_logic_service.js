@@ -8,8 +8,13 @@ export async function executeDeploymentFlow(context) {
     const slugInput = document.getElementById('publish-slug');
     const customDomainInput = document.getElementById('custom-domain-input');
     const projectNameDisplay = document.getElementById('project-name-display');
-    const slug = (slugInput && slugInput.value) ? slugInput.value : (projectNameDisplay ? projectNameDisplay.innerText : null);
-    const customDomain = (customDomainInput && customDomainInput.value) ? customDomainInput.value.trim() : null;
+    
+    const usageResponse = await fetch(`/api/usage?uid=${currentUser.uid}`);
+    const usageData = await usageResponse.json();
+    const isPro = usageData.plan === 'pro';
+
+    const slug = (slugInput && slugInput.value && isPro) ? slugInput.value : (projectNameDisplay ? projectNameDisplay.innerText : null);
+    const customDomain = (customDomainInput && customDomainInput.value && isPro) ? customDomainInput.value.trim() : null;
     
     if (!currentProjectId) {
         document.getElementById('publish-modal').style.display = 'none';
