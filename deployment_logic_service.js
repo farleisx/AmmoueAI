@@ -6,8 +6,10 @@ export async function executeDeploymentFlow(context) {
     const projectFiles = getProjectFiles();
 
     const slugInput = document.getElementById('publish-slug');
+    const customDomainInput = document.getElementById('custom-domain-input');
     const projectNameDisplay = document.getElementById('project-name-display');
     const slug = (slugInput && slugInput.value) ? slugInput.value : (projectNameDisplay ? projectNameDisplay.innerText : null);
+    const customDomain = (customDomainInput && customDomainInput.value) ? customDomainInput.value.trim() : null;
     
     if (!currentProjectId) {
         document.getElementById('publish-modal').style.display = 'none';
@@ -88,12 +90,17 @@ export async function executeDeploymentFlow(context) {
             projectFiles['index.html'] = projectFiles['index.html'].replace('</head>', relayScript + '</head>');
         }
 
-        updateProgress(50, "Uploading files to Vercel...");
+        updateProgress(50, customDomain ? "Configuring custom domain..." : "Uploading files to Vercel...");
         
         const deployResponse = await fetch('/api/deploy', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-            body: JSON.stringify({ projectId: currentProjectId, slug, files: projectFiles })
+            body: JSON.stringify({ 
+                projectId: currentProjectId, 
+                slug, 
+                files: projectFiles,
+                customDomain: customDomain
+            })
         });
 
         if (!deployResponse.ok) {
@@ -114,23 +121,57 @@ export async function executeDeploymentFlow(context) {
             
             if (statusData.status === 'READY') {
                 isReady = true;
-                finalDeploymentUrl = `https://${slug}.vercel.app`;
-                updateProgress(100, "Site is live!");
                 
-                if(linkArea) {
-                    linkArea.innerHTML = `<a href="${finalDeploymentUrl}" target="_blank" class="text-emerald-400 text-xs font-mono hover:underline flex items-center justify-center gap-1 mt-2"><i data-lucide="external-link" class="w-3 h-3"></i> ${finalDeploymentUrl}</a>`;
-                    linkArea.classList.remove('hidden');
-                    lucide.createIcons();
+                if (customDomain) {
+                    finalDeploymentUrl = `https://${customDomain}`;
+                    updateProgress(100, "DNS Setup Required");
+                    
+                    if(linkArea) {
+                        linkArea.innerHTML = `
+                            <div class="mt-4 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-left">
+                                <p class="text-white text-[11px] font-bold mb-2 flex items-center gap-2">
+                                    <i data-lucide="info" class="w-3 h-3 text-emerald-400"></i> DNS Settings for ${customDomain}
+                                </p>
+                                <div class="space-y-3 font-mono text-[10px]">
+                                    <div class="flex flex-col gap-1 border-b border-white/5 pb-2">
+                                        <span class="text-gray-500">A Record (@)</span>
+                                        <span class="text-emerald-400 select-all">76.76.21.21</span>
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <span class="text-gray-500">CNAME Record (www)</span>
+                                        <span class="text-emerald-400 select-all">cname.vercel-dns.com</span>
+                                    </div>
+                                </div>
+                                <p class="text-[9px] text-gray-500 mt-3 italic">Changes can take 24-48h to propagate.</p>
+                                <a href="${finalDeploymentUrl}" target="_blank" class="block text-center bg-white/5 hover:bg-white/10 text-white py-2 rounded-lg mt-4 transition-colors">Check Domain Status</a>
+                            </div>
+                        `;
+                        linkArea.classList.remove('hidden');
+                        lucide.createIcons();
+                    }
+                } else {
+                    finalDeploymentUrl = `https://${slug}.vercel.app`;
+                    updateProgress(100, "Site is live!");
+                    
+                    if(linkArea) {
+                        linkArea.innerHTML = `<a href="${finalDeploymentUrl}" target="_blank" class="text-emerald-400 text-xs font-mono hover:underline flex items-center justify-center gap-1 mt-2"><i data-lucide="external-link" class="w-3 h-3"></i> ${finalDeploymentUrl}</a>`;
+                        linkArea.classList.remove('hidden');
+                        lucide.createIcons();
+                    }
                 }
                 
                 const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", currentProjectId);
                 await updateDoc(projectRef, { lastDeploymentUrl: finalDeploymentUrl });
 
-                if (!timerExpired) {
+                if (!timerExpired && !customDomain) {
                     setTimeout(() => {
                         window.open(finalDeploymentUrl, '_blank');
                         document.getElementById('publish-modal').style.display = 'none';
                     }, 1000);
+                } else if (!timerExpired && customDomain) {
+                    btn.innerHTML = "Finish Setup";
+                    btn.disabled = false;
+                    btn.onclick = () => { document.getElementById('publish-modal').style.display = 'none'; };
                 }
             } else if (statusData.status === 'ERROR' || statusData.status === 'FAILED') {
                 throw new Error("Vercel build failed.");
@@ -148,7 +189,7 @@ export async function executeDeploymentFlow(context) {
             document.getElementById('checkout-modal').style.display = 'flex';
         } else showCustomAlert("Publish Failed", e.message);
     } finally {
-        if (!timerExpired) {
+        if (!timerExpired && !finalDeploymentUrl) {
             btn.disabled = false;
             btn.innerHTML = originalContent;
             lucide.createIcons();
