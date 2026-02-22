@@ -9,6 +9,11 @@
     { "src": "^/ai_prompt$", "dest": "/ai_prompt.prod.html" },
     { "src": "^/upgrade$", "dest": "/upgrade.prod.html" },
     { "src": "^/editor$", "dest": "/editor.prod.html" },
+    { "src": "^/terms$", "dest": "/terms.prod.html" },
+    { "src": "^/privacy$", "dest": "/privacy.prod.html" },
+    { "src": "^/about$", "dest": "/about.prod.html" },
+    { "src": "^/contact$", "dest": "/contact.prod.html" },
+    { "src": "^/careers$", "dest": "/careers.prod.html" },
     { "src": "^/profile$", "dest": "/profile.prod.html" }
   ]
 }
