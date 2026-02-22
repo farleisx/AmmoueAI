@@ -9,7 +9,10 @@ export function showCustomAlert(title, message) {
     const mod = document.getElementById('alert-modal');
     if (t) t.innerText = title;
     if (m) m.innerText = message;
-    if (mod) mod.style.display = 'flex';
+    if (mod) {
+        mod.style.zIndex = "9999";
+        mod.style.display = 'flex';
+    }
 }
 
 // TYPING EFFECTS
