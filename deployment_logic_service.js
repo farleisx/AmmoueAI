@@ -13,7 +13,7 @@ export async function executeDeploymentFlow(context) {
     const usageData = await usageResponse.json();
     const isPro = usageData.plan === 'pro';
 
-    const slug = (slugInput && slugInput.value && isPro) ? slugInput.value : (projectNameDisplay ? projectNameDisplay.innerText : null);
+    const slug = (slugInput && slugInput.value) ? slugInput.value : (projectNameDisplay ? projectNameDisplay.innerText : null);
     const customDomain = (customDomainInput && customDomainInput.value && isPro) ? customDomainInput.value.trim() : null;
     
     if (!currentProjectId) {
