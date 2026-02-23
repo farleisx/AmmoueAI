@@ -306,7 +306,7 @@
                             <span class="text-4xl font-extrabold text-gray-900">$0</span>
                             <span class="text-gray-500 ml-1">/forever</span>
                         </div>
-                        <ul class="space-y-4 mb-8 flex-grow">
+                        <ul class="space-y-4 mb-4 flex-grow">
                             <li class="flex items-center text-gray-600 text-sm">
                                 <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> 1 Vercel Deployment
                             </li>
@@ -332,6 +332,9 @@
                                 <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> Supabase integration
                             </li>
                         </ul>
+                        <button id="open-starter-modal" class="mb-4 text-ammoue text-sm font-bold flex items-center hover:underline focus:outline-none">
+                            <i data-lucide="plus-circle" class="w-4 h-4 mr-1"></i> More
+                        </button>
                         <a href="/login" class="block text-center py-3 px-6 rounded-xl border-2 border-ammoue text-ammoue font-bold hover:bg-ammoue hover:text-white transition duration-200">Get Started</a>
                     </div>
 
@@ -342,6 +345,7 @@
                             <span class="text-4xl font-extrabold text-gray-900" id="pro-price">$19</span>
                             <span class="text-gray-500 ml-1" id="pro-period">/mo</span>
                         </div>
+                        <p class="text-xs text-gray-600 font-bold mb-6 italic">Everything that Free plan has, and with an additional of those:</p>
                         <ul class="space-y-4 mb-8 flex-grow">
                             <li class="flex items-center text-gray-900 font-medium text-sm">
                                 <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> 5 Vercel Deployments
@@ -358,34 +362,33 @@
                             <li class="flex items-center text-gray-900 font-medium text-sm">
                                 <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> Agent 2 Access
                             </li>
-                            <li class="flex items-center text-gray-900 font-medium text-sm">
-                                <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> Export React/Next.js Code
-                            </li>
-                            <li class="flex items-center text-gray-900 font-medium text-sm">
-                                <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> Advanced AI Tweak Mode
-                            </li>
                         </ul>
                         <a href="/login" class="block text-center py-3 px-6 rounded-xl bg-ammoue text-white font-bold hover:bg-teal-700 shadow-lg transition duration-200">Go Pro</a>
                     </div>
 
-                    <div class="border border-gray-200 rounded-3xl p-8 flex flex-col hover:shadow-2xl transition duration-300">
-                        <h3 class="text-lg font-bold text-gray-900 mb-2">Agency</h3>
-                        <div class="flex items-baseline mb-6">
-                            <span class="text-4xl font-extrabold text-gray-900" id="agency-price">$49</span>
-                            <span class="text-gray-500 ml-1" id="agency-period">/mo</span>
+                    <div class="relative border border-gray-200 rounded-3xl p-8 flex flex-col transition duration-300 overflow-hidden">
+                        <div class="absolute inset-0 z-10 flex items-center justify-center bg-white/40 backdrop-blur-md">
+                            <div class="bg-teal-100 text-ammoue px-6 py-2 rounded-full text-lg font-black uppercase tracking-widest border-2 border-teal-300 shadow-lg transform -rotate-3">Coming Soon</div>
                         </div>
-                        <ul class="space-y-4 mb-8 flex-grow">
-                            <li class="flex items-center text-gray-600 text-sm">
-                                <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> White-label Export
-                            </li>
-                            <li class="flex items-center text-gray-600 text-sm">
-                                <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> Priority AI Generation
-                            </li>
-                            <li class="flex items-center text-gray-600 text-sm">
-                                <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> 24/7 Priority Support
-                            </li>
-                        </ul>
-                        <a href="/login" class="block text-center py-3 px-6 rounded-xl border-2 border-gray-200 text-gray-600 font-bold hover:border-ammoue hover:text-ammoue transition duration-200">Contact Us</a>
+                        <div class="filter blur-[2px] pointer-events-none select-none">
+                            <h3 class="text-lg font-bold text-gray-900 mb-2">Agency</h3>
+                            <div class="flex items-baseline mb-6">
+                                <span class="text-4xl font-extrabold text-gray-900" id="agency-price">$49</span>
+                                <span class="text-gray-500 ml-1" id="agency-period">/mo</span>
+                            </div>
+                            <ul class="space-y-4 mb-8 flex-grow">
+                                <li class="flex items-center text-gray-600 text-sm">
+                                    <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> White-label Export
+                                </li>
+                                <li class="flex items-center text-gray-600 text-sm">
+                                    <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> Priority AI Generation
+                                </li>
+                                <li class="flex items-center text-gray-600 text-sm">
+                                    <i data-lucide="check" class="w-5 h-5 text-ammoue mr-3"></i> 24/7 Priority Support
+                                </li>
+                            </ul>
+                            <a href="#" class="block text-center py-3 px-6 rounded-xl border-2 border-gray-200 text-gray-600 font-bold">Contact Us</a>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -448,113 +451,45 @@
         </div>
     </footer>
 
-    <script>
-        lucide.createIcons();
+    <div id="starter-modal" class="fixed inset-0 z-[100] hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div id="starter-modal-overlay" class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div class="inline-block align-bottom bg-white rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-teal-100 sm:mx-0 sm:h-10 sm:w-10">
+                            <i data-lucide="package" class="h-6 w-6 text-ammoue"></i>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                            <h3 class="text-lg leading-6 font-bold text-gray-900" id="modal-title">Starter Plan: Full Features</h3>
+                            <div class="mt-4">
+                                <p class="text-sm text-gray-500 mb-4 border-b pb-2">Everything included in your free starter account:</p>
+                                <ul class="space-y-3">
+                                    <li class="flex items-center text-gray-700 text-sm"><i data-lucide="check" class="w-4 h-4 text-ammoue mr-3"></i> 1 Vercel Deployment</li>
+                                    <li class="flex items-center text-gray-700 text-sm"><i data-lucide="check" class="w-4 h-4 text-ammoue mr-3"></i> AI Site Editor (Basic)</li>
+                                    <li class="flex items-center text-gray-700 text-sm"><i data-lucide="check" class="w-4 h-4 text-ammoue mr-3"></i> Vercel subdomain</li>
+                                    <li class="flex items-center text-gray-700 text-sm"><i data-lucide="check" class="w-4 h-4 text-ammoue mr-3"></i> 5 credit usage daily</li>
+                                    <li class="flex items-center text-gray-700 text-sm"><i data-lucide="check" class="w-4 h-4 text-ammoue mr-3"></i> Edit through preview</li>
+                                    <li class="flex items-center text-gray-700 text-sm"><i data-lucide="check" class="w-4 h-4 text-ammoue mr-3"></i> Next.js, React, HTML, JS</li>
+                                    <li class="flex items-center text-gray-700 text-sm"><i data-lucide="check" class="w-4 h-4 text-ammoue mr-3"></i> Multi-page websites</li>
+                                    <li class="flex items-center text-gray-700 text-sm"><i data-lucide="check" class="w-4 h-4 text-ammoue mr-3"></i> Supabase integration</li>
+                                    <li class="flex items-center text-ammoue font-bold text-sm bg-teal-50 p-2 rounded-lg border border-teal-100"><i data-lucide="sparkles" class="w-4 h-4 text-ammoue mr-3"></i> Export React/Next.js Code</li>
+                                    <li class="flex items-center text-ammoue font-bold text-sm bg-teal-50 p-2 rounded-lg border border-teal-100"><i data-lucide="cpu" class="w-4 h-4 text-ammoue mr-3"></i> Advanced AI Tweak Mode</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button type="button" id="close-starter-modal" class="w-full inline-flex justify-center rounded-xl border border-transparent shadow-sm px-4 py-2 bg-ammoue text-base font-medium text-white hover:bg-teal-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm transition duration-200">
+                        Got it!
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-        // 1. Navbar Active Link Script (Original)
-        const sections = document.querySelectorAll("section[id]");
-        const navLinks = document.querySelectorAll(".nav-link");
-
-        window.addEventListener("scroll", () => {
-            let current = "";
-            sections.forEach(section => {
-                const sectionTop = section.offsetTop - 120;
-                if (pageYOffset >= sectionTop) {
-                    current = section.getAttribute("id");
-                }
-            });
-            navLinks.forEach(link => {
-                link.classList.remove("active");
-                // Check against the full href attribute
-                if (link.getAttribute("href") === "#" + current) {
-                    link.classList.add("active");
-                }
-            });
-        });
-
-        // 2. Continuous Scrolling and Hover Pause Script (Original)
-        const featureCarousel = document.getElementById('feature-carousel');
-        if (featureCarousel) {
-            // Duplicate the content to ensure a seamless loop
-            const content = featureCarousel.innerHTML;
-            featureCarousel.innerHTML += content;
-        }
-
-        // 3. Mobile Menu Toggle Script (Restored)
-        const mobileMenuButton = document.getElementById('mobile-menu-button');
-        const mobileMenu = document.getElementById('mobile-menu');
-        const mobileMenuIconContainer = mobileMenuButton.querySelector('i');
-
-        mobileMenuButton.addEventListener('click', () => {
-            mobileMenu.classList.toggle('hidden');
-            const isMenuOpen = !mobileMenu.classList.contains('hidden');
-            
-            mobileMenuIconContainer.setAttribute('data-lucide', isMenuOpen ? 'x' : 'menu');
-            lucide.createIcons();
-        });
-
-        // Close mobile menu when a nav link is clicked (Restored)
-        const mobileNavLinks = mobileMenu.querySelectorAll('a');
-        mobileNavLinks.forEach(link => {
-            link.addEventListener('click', () => {
-                mobileMenu.classList.add('hidden');
-                mobileMenuIconContainer.setAttribute('data-lucide', 'menu');
-                lucide.createIcons();
-            });
-        });
-
-        // 4. Typing Effect Script
-        var typed = new Typed('#typed-target', {
-            strings: ['React App', 'Next.js Site', 'Full Dashboard', 'Landing Page', 'Multi-Page App'],
-            typeSpeed: 80,
-            backSpeed: 50,
-            backDelay: 2000,
-            loop: true,
-            showCursor: true,
-            cursorChar: '|'
-        });
-
-        // 5. Pricing Toggle Logic
-        const billingToggle = document.getElementById('billing-toggle');
-        const toggleHandle = document.getElementById('toggle-handle');
-        const monthlyLabel = document.getElementById('monthly-label');
-        const yearlyLabel = document.getElementById('yearly-label');
-        
-        const proPrice = document.getElementById('pro-price');
-        const proPeriod = document.getElementById('pro-period');
-        const agencyPrice = document.getElementById('agency-price');
-        const agencyPeriod = document.getElementById('agency-period');
-
-        let isYearly = false;
-
-        billingToggle.addEventListener('click', () => {
-            isYearly = !isYearly;
-            
-            // Update Toggle UI
-            if (isYearly) {
-                toggleHandle.classList.replace('translate-x-0', 'translate-x-5');
-                billingToggle.classList.replace('bg-gray-200', 'bg-ammoue');
-                yearlyLabel.classList.replace('text-gray-500', 'text-gray-900');
-                monthlyLabel.classList.replace('text-gray-900', 'text-gray-500');
-                
-                // Update Prices (20% discount approx)
-                proPrice.textContent = '$15';
-                proPeriod.textContent = '/mo (billed yearly)';
-                agencyPrice.textContent = '$39';
-                agencyPeriod.textContent = '/mo (billed yearly)';
-            } else {
-                toggleHandle.classList.replace('translate-x-5', 'translate-x-0');
-                billingToggle.classList.replace('bg-ammoue', 'bg-gray-200');
-                yearlyLabel.classList.replace('text-gray-900', 'text-gray-500');
-                monthlyLabel.classList.replace('text-gray-500', 'text-gray-900');
-                
-                // Revert Prices
-                proPrice.textContent = '$19';
-                proPeriod.textContent = '/mo';
-                agencyPrice.textContent = '$49';
-                agencyPeriod.textContent = '/mo';
-            }
-        });
-    </script>
+    <script src="scripts.js"></script>
 </body>
 </html>
