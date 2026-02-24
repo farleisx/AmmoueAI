@@ -78,11 +78,14 @@
             border: 1px solid rgba(255,255,255,0.05);
         }
         .preview-iframe {
+            position: absolute;
+            top: 50%;
+            left: 50%;
             width: 1200px;
             height: 800px;
             border: none;
-            transform: scale(0.116);
-            transform-origin: 0 0;
+            transform: translate(-50%, -50%) scale(0.22);
+            transform-origin: center;
             pointer-events: none;
             background: white;
             opacity: 0;
@@ -99,6 +102,7 @@
             justify-content: center;
             background: linear-gradient(45deg, #0a0a0a, #111);
             transition: opacity 0.3s ease;
+            z-index: 5;
         }
         .glass-card:hover .preview-placeholder {
             opacity: 0;
