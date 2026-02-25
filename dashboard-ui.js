@@ -166,6 +166,11 @@ export function renderProjects(projectsToRender) {
                                 <button onclick="event.stopPropagation(); handleDownload('${project.id}')" class="w-full text-left px-3 py-2 text-xs font-medium text-gray-300 hover:bg-white/5 rounded-lg flex items-center">
                                     <i data-lucide="download" class="w-3.5 h-3.5 mr-2 text-green-500"></i> Download
                                 </button>
+                                ${window.currentUserPlan === 'pro' ? `
+                                <button onclick="event.stopPropagation(); openTransferModal('${project.id}')" class="w-full text-left px-3 py-2 text-xs font-medium text-gray-300 hover:bg-white/5 rounded-lg flex items-center">
+                                    <i data-lucide="send" class="w-3.5 h-3.5 mr-2 text-blue-400"></i> Transfer
+                                </button>
+                                ` : ''}
                                 <hr class="my-1 border-white/5">
                                 <button onclick="event.stopPropagation(); openDeleteModal('${project.id}')" class="w-full text-left px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-500/10 rounded-lg flex items-center">
                                     <i data-lucide="trash-2" class="w-3.5 h-3.5 mr-2"></i> Delete
@@ -196,4 +201,32 @@ export function renderProjects(projectsToRender) {
     });
     projectsContainer.innerHTML = projectsHtml;
     lucide.createIcons();
+}
+
+/* ================= TRANSFER MODAL UI ================= */
+
+export function openTransferModal(projectId) {
+    const project = projectsData.get(projectId);
+    if (!project) return;
+    document.getElementById('transfer-project-id').value = projectId;
+    document.getElementById('transfer-project-name').textContent = project.title;
+    const modal = document.getElementById('transfer-modal');
+    const content = document.getElementById('transfer-modal-content');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    setTimeout(() => {
+        content.classList.remove('scale-95', 'opacity-0');
+        content.classList.add('scale-100', 'opacity-100');
+    }, 10);
+}
+
+export function closeTransferModal() {
+    const modal = document.getElementById('transfer-modal');
+    const content = document.getElementById('transfer-modal-content');
+    content.classList.remove('scale-100', 'opacity-100');
+    content.classList.add('scale-95', 'opacity-0');
+    setTimeout(() => {
+        modal.classList.remove('flex');
+        modal.classList.add('hidden');
+    }, 300);
 }
