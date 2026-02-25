@@ -340,6 +340,9 @@ export async function loadUserPlanAndGateContent(user, userEmailSpan, currentPla
                     upgradeCardWrapper.innerHTML = `<button onclick="handleUpgradeClick()" class="px-4 py-2 text-sm font-semibold rounded-xl text-white bg-yellow-500 hover:bg-yellow-600 shadow-md transition-transform hover:scale-105">Upgrade</button>`;
                     if (popUpgradeBtn) popUpgradeBtn.classList.remove('hidden');
                 }
+                
+                // Set global plan status for UI rendering
+                window.currentUserPlan = plan;
             }
         });
     } catch (e) { console.error(e); }
@@ -371,4 +374,84 @@ export async function getUsage(userId) {
     console.error("Failed to fetch usage:", e);
     return { dailyCount: 0, plan: "free", dailyResetAt: 0 };
   }
+}
+
+/* ================= PROJECT TRANSFER LOGIC ================= */
+
+import { where, getDocs } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+
+export async function executeTransferProject() {
+    const projectId = document.getElementById('transfer-project-id').value;
+    const recipientEmail = document.getElementById('transfer-email').value.trim().toLowerCase();
+    
+    if (!recipientEmail) {
+        showMessage("Please enter a valid email.", true);
+        return;
+    }
+
+    if (window.currentUserPlan !== 'pro') {
+        showMessage("Transferring projects is a PRO feature.", true);
+        return;
+    }
+
+    const btn = document.getElementById('confirm-transfer-button');
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = "Processing...";
+
+    try {
+        // Find recipient UID
+        const usersRef = collection(db, "users");
+        const q = query(usersRef, where("email", "==", recipientEmail));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            showMessage("Recipient user not found.", true);
+            btn.disabled = false;
+            btn.innerText = originalText;
+            return;
+        }
+
+        const recipientUid = querySnapshot.docs[0].id;
+        if (recipientUid === currentUserId) {
+            showMessage("You cannot transfer to yourself.", true);
+            btn.disabled = false;
+            btn.innerText = originalText;
+            return;
+        }
+
+        // Get project data
+        const project = projectsData.get(projectId);
+        const { id, title, prompt, ...restData } = project;
+
+        const batch = writeBatch(db);
+
+        // Path to original
+        const originalRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
+        // Path to new owner
+        const newOwnerRef = doc(db, 'artifacts', appId, 'users', recipientUid, 'projects', projectId);
+
+        // Copy
+        batch.set(newOwnerRef, {
+            ...restData,
+            projectName: title,
+            prompt: prompt,
+            transferredFrom: currentUserId,
+            transferredAt: serverTimestamp()
+        });
+
+        // Delete original
+        batch.delete(originalRef);
+
+        await batch.commit();
+
+        window.closeTransferModal();
+        showMessage("Project transferred successfully!", false);
+    } catch (err) {
+        console.error(err);
+        showMessage("Transfer failed.", true);
+    } finally {
+        btn.disabled = false;
+        btn.innerText = originalText;
+    }
 }
