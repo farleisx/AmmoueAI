@@ -117,6 +117,8 @@ export function renderProjects(projectsToRender) {
     if (!projectsContainer) return;
     document.getElementById('project-count').textContent = projectsToRender.length;
     
+    console.log("Rendering projects. Current Plan status:", window.currentUserPlan);
+
     let projectsHtml = `
         <div onclick="window.location.href='/ai_prompt'"
             class="bg-white/5 border-2 border-dashed border-white/10 rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:border-ammoue transition duration-300 cursor-pointer hover:shadow-lg min-h-[180px] hover:bg-white/10">
@@ -127,7 +129,7 @@ export function renderProjects(projectsToRender) {
 
     if (projectsToRender.length === 0 && allProjectsArray.length === 0) {
         projectsContainer.innerHTML = projectsHtml + `<p class="col-span-full text-center text-gray-500 text-lg mt-10">You don't have any projects yet.</p>`;
-        lucide.createIcons();
+        if(window.lucide) lucide.createIcons();
         return;
     }
 
@@ -170,7 +172,7 @@ export function renderProjects(projectsToRender) {
                                 <button onclick="event.stopPropagation(); openTransferModal('${project.id}')" class="w-full text-left px-3 py-2 text-xs font-medium text-gray-300 hover:bg-white/5 rounded-lg flex items-center">
                                     <i data-lucide="send" class="w-3.5 h-3.5 mr-2 text-blue-400"></i> Transfer
                                 </button>
-                                ` : ''}
+                                ` : (console.log("Transfer button skipped for project:", project.id), '')}
                                 <hr class="my-1 border-white/5">
                                 <button onclick="event.stopPropagation(); openDeleteModal('${project.id}')" class="w-full text-left px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-500/10 rounded-lg flex items-center">
                                     <i data-lucide="trash-2" class="w-3.5 h-3.5 mr-2"></i> Delete
@@ -200,10 +202,10 @@ export function renderProjects(projectsToRender) {
         `;
     });
     projectsContainer.innerHTML = projectsHtml;
-    lucide.createIcons();
+    if(window.lucide) lucide.createIcons();
 }
 
-/* ================= TRANSFER MODAL UI ================= */
+window.renderProjects = renderProjects;
 
 export function openTransferModal(projectId) {
     const project = projectsData.get(projectId);
