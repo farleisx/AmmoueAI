@@ -284,7 +284,6 @@ export async function loadUserPlanAndGateContent(user, userEmailSpan, currentPla
                 const plan = userData.plan === "pro" ? "pro" : "free";
                 const count = userData.dailyCount || 0;
                 
-                // STRICT LIMITS FROM USAGE_SERVICE.JS: PRO = 10, FREE = 5
                 const limitValue = plan === "pro" ? 10 : 5;
                 const remaining = Math.max(0, limitValue - count);
 
@@ -341,14 +340,15 @@ export async function loadUserPlanAndGateContent(user, userEmailSpan, currentPla
                     if (popUpgradeBtn) popUpgradeBtn.classList.remove('hidden');
                 }
                 
-                // Set global plan status for UI rendering
                 window.currentUserPlan = plan;
+
+                if (typeof window.renderProjects === 'function' && allProjectsArray.length > 0) {
+                    window.renderProjects(allProjectsArray);
+                }
             }
         });
     } catch (e) { console.error(e); }
 }
-
-/* ================= USAGE COUNTERS ================= */
 
 export async function incrementCounter(userId, field) {
   try {
@@ -376,8 +376,6 @@ export async function getUsage(userId) {
   }
 }
 
-/* ================= PROJECT TRANSFER LOGIC ================= */
-
 import { where, getDocs } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
 export async function executeTransferProject() {
@@ -400,7 +398,6 @@ export async function executeTransferProject() {
     btn.innerText = "Processing...";
 
     try {
-        // Find recipient UID
         const usersRef = collection(db, "users");
         const q = query(usersRef, where("email", "==", recipientEmail));
         const querySnapshot = await getDocs(q);
@@ -420,18 +417,13 @@ export async function executeTransferProject() {
             return;
         }
 
-        // Get project data
         const project = projectsData.get(projectId);
         const { id, title, prompt, ...restData } = project;
 
         const batch = writeBatch(db);
-
-        // Path to original
         const originalRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
-        // Path to new owner
         const newOwnerRef = doc(db, 'artifacts', appId, 'users', recipientUid, 'projects', projectId);
 
-        // Copy
         batch.set(newOwnerRef, {
             ...restData,
             projectName: title,
@@ -440,9 +432,7 @@ export async function executeTransferProject() {
             transferredAt: serverTimestamp()
         });
 
-        // Delete original
         batch.delete(originalRef);
-
         await batch.commit();
 
         window.closeTransferModal();
