@@ -289,6 +289,33 @@
         </div>
     </div>
 
+    <div id="transfer-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden items-center justify-center">
+        <div class="bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-2xl p-6 w-full max-w-sm m-4 transform transition-all duration-300 scale-95 opacity-0" id="transfer-modal-content">
+            <h2 class="text-xl font-bold text-white mb-3 flex items-center">
+                <i data-lucide="share-2" class="w-6 h-6 text-blue-500 mr-2"></i> Transfer Ownership
+            </h2>
+            <p class="text-gray-500 text-sm mb-4">Transfer <span id="transfer-project-name" class="text-white font-bold"></span> to another user's email address.</p>
+            
+            <input type="hidden" id="transfer-project-id">
+            <div class="mb-4">
+                <label class="block text-[10px] uppercase tracking-widest text-gray-500 mb-1">Recipient Email</label>
+                <input type="email" id="transfer-email" placeholder="user@example.com" 
+                       class="w-full bg-white/5 border border-white/10 text-white rounded-xl p-3 outline-none focus:border-blue-500 transition-all">
+            </div>
+
+            <div class="flex flex-col gap-2">
+                <button type="button" id="confirm-transfer-button" onclick="handleTransferProject()"
+                        class="w-full px-4 py-2 text-sm font-bold rounded-xl text-black bg-white hover:bg-blue-400 transition duration-150 shadow-md">
+                    Confirm Transfer
+                </button>
+                <button type="button" onclick="closeTransferModal()" 
+                        class="w-full px-4 py-2 text-sm font-semibold rounded-xl text-gray-500 bg-white/5 hover:bg-white/10 transition duration-150">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
 <script type="module">
     import { observeAuth } from "./firedashboard.js";
     import * as Logic from "./dashboard-logic.js";
@@ -300,6 +327,7 @@
     window.handleDownload = Logic.handleDownload;
     window.handleCopyCode = Logic.handleCopyCode;
     window.handleExportAll = Logic.handleExportAll;
+    window.handleTransferProject = Logic.executeTransferProject;
     window.openExportModal = UI.openExportModal;
     window.closeExportModal = UI.closeExportModal;
     window.openDeleteModal = UI.openDeleteModal;
@@ -308,6 +336,8 @@
     window.closeDeleteAllModal = UI.closeDeleteAllModal;
     window.openEditModal = UI.openEditModal;
     window.closeEditModal = UI.closeEditModal;
+    window.openTransferModal = UI.openTransferModal;
+    window.closeTransferModal = UI.closeTransferModal;
     window.toggleProjectMenu = UI.toggleProjectMenu;
     window.handleUpgradeClick = () => window.location.href = '/upgrade';
     window.triggerFilter = (val) => Logic.filterProjects(val, UI.renderProjects);
