@@ -422,7 +422,7 @@ export async function executeTransferProject() {
 
         const batch = writeBatch(db);
         const originalRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
-        const pendingRef = doc(collection(db, 'pendingTransfers'));
+        const pendingRef = doc(db, 'pendingTransfers', projectId);
 
         batch.set(pendingRef, {
             ...restData,
@@ -482,10 +482,12 @@ export async function handleRejectTransfer(transfer) {
         const { id, senderId, recipientId, originalProjectId, senderEmail, recipientEmail, status, transferredAt, ...projectData } = transfer;
         const senderProjectRef = doc(db, 'artifacts', appId, 'users', senderId, 'projects', originalProjectId);
         const pendingRef = doc(db, 'pendingTransfers', id);
+        
         batch.set(senderProjectRef, { 
             ...projectData, 
             updatedAt: serverTimestamp()
         });
+        
         batch.delete(pendingRef);
         await batch.commit();
         showMessage("Project returned to sender.", false);
