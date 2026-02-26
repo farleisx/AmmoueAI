@@ -422,6 +422,7 @@ export async function executeTransferProject() {
 
         const batch = writeBatch(db);
         const originalRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
+        // MODIFIED: Document ID is now set explicitly to projectId
         const pendingRef = doc(db, 'pendingTransfers', projectId);
 
         batch.set(pendingRef, {
