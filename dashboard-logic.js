@@ -17,6 +17,8 @@ import {
     writeBatch 
 } from "./firedashboard.js";
 
+import { where, getDocs } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+
 export let currentUserId = null;
 export let projectsData = new Map();
 export let allProjectsArray = [];
@@ -376,8 +378,6 @@ export async function getUsage(userId) {
   }
 }
 
-import { where, getDocs } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
-
 export async function executeTransferProject() {
     const projectId = document.getElementById('transfer-project-id').value;
     const recipientEmail = document.getElementById('transfer-email').value.trim().toLowerCase();
@@ -422,13 +422,18 @@ export async function executeTransferProject() {
 
         const batch = writeBatch(db);
         const originalRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
-        const newOwnerRef = doc(db, 'artifacts', appId, 'users', recipientUid, 'projects', projectId);
+        const pendingRef = doc(collection(db, 'pendingTransfers'));
 
-        batch.set(newOwnerRef, {
+        batch.set(pendingRef, {
             ...restData,
+            originalProjectId: projectId,
             projectName: title,
             prompt: prompt,
-            transferredFrom: currentUserId,
+            senderId: currentUserId,
+            senderEmail: document.getElementById('user-email-display')?.textContent || 'Someone',
+            recipientId: recipientUid,
+            recipientEmail: recipientEmail,
+            status: 'pending',
             transferredAt: serverTimestamp()
         });
 
@@ -436,7 +441,7 @@ export async function executeTransferProject() {
         await batch.commit();
 
         window.closeTransferModal();
-        showMessage("Project transferred successfully!", false);
+        showMessage(`Transfer request sent to ${recipientEmail}`, false);
     } catch (err) {
         console.error(err);
         showMessage("Transfer failed.", true);
@@ -444,4 +449,46 @@ export async function executeTransferProject() {
         btn.disabled = false;
         btn.innerText = originalText;
     }
+}
+
+export function listenForPendingTransfers(userId, callback) {
+    const q = query(collection(db, "pendingTransfers"), where("recipientId", "==", userId));
+    onSnapshot(q, (snapshot) => {
+        const transfers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        callback(transfers);
+    });
+}
+
+export async function handleAcceptTransfer(transfer) {
+    try {
+        const batch = writeBatch(db);
+        const { id, senderId, recipientId, originalProjectId, ...projectData } = transfer;
+        const newProjectRef = doc(db, 'artifacts', appId, 'users', recipientId, 'projects', originalProjectId);
+        const pendingRef = doc(db, 'pendingTransfers', id);
+        batch.set(newProjectRef, { 
+            ...projectData, 
+            updatedAt: serverTimestamp(),
+            acceptedAt: serverTimestamp() 
+        });
+        batch.delete(pendingRef);
+        await batch.commit();
+        showMessage("Project accepted!", false);
+    } catch (e) { showMessage("Failed to accept.", true); }
+}
+
+export async function handleRejectTransfer(transfer) {
+    try {
+        const batch = writeBatch(db);
+        const { id, senderId, originalProjectId, ...projectData } = transfer;
+        const senderProjectRef = doc(db, 'artifacts', appId, 'users', senderId, 'projects', originalProjectId);
+        const pendingRef = doc(db, 'pendingTransfers', id);
+        batch.set(senderProjectRef, { 
+            ...projectData, 
+            updatedAt: serverTimestamp(),
+            rejectedAt: serverTimestamp() 
+        });
+        batch.delete(pendingRef);
+        await batch.commit();
+        showMessage("Project returned to sender.", false);
+    } catch (e) { showMessage("Error rejecting.", true); }
 }
