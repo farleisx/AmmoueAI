@@ -1,5 +1,11 @@
 // dashboard-ui.js
-import { projectsData, allProjectsArray, timeAgo } from "./dashboard-logic.js";
+import { 
+    projectsData, 
+    allProjectsArray, 
+    timeAgo,
+    handleAcceptTransfer,
+    handleRejectTransfer
+} from "./dashboard-logic.js";
 
 export function toggleProjectMenu(projectId) {
     const menu = document.getElementById(`menu-${projectId}`);
@@ -172,7 +178,7 @@ export function renderProjects(projectsToRender) {
                                 <button onclick="event.stopPropagation(); openTransferModal('${project.id}')" class="w-full text-left px-3 py-2 text-xs font-medium text-gray-300 hover:bg-white/5 rounded-lg flex items-center">
                                     <i data-lucide="send" class="w-3.5 h-3.5 mr-2 text-blue-400"></i> Transfer
                                 </button>
-                                ` : (console.log("Transfer button skipped for project:", project.id), '')}
+                                ` : ''}
                                 <hr class="my-1 border-white/5">
                                 <button onclick="event.stopPropagation(); openDeleteModal('${project.id}')" class="w-full text-left px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-500/10 rounded-lg flex items-center">
                                     <i data-lucide="trash-2" class="w-3.5 h-3.5 mr-2"></i> Delete
@@ -232,3 +238,42 @@ export function closeTransferModal() {
         modal.classList.add('hidden');
     }, 300);
 }
+
+export function renderPendingTransfers(transfers) {
+    const container = document.getElementById('pending-notifications-container');
+    if (!container) return;
+
+    if (transfers.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = transfers.map(t => `
+        <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-6 flex items-center justify-between animate-pulse-subtle">
+            <div class="flex items-center space-x-4">
+                <div class="bg-amber-500/20 p-2 rounded-lg">
+                    <i data-lucide="package-open" class="w-6 h-6 text-amber-500"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-bold text-white">Incoming Project: "${t.projectName}"</p>
+                    <p class="text-xs text-gray-400">Sent by ${t.senderEmail}</p>
+                </div>
+            </div>
+            <div class="flex space-x-2">
+                <button onclick="handleAcceptClick('${t.id}')" class="px-4 py-2 bg-green-500 text-white text-xs font-bold rounded-xl hover:bg-green-600 transition">Accept</button>
+                <button onclick="handleRejectClick('${t.id}')" class="px-4 py-2 bg-white/5 text-gray-300 text-xs font-bold rounded-xl hover:bg-white/10 border border-white/10 transition">Reject</button>
+            </div>
+        </div>
+    `).join('');
+    if(window.lucide) lucide.createIcons();
+}
+
+window.handleAcceptClick = (transferId) => {
+    const transfer = window.currentPendingTransfers.find(t => t.id === transferId);
+    if(transfer) handleAcceptTransfer(transfer);
+};
+
+window.handleRejectClick = (transferId) => {
+    const transfer = window.currentPendingTransfers.find(t => t.id === transferId);
+    if(transfer) handleRejectTransfer(transfer);
+};
