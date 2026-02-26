@@ -1,4 +1,3 @@
-<!-- dashboard.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -114,6 +113,14 @@
         #credit-progress {
             box-shadow: 0 0 8px rgba(45, 212, 191, 0.4);
         }
+        @keyframes pulse-subtle {
+          0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.1); }
+          70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+        }
+        .animate-pulse-subtle {
+          animation: pulse-subtle 2s infinite;
+        }
     </style>
 </head>
 <body class="antialiased min-h-screen canvas-grid">
@@ -201,6 +208,7 @@
         </header>
 
         <main class="p-4 md:p-8 pt-0 max-w-6xl mx-auto">
+            <div id="pending-notifications-container"></div>
             <section id="pro-content" class="hidden mb-8 border border-yellow-500/20 bg-yellow-500/5 p-6 rounded-2xl shadow-inner backdrop-blur-sm">
                 <div class="flex items-center justify-between">
                     <h3 class="text-2xl font-bold text-yellow-500 flex items-center">
@@ -371,6 +379,12 @@
             Logic.setCurrentUserId(user.uid);
             Logic.getProjects(user.uid, UI.renderProjects);
             Logic.loadUserPlanAndGateContent(user, userEmailSpan, currentPlanEl, proContent, upgradeCardWrapper);
+            
+            Logic.listenForPendingTransfers(user.uid, (transfers) => {
+                window.currentPendingTransfers = transfers;
+                UI.renderPendingTransfers(transfers);
+            });
+
             loadingScreen.classList.add('hidden');
             dashboardContent.classList.remove('hidden');
             setTimeout(() => lucide.createIcons(), 100);
