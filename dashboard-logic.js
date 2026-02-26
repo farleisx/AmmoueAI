@@ -422,6 +422,7 @@ export async function executeTransferProject() {
 
         const batch = writeBatch(db);
         const originalRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
+        // FORCE the transfer ID to be the same as project ID for the rules to work
         const pendingRef = doc(db, 'pendingTransfers', projectId);
 
         batch.set(pendingRef, {
@@ -463,6 +464,7 @@ export async function handleAcceptTransfer(transfer) {
     try {
         const batch = writeBatch(db);
         const { id, senderId, recipientId, originalProjectId, ...projectData } = transfer;
+        // Rules require originalProjectId to authorize creation via transfer
         const newProjectRef = doc(db, 'artifacts', appId, 'users', recipientId, 'projects', originalProjectId);
         const pendingRef = doc(db, 'pendingTransfers', id);
         batch.set(newProjectRef, { 
@@ -478,12 +480,9 @@ export async function handleAcceptTransfer(transfer) {
 
 export async function handleRejectTransfer(transfer) {
     try {
-        console.log("Attempting Reject with data:", transfer);
         const batch = writeBatch(db);
+        // Important: use originalProjectId as the target ID for rules to match the pendingTransfer doc
         const { id, senderId, recipientId, originalProjectId, senderEmail, recipientEmail, status, transferredAt, ...projectData } = transfer;
-        
-        const senderPath = `artifacts/${appId}/users/${senderId}/projects/${originalProjectId}`;
-        console.log("Writing back to sender path:", senderPath);
         
         const senderProjectRef = doc(db, 'artifacts', appId, 'users', senderId, 'projects', originalProjectId);
         const pendingRef = doc(db, 'pendingTransfers', id);
@@ -495,11 +494,9 @@ export async function handleRejectTransfer(transfer) {
         
         batch.delete(pendingRef);
         await batch.commit();
-        console.log("Reject Batch Committed Successfully");
         showMessage("Project returned to sender.", false);
     } catch (e) { 
         console.error("CRITICAL REJECT ERROR:", e.code, e.message);
-        console.log("Full Error Object:", e);
         showMessage("Error rejecting.", true); 
     }
 }
