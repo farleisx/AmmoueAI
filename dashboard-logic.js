@@ -479,16 +479,18 @@ export async function handleAcceptTransfer(transfer) {
 export async function handleRejectTransfer(transfer) {
     try {
         const batch = writeBatch(db);
-        const { id, senderId, originalProjectId, ...projectData } = transfer;
+        const { id, senderId, recipientId, originalProjectId, senderEmail, recipientEmail, status, transferredAt, ...projectData } = transfer;
         const senderProjectRef = doc(db, 'artifacts', appId, 'users', senderId, 'projects', originalProjectId);
         const pendingRef = doc(db, 'pendingTransfers', id);
         batch.set(senderProjectRef, { 
             ...projectData, 
-            updatedAt: serverTimestamp(),
-            rejectedAt: serverTimestamp() 
+            updatedAt: serverTimestamp()
         });
         batch.delete(pendingRef);
         await batch.commit();
         showMessage("Project returned to sender.", false);
-    } catch (e) { showMessage("Error rejecting.", true); }
+    } catch (e) { 
+        console.error("Reject Error:", e);
+        showMessage("Error rejecting.", true); 
+    }
 }
