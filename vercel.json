@@ -14,6 +14,7 @@
     { "src": "^/about$", "dest": "/about.prod.html" },
     { "src": "^/contact$", "dest": "/contact.prod.html" },
     { "src": "^/careers$", "dest": "/careers.prod.html" },
+    { "src": "^/plans-and-credits$", "dest": "/plans-and-credits.prod.html" },
     { "src": "^/profile$", "dest": "/profile.prod.html" }
   ]
 }
