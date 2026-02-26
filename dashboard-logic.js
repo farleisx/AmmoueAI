@@ -422,7 +422,6 @@ export async function executeTransferProject() {
 
         const batch = writeBatch(db);
         const originalRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'projects', projectId);
-        // FORCE the transfer ID to be the same as project ID for the rules to work
         const pendingRef = doc(db, 'pendingTransfers', projectId);
 
         batch.set(pendingRef, {
@@ -464,7 +463,6 @@ export async function handleAcceptTransfer(transfer) {
     try {
         const batch = writeBatch(db);
         const { id, senderId, recipientId, originalProjectId, ...projectData } = transfer;
-        // Rules require originalProjectId to authorize creation via transfer
         const newProjectRef = doc(db, 'artifacts', appId, 'users', recipientId, 'projects', originalProjectId);
         const pendingRef = doc(db, 'pendingTransfers', id);
         batch.set(newProjectRef, { 
@@ -481,7 +479,6 @@ export async function handleAcceptTransfer(transfer) {
 export async function handleRejectTransfer(transfer) {
     try {
         const batch = writeBatch(db);
-        // Important: use originalProjectId as the target ID for rules to match the pendingTransfer doc
         const { id, senderId, recipientId, originalProjectId, senderEmail, recipientEmail, status, transferredAt, ...projectData } = transfer;
         
         const senderProjectRef = doc(db, 'artifacts', appId, 'users', senderId, 'projects', originalProjectId);
