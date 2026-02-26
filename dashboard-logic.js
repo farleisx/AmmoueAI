@@ -478,8 +478,13 @@ export async function handleAcceptTransfer(transfer) {
 
 export async function handleRejectTransfer(transfer) {
     try {
+        console.log("Attempting Reject with data:", transfer);
         const batch = writeBatch(db);
         const { id, senderId, recipientId, originalProjectId, senderEmail, recipientEmail, status, transferredAt, ...projectData } = transfer;
+        
+        const senderPath = `artifacts/${appId}/users/${senderId}/projects/${originalProjectId}`;
+        console.log("Writing back to sender path:", senderPath);
+        
         const senderProjectRef = doc(db, 'artifacts', appId, 'users', senderId, 'projects', originalProjectId);
         const pendingRef = doc(db, 'pendingTransfers', id);
         
@@ -490,9 +495,11 @@ export async function handleRejectTransfer(transfer) {
         
         batch.delete(pendingRef);
         await batch.commit();
+        console.log("Reject Batch Committed Successfully");
         showMessage("Project returned to sender.", false);
     } catch (e) { 
-        console.error("Reject Error:", e);
+        console.error("CRITICAL REJECT ERROR:", e.code, e.message);
+        console.log("Full Error Object:", e);
         showMessage("Error rejecting.", true); 
     }
 }
