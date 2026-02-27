@@ -191,22 +191,23 @@ async function enforceDailyLimit(uid) {
     return { allowed: true, plan, remaining: limit - newCount, resetAt };
 }
 
-// ---------------- STRICT FILE PARSER (NO BLEED) ----------------
+// ---------------- STRICT FILE PARSER (FIXED: NON-DESTRUCTIVE REGEX REPLACEMENT) ----------------
 function extractFilesStrict(text) {
     const fileMap = {};
-    const segments = text.split(/\/\*\s*\[NEW_PAGE:\s*/g);
+    const pageRegex = /\/\*\s*\[NEW_PAGE:\s*([\s\S]*?)\s*\]\s*\*\/([\s\S]*?)\/\*\s*\[END_PAGE\]\s*\*\//g;
     
-    segments.forEach(segment => {
-        if (!segment.includes(']')) return;
+    let match;
+    while ((match = pageRegex.exec(text)) !== null) {
+        let fileName = match[1].trim();
+        let content = match[2].trim();
         
-        const [filenamePart, ...contentParts] = segment.split(/\]\s*\*\//);
-        const fileName = filenamePart.trim();
-        let content = contentParts.join('] */').split(/\/\*\s*\[END_PAGE\]/)[0].trim();
-        
+        // Safety: Filter out action logs or insanely long keys caused by hallucination
+        if (fileName.length > 150 || fileName.includes('[ACTION:')) continue;
+
         content = content.replace(/^```[a-z]*\n?/gi, "").replace(/```$/g, "");
         
         if (fileName) fileMap[fileName] = content;
-    });
+    }
     return fileMap;
 }
 
@@ -459,20 +460,20 @@ ADMIN CAPABILITY & USER ACCESS:
                             role: "user", parts: [{
                                 text: `TASK: ${prompt}. 
               
-              STRICT EXECUTION PROTOCOL:
-              1. Output [ACTION: Reviewing Architecture and Designing Evolution]
-              2. Review the EXISTING code provided in context.
-              3. For every file generated, first output [ACTION: A specific, creative narrative for what you are building]
-              4. Apply the requested changes while maintaining 100% style and theme consistency.
-              5. Use the industry-specific Pexels keywords for perfectly relevant imagery.
-              6. Ensure a "Manage Bookings" button exists in the header/footer.
-              7. All booking POST requests must hit https://ammoue-ai.vercel.app/api/booking.
-              8. CRITICAL: The Admin page login modal must be 100% functional. PIN input must be clickable and the button must trigger validation.
-              9. The Admin dashboard MUST support deleting bookings using the DELETE method.
-              10. Ensure all imports and package.json are in sync.
-              11. NEVER use TypeScript syntax.
-              12. FOR NEXT.js: ALL PAGES IN 'app/' DIRECTORY.
-              13. SAFETY: NEVER place [ACTION:] tags inside JSON file boundaries.` }]
+               STRICT EXECUTION PROTOCOL:
+               1. Output [ACTION: Reviewing Architecture and Designing Evolution]
+               2. Review the EXISTING code provided in context.
+               3. For every file generated, first output [ACTION: A specific, creative narrative for what you are building]
+               4. Apply the requested changes while maintaining 100% style and theme consistency.
+               5. Use the industry-specific Pexels keywords for perfectly relevant imagery.
+               6. Ensure a "Manage Bookings" button exists in the header/footer.
+               7. All booking POST requests must hit https://ammoue-ai.vercel.app/api/booking.
+               8. CRITICAL: The Admin page login modal must be 100% functional. PIN input must be clickable and the button must trigger validation.
+               9. The Admin dashboard MUST support deleting bookings using the DELETE method.
+               10. Ensure all imports and package.json are in sync.
+               11. NEVER use TypeScript syntax.
+               12. FOR NEXT.js: ALL PAGES IN 'app/' DIRECTORY.
+               13. SAFETY: NEVER place [ACTION:] tags inside JSON file boundaries.` }]
                         }]
                     });
 
