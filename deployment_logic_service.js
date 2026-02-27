@@ -1,4 +1,6 @@
-// deployment_logic_service.js file
+// deployment_logic_service.js
+import { syncUsage } from "./usage_service.js";
+
 export async function executeDeploymentFlow(context) {
     const { getProjectId, getUser, getProjectFiles, db, doc, updateDoc, showCustomAlert } = context;
     const currentProjectId = getProjectId();
@@ -9,9 +11,8 @@ export async function executeDeploymentFlow(context) {
     const customDomainInput = document.getElementById('custom-domain-input');
     const projectNameDisplay = document.getElementById('project-name-display');
     
-    const usageResponse = await fetch(`/api/usage?uid=${currentUser.uid}`);
-    const usageData = await usageResponse.json();
-    const isPro = usageData.plan === 'pro';
+    const usageData = await syncUsage(currentUser);
+    const isPro = usageData && usageData.plan === 'pro';
 
     const slug = (slugInput && slugInput.value) ? slugInput.value : (projectNameDisplay ? projectNameDisplay.innerText : null);
     const customDomain = (customDomainInput && customDomainInput.value && isPro) ? customDomainInput.value.trim() : null;
@@ -122,6 +123,7 @@ export async function executeDeploymentFlow(context) {
 
         while (!isReady && attempts < 60) {
             const checkRes = await fetch(`/api/check-deployment?deploymentId=${deploymentId}`);
+            if (!checkRes.ok) throw new Error("Failed to check deployment status");
             const statusData = await checkRes.json();
             
             if (statusData.status === 'READY') {
@@ -213,9 +215,9 @@ export function initDeploymentLogic(context) {
         };
     }
     if (document.getElementById('confirm-publish')) {
-        document.getElementById('confirm-publish').onclick = executeDeploymentFlow;
+        document.getElementById('confirm-publish').onclick = () => executeDeploymentFlow(context);
     }
     if (document.getElementById('redeploy-btn')) {
-        document.getElementById('redeploy-btn').onclick = executeDeploymentFlow;
+        document.getElementById('redeploy-btn').onclick = () => executeDeploymentFlow(context);
     }
 }
