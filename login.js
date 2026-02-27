@@ -1,6 +1,6 @@
 // login.js
 import { auth, db, googleProvider, githubProvider, onAuthChange, sendPasswordResetEmail } from './firebase.js';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GithubAuthProvider } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GithubAuthProvider, getAdditionalUserInfo } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 import { doc, setDoc, Timestamp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
 let pendingCredential = null;
@@ -47,6 +47,7 @@ async function createUserDocument(user) {
             uid: user.uid,
             email: user.email,
             displayName: user.displayName || null,
+            photoURL: user.photoURL || null,
             plan: "free",
             signupDate: Timestamp.now(),
             lastLogin: Timestamp.now()
@@ -101,7 +102,8 @@ export async function handleGoogleAuth(button) {
     setLoading(button, true);
     try {
         const result = await signInWithPopup(auth, googleProvider);
-        if (result.additionalUserInfo?.isNewUser) await createUserDocument(result.user);
+        const additionalInfo = getAdditionalUserInfo(result);
+        if (additionalInfo?.isNewUser) await createUserDocument(result.user);
         showMessage(`Welcome, ${result.user.displayName || "User"}!`, false);
     } catch (error) {
         showMessage("Google sign-in failed.", true);
@@ -118,7 +120,8 @@ export async function handleGitHubAuth(button) {
         if (token) {
             localStorage.setItem('gh_access_token', token);
         }
-        if (result.additionalUserInfo?.isNewUser) await createUserDocument(result.user);
+        const additionalInfo = getAdditionalUserInfo(result);
+        if (additionalInfo?.isNewUser) await createUserDocument(result.user);
         showMessage(`Welcome!`, false);
     } catch (error) {
         showMessage("GitHub sign-in failed.", true);
