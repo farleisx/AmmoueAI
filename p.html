@@ -138,19 +138,22 @@
                                     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"><\/script>
                                     <script src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>
                                     <script src="https://cdn.tailwindcss.com"><\/script>
+                                    <script>
+                                        // Critical Polyfills for CommonJS/Babel environments
+                                        window.exports = window.exports || {};
+                                        window.module = window.module || { exports: window.exports };
+                                        window.require = window.require || function(path) {
+                                            if (path === 'react') return window.React;
+                                            if (path === 'react-dom') return window.ReactDOM;
+                                            if (path === 'react-dom/client') return window.ReactDOM;
+                                            console.warn('Module "' + path + '" was requested but is not available in the preview environment.');
+                                            return {};
+                                        };
+                                    <\/script>
                                 </head>
                                 <body>
                                     <div id="root"></div>
                                     <script type="text/babel">
-                                        // Polyfill for CommonJS environment
-                                        window.exports = {};
-                                        window.module = { exports: window.exports };
-                                        window.require = (path) => {
-                                            if (path === 'react') return window.React;
-                                            if (path === 'react-dom') return window.ReactDOM;
-                                            return {};
-                                        };
-
                                         ${entryFile.content.replace(/export\s+default/g, 'const DefaultExport =')}
                                         
                                         const rootElement = document.getElementById('root');
@@ -160,9 +163,14 @@
                                                 root.render(<App />);
                                             } else if (typeof DefaultExport !== 'undefined') {
                                                 root.render(<DefaultExport />);
-                                            } else if (window.exports.default) {
+                                            } else if (window.exports && window.exports.default) {
                                                 const Exported = window.exports.default;
                                                 root.render(<Exported />);
+                                            } else if (window.module && window.module.exports) {
+                                                const Exported = window.module.exports.default || window.module.exports;
+                                                if (typeof Exported === 'function') {
+                                                  root.render(<Exported />);
+                                                }
                                             }
                                         }
                                     <\/script>
