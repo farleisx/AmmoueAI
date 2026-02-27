@@ -122,35 +122,43 @@
                     }
 
                     // React/Next.js Auto-Detection & Fallback
-                    if (!content && (Object.keys(pages).some(f => f.endsWith('.jsx') || f.endsWith('.tsx')) || pages['page.js'] || pages['App.js'])) {
-                        const entryFile = pages['App.js'] || pages['page.js'] || pages['index.js'] || Object.values(pages)[0];
-                        content = `
-                            <!DOCTYPE html>
-                            <html>
-                            <head>
-                                <script src="https://unpkg.com/react@18/umd/react.development.js"><\/script>
-                                <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"><\/script>
-                                <script src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>
-                                <script src="https://cdn.tailwindcss.com"><\/script>
-                            </head>
-                            <body>
-                                <div id="root"></div>
-                                <script type="text/babel">
-                                    ${entryFile.content}
-                                    
-                                    const rootElement = document.getElementById('root');
-                                    if (rootElement) {
-                                        const root = ReactDOM.createRoot(rootElement);
-                                        if (typeof App !== 'undefined') {
-                                            root.render(<App />);
-                                        } else if (typeof defaultExport !== 'undefined') {
-                                            root.render(<defaultExport />);
+                    if (!content && (Object.keys(pages).some(f => f.endsWith('.jsx') || f.endsWith('.tsx')) || pages['page.js'] || pages['App.js'] || pages['index.js'])) {
+                        // Priority search for entry point, excluding JSON/Config files
+                        const entryFile = pages['App.js'] || pages['page.js'] || pages['index.js'] || pages['App.jsx'] || 
+                                          Object.entries(pages).find(([name, file]) => (name.endsWith('.js') || name.endsWith('.jsx')) && !name.includes('config') && !name.endsWith('.json'))?.[1];
+                        
+                        if (entryFile) {
+                            content = `
+                                <!DOCTYPE html>
+                                <html>
+                                <head>
+                                    <script src="https://unpkg.com/react@18/umd/react.development.js"><\/script>
+                                    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"><\/script>
+                                    <script src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>
+                                    <script src="https://cdn.tailwindcss.com"><\/script>
+                                </head>
+                                <body>
+                                    <div id="root"></div>
+                                    <script type="text/babel">
+                                        ${entryFile.content}
+                                        
+                                        const rootElement = document.getElementById('root');
+                                        if (rootElement) {
+                                            const root = ReactDOM.createRoot(rootElement);
+                                            // Check for Common Next.js/React Export Patterns
+                                            if (typeof App !== 'undefined') {
+                                                root.render(<App />);
+                                            } else if (typeof Default !== 'undefined') {
+                                                root.render(<Default />);
+                                            } else if (window.DefaultExport) {
+                                                root.render(<window.DefaultExport />);
+                                            }
                                         }
-                                    }
-                                <\/script>
-                            </body>
-                            </html>
-                        `;
+                                    <\/script>
+                                </body>
+                                </html>
+                            `;
+                        }
                     }
 
                     if (!content) throw new Error(`File "${targetFile}" not found.`);
@@ -190,14 +198,14 @@
                             content = content.replace(new RegExp(`<link[^>]*href=["']\\.?/?${filename}["'][^>]*>`, 'g'), cssContent);
                         }
                         // Inline JS
-                        if (filename.endsWith('.js')) {
+                        if (filename.endsWith('.js') && !content.includes('text/babel')) {
                             const jsContent = `<script data-filename="${filename}">${pages[filename].content}<\/script>`;
                             content = content.replace(new RegExp(`<script[^>]*src=["']\\.?/?${filename}["'][^>]*><\/script>`, 'g'), jsContent);
                         }
                         // Route HTML links back through p.html
                         if (filename.endsWith('.html')) {
                             const virtualUrl = `p.html?id=${pid}&u=${uid}&file=${filename}`;
-                            content = content.replace(new RegExp(`href=["']\\.?/?${filename}["']`, 'g'), `href="${virtualUrl}"`);
+                            content = content.replace(new RegExp`href=["']\\.?/?${filename}["']`, 'g'), `href="${virtualUrl}"`);
                         }
                     });
 
