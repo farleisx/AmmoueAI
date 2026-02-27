@@ -96,7 +96,7 @@
             const params = new URLSearchParams(window.location.search);
             const pid = params.get('id');
             const uid = params.get('u');
-            const targetFile = params.get('file') || 'index.html'; // Support multi-page navigation
+            const targetFile = params.get('file') || 'index.html';
 
             if (!pid || !uid) {
                 document.body.innerHTML = "<div style='color:white; padding:50px;'>Invalid Preview Link.</div>";
@@ -114,18 +114,20 @@
                     
                     document.title = `${data.projectName || 'Project'} - ${targetFile}`;
 
-                    // 1. Get the content of the requested file
                     let content = pages[targetFile] ? pages[targetFile].content : null;
 
                     if (!content && targetFile === 'index.html') {
-                        content = data.htmlContent; // Fallback
+                        content = data.htmlContent;
                     }
 
-                    // React/Next.js Auto-Detection & Fallback
-                    if (!content && (Object.keys(pages).some(f => f.endsWith('.jsx') || f.endsWith('.tsx')) || pages['page.js'] || pages['App.js'] || pages['index.js'])) {
-                        // Priority search for entry point, excluding JSON/Config files
+                    // React/Next.js Auto-Detection
+                    if (!content && (Object.keys(pages).some(f => f.endsWith('.jsx') || f.endsWith('.tsx') || f.endsWith('.js')))) {
                         const entryFile = pages['App.js'] || pages['page.js'] || pages['index.js'] || pages['App.jsx'] || 
-                                          Object.entries(pages).find(([name, file]) => (name.endsWith('.js') || name.endsWith('.jsx')) && !name.includes('config') && !name.endsWith('.json'))?.[1];
+                                          Object.entries(pages).find(([name, file]) => 
+                                            (name.endsWith('.js') || name.endsWith('.jsx')) && 
+                                            !name.includes('config') && 
+                                            !name.includes('.json')
+                                          )?.[1];
                         
                         if (entryFile) {
                             content = `
@@ -140,18 +142,15 @@
                                 <body>
                                     <div id="root"></div>
                                     <script type="text/babel">
-                                        ${entryFile.content}
+                                        ${entryFile.content.replace(/export\s+default/g, 'const DefaultExport =')}
                                         
                                         const rootElement = document.getElementById('root');
                                         if (rootElement) {
                                             const root = ReactDOM.createRoot(rootElement);
-                                            // Check for Common Next.js/React Export Patterns
                                             if (typeof App !== 'undefined') {
                                                 root.render(<App />);
-                                            } else if (typeof Default !== 'undefined') {
-                                                root.render(<Default />);
-                                            } else if (window.DefaultExport) {
-                                                root.render(<window.DefaultExport />);
+                                            } else if (typeof DefaultExport !== 'undefined') {
+                                                root.render(<DefaultExport />);
                                             }
                                         }
                                     <\/script>
@@ -163,7 +162,6 @@
 
                     if (!content) throw new Error(`File "${targetFile}" not found.`);
 
-                    // Inject Console Bridge
                     const consoleBridge = `
                         <script>
                             const originalLog = console.log;
@@ -189,27 +187,21 @@
                     `;
                     content = content.replace('<head>', '<head>' + consoleBridge);
 
-                    // 2. VIRTUAL BUNDLING & LINKING
-                    // We iterate through all files to fix references in the current HTML
                     Object.keys(pages).forEach(filename => {
-                        // Inline CSS
                         if (filename.endsWith('.css')) {
                             const cssContent = `<style data-filename="${filename}">${pages[filename].content}</style>`;
                             content = content.replace(new RegExp(`<link[^>]*href=["']\\.?/?${filename}["'][^>]*>`, 'g'), cssContent);
                         }
-                        // Inline JS
                         if (filename.endsWith('.js') && !content.includes('text/babel')) {
                             const jsContent = `<script data-filename="${filename}">${pages[filename].content}<\/script>`;
                             content = content.replace(new RegExp(`<script[^>]*src=["']\\.?/?${filename}["'][^>]*><\/script>`, 'g'), jsContent);
                         }
-                        // Route HTML links back through p.html
                         if (filename.endsWith('.html')) {
                             const virtualUrl = `p.html?id=${pid}&u=${uid}&file=${filename}`;
-                            content = content.replace(new RegExp`href=["']\\.?/?${filename}["']`, 'g'), `href="${virtualUrl}"`);
+                            content = content.replace(new RegExp(`href=["']\\.?/?${filename}["']`, 'g'), `href="${virtualUrl}"`);
                         }
                     });
 
-                    // 3. Inject and Show
                     const docBlob = frame.contentWindow.document;
                     docBlob.open();
                     docBlob.write(content);
