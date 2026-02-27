@@ -142,6 +142,15 @@
                                 <body>
                                     <div id="root"></div>
                                     <script type="text/babel">
+                                        // Polyfill for CommonJS environment
+                                        window.exports = {};
+                                        window.module = { exports: window.exports };
+                                        window.require = (path) => {
+                                            if (path === 'react') return window.React;
+                                            if (path === 'react-dom') return window.ReactDOM;
+                                            return {};
+                                        };
+
                                         ${entryFile.content.replace(/export\s+default/g, 'const DefaultExport =')}
                                         
                                         const rootElement = document.getElementById('root');
@@ -151,6 +160,9 @@
                                                 root.render(<App />);
                                             } else if (typeof DefaultExport !== 'undefined') {
                                                 root.render(<DefaultExport />);
+                                            } else if (window.exports.default) {
+                                                const Exported = window.exports.default;
+                                                root.render(<Exported />);
                                             }
                                         }
                                     <\/script>
@@ -194,7 +206,7 @@
                         }
                         if (filename.endsWith('.js') && !content.includes('text/babel')) {
                             const jsContent = `<script data-filename="${filename}">${pages[filename].content}<\/script>`;
-                            content = content.replace(new RegExp(`<script[^>]*src=["']\\.?/?${filename}["'][^>]*><\/script>`, 'g'), jsContent);
+                            content = content.replace(new RegExp(`<script[^>]*src=["']\\.?/?${filename}["']([^>]*)><\/script>`, 'g'), jsContent);
                         }
                         if (filename.endsWith('.html')) {
                             const virtualUrl = `p.html?id=${pid}&u=${uid}&file=${filename}`;
