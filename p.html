@@ -21,7 +21,6 @@
         .badge:hover { background: rgba(255, 255, 255, 0.2); transform: translateY(-2px); }
         .loader { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #030303; z-index: 50; }
         
-        /* Console Styles */
         #console-toggle {
             position: fixed; bottom: 20px; left: 20px;
             background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(10px);
@@ -45,7 +44,6 @@
         .log-error { color: #f87171; }
         .log-warn { color: #fbbf24; }
 
-        /* Project Tree Styles */
         #tree-toggle {
             position: fixed; top: 20px; left: 20px;
             background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px);
@@ -113,7 +111,6 @@
         const db = getFirestore(app);
         let unsubscribe = null;
 
-        // Global Console Capture for Iframe
         window.addEventListener('message', (event) => {
             if (event.data.type === 'console') {
                 const logs = document.getElementById('console-logs');
@@ -128,39 +125,23 @@
         function renderOutput(data, targetFile, pid, uid) {
             const pages = data.pages || {};
             const frame = document.getElementById('output-frame');
-            
             document.title = `${data.projectName || 'Project'} - ${targetFile}`;
 
-            // Populate Project Tree
             const treeContent = document.getElementById('tree-content');
             treeContent.innerHTML = '';
             Object.keys(pages).sort().forEach(filename => {
                 const item = document.createElement('div');
                 item.className = `tree-item ${filename === targetFile ? 'active' : ''}`;
-                item.innerHTML = `
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
-                    ${filename}
-                `;
-                item.onclick = () => {
-                    window.location.href = `p.html?id=${pid}&u=${uid}&file=${filename}`;
-                };
+                item.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> ${filename}`;
+                item.onclick = () => { window.location.href = `p.html?id=${pid}&u=${uid}&file=${filename}`; };
                 treeContent.appendChild(item);
             });
 
-            let content = pages[targetFile] ? pages[targetFile].content : null;
+            let content = pages[targetFile]?.content || (targetFile === 'index.html' ? data.htmlContent : null);
 
-            if (!content && targetFile === 'index.html') {
-                content = data.htmlContent;
-            }
-
-            // React/Next.js Auto-Detection
             if (!content && (Object.keys(pages).some(f => f.match(/\.(jsx|tsx|js)$/)))) {
                 const entryFile = pages['App.js'] || pages['page.js'] || pages['index.js'] || pages['App.jsx'] || 
-                                  Object.entries(pages).find(([name, file]) => 
-                                    (name.match(/\.(js|jsx)$/)) && 
-                                    !name.includes('config') && 
-                                    !name.includes('.json')
-                                  )?.[1];
+                                  Object.entries(pages).find(([name]) => name.match(/\.(js|jsx)$/) && !name.includes('config'))?.[1];
                 
                 if (entryFile) {
                     content = `
@@ -172,102 +153,57 @@
                             <script src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>
                             <script src="https://cdn.tailwindcss.com"><\/script>
                             <script>
-                                // 1. GLOBAL ENVIRONMENT SHIELD
                                 window.process = { env: { NODE_ENV: 'development' } };
-                                window.exports = {};
-                                window.module = { exports: window.exports };
+                                window.exports = {}; window.module = { exports: window.exports };
                                 
-                                // 2. ANTI-CRASH PROXY
-                                const createSafeProxy = (name) => {
-                                    const fn = () => null;
-                                    return new Proxy(fn, {
-                                        get: (target, prop) => {
-                                            if (prop === '$$typeof') return undefined;
-                                            if (prop === 'displayName') return name;
-                                            if (name === 'motion' && typeof prop === 'string') return prop; 
-                                            return createSafeProxy(name + '.' + String(prop));
-                                        }
-                                    });
-                                };
+                                const proxyGen = (n) => new Proxy(() => null, {
+                                    get: (t, p) => p === '$$typeof' ? undefined : p === 'displayName' ? n : proxyGen(n + '.' + String(p))
+                                });
 
-                                window.motion = window.motion || createSafeProxy('motion');
-                                window.lucide = window.lucide || createSafeProxy('lucide');
+                                window.motion = window.motion || proxyGen('motion');
+                                window.lucide = window.lucide || proxyGen('lucide');
+                                window.NextImage = (p) => React.createElement('img', p);
+                                window.NextLink = (p) => React.createElement('a', { ...p, onClick: (e) => { e.preventDefault(); console.log('Link to:', p.href); } });
 
-                                // 3. NEXT.JS SPECIFIC POLYFILLS
-                                window.NextImagePlaceholder = (props) => React.createElement('img', props);
-                                window.NextLinkPlaceholder = (props) => React.createElement('a', { ...props, onClick: (e) => { e.preventDefault(); console.log('Navigation to:', props.href); } });
-
-                                window.require = window.require || function(path) {
-                                    const libs = {
-                                        'react': window.React,
-                                        'react-dom': window.ReactDOM,
-                                        'react-dom/client': window.ReactDOM,
-                                        'framer-motion': window.motion,
-                                        'lucide-react': window.lucide,
-                                        'next/image': window.NextImagePlaceholder,
-                                        'next/link': window.NextLinkPlaceholder
+                                window.require = (path) => {
+                                    const registry = {
+                                        'react': window.React, 'react-dom': window.ReactDOM, 'react-dom/client': window.ReactDOM,
+                                        'framer-motion': window.motion, 'lucide-react': window.lucide,
+                                        'next/image': window.NextImage, 'next/link': window.NextLink
                                     };
-                                    return libs[path] || createSafeProxy(path);
+                                    return registry[path] || proxyGen(path);
                                 };
                             <\/script>
                         </head>
                         <body>
                             <div id="root"></div>
-                            <script type="text/babel">
-                                // 4. BABEL SANITIZER & AUTO-EXPORT FIX
+                            <script type="text/babel" data-type="module">
                                 try {
-                                    const rawSource = \`${entryFile.content}\`;
+                                    const source = \`${entryFile.content.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`;
                                     
-                                    const sanitized = rawSource
-                                        .replace(/import\\s+.*?from\\s+['"]next\\/.*?['"];?/g, '') 
-                                        .replace(/import\\s+.*?from\\s+['"]framer-motion['"];?/g, '') 
-                                        .replace(/import\\s+.*?from\\s+['"]lucide-react['"];?/g, '') 
-                                        .replace(/export\\s+default/g, 'const DefaultExport =');
+                                    // PRE-FLIGHT TRANSFORM: Convert ESM to executable script while avoiding identifier clashes
+                                    const transformed = source
+                                        .replace(/import\\s+.*?from\\s+['"]next\\/link['"];?/g, 'const Link = window.NextLink;')
+                                        .replace(/import\\s+.*?from\\s+['"]next\\/image['"];?/g, 'const Image = window.NextImage;')
+                                        .replace(/import\\s+(?:\\*\\s+as\\s+)?(\\w+)\\s+from\\s+['"]framer-motion['"];?/g, 'const $1 = window.motion;')
+                                        .replace(/import\\s+\\{([^}]+)\\}\\s+from\\s+['"]lucide-react['"];?/g, 'const {$1} = window.lucide;')
+                                        .replace(/import\\s+.*?from\\s+['"].*?['"];?/g, '// External Import Ignored')
+                                        .replace(/export\\s+default\\s+function\\s+(\\w+)/g, 'function $1')
+                                        .replace(/export\\s+default/g, 'const DefaultExport =')
+                                        .replace(/export\\s+\\{[^}]+\\};?/g, '');
 
-                                    eval(Babel.transform(sanitized, { 
-                                        presets: ['react']
-                                    }).code);
+                                    eval(Babel.transform(transformed, { presets: ['react'] }).code);
 
-                                    // Error Boundary Wrapper
                                     class ErrorBoundary extends React.Component {
-                                        constructor(props) {
-                                            super(props);
-                                            this.state = { hasError: false };
-                                        }
-                                        static getDerivedStateFromError(error) {
-                                            return { hasError: true };
-                                        }
-                                        componentDidCatch(error, errorInfo) {
-                                            console.error("Component Error:", error.message);
-                                        }
-                                        render() {
-                                            if (this.state.hasError) {
-                                                return <div style={{color:'red', padding:'20px', background:'#fff'}}>Component Crash. Check Console.</div>;
-                                            }
-                                            return this.props.children;
-                                        }
+                                        constructor(props) { super(props); this.state = { err: null }; }
+                                        static getDerivedStateFromError(err) { return { err }; }
+                                        render() { return this.state.err ? <div style={{color:'red', padding:20}}>Runtime Error: {this.state.err.message}</div> : this.props.children; }
                                     }
 
-                                    const rootElement = document.getElementById('root');
-                                    if (rootElement) {
-                                        const root = ReactDOM.createRoot(rootElement);
-                                        const AppToRender = typeof App !== 'undefined' ? App : 
-                                                           typeof DefaultExport !== 'undefined' ? DefaultExport : 
-                                                           (window.exports && window.exports.default) ? window.exports.default : null;
-                                        
-                                        if (AppToRender) {
-                                            root.render(
-                                                <ErrorBoundary>
-                                                    <AppToRender />
-                                                </ErrorBoundary>
-                                            );
-                                        } else {
-                                            console.error("No renderable component found.");
-                                        }
-                                    }
-                                } catch (err) {
-                                    console.error("Runtime/Compilation Error:", err.message);
-                                }
+                                    const root = ReactDOM.createRoot(document.getElementById('root'));
+                                    const Target = typeof App !== 'undefined' ? App : (typeof DefaultExport !== 'undefined' ? DefaultExport : window.exports.default);
+                                    if (Target) root.render(<ErrorBoundary><Target /></ErrorBoundary>);
+                                } catch (e) { console.error("Babel/Runtime Error: " + e.message); }
                             <\/script>
                         </body>
                         </html>
@@ -277,70 +213,31 @@
 
             if (!content) return;
 
-            const consoleBridge = `
-                <script>
-                    const capture = (level) => (...args) => {
-                        window.parent.postMessage({type: 'console', level, content: args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}, '*');
-                    };
-                    console.log = capture('log');
-                    console.error = capture('error');
-                    console.warn = capture('warn');
-                    window.onerror = (msg, url, line) => capture('error')(msg + ' (line ' + line + ')');
-                <\/script>
-            `;
-            content = content.replace('<head>', '<head>' + consoleBridge);
-
-            Object.keys(pages).forEach(filename => {
-                if (filename.endsWith('.css')) {
-                    const cssContent = `<style data-filename="${filename}">${pages[filename].content}</style>`;
-                    content = content.replace(new RegExp(`<link[^>]*href=["']\\.?/?${filename}["'][^>]*>`, 'g'), cssContent);
-                }
-                if (filename.endsWith('.js') && !content.includes('text/babel')) {
-                    const jsContent = `<script data-filename="${filename}">${pages[filename].content}<\/script>`;
-                    content = content.replace(new RegExp(`<script[^>]*src=["']\\.?/?${filename}["']([^>]*)><\/script>`, 'g'), jsContent);
-                }
-                if (filename.endsWith('.html')) {
-                    const virtualUrl = `p.html?id=${pid}&u=${uid}&file=${filename}`;
-                    content = content.replace(new RegExp(`href=["']\\.?/?${filename}["']`, 'g'), `href="${virtualUrl}"`);
-                }
-            });
+            const bridge = `<script>
+                const cap = (l) => (...a) => window.parent.postMessage({type:'console', level:l, content:a.map(x=>typeof x==='object'?JSON.stringify(x):x).join(' ')}, '*');
+                console.log=cap('log'); console.error=cap('error'); console.warn=cap('warn');
+            <\/script>`;
+            content = content.replace('<head>', '<head>' + bridge);
 
             const docBlob = frame.contentWindow.document;
-            docBlob.open();
-            docBlob.write(content);
-            docBlob.close();
-
-            frame.onload = () => {
-                document.getElementById('loader').classList.add('hidden');
-                frame.classList.remove('opacity-0');
-            };
+            docBlob.open(); docBlob.write(content); docBlob.close();
+            frame.onload = () => { document.getElementById('loader').classList.add('hidden'); frame.classList.remove('opacity-0'); };
         }
 
         function initSync() {
             const params = new URLSearchParams(window.location.search);
-            const pid = params.get('id');
-            const uid = params.get('u');
-            const targetFile = params.get('file') || 'index.html';
-
-            if (!pid || !uid) {
-                document.body.innerHTML = "<div style='color:white; padding:50px;'>Invalid Preview Link.</div>";
-                return;
-            }
+            const pid = params.get('id'), uid = params.get('u'), file = params.get('file') || 'index.html';
+            if (!pid || !uid) return;
 
             if (unsubscribe) unsubscribe();
             unsubscribe = onSnapshot(doc(db, "artifacts", "ammoueai", "users", uid, "projects", pid), (snap) => {
                 if (snap.exists()) {
                     document.getElementById('reload-notif').style.display = 'inline';
-                    renderOutput(snap.data(), targetFile, pid, uid);
+                    renderOutput(snap.data(), file, pid, uid);
                     setTimeout(() => { document.getElementById('reload-notif').style.display = 'none'; }, 2000);
-                } else {
-                    document.body.innerHTML = "<div style='color:white; padding:50px;'>Project not found.</div>";
                 }
-            }, (error) => {
-                document.body.innerHTML = `<div style='color:white; padding:50px;'><h1>Sync Error</h1><p>${error.message}</p></div>`;
             });
         }
-
         window.addEventListener('load', initSync);
     </script>
 </body>
