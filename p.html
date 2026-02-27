@@ -65,6 +65,8 @@
         }
         .tree-item:hover { background: #1a1a1a; color: white; }
         .tree-item.active { background: #2563eb; color: white; }
+        .reload-indicator { margin-left: 10px; color: #4ade80; font-size: 10px; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
     </style>
 </head>
 <body>
@@ -86,7 +88,7 @@
 
     <div id="console-toggle" onclick="document.getElementById('console-panel').style.display = document.getElementById('console-panel').style.display === 'flex' ? 'none' : 'flex'">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-        Console
+        Console <span id="reload-notif" class="reload-indicator" style="display:none">● LIVE</span>
     </div>
 
     <div id="console-panel">
@@ -104,11 +106,12 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
         import { firebaseConfig } from "./fire_prompt.js";
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        let unsubscribe = null;
 
         // Global Console Capture for Iframe
         window.addEventListener('message', (event) => {
@@ -122,7 +125,198 @@
             }
         });
 
-        async function loadSharedProject() {
+        function renderOutput(data, targetFile, pid, uid) {
+            const pages = data.pages || {};
+            const frame = document.getElementById('output-frame');
+            
+            document.title = `${data.projectName || 'Project'} - ${targetFile}`;
+
+            // Populate Project Tree
+            const treeContent = document.getElementById('tree-content');
+            treeContent.innerHTML = '';
+            Object.keys(pages).sort().forEach(filename => {
+                const item = document.createElement('div');
+                item.className = `tree-item ${filename === targetFile ? 'active' : ''}`;
+                item.innerHTML = `
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+                    ${filename}
+                `;
+                item.onclick = () => {
+                    window.location.href = `p.html?id=${pid}&u=${uid}&file=${filename}`;
+                };
+                treeContent.appendChild(item);
+            });
+
+            let content = pages[targetFile] ? pages[targetFile].content : null;
+
+            if (!content && targetFile === 'index.html') {
+                content = data.htmlContent;
+            }
+
+            // React/Next.js Auto-Detection
+            if (!content && (Object.keys(pages).some(f => f.match(/\.(jsx|tsx|js)$/)))) {
+                const entryFile = pages['App.js'] || pages['page.js'] || pages['index.js'] || pages['App.jsx'] || 
+                                  Object.entries(pages).find(([name, file]) => 
+                                    (name.match(/\.(js|jsx)$/)) && 
+                                    !name.includes('config') && 
+                                    !name.includes('.json')
+                                  )?.[1];
+                
+                if (entryFile) {
+                    content = `
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <script src="https://unpkg.com/react@18/umd/react.development.js"><\/script>
+                            <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"><\/script>
+                            <script src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>
+                            <script src="https://cdn.tailwindcss.com"><\/script>
+                            <script>
+                                // 1. GLOBAL ENVIRONMENT SHIELD
+                                window.process = { env: { NODE_ENV: 'development' } };
+                                window.exports = {};
+                                window.module = { exports: window.exports };
+                                
+                                // 2. ANTI-CRASH PROXY
+                                const createSafeProxy = (name) => {
+                                    const fn = () => null;
+                                    return new Proxy(fn, {
+                                        get: (target, prop) => {
+                                            if (prop === '$$typeof') return undefined;
+                                            if (prop === 'displayName') return name;
+                                            if (name === 'motion' && typeof prop === 'string') return prop; 
+                                            return createSafeProxy(name + '.' + String(prop));
+                                        }
+                                    });
+                                };
+
+                                window.motion = window.motion || createSafeProxy('motion');
+                                window.lucide = window.lucide || createSafeProxy('lucide');
+
+                                // 3. NEXT.JS SPECIFIC POLYFILLS
+                                window.NextImagePlaceholder = (props) => React.createElement('img', props);
+                                window.NextLinkPlaceholder = (props) => React.createElement('a', { ...props, onClick: (e) => { e.preventDefault(); console.log('Navigation to:', props.href); } });
+
+                                window.require = window.require || function(path) {
+                                    const libs = {
+                                        'react': window.React,
+                                        'react-dom': window.ReactDOM,
+                                        'react-dom/client': window.ReactDOM,
+                                        'framer-motion': window.motion,
+                                        'lucide-react': window.lucide,
+                                        'next/image': window.NextImagePlaceholder,
+                                        'next/link': window.NextLinkPlaceholder
+                                    };
+                                    return libs[path] || createSafeProxy(path);
+                                };
+                            <\/script>
+                        </head>
+                        <body>
+                            <div id="root"></div>
+                            <script type="text/babel">
+                                // 4. BABEL SANITIZER & AUTO-EXPORT FIX
+                                try {
+                                    const rawSource = \`${entryFile.content}\`;
+                                    
+                                    const sanitized = rawSource
+                                        .replace(/import\\s+.*?from\\s+['"]next\\/.*?['"];?/g, '') 
+                                        .replace(/import\\s+.*?from\\s+['"]framer-motion['"];?/g, '') 
+                                        .replace(/import\\s+.*?from\\s+['"]lucide-react['"];?/g, '') 
+                                        .replace(/export\\s+default/g, 'const DefaultExport =');
+
+                                    eval(Babel.transform(sanitized, { 
+                                        presets: ['react']
+                                    }).code);
+
+                                    // Error Boundary Wrapper
+                                    class ErrorBoundary extends React.Component {
+                                        constructor(props) {
+                                            super(props);
+                                            this.state = { hasError: false };
+                                        }
+                                        static getDerivedStateFromError(error) {
+                                            return { hasError: true };
+                                        }
+                                        componentDidCatch(error, errorInfo) {
+                                            console.error("Component Error:", error.message);
+                                        }
+                                        render() {
+                                            if (this.state.hasError) {
+                                                return <div style={{color:'red', padding:'20px', background:'#fff'}}>Component Crash. Check Console.</div>;
+                                            }
+                                            return this.props.children;
+                                        }
+                                    }
+
+                                    const rootElement = document.getElementById('root');
+                                    if (rootElement) {
+                                        const root = ReactDOM.createRoot(rootElement);
+                                        const AppToRender = typeof App !== 'undefined' ? App : 
+                                                           typeof DefaultExport !== 'undefined' ? DefaultExport : 
+                                                           (window.exports && window.exports.default) ? window.exports.default : null;
+                                        
+                                        if (AppToRender) {
+                                            root.render(
+                                                <ErrorBoundary>
+                                                    <AppToRender />
+                                                </ErrorBoundary>
+                                            );
+                                        } else {
+                                            console.error("No renderable component found.");
+                                        }
+                                    }
+                                } catch (err) {
+                                    console.error("Runtime/Compilation Error:", err.message);
+                                }
+                            <\/script>
+                        </body>
+                        </html>
+                    `;
+                }
+            }
+
+            if (!content) return;
+
+            const consoleBridge = `
+                <script>
+                    const capture = (level) => (...args) => {
+                        window.parent.postMessage({type: 'console', level, content: args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}, '*');
+                    };
+                    console.log = capture('log');
+                    console.error = capture('error');
+                    console.warn = capture('warn');
+                    window.onerror = (msg, url, line) => capture('error')(msg + ' (line ' + line + ')');
+                <\/script>
+            `;
+            content = content.replace('<head>', '<head>' + consoleBridge);
+
+            Object.keys(pages).forEach(filename => {
+                if (filename.endsWith('.css')) {
+                    const cssContent = `<style data-filename="${filename}">${pages[filename].content}</style>`;
+                    content = content.replace(new RegExp(`<link[^>]*href=["']\\.?/?${filename}["'][^>]*>`, 'g'), cssContent);
+                }
+                if (filename.endsWith('.js') && !content.includes('text/babel')) {
+                    const jsContent = `<script data-filename="${filename}">${pages[filename].content}<\/script>`;
+                    content = content.replace(new RegExp(`<script[^>]*src=["']\\.?/?${filename}["']([^>]*)><\/script>`, 'g'), jsContent);
+                }
+                if (filename.endsWith('.html')) {
+                    const virtualUrl = `p.html?id=${pid}&u=${uid}&file=${filename}`;
+                    content = content.replace(new RegExp(`href=["']\\.?/?${filename}["']`, 'g'), `href="${virtualUrl}"`);
+                }
+            });
+
+            const docBlob = frame.contentWindow.document;
+            docBlob.open();
+            docBlob.write(content);
+            docBlob.close();
+
+            frame.onload = () => {
+                document.getElementById('loader').classList.add('hidden');
+                frame.classList.remove('opacity-0');
+            };
+        }
+
+        function initSync() {
             const params = new URLSearchParams(window.location.search);
             const pid = params.get('id');
             const uid = params.get('u');
@@ -133,173 +327,21 @@
                 return;
             }
 
-            try {
-                const docRef = doc(db, "artifacts", "ammoueai", "users", uid, "projects", pid);
-                const snap = await getDoc(docRef);
-
+            if (unsubscribe) unsubscribe();
+            unsubscribe = onSnapshot(doc(db, "artifacts", "ammoueai", "users", uid, "projects", pid), (snap) => {
                 if (snap.exists()) {
-                    const data = snap.data();
-                    const pages = data.pages || {};
-                    const frame = document.getElementById('output-frame');
-                    
-                    document.title = `${data.projectName || 'Project'} - ${targetFile}`;
-
-                    // Populate Project Tree
-                    const treeContent = document.getElementById('tree-content');
-                    treeContent.innerHTML = '';
-                    Object.keys(pages).sort().forEach(filename => {
-                        const item = document.createElement('div');
-                        item.className = `tree-item ${filename === targetFile ? 'active' : ''}`;
-                        item.innerHTML = `
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
-                            ${filename}
-                        `;
-                        item.onclick = () => {
-                            window.location.href = `p.html?id=${pid}&u=${uid}&file=${filename}`;
-                        };
-                        treeContent.appendChild(item);
-                    });
-
-                    let content = pages[targetFile] ? pages[targetFile].content : null;
-
-                    if (!content && targetFile === 'index.html') {
-                        content = data.htmlContent;
-                    }
-
-                    // React/Next.js Auto-Detection
-                    if (!content && (Object.keys(pages).some(f => f.endsWith('.jsx') || f.endsWith('.tsx') || f.endsWith('.js')))) {
-                        const entryFile = pages['App.js'] || pages['page.js'] || pages['index.js'] || pages['App.jsx'] || 
-                                          Object.entries(pages).find(([name, file]) => 
-                                            (name.endsWith('.js') || name.endsWith('.jsx')) && 
-                                            !name.includes('config') && 
-                                            !name.includes('.json')
-                                          )?.[1];
-                        
-                        if (entryFile) {
-                            content = `
-                                <!DOCTYPE html>
-                                <html>
-                                <head>
-                                    <script src="https://unpkg.com/react@18/umd/react.development.js"><\/script>
-                                    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"><\/script>
-                                    <script src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>
-                                    <script src="https://cdn.tailwindcss.com"><\/script>
-                                    <script>
-                                        // 1. CommonJS Polyfills
-                                        window.exports = window.exports || {};
-                                        window.module = window.module || { exports: window.exports };
-                                        
-                                        // 2. Anti-Crash Proxy (Solves "Cannot read properties of undefined reading h1")
-                                        const createSafeProxy = (name) => new Proxy(() => null, {
-                                            get: (target, prop) => {
-                                                if (prop === '$$typeof') return undefined;
-                                                // If it's a 'motion' object, return a standard HTML tag string
-                                                if (name === 'motion') return prop; 
-                                                return createSafeProxy(prop);
-                                            }
-                                        });
-
-                                        window.motion = window.motion || createSafeProxy('motion');
-                                        window.lucide = window.lucide || createSafeProxy('lucide');
-
-                                        window.require = window.require || function(path) {
-                                            if (path === 'react') return window.React;
-                                            if (path === 'react-dom') return window.ReactDOM;
-                                            if (path === 'react-dom/client') return window.ReactDOM;
-                                            if (path === 'framer-motion') return window.motion;
-                                            if (path === 'lucide-react') return window.lucide;
-                                            if (path.includes('next/')) return createSafeProxy(path);
-                                            return createSafeProxy(path);
-                                        };
-                                    <\/script>
-                                </head>
-                                <body>
-                                    <div id="root"></div>
-                                    <script type="text/babel">
-                                        // Support for Next.js Image/Link placeholders
-                                        const Image = (props) => <img {...props} />;
-                                        const Link = (props) => <a {...props} />;
-
-                                        ${entryFile.content.replace(/export\s+default/g, 'const DefaultExport =')}
-                                        
-                                        const rootElement = document.getElementById('root');
-                                        if (rootElement) {
-                                            const root = ReactDOM.createRoot(rootElement);
-                                            const RenderApp = typeof App !== 'undefined' ? App : 
-                                                              typeof DefaultExport !== 'undefined' ? DefaultExport : 
-                                                              (window.exports && window.exports.default) ? window.exports.default : null;
-                                            
-                                            if (RenderApp) {
-                                                root.render(<RenderApp />);
-                                            }
-                                        }
-                                    <\/script>
-                                </body>
-                                </html>
-                            `;
-                        }
-                    }
-
-                    if (!content) throw new Error(`File "${targetFile}" not found.`);
-
-                    const consoleBridge = `
-                        <script>
-                            const originalLog = console.log;
-                            const originalError = console.error;
-                            const originalWarn = console.warn;
-                            
-                            console.log = (...args) => {
-                                window.parent.postMessage({type: 'console', level: 'log', content: args.join(' ')}, '*');
-                                originalLog(...args);
-                            };
-                            console.error = (...args) => {
-                                window.parent.postMessage({type: 'console', level: 'error', content: args.join(' ')}, '*');
-                                originalError(...args);
-                            };
-                            console.warn = (...args) => {
-                                window.parent.postMessage({type: 'console', level: 'warn', content: args.join(' ')}, '*');
-                                originalWarn(...args);
-                            };
-                            window.onerror = (msg, url, line) => {
-                                window.parent.postMessage({type: 'console', level: 'error', content: msg + ' (line ' + line + ')'}, '*');
-                            };
-                        <\/script>
-                    `;
-                    content = content.replace('<head>', '<head>' + consoleBridge);
-
-                    Object.keys(pages).forEach(filename => {
-                        if (filename.endsWith('.css')) {
-                            const cssContent = `<style data-filename="${filename}">${pages[filename].content}</style>`;
-                            content = content.replace(new RegExp(`<link[^>]*href=["']\\.?/?${filename}["'][^>]*>`, 'g'), cssContent);
-                        }
-                        if (filename.endsWith('.js') && !content.includes('text/babel')) {
-                            const jsContent = `<script data-filename="${filename}">${pages[filename].content}<\/script>`;
-                            content = content.replace(new RegExp(`<script[^>]*src=["']\\.?/?${filename}["']([^>]*)><\/script>`, 'g'), jsContent);
-                        }
-                        if (filename.endsWith('.html')) {
-                            const virtualUrl = `p.html?id=${pid}&u=${uid}&file=${filename}`;
-                            content = content.replace(new RegExp(`href=["']\\.?/?${filename}["']`, 'g'), `href="${virtualUrl}"`);
-                        }
-                    });
-
-                    const docBlob = frame.contentWindow.document;
-                    docBlob.open();
-                    docBlob.write(content);
-                    docBlob.close();
-
-                    frame.onload = () => {
-                        document.getElementById('loader').classList.add('hidden');
-                        frame.classList.remove('opacity-0');
-                    };
+                    document.getElementById('reload-notif').style.display = 'inline';
+                    renderOutput(snap.data(), targetFile, pid, uid);
+                    setTimeout(() => { document.getElementById('reload-notif').style.display = 'none'; }, 2000);
                 } else {
-                    throw new Error("Project not found.");
+                    document.body.innerHTML = "<div style='color:white; padding:50px;'>Project not found.</div>";
                 }
-            } catch (e) {
-                document.body.innerHTML = `<div style='color:white; padding:50px;'><h1>Preview Error</h1><p>${e.message}</p></div>`;
-            }
+            }, (error) => {
+                document.body.innerHTML = `<div style='color:white; padding:50px;'><h1>Sync Error</h1><p>${error.message}</p></div>`;
+            });
         }
 
-        window.addEventListener('load', loadSharedProject);
+        window.addEventListener('load', initSync);
     </script>
 </body>
 </html>
