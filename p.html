@@ -20,6 +20,30 @@
         }
         .badge:hover { background: rgba(255, 255, 255, 0.2); transform: translateY(-2px); }
         .loader { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #030303; z-index: 50; }
+        
+        /* Console Styles */
+        #console-toggle {
+            position: fixed; bottom: 20px; left: 20px;
+            background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 8px 12px; border-radius: 8px;
+            color: #fbbf24; font-family: monospace; font-size: 12px;
+            cursor: pointer; z-index: 10000; display: flex; align-items: center; gap: 6px;
+        }
+        #console-panel {
+            position: fixed; bottom: 0; left: 0; right: 0; height: 30%;
+            background: #111; border-top: 1px solid #333;
+            color: #eee; font-family: monospace; font-size: 12px;
+            display: none; flex-direction: column; z-index: 9998;
+        }
+        #console-header {
+            padding: 8px 16px; background: #222; display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #333;
+        }
+        #console-logs { flex: 1; overflow-y: auto; padding: 10px; }
+        .log-entry { margin-bottom: 4px; border-bottom: 1px solid #222; padding-bottom: 2px; white-space: pre-wrap; }
+        .log-error { color: #f87171; }
+        .log-warn { color: #fbbf24; }
     </style>
 </head>
 <body>
@@ -29,6 +53,19 @@
     </div>
 
     <iframe id="output-frame" class="opacity-0"></iframe>
+
+    <div id="console-toggle" onclick="document.getElementById('console-panel').style.display = document.getElementById('console-panel').style.display === 'flex' ? 'none' : 'flex'">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+        Console
+    </div>
+
+    <div id="console-panel">
+        <div id="console-header">
+            <span>System Console</span>
+            <button onclick="document.getElementById('console-logs').innerHTML = ''" style="color:#999">Clear</button>
+        </div>
+        <div id="console-logs"></div>
+    </div>
 
     <a href="/" class="badge">
         <span>Built with <strong>Ammoue AI</strong></span>
@@ -42,6 +79,18 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+
+        // Global Console Capture for Iframe
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'console') {
+                const logs = document.getElementById('console-logs');
+                const div = document.createElement('div');
+                div.className = `log-entry log-${event.data.level}`;
+                div.textContent = `[${event.data.level.toUpperCase()}] ${event.data.content}`;
+                logs.appendChild(div);
+                logs.scrollTop = logs.scrollHeight;
+            }
+        });
 
         async function loadSharedProject() {
             const params = new URLSearchParams(window.location.search);
@@ -72,7 +121,65 @@
                         content = data.htmlContent; // Fallback
                     }
 
+                    // React/Next.js Auto-Detection & Fallback
+                    if (!content && (Object.keys(pages).some(f => f.endsWith('.jsx') || f.endsWith('.tsx')) || pages['page.js'] || pages['App.js'])) {
+                        const entryFile = pages['App.js'] || pages['page.js'] || pages['index.js'] || Object.values(pages)[0];
+                        content = `
+                            <!DOCTYPE html>
+                            <html>
+                            <head>
+                                <script src="https://unpkg.com/react@18/umd/react.development.js"><\/script>
+                                <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"><\/script>
+                                <script src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>
+                                <script src="https://cdn.tailwindcss.com"><\/script>
+                            </head>
+                            <body>
+                                <div id="root"></div>
+                                <script type="text/babel">
+                                    ${entryFile.content}
+                                    
+                                    const rootElement = document.getElementById('root');
+                                    if (rootElement) {
+                                        const root = ReactDOM.createRoot(rootElement);
+                                        if (typeof App !== 'undefined') {
+                                            root.render(<App />);
+                                        } else if (typeof defaultExport !== 'undefined') {
+                                            root.render(<defaultExport />);
+                                        }
+                                    }
+                                <\/script>
+                            </body>
+                            </html>
+                        `;
+                    }
+
                     if (!content) throw new Error(`File "${targetFile}" not found.`);
+
+                    // Inject Console Bridge
+                    const consoleBridge = `
+                        <script>
+                            const originalLog = console.log;
+                            const originalError = console.error;
+                            const originalWarn = console.warn;
+                            
+                            console.log = (...args) => {
+                                window.parent.postMessage({type: 'console', level: 'log', content: args.join(' ')}, '*');
+                                originalLog(...args);
+                            };
+                            console.error = (...args) => {
+                                window.parent.postMessage({type: 'console', level: 'error', content: args.join(' ')}, '*');
+                                originalError(...args);
+                            };
+                            console.warn = (...args) => {
+                                window.parent.postMessage({type: 'console', level: 'warn', content: args.join(' ')}, '*');
+                                originalWarn(...args);
+                            };
+                            window.onerror = (msg, url, line) => {
+                                window.parent.postMessage({type: 'console', level: 'error', content: msg + ' (line ' + line + ')'}, '*');
+                            };
+                        <\/script>
+                    `;
+                    content = content.replace('<head>', '<head>' + consoleBridge);
 
                     // 2. VIRTUAL BUNDLING & LINKING
                     // We iterate through all files to fix references in the current HTML
