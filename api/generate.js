@@ -35,7 +35,7 @@ const STACK_PRESETS = {
         frontend: "Next.js (App Router), Tailwind CSS",
         backend: "Next.js API Routes",
         structure: "Next.js Project Structure",
-        requiredFiles: ["package.json", "next.config.js", "app/layout.jsx", "app/page.jsx", "app/globals.css", "lib/utils.js", "vercel.json", "README.md"]
+        requiredFiles: ["package.json", "next.config.js", "app/layout.jsx", "app/page.jsx", "app/globals.css", "app/lib/utils.js", "vercel.json", "README.md"]
     },
     "react-node": {
         frontend: "React (Vite), Tailwind CSS (CDN ONLY, INLINE ONLY)",
@@ -194,14 +194,19 @@ async function enforceDailyLimit(uid) {
 // ---------------- STRICT FILE PARSER (NO BLEED) ----------------
 function extractFilesStrict(text) {
     const fileMap = {};
-    const regex = /\/\*\s*\[NEW_PAGE:\s*(.*?)\s*\]\s*\*\/([\s\S]*?)\/\*\s*\[END_PAGE\]\s*\*\//g;
-    let match;
-    while ((match = regex.exec(text)) !== null) {
-        const fileName = match[1].trim();
-        let content = match[2].trim();
+    const segments = text.split(/\/\*\s*\[NEW_PAGE:\s*/g);
+    
+    segments.forEach(segment => {
+        if (!segment.includes(']')) return;
+        
+        const [filenamePart, ...contentParts] = segment.split(/\]\s*\*\//);
+        const fileName = filenamePart.trim();
+        let content = contentParts.join('] */').split(/\/\*\s*\[END_PAGE\]/)[0].trim();
+        
         content = content.replace(/^```[a-z]*\n?/gi, "").replace(/```$/g, "");
-        fileMap[fileName] = content;
-    }
+        
+        if (fileName) fileMap[fileName] = content;
+    });
     return fileMap;
 }
 
@@ -365,12 +370,12 @@ STRICT TECHNICAL RULES:
    - Build charts and progress bars manually using pure Tailwind CSS and Framer Motion.
    - For icons, ONLY use 'lucide-react'. NEVER use 'Funnel'. Use 'Filter', 'BarChart', 'Zap', or 'TrendingUp'.
    - EVERY package imported in your code MUST be listed in 'dependencies' in package.json.
-5. package.json MUST include: "framer-motion", "lucide-react", "clsx", "tailwind-merge", "class-variance-authority", "react-intersection-observer", "date-fns", "react-hook-form", "zod", "@radix-ui/react-slot", "@radix-ui/react-label", "@radix-ui/react-dialog", "@radix-ui/react-dropdown-menu", "@radix-ui/react-tabs", "@radix-ui/react-popover", "@radix-ui/react-accordion", "@radix-ui/react-scroll-area", "@radix-ui/react-select", "@radix-ui/react-separator", "@radix-ui/react-switch", "@radix-ui/react-tooltip", "@radix-ui/react-avatar", "@radix-ui/react-checkbox", "@radix-ui/react-slider", "@radix-ui/react-radio-group", "@radix-ui/react-progress", "@radix-ui/react-navigation-menu", "lucide-react".
+5. package.json MUST include: "framer-motion", "lucide-react", "clsx", "tailwind-merge", "class-variance-authority", "react-intersection-observer", "date-fns", "react-hook-form", "zod", "@radix-ui/react-slot", "@radix-ui/react-label", "@radix-ui/react-dialog", "@radix-ui/react-dropdown-menu", "@radix-ui/react-tabs", "@radix-ui/react-popover", "@radix-ui/react-accordion", "@radix-ui/react-scroll-area", "@radix-ui/react-select", "@radix-ui/react-separator", "@radix-ui/react-switch", "@radix-ui/react-tooltip", "@radix-ui/react-avatar", "@radix-ui/react-checkbox", "@radix-ui/react-slider", "@radix-ui/react-radio-group", "@radix-ui/react-progress", "@radix-ui/react-navigation-menu", "lucide-react", "nanoid", "sonner", "vaul", "embla-carousel-react".
 6. CRITICAL BUILD SAFETY: 
    - You ARE WRITING JAVASCRIPT (.js/.jsx).
    - NEVER use the "type" keyword in imports (e.g., NO "import { type ... }").
    - NEVER use interface or type definitions.
-   - For "src/lib/utils.js", use exactly this:
+   - For "src/lib/utils.js" or "app/lib/utils.js", use exactly this:
      import { clsx } from "clsx";
      import { twMerge } from "tailwind-merge";
      export function cn(...inputs) { return twMerge(clsx(inputs)); }
@@ -543,7 +548,30 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 </body>`;
-                            files['index.html'] = files['index.html'].replace('</body>', bookingScript);
+                            files['index.html'] = files['index.html'].includes('</body>') 
+                                ? files['index.html'].replace('</body>', `${bookingScript}</body>`)
+                                : files['index.html'] + bookingScript;
+                        }
+
+                        // HARDENED DEPENDENCY INJECTION
+                        if (files['package.json']) {
+                            try {
+                                const pkg = JSON.parse(files['package.json']);
+                                const forcedDeps = {
+                                    "framer-motion": "^11.11.11",
+                                    "lucide-react": "^0.454.0",
+                                    "clsx": "^2.1.1",
+                                    "tailwind-merge": "^2.5.4",
+                                    "class-variance-authority": "^0.7.0",
+                                    "sonner": "^1.5.0",
+                                    "nanoid": "^5.0.7",
+                                    "date-fns": "^4.1.0"
+                                };
+                                pkg.dependencies = { ...pkg.dependencies, ...forcedDeps };
+                                files['package.json'] = JSON.stringify(pkg, null, 2);
+                            } catch (e) {
+                                console.error("Package repair failed", e);
+                            }
                         }
 
                         const mergedFiles = { ...existingFiles };
