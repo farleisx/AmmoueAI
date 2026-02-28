@@ -35,7 +35,7 @@ const STACK_PRESETS = {
         frontend: "Next.js (App Router), Tailwind CSS",
         backend: "Next.js API Routes",
         structure: "Next.js Project Structure",
-        requiredFiles: ["package.json", "next.config.js", "app/layout.jsx", "app/page.jsx", "app/globals.css", "app/lib/utils.js", "vercel.json", "README.md"]
+        requiredFiles: ["package.json", "next.config.js", "app/layout.jsx", "app/page.jsx", "app/globals.css", "lib/utils.js", "vercel.json", "README.md"]
     },
     "react-node": {
         frontend: "React (Vite), Tailwind CSS (CDN ONLY, INLINE ONLY)",
@@ -191,22 +191,16 @@ async function enforceDailyLimit(uid) {
     return { allowed: true, plan, remaining: limit - newCount, resetAt };
 }
 
-// ---------------- STRICT FILE PARSER (FIXED: NON-DESTRUCTIVE REGEX REPLACEMENT) ----------------
+// ---------------- STRICT FILE PARSER (NO BLEED) ----------------
 function extractFilesStrict(text) {
     const fileMap = {};
-    const pageRegex = /\/\*\s*\[NEW_PAGE:\s*([\s\S]*?)\s*\]\s*\*\/([\s\S]*?)\/\*\s*\[END_PAGE\]\s*\*\//g;
-    
+    const regex = /\/\*\s*\[NEW_PAGE:\s*(.*?)\s*\]\s*\*\/([\s\S]*?)\/\*\s*\[END_PAGE\]\s*\*\//g;
     let match;
-    while ((match = pageRegex.exec(text)) !== null) {
-        let fileName = match[1].trim();
+    while ((match = regex.exec(text)) !== null) {
+        const fileName = match[1].trim();
         let content = match[2].trim();
-        
-        // Safety: Filter out action logs or insanely long keys caused by hallucination
-        if (fileName.length > 150 || fileName.includes('[ACTION:')) continue;
-
         content = content.replace(/^```[a-z]*\n?/gi, "").replace(/```$/g, "");
-        
-        if (fileName) fileMap[fileName] = content;
+        fileMap[fileName] = content;
     }
     return fileMap;
 }
@@ -371,12 +365,12 @@ STRICT TECHNICAL RULES:
    - Build charts and progress bars manually using pure Tailwind CSS and Framer Motion.
    - For icons, ONLY use 'lucide-react'. NEVER use 'Funnel'. Use 'Filter', 'BarChart', 'Zap', or 'TrendingUp'.
    - EVERY package imported in your code MUST be listed in 'dependencies' in package.json.
-5. package.json MUST include: "framer-motion", "lucide-react", "clsx", "tailwind-merge", "class-variance-authority", "react-intersection-observer", "date-fns", "react-hook-form", "zod", "@radix-ui/react-slot", "@radix-ui/react-label", "@radix-ui/react-dialog", "@radix-ui/react-dropdown-menu", "@radix-ui/react-tabs", "@radix-ui/react-popover", "@radix-ui/react-accordion", "@radix-ui/react-scroll-area", "@radix-ui/react-select", "@radix-ui/react-separator", "@radix-ui/react-switch", "@radix-ui/react-tooltip", "@radix-ui/react-avatar", "@radix-ui/react-checkbox", "@radix-ui/react-slider", "@radix-ui/react-radio-group", "@radix-ui/react-progress", "@radix-ui/react-navigation-menu", "lucide-react", "nanoid", "sonner", "vaul", "embla-carousel-react".
+5. package.json MUST include: "framer-motion", "lucide-react", "clsx", "tailwind-merge", "class-variance-authority", "react-intersection-observer", "date-fns", "react-hook-form", "zod", "@radix-ui/react-slot", "@radix-ui/react-label", "@radix-ui/react-dialog", "@radix-ui/react-dropdown-menu", "@radix-ui/react-tabs", "@radix-ui/react-popover", "@radix-ui/react-accordion", "@radix-ui/react-scroll-area", "@radix-ui/react-select", "@radix-ui/react-separator", "@radix-ui/react-switch", "@radix-ui/react-tooltip", "@radix-ui/react-avatar", "@radix-ui/react-checkbox", "@radix-ui/react-slider", "@radix-ui/react-radio-group", "@radix-ui/react-progress", "@radix-ui/react-navigation-menu", "lucide-react".
 6. CRITICAL BUILD SAFETY: 
    - You ARE WRITING JAVASCRIPT (.js/.jsx).
    - NEVER use the "type" keyword in imports (e.g., NO "import { type ... }").
    - NEVER use interface or type definitions.
-   - For "src/lib/utils.js" or "app/lib/utils.js", use exactly this:
+   - For "src/lib/utils.js", use exactly this:
      import { clsx } from "clsx";
      import { twMerge } from "tailwind-merge";
      export function cn(...inputs) { return twMerge(clsx(inputs)); }
@@ -460,20 +454,20 @@ ADMIN CAPABILITY & USER ACCESS:
                             role: "user", parts: [{
                                 text: `TASK: ${prompt}. 
               
-               STRICT EXECUTION PROTOCOL:
-               1. Output [ACTION: Reviewing Architecture and Designing Evolution]
-               2. Review the EXISTING code provided in context.
-               3. For every file generated, first output [ACTION: A specific, creative narrative for what you are building]
-               4. Apply the requested changes while maintaining 100% style and theme consistency.
-               5. Use the industry-specific Pexels keywords for perfectly relevant imagery.
-               6. Ensure a "Manage Bookings" button exists in the header/footer.
-               7. All booking POST requests must hit https://ammoue-ai.vercel.app/api/booking.
-               8. CRITICAL: The Admin page login modal must be 100% functional. PIN input must be clickable and the button must trigger validation.
-               9. The Admin dashboard MUST support deleting bookings using the DELETE method.
-               10. Ensure all imports and package.json are in sync.
-               11. NEVER use TypeScript syntax.
-               12. FOR NEXT.js: ALL PAGES IN 'app/' DIRECTORY.
-               13. SAFETY: NEVER place [ACTION:] tags inside JSON file boundaries.` }]
+              STRICT EXECUTION PROTOCOL:
+              1. Output [ACTION: Reviewing Architecture and Designing Evolution]
+              2. Review the EXISTING code provided in context.
+              3. For every file generated, first output [ACTION: A specific, creative narrative for what you are building]
+              4. Apply the requested changes while maintaining 100% style and theme consistency.
+              5. Use the industry-specific Pexels keywords for perfectly relevant imagery.
+              6. Ensure a "Manage Bookings" button exists in the header/footer.
+              7. All booking POST requests must hit https://ammoue-ai.vercel.app/api/booking.
+              8. CRITICAL: The Admin page login modal must be 100% functional. PIN input must be clickable and the button must trigger validation.
+              9. The Admin dashboard MUST support deleting bookings using the DELETE method.
+              10. Ensure all imports and package.json are in sync.
+              11. NEVER use TypeScript syntax.
+              12. FOR NEXT.js: ALL PAGES IN 'app/' DIRECTORY.
+              13. SAFETY: NEVER place [ACTION:] tags inside JSON file boundaries.` }]
                         }]
                     });
 
@@ -549,30 +543,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 </body>`;
-                            files['index.html'] = files['index.html'].includes('</body>') 
-                                ? files['index.html'].replace('</body>', `${bookingScript}</body>`)
-                                : files['index.html'] + bookingScript;
-                        }
-
-                        // HARDENED DEPENDENCY INJECTION
-                        if (files['package.json']) {
-                            try {
-                                const pkg = JSON.parse(files['package.json']);
-                                const forcedDeps = {
-                                    "framer-motion": "^11.11.11",
-                                    "lucide-react": "^0.454.0",
-                                    "clsx": "^2.1.1",
-                                    "tailwind-merge": "^2.5.4",
-                                    "class-variance-authority": "^0.7.0",
-                                    "sonner": "^1.5.0",
-                                    "nanoid": "^5.0.7",
-                                    "date-fns": "^4.1.0"
-                                };
-                                pkg.dependencies = { ...pkg.dependencies, ...forcedDeps };
-                                files['package.json'] = JSON.stringify(pkg, null, 2);
-                            } catch (e) {
-                                console.error("Package repair failed", e);
-                            }
+                            files['index.html'] = files['index.html'].replace('</body>', bookingScript);
                         }
 
                         const mergedFiles = { ...existingFiles };
