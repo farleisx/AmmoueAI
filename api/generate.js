@@ -36,7 +36,7 @@ const STACK_PRESETS = {
         frontend: "Next.js (App Router), Tailwind CSS",
         backend: "Next.js API Routes",
         structure: "Next.js Project Structure",
-        requiredFiles: ["package.json", "next.config.js", "postcss.config.js", "tailwind.config.js", "app/layout.jsx", "app/page.jsx", "app/globals.css", "lib/utils.js", "vercel.json", "README.md"]
+        requiredFiles: ["package.json", "next.config.js", "postcss.config.js", "tailwind.config.js", "app/layout.jsx", "app/page.jsx", "app/globals.css", "lib/utils.js", "lib/context/ThemeContext.jsx", "vercel.json", "README.md"]
     },
     "react-node": {
         frontend: "React (Vite), Tailwind CSS (CDN ONLY, INLINE ONLY)",
@@ -359,7 +359,7 @@ DESIGN PHILOSOPHY:
 
 STRICT TECHNICAL RULES:
 1. Generate EVERY file required for the ${targetFramework} stack: ${activeStack.requiredFiles.join(", ")}.
-2. You MUST include a "src/context/ThemeContext.jsx" file for ALL React projects to prevent build crashes.
+2. You MUST include a "src/context/ThemeContext.jsx" file for ALL React projects (OR "lib/context/ThemeContext.jsx" for Next.js) to prevent build crashes.
 3. For Next.js/React: Use JSX/TSX. DO NOT use plain HTML tags or CDN scripts in .jsx files.
 4. DEPENDENCY GATEKEEPER:
    - NEVER use 'react-circular-progressbar' or 'recharts'.
@@ -376,14 +376,16 @@ STRICT TECHNICAL RULES:
    - RADIX IS HEADLESS: NEVER import 'DialogHeader', 'DialogFooter', 'DialogDescription', 'SelectValue', or 'AccordionItem' as standalone named exports unless they are the base primitives.
    - MANDATORY RADIX SYNTAX: Always use the 'import * as PrimitiveName' pattern (e.g., import * as Dialog from "@radix-ui/react-dialog").
    - NO SHADCN WRAPPERS: If you need a "Header" inside a Dialog or Card, you must construct it with a div and Tailwind classes. 
-   - For "src/lib/utils.js", use exactly this:
+   - For "lib/utils.js", use exactly this:
      import { clsx } from "clsx";
      import { twMerge } from "tailwind-merge";
      export function cn(...inputs) { return twMerge(clsx(inputs)); }
    - SHADCN RESTRICTION: Do NOT import from "@/components/ui/...". You MUST write all UI component logic (buttons, inputs, dialogs) within the page file itself or a local helper within the same file to prevent "Module Not Found" errors.
+   - PATH ALIAS BAN: NEVER use '@/' in imports. Use relative paths (e.g., './lib/utils' or '../lib/utils').
    - 3D/THREE.JS NUCLEAR SAFETY: NEVER use '@react-three/drei' or '@react-three/fiber'. These cause major dependency conflicts with React 18/19. If 3D is needed, use pure CSS 3D transforms or vanilla Three.js via CDN or absolute standard three package only.
 7. NEXT.js SECURITY & API RULES:
    - Use "next": "14.2.15" or higher in package.json.
+   - NEXT.js CLIENT DIRECTIVE: If a file in the 'app/' directory uses React hooks (useState, useEffect, etc.) or interactive libraries (framer-motion), it MUST start with "use client"; on Line 1. This applies to layout.jsx and page.jsx.
    - NUCLEAR BAN: NEVER import from 'react-dom/server'. NO 'renderToStaticMarkup'.
    - If PDF/Export logic is needed, use CLIENT-SIDE libraries (jspdf, html2canvas) or pure data exports.
    - Route Handlers (app/api/...) MUST not import React components or rendering logic.
@@ -391,6 +393,7 @@ STRICT TECHNICAL RULES:
    - CONFIGURATION: 
      - postcss.config.js must export: plugins: { tailwindcss: {}, autoprefixer: {} }.
      - tailwind.config.js must include: content: ["./app/**/*.{js,jsx}", "./src/**/*.{js,jsx}", "./components/**/*.{js,jsx}"].
+     - next.config.js MUST NOT include 'experimental: { serverActions: true }'. Server actions are enabled by default.
 8. CSS IMPORT STRICTNESS:
    - ALL \`@import\` statements (fonts, etc.) MUST be at the ABSOLUTE TOP of the CSS file (Line 1).
    - NEVER place comments, whitespace, or \`@tailwind\` directives before an \`@import\`.
@@ -480,11 +483,12 @@ ADMIN CAPABILITY & USER ACCESS:
                9. The Admin dashboard MUST support deleting bookings using the DELETE method.
                10. Ensure all imports and package.json are in sync.
                11. NEVER use TypeScript syntax.
-               12. FOR NEXT.js: ALL PAGES IN 'app/' DIRECTORY.
-               13. SAFETY: Ensure ALL CSS @import rules are at the very top of files.
-               14. SAFETY: NEVER use custom hook imports. In-file logic only.
-               15. SAFETY: NEVER use '@react-three/fiber' or '@react-three/drei'.
-               16. SAFETY: NEVER place [ACTION:] tags inside JSON file boundaries.` }]
+               12. FOR NEXT.js: ALL PAGES IN 'app/' DIRECTORY MUST START WITH "use client"; IF THEY USE STATE OR FRAMER-MOTION.
+               13. PATHING: ALWAYS use relative paths (./ or ../). NEVER use @/ in imports.
+               14. SAFETY: Ensure ALL CSS @import rules are at the very top of files.
+               15. SAFETY: NEVER use custom hook imports. In-file logic only.
+               16. SAFETY: NEVER use '@react-three/fiber' or '@react-three/drei'.
+               17. SAFETY: NEVER place [ACTION:] tags inside JSON file boundaries.` }]
                         }]
                     });
 
