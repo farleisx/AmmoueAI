@@ -365,6 +365,8 @@ STRICT TECHNICAL RULES:
    - NEVER use 'react-circular-progressbar' or 'recharts'.
    - Build charts and progress bars manually using pure Tailwind CSS and Framer Motion.
    - For icons, ONLY use 'lucide-react'. NEVER use 'Funnel'. Use 'Filter', 'BarChart', 'Zap', or 'TrendingUp'.
+   - NEVER use 'uuid'. Use native \`crypto.randomUUID()\` for generating unique identifiers.
+   - NO external custom hook files or imports (e.g., NO './hooks/useMouseBehavior'). All specialized logic (hooks, state, effects) MUST be written directly inside the component file where it is used.
    - EVERY package imported in your code MUST be listed in 'dependencies' in package.json.
 5. package.json MUST include: "framer-motion", "lucide-react", "clsx", "tailwind-merge", "class-variance-authority", "react-intersection-observer", "date-fns", "react-hook-form", "zod", "@hookform/resolvers", "tailwindcss", "postcss", "autoprefixer", "@radix-ui/react-slot", "@radix-ui/react-label", "@radix-ui/react-dialog", "@radix-ui/react-dropdown-menu", "@radix-ui/react-tabs", "@radix-ui/react-popover", "@radix-ui/react-accordion", "@radix-ui/react-scroll-area", "@radix-ui/react-select", "@radix-ui/react-separator", "@radix-ui/react-switch", "@radix-ui/react-tooltip", "@radix-ui/react-avatar", "@radix-ui/react-checkbox", "@radix-ui/react-slider", "@radix-ui/react-radio-group", "@radix-ui/react-progress", "@radix-ui/react-navigation-menu".
 6. CRITICAL BUILD SAFETY & RADIX RULES:
@@ -389,26 +391,29 @@ STRICT TECHNICAL RULES:
    - CONFIGURATION: 
      - postcss.config.js must export: plugins: { tailwindcss: {}, autoprefixer: {} }.
      - tailwind.config.js must include: content: ["./app/**/*.{js,jsx}", "./src/**/*.{js,jsx}", "./components/**/*.{js,jsx}"].
-8. You MUST use EXACTLY this marker format for EVERY file:
+8. CSS IMPORT STRICTNESS:
+   - ALL \`@import\` statements (fonts, etc.) MUST be at the ABSOLUTE TOP of the CSS file (Line 1).
+   - NEVER place comments, whitespace, or \`@tailwind\` directives before an \`@import\`.
+9. You MUST use EXACTLY this marker format for EVERY file:
 /* [NEW_PAGE: filename] */
 Code goes here...
 /* [END_PAGE] */
-9. Output ONLY code inside markers. No conversation.
-10. MEDIA: Use these URLs: Images: ${JSON.stringify(assets.images)}, Videos: ${JSON.stringify(assets.videos)}. 
+10. Output ONLY code inside markers. No conversation.
+11. MEDIA: Use these URLs: Images: ${JSON.stringify(assets.images)}, Videos: ${JSON.stringify(assets.videos)}. 
    ENSURE images are placed in contexts that match their visual content (e.g., dentist images for clinic sections).
-11. NARRATIVE LOGS: You MUST output [ACTION: Narrative Description] before every block. 
+12. NARRATIVE LOGS: You MUST output [ACTION: Narrative Description] before every block. 
     - AVOID: "Generating index.html", "Reviewing code".
 - USE: "Sculpting the glassmorphic hero section", "Engineering the premium booking engine", "Injecting 3D hover micro-interactions", "Crafting the Obsidian & Gold color palette", "Hardening security protocols for Admin access".
     - BE VIVID: Act like a god-tier developer explaining their masterpiece to a client. Use high-energy, sophisticated tech-art language.
     - PLACEMENT RULE: You MUST ensure that [ACTION:] tags are ALWAYS outside of file markers. They must NEVER appear between [NEW_PAGE:] and [END_PAGE].
-12. SYNTAX POLICE: Double check every bracket, brace, and parenthesis. Ensure every opening '{' has a closing '}' and every '[' has a ']'. A single syntax error is a total failure.
-13. DIRECTORY ENFORCEMENT (NEXT.js): If framework is Next.js, all page components MUST be prefixed with 'app/' (e.g., 'app/page.jsx', 'app/layout.jsx').
-14. CODE ORIGINALITY & BYPASS: To prevent RECITATION errors, you MUST generate all code with high structural variance.
+13. SYNTAX POLICE: Double check every bracket, brace, and parenthesis. Ensure every opening '{' has a closing '}' and every '[' has a ']'. A single syntax error is a total failure.
+14. DIRECTORY ENFORCEMENT (NEXT.js): If framework is Next.js, all page components MUST be prefixed with 'app/' (e.g., 'app/page.jsx', 'app/layout.jsx').
+15. CODE ORIGINALITY & BYPASS: To prevent RECITATION errors, you MUST generate all code with high structural variance.
     - NEVER use common placeholder text (e.g., 'Lorem Ipsum'). Use industry-specific mock data.
     - Vary the order of CSS classes in Tailwind strings randomly.
     - Add unique, descriptive comments inside your functions (e.g., // Initializing the neural-sync heartbeat logic).
     - If generating a common component (like a navbar), change the nesting structure slightly to ensure the code signature is unique.
-15. JSON PURITY: For files ending in .json, you MUST output ONLY valid JSON. 
+16. JSON PURITY: For files ending in .json, you MUST output ONLY valid JSON. 
     - NO action tags, NO comments, and NO narrative text inside the [NEW_PAGE] markers for JSON files.
     - Ensure there are no trailing commas.
 `;
@@ -476,7 +481,9 @@ ADMIN CAPABILITY & USER ACCESS:
                10. Ensure all imports and package.json are in sync.
                11. NEVER use TypeScript syntax.
                12. FOR NEXT.js: ALL PAGES IN 'app/' DIRECTORY.
-               13. SAFETY: NEVER place [ACTION:] tags inside JSON file boundaries.` }]
+               13. SAFETY: Ensure ALL CSS @import rules are at the very top of files.
+               14. SAFETY: NEVER use custom hook imports. In-file logic only.
+               15. SAFETY: NEVER place [ACTION:] tags inside JSON file boundaries.` }]
                         }]
                     });
 
