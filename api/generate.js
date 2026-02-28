@@ -1,3 +1,5 @@
+// api/generate.js
+
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // ---------------- VERCEL RUNTIME CONFIG ----------------
@@ -365,10 +367,13 @@ STRICT TECHNICAL RULES:
    - For icons, ONLY use 'lucide-react'. NEVER use 'Funnel'. Use 'Filter', 'BarChart', 'Zap', or 'TrendingUp'.
    - EVERY package imported in your code MUST be listed in 'dependencies' in package.json.
 5. package.json MUST include: "framer-motion", "lucide-react", "clsx", "tailwind-merge", "class-variance-authority", "react-intersection-observer", "date-fns", "react-hook-form", "zod", "@hookform/resolvers", "tailwindcss", "postcss", "autoprefixer", "@radix-ui/react-slot", "@radix-ui/react-label", "@radix-ui/react-dialog", "@radix-ui/react-dropdown-menu", "@radix-ui/react-tabs", "@radix-ui/react-popover", "@radix-ui/react-accordion", "@radix-ui/react-scroll-area", "@radix-ui/react-select", "@radix-ui/react-separator", "@radix-ui/react-switch", "@radix-ui/react-tooltip", "@radix-ui/react-avatar", "@radix-ui/react-checkbox", "@radix-ui/react-slider", "@radix-ui/react-radio-group", "@radix-ui/react-progress", "@radix-ui/react-navigation-menu".
-6. CRITICAL BUILD SAFETY: 
+6. CRITICAL BUILD SAFETY & RADIX RULES:
    - You ARE WRITING JAVASCRIPT (.js/.jsx).
    - NEVER use the "type" keyword in imports (e.g., NO "import { type ... }").
    - NEVER use interface or type definitions.
+   - RADIX IS HEADLESS: NEVER import 'DialogHeader', 'DialogFooter', 'DialogDescription', 'SelectValue', or 'AccordionItem' as standalone named exports unless they are the base primitives.
+   - MANDATORY RADIX SYNTAX: Always use the 'import * as PrimitiveName' pattern (e.g., import * as Dialog from "@radix-ui/react-dialog").
+   - NO SHADCN WRAPPERS: If you need a "Header" inside a Dialog or Card, you must construct it with a div and Tailwind classes. 
    - For "src/lib/utils.js", use exactly this:
      import { clsx } from "clsx";
      import { twMerge } from "tailwind-merge";
@@ -458,20 +463,20 @@ ADMIN CAPABILITY & USER ACCESS:
                             role: "user", parts: [{
                                 text: `TASK: ${prompt}. 
               
-              STRICT EXECUTION PROTOCOL:
-              1. Output [ACTION: Reviewing Architecture and Designing Evolution]
-              2. Review the EXISTING code provided in context.
-              3. For every file generated, first output [ACTION: A specific, creative narrative for what you are building]
-              4. Apply the requested changes while maintaining 100% style and theme consistency.
-              5. Use the industry-specific Pexels keywords for perfectly relevant imagery.
-              6. Ensure a "Manage Bookings" button exists in the header/footer.
-              7. All booking POST requests must hit https://ammoue-ai.vercel.app/api/booking.
-              8. CRITICAL: The Admin page login modal must be 100% functional. PIN input must be clickable and the button must trigger validation.
-              9. The Admin dashboard MUST support deleting bookings using the DELETE method.
-              10. Ensure all imports and package.json are in sync.
-              11. NEVER use TypeScript syntax.
-              12. FOR NEXT.js: ALL PAGES IN 'app/' DIRECTORY.
-              13. SAFETY: NEVER place [ACTION:] tags inside JSON file boundaries.` }]
+               STRICT EXECUTION PROTOCOL:
+               1. Output [ACTION: Reviewing Architecture and Designing Evolution]
+               2. Review the EXISTING code provided in context.
+               3. For every file generated, first output [ACTION: A specific, creative narrative for what you are building]
+               4. Apply the requested changes while maintaining 100% style and theme consistency.
+               5. Use the industry-specific Pexels keywords for perfectly relevant imagery.
+               6. Ensure a "Manage Bookings" button exists in the header/footer.
+               7. All booking POST requests must hit https://ammoue-ai.vercel.app/api/booking.
+               8. CRITICAL: The Admin page login modal must be 100% functional. PIN input must be clickable and the button must trigger validation.
+               9. The Admin dashboard MUST support deleting bookings using the DELETE method.
+               10. Ensure all imports and package.json are in sync.
+               11. NEVER use TypeScript syntax.
+               12. FOR NEXT.js: ALL PAGES IN 'app/' DIRECTORY.
+               13. SAFETY: NEVER place [ACTION:] tags inside JSON file boundaries.` }]
                         }]
                     });
 
