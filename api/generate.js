@@ -1,4 +1,3 @@
-// api/generate.js
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // ---------------- VERCEL RUNTIME CONFIG ----------------
@@ -11,7 +10,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
 const GOOGLE_CX = process.env.GOOGLE_CX;
 const GOOGLE_SEARCH_KEY = process.env.GOOGLE_SEARCH_KEY;
-const API_MODEL = "gemini-2.5-flash"; // keep 2.5 And keep this comment
+const API_MODEL = "gemini-2.0-flash"; // keep 2.5 And keep this comment
 const SERVICE_ACCOUNT = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 const PROJECT_ID = SERVICE_ACCOUNT.project_id;
 
@@ -35,7 +34,7 @@ const STACK_PRESETS = {
         frontend: "Next.js (App Router), Tailwind CSS",
         backend: "Next.js API Routes",
         structure: "Next.js Project Structure",
-        requiredFiles: ["package.json", "next.config.js", "app/layout.jsx", "app/page.jsx", "app/globals.css", "lib/utils.js", "vercel.json", "README.md"]
+        requiredFiles: ["package.json", "next.config.js", "postcss.config.js", "tailwind.config.js", "app/layout.jsx", "app/page.jsx", "app/globals.css", "lib/utils.js", "vercel.json", "README.md"]
     },
     "react-node": {
         frontend: "React (Vite), Tailwind CSS (CDN ONLY, INLINE ONLY)",
@@ -365,7 +364,7 @@ STRICT TECHNICAL RULES:
    - Build charts and progress bars manually using pure Tailwind CSS and Framer Motion.
    - For icons, ONLY use 'lucide-react'. NEVER use 'Funnel'. Use 'Filter', 'BarChart', 'Zap', or 'TrendingUp'.
    - EVERY package imported in your code MUST be listed in 'dependencies' in package.json.
-5. package.json MUST include: "framer-motion", "lucide-react", "clsx", "tailwind-merge", "class-variance-authority", "react-intersection-observer", "date-fns", "react-hook-form", "zod", "@radix-ui/react-slot", "@radix-ui/react-label", "@radix-ui/react-dialog", "@radix-ui/react-dropdown-menu", "@radix-ui/react-tabs", "@radix-ui/react-popover", "@radix-ui/react-accordion", "@radix-ui/react-scroll-area", "@radix-ui/react-select", "@radix-ui/react-separator", "@radix-ui/react-switch", "@radix-ui/react-tooltip", "@radix-ui/react-avatar", "@radix-ui/react-checkbox", "@radix-ui/react-slider", "@radix-ui/react-radio-group", "@radix-ui/react-progress", "@radix-ui/react-navigation-menu", "lucide-react".
+5. package.json MUST include: "framer-motion", "lucide-react", "clsx", "tailwind-merge", "class-variance-authority", "react-intersection-observer", "date-fns", "react-hook-form", "zod", "@hookform/resolvers", "tailwindcss", "postcss", "autoprefixer", "@radix-ui/react-slot", "@radix-ui/react-label", "@radix-ui/react-dialog", "@radix-ui/react-dropdown-menu", "@radix-ui/react-tabs", "@radix-ui/react-popover", "@radix-ui/react-accordion", "@radix-ui/react-scroll-area", "@radix-ui/react-select", "@radix-ui/react-separator", "@radix-ui/react-switch", "@radix-ui/react-tooltip", "@radix-ui/react-avatar", "@radix-ui/react-checkbox", "@radix-ui/react-slider", "@radix-ui/react-radio-group", "@radix-ui/react-progress", "@radix-ui/react-navigation-menu".
 6. CRITICAL BUILD SAFETY: 
    - You ARE WRITING JAVASCRIPT (.js/.jsx).
    - NEVER use the "type" keyword in imports (e.g., NO "import { type ... }").
@@ -374,12 +373,16 @@ STRICT TECHNICAL RULES:
      import { clsx } from "clsx";
      import { twMerge } from "tailwind-merge";
      export function cn(...inputs) { return twMerge(clsx(inputs)); }
+   - SHADCN RESTRICTION: Do NOT import from "@/components/ui/...". You MUST write all UI component logic (buttons, inputs, dialogs) within the page file itself or a local helper within the same file to prevent "Module Not Found" errors.
 7. NEXT.js SECURITY & API RULES:
    - Use "next": "14.2.15" or higher in package.json.
    - NUCLEAR BAN: NEVER import from 'react-dom/server'. NO 'renderToStaticMarkup'.
    - If PDF/Export logic is needed, use CLIENT-SIDE libraries (jspdf, html2canvas) or pure data exports.
-   - Route Handlers (app/api/...) MUST NOT import React components or rendering logic.
+   - Route Handlers (app/api/...) MUST not import React components or rendering logic.
    - Route Handlers MUST include 'export const runtime = "edge";'.
+   - CONFIGURATION: 
+     - postcss.config.js must export: plugins: { tailwindcss: {}, autoprefixer: {} }.
+     - tailwind.config.js must include: content: ["./app/**/*.{js,jsx}", "./src/**/*.{js,jsx}", "./components/**/*.{js,jsx}"].
 8. You MUST use EXACTLY this marker format for EVERY file:
 /* [NEW_PAGE: filename] */
 Code goes here...
@@ -389,7 +392,7 @@ Code goes here...
    ENSURE images are placed in contexts that match their visual content (e.g., dentist images for clinic sections).
 11. NARRATIVE LOGS: You MUST output [ACTION: Narrative Description] before every block. 
     - AVOID: "Generating index.html", "Reviewing code".
-    - USE: "Sculpting the glassmorphic hero section", "Engineering the premium booking engine", "Injecting 3D hover micro-interactions", "Crafting the Obsidian & Gold color palette", "Hardening security protocols for Admin access".
+- USE: "Sculpting the glassmorphic hero section", "Engineering the premium booking engine", "Injecting 3D hover micro-interactions", "Crafting the Obsidian & Gold color palette", "Hardening security protocols for Admin access".
     - BE VIVID: Act like a god-tier developer explaining their masterpiece to a client. Use high-energy, sophisticated tech-art language.
     - PLACEMENT RULE: You MUST ensure that [ACTION:] tags are ALWAYS outside of file markers. They must NEVER appear between [NEW_PAGE:] and [END_PAGE].
 12. SYNTAX POLICE: Double check every bracket, brace, and parenthesis. Ensure every opening '{' has a closing '}' and every '[' has a ']'. A single syntax error is a total failure.
