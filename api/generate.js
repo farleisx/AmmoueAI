@@ -382,10 +382,12 @@ STRICT TECHNICAL RULES:
      export function cn(...inputs) { return twMerge(clsx(inputs)); }
    - SHADCN RESTRICTION: Do NOT import from "@/components/ui/...". You MUST write all UI component logic (buttons, inputs, dialogs) within the page file itself or a local helper within the same file to prevent "Module Not Found" errors.
    - PATH ALIAS BAN: NEVER use '@/' in imports. Use relative paths (e.g., './lib/utils' or '../lib/utils').
+   - IMPORT COLLISION PREVENTION: If you define a component (like a Button) locally in a file, DO NOT import it from another file.
    - 3D/THREE.JS NUCLEAR SAFETY: NEVER use '@react-three/drei' or '@react-three/fiber'. These cause major dependency conflicts with React 18/19. If 3D is needed, use pure CSS 3D transforms or vanilla Three.js via CDN or absolute standard three package only.
 7. NEXT.js SECURITY & API RULES:
    - Use "next": "14.2.15" or higher in package.json.
    - NEXT.js CLIENT DIRECTIVE: If a file in the 'app/' directory uses React hooks (useState, useEffect, etc.) or interactive libraries (framer-motion), it MUST start with "use client"; on Line 1. This applies to layout.jsx and page.jsx.
+   - METADATA RESTRICTION: NEVER export 'metadata' from a file that has "use client"; at the top. If a layout needs "use client", metadata MUST be moved to a separate server component or omitted.
    - NUCLEAR BAN: NEVER import from 'react-dom/server'. NO 'renderToStaticMarkup'.
    - If PDF/Export logic is needed, use CLIENT-SIDE libraries (jspdf, html2canvas) or pure data exports.
    - Route Handlers (app/api/...) MUST not import React components or rendering logic.
@@ -485,10 +487,12 @@ ADMIN CAPABILITY & USER ACCESS:
                11. NEVER use TypeScript syntax.
                12. FOR NEXT.js: ALL PAGES IN 'app/' DIRECTORY MUST START WITH "use client"; IF THEY USE STATE OR FRAMER-MOTION.
                13. PATHING: ALWAYS use relative paths (./ or ../). NEVER use @/ in imports.
-               14. SAFETY: Ensure ALL CSS @import rules are at the very top of files.
-               15. SAFETY: NEVER use custom hook imports. In-file logic only.
-               16. SAFETY: NEVER use '@react-three/fiber' or '@react-three/drei'.
-               17. SAFETY: NEVER place [ACTION:] tags inside JSON file boundaries.` }]
+               14. IMPORT SAFETY: If defining a component like 'Button' locally, verify there are NO imports for it from external files.
+               15. NEXT.js METADATA: NEVER include 'export const metadata' in a file using "use client".
+               16. SAFETY: Ensure ALL CSS @import rules are at the very top of files.
+               17. SAFETY: NEVER use custom hook imports. In-file logic only.
+               18. SAFETY: NEVER use '@react-three/fiber' or '@react-three/drei'.
+               19. SAFETY: NEVER place [ACTION:] tags inside JSON file boundaries.` }]
                         }]
                     });
 
