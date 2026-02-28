@@ -374,6 +374,7 @@ STRICT TECHNICAL RULES:
      import { twMerge } from "tailwind-merge";
      export function cn(...inputs) { return twMerge(clsx(inputs)); }
    - SHADCN RESTRICTION: Do NOT import from "@/components/ui/...". You MUST write all UI component logic (buttons, inputs, dialogs) within the page file itself or a local helper within the same file to prevent "Module Not Found" errors.
+   - 3D/THREE.JS SAFETY: To prevent npm peer dependency conflicts with React 18/19, NEVER use '@react-three/drei' or '@react-three/fiber'. If 3D is needed, use pure CSS 3D transforms or vanilla Three.js.
 7. NEXT.js SECURITY & API RULES:
    - Use "next": "14.2.15" or higher in package.json.
    - NUCLEAR BAN: NEVER import from 'react-dom/server'. NO 'renderToStaticMarkup'.
