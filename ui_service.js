@@ -21,17 +21,20 @@ export function initUIService() {
     const terminal = document.getElementById('logs-terminal');
     
     toggleLogsBtn?.addEventListener('click', () => {
-        const isShowingLogs = terminal.style.display === 'flex';
+        const isShowingLogs = terminal.classList.contains('active-view');
+        
         if (isShowingLogs) {
-            terminal.style.display = 'none';
-            frame.style.display = 'block';
+            terminal.style.setProperty('display', 'none', 'important');
+            terminal.classList.remove('active-view');
+            frame.style.setProperty('display', 'block', 'important');
             toggleLogsBtn.innerHTML = '<i data-lucide="terminal" class="w-3 h-3"></i> Logs';
         } else {
-            terminal.style.display = 'flex';
-            frame.style.display = 'none';
+            terminal.style.setProperty('display', 'flex', 'important');
+            terminal.classList.add('active-view');
+            frame.style.setProperty('display', 'none', 'important');
             toggleLogsBtn.innerHTML = '<i data-lucide="layout" class="w-3 h-3"></i> Preview';
         }
-        lucide.createIcons();
+        if (window.lucide) lucide.createIcons();
     });
 }
 
