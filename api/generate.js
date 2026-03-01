@@ -340,7 +340,8 @@ GOAL: Create a website so visually stunning, technically perfect, and "insane" t
 FRAMEWORK: ${targetFramework.toUpperCase()}
 STACK SPEC: ${JSON.stringify(activeStack)}
 
-${previousContext ? `REFINEMENT MODE ACTIVATED:
+${previousContext ? `
+REFINEMENT MODE ACTIVATED:
 You are modifying an EXISTING project. 
 ${previousContext}
 
@@ -368,7 +369,7 @@ STRICT TECHNICAL RULES:
    - NEVER use 'uuid'. Use native \`crypto.randomUUID()\` for generating unique identifiers.
    - NO external custom hook files or imports (e.g., NO './hooks/useMouseBehavior'). All specialized logic (hooks, state, effects) MUST be written directly inside the component file where it is used.
    - EVERY package imported in your code MUST be listed in 'dependencies' in package.json.
-5. package.json MUST include: "framer-motion", "lucide-react", "clsx", "tailwind-merge", "class-variance-authority", "react-intersection-observer", "date-fns", "react-hook-form", "zod", "@hookform/resolvers", "tailwindcss", "postcss", "autoprefixer", "@radix-ui/react-slot", "@radix-ui/react-label", "@radix-ui/react-dialog", "@radix-ui/react-dropdown-menu", "@radix-ui/react-tabs", "@radix-ui/react-popover", "@radix-ui/react-accordion", "@radix-ui/react-scroll-area", "@radix-ui/react-select", "@radix-ui/react-separator", "@radix-ui/react-switch", "@radix-ui/react-tooltip", "@radix-ui/react-avatar", "@radix-ui/react-checkbox", "@radix-ui/react-slider", "@radix-ui/react-radio-group", "@radix-ui/react-progress", "@radix-ui/react-navigation-menu".
+5. package.json MUST include ONLY these stable version tags to ensure build compatibility: "framer-motion": "latest", "lucide-react": "latest", "clsx": "latest", "tailwind-merge": "latest", "class-variance-authority": "latest", "react-intersection-observer": "latest", "date-fns": "latest", "react-hook-form": "latest", "zod": "latest", "@hookform/resolvers": "latest", "tailwindcss": "latest", "postcss": "latest", "autoprefixer": "latest", "@radix-ui/react-slot": "latest", "@radix-ui/react-label": "latest", "@radix-ui/react-dialog": "latest", "@radix-ui/react-dropdown-menu": "latest", "@radix-ui/react-tabs": "latest", "@radix-ui/react-popover": "latest", "@radix-ui/react-accordion": "latest", "@radix-ui/react-scroll-area": "latest", "@radix-ui/react-select": "latest", "@radix-ui/react-separator": "latest", "@radix-ui/react-switch": "latest", "@radix-ui/react-tooltip": "latest", "@radix-ui/react-avatar": "latest", "@radix-ui/react-checkbox": "latest", "@radix-ui/react-slider": "latest", "@radix-ui/react-radio-group": "latest", "@radix-ui/react-progress": "latest", "@radix-ui/react-navigation-menu": "latest".
 6. CRITICAL BUILD SAFETY & RADIX RULES:
    - You ARE WRITING JAVASCRIPT (.js/.jsx).
    - NEVER use the "type" keyword in imports (e.g., NO "import { type ... }").
