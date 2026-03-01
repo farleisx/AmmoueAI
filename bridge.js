@@ -154,39 +154,44 @@ const setPreviewSize = (type) => {
         activeBtn.classList.add('text-white', 'bg-white/10');
     }
 
-    frame.classList.remove('device-mobile', 'device-tablet');
-    frame.style.transform = 'scale(1)';
+    container.style.transform = 'scale(1)';
 
     if (type === 'desktop') { 
+        container.style.width = '100%';
         container.style.maxWidth = '1100px'; 
+        container.style.height = 'auto';
+        container.classList.add('aspect-video');
         frame.style.width = '100%'; 
         frame.style.height = '100%';
-        frame.style.borderRadius = '0px';
     }
     else if (type === 'tablet') { 
-        container.style.maxWidth = '100%'; 
-        frame.style.width = '768px'; 
-        frame.style.height = '1024px';
-        frame.classList.add('device-tablet');
+        container.classList.remove('aspect-video');
+        container.style.width = '768px'; 
+        container.style.maxWidth = '90%';
+        container.style.height = '70vh';
+        frame.style.width = '100%';
+        frame.style.height = '100%';
         
-        const availableHeight = container.parentElement.clientHeight - 100;
-        if (availableHeight < 1024) {
-            const scale = availableHeight / 1024;
-            frame.style.transform = `scale(${scale})`;
-            frame.style.transformOrigin = 'top center';
+        const parentWidth = container.parentElement.clientWidth;
+        if (parentWidth < 768 + 40) {
+            const scale = (parentWidth - 40) / 768;
+            container.style.transform = `scale(${scale})`;
+            container.style.transformOrigin = 'top center';
         }
     }
     else { 
-        container.style.maxWidth = '100%'; 
-        frame.style.width = '393px'; 
-        frame.style.height = '852px';
-        frame.classList.add('device-mobile');
+        container.classList.remove('aspect-video');
+        container.style.width = '393px'; 
+        container.style.maxWidth = '90%';
+        container.style.height = '75vh';
+        frame.style.width = '100%';
+        frame.style.height = '100%';
 
-        const availableHeight = container.parentElement.clientHeight - 100;
-        if (availableHeight < 852) {
-            const scale = availableHeight / 852;
-            frame.style.transform = `scale(${scale})`;
-            frame.style.transformOrigin = 'top center';
+        const parentWidth = container.parentElement.clientWidth;
+        if (parentWidth < 393 + 40) {
+            const scale = (parentWidth - 40) / 393;
+            container.style.transform = `scale(${scale})`;
+            container.style.transformOrigin = 'top center';
         }
     }
 };
