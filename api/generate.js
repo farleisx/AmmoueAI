@@ -486,10 +486,10 @@ ADMIN CAPABILITY & USER ACCESS:
                9. The Admin dashboard MUST support deleting bookings using the DELETE method.
                10. Ensure all imports and package.json are in sync.
                11. NEVER use TypeScript syntax.
-               12. FOR NEXT.js: ALL PAGES IN 'app/' DIRECTORY MUST START WITH "use client"; IF THEY USE STATE OR FRAMER-MOTION.
-               13. PATHING: ALWAYS use relative paths (./ or ../). NEVER use @/ in imports.
-               14. IMPORT SAFETY: If defining a component like 'Button' locally, verify there are NO imports for it from external files.
-               15. NEXT.js METADATA: NEVER include 'export const metadata' in a file using "use client".
+               12. FOR NEXT.js: ALL PAGES IN 'app/' DIRECTORY MUST START WITH "use client"; ON LINE 1 WITHOUT EXCEPTION.
+               13. NEXT.js METADATA: NEVER include 'export const metadata' in any file starting with "use client". Metadata must be completely omitted from layouts that require state.
+               14. PATHING: ALWAYS use relative paths (./ or ../). NEVER use @/ in imports.
+               15. IMPORT SAFETY: If defining a component like 'Button' locally, verify there are NO imports for it from external files.
                16. SAFETY: Ensure ALL CSS @import rules are at the very top of files.
                17. SAFETY: NEVER use custom hook imports. In-file logic only.
                18. SAFETY: NEVER use '@react-three/fiber' or '@react-three/drei'.
