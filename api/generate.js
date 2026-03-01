@@ -489,11 +489,12 @@ ADMIN CAPABILITY & USER ACCESS:
                12. FOR NEXT.js: ALL PAGES IN 'app/' DIRECTORY MUST START WITH "use client"; ON LINE 1 WITHOUT EXCEPTION.
                13. NEXT.js METADATA: NEVER include 'export const metadata' in any file starting with "use client". Metadata must be completely omitted from layouts that require state.
                14. PATHING: ALWAYS use relative paths (./ or ../). NEVER use @/ in imports.
-               15. IMPORT SAFETY: If defining a component like 'Button' locally, verify there are NO imports for it from external files.
-               16. SAFETY: Ensure ALL CSS @import rules are at the very top of files.
-               17. SAFETY: NEVER use custom hook imports. In-file logic only.
-               18. SAFETY: NEVER use '@react-three/fiber' or '@react-three/drei'.
-               19. SAFETY: NEVER place [ACTION:] tags inside JSON file boundaries.` }]
+               15. IMPORT SAFETY & REFERENCE INTEGRITY: You MUST scan every JSX tag (e.g., <Sparkles />) and ensure it is explicitly imported in the 'lucide-react' block. If you use an icon, it MUST be in the import list. If an icon doesn't exist in Lucide, use 'Zap' or 'Activity' as a fallback. DO NOT USE UNDEFINED COMPONENTS.
+               16. IMPORT COLLISION PREVENTION: If defining a component like 'Button' locally, verify there are NO imports for it from external files.
+               17. SAFETY: Ensure ALL CSS @import rules are at the very top of files.
+               18. SAFETY: NEVER use custom hook imports. In-file logic only.
+               19. SAFETY: NEVER use '@react-three/fiber' or '@react-three/drei'.
+               20. SAFETY: NEVER place [ACTION:] tags inside JSON file boundaries.` }]
                         }]
                     });
 
