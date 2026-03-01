@@ -369,7 +369,7 @@ STRICT TECHNICAL RULES:
    - NEVER use 'uuid'. Use native \`crypto.randomUUID()\` for generating unique identifiers.
    - NO external custom hook files or imports (e.g., NO './hooks/useMouseBehavior'). All specialized logic (hooks, state, effects) MUST be written directly inside the component file where it is used.
    - EVERY package imported in your code MUST be listed in 'dependencies' in package.json.
-5. package.json MUST include ONLY these stable version tags to ensure build compatibility: "framer-motion": "latest", "lucide-react": "latest", "clsx": "latest", "tailwind-merge": "latest", "class-variance-authority": "latest", "react-intersection-observer": "latest", "date-fns": "latest", "react-hook-form": "latest", "zod": "latest", "@hookform/resolvers": "latest", "tailwindcss": "latest", "postcss": "latest", "autoprefixer": "latest", "@radix-ui/react-slot": "latest", "@radix-ui/react-label": "latest", "@radix-ui/react-dialog": "latest", "@radix-ui/react-dropdown-menu": "latest", "@radix-ui/react-tabs": "latest", "@radix-ui/react-popover": "latest", "@radix-ui/react-accordion": "latest", "@radix-ui/react-scroll-area": "latest", "@radix-ui/react-select": "latest", "@radix-ui/react-separator": "latest", "@radix-ui/react-switch": "latest", "@radix-ui/react-tooltip": "latest", "@radix-ui/react-avatar": "latest", "@radix-ui/react-checkbox": "latest", "@radix-ui/react-slider": "latest", "@radix-ui/react-radio-group": "latest", "@radix-ui/react-progress": "latest", "@radix-ui/react-navigation-menu": "latest".
+5. package.json MUST include ONLY these stable version tags to ensure build compatibility: "framer-motion": "latest", "lucide-react": "latest", "clsx": "latest", "tailwind-merge": "latest", "class-variance-authority": "latest", "react-intersection-observer": "latest", "date-fns": "latest", "react-hook-form": "latest", "zod": "latest", "@hookform/resolvers": "latest", "tailwindcss": "latest", "postcss": "latest", "autoprefixer": "latest", "@radix-ui/react-slot": "latest", "@radix-ui/react-label": "latest", "@radix-ui/react-dialog": "latest", "@radix-ui/react-dropdown-menu": "latest", "@radix-ui/react-tabs": "latest", "@radix-ui/react-popover": "latest", "@radix-ui/react-accordion": "latest", "@radix-ui/react-scroll-area": "latest", "@radix-ui/react-select": "latest", "@radix-ui/react-separator": "latest", "@radix-ui/react-switch": "latest", "@radix-ui/react-tooltip": "latest", "@radix-ui/react-avatar": "latest", "@radix-ui/react-checkbox": "latest", "@radix-ui/react-slider": "latest", "@radix-ui/react-radio-group": "latest", "@radix-ui/react-progress": "latest", "@radix-ui/react-navigation-menu": "latest", "eslint": "^8.57.1", "eslint-config-next": "14.2.15".
 6. CRITICAL BUILD SAFETY & RADIX RULES:
    - You ARE WRITING JAVASCRIPT (.js/.jsx).
    - NEVER use the "type" keyword in imports (e.g., NO "import { type ... }").
@@ -494,7 +494,8 @@ ADMIN CAPABILITY & USER ACCESS:
                17. SAFETY: Ensure ALL CSS @import rules are at the very top of files.
                18. SAFETY: NEVER use custom hook imports. In-file logic only.
                19. SAFETY: NEVER use '@react-three/fiber' or '@react-three/drei'.
-               20. SAFETY: NEVER place [ACTION:] tags inside JSON file boundaries.` }]
+               20. SAFETY: NEVER place [ACTION:] tags inside JSON file boundaries.
+               21. ERESOLVE SAFETY: You MUST use 'eslint': '^8.57.1' and 'eslint-config-next': '14.2.15' in package.json to prevent dependency resolution conflicts with latest ESLint v9.` }]
                         }]
                     });
 
