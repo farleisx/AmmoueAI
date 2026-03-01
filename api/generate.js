@@ -12,7 +12,9 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
 const GOOGLE_CX = process.env.GOOGLE_CX;
 const GOOGLE_SEARCH_KEY = process.env.GOOGLE_SEARCH_KEY;
-const API_MODEL = "gemini-2.5-flash"; // keep 2.5 And keep this comment
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const API_MODEL = "gemini-2.5-flash"; // keep 2.0 And keep this comment
+const PRO_MODEL = "google/gemini-2.5-pro";
 const SERVICE_ACCOUNT = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 const PROJECT_ID = SERVICE_ACCOUNT.project_id;
 
@@ -232,7 +234,7 @@ function validateGeneratedOutput(fullText) {
 
 // ---------------- OUTPUT SANITIZER ----------------
 function sanitizeOutput(text) {
-    const secrets = [GEMINI_API_KEY, PEXELS_API_KEY, GOOGLE_SEARCH_KEY].filter(Boolean);
+    const secrets = [GEMINI_API_KEY, PEXELS_API_KEY, GOOGLE_SEARCH_KEY, OPENROUTER_API_KEY].filter(Boolean);
     let sanitized = text;
     secrets.forEach(s => { sanitized = sanitized.split(s).join("[REDACTED]"); });
     return sanitized;
@@ -456,7 +458,6 @@ ADMIN CAPABILITY & USER ACCESS:
 `;
         }
 
-        const model = genAI.getGenerativeModel({ model: API_MODEL, systemInstruction });
         const encoder = new TextEncoder();
 
         const stream = new ReadableStream({
@@ -468,11 +469,8 @@ ADMIN CAPABILITY & USER ACCESS:
                     controller.enqueue(encoder.encode(`data: ${JSON.stringify({ info: "Booking system pre-configured", business_id, services })}\n\n`));
                 }
 
-                try {
-                    const result = await model.generateContentStream({
-                        contents: [{
-                            role: "user", parts: [{
-                                text: `TASK: ${prompt}. 
+                let fullGeneratedText = "";
+                const userMsg = `TASK: ${prompt}. 
               
                STRICT EXECUTION PROTOCOL:
                1. Output [ACTION: Reviewing Architecture and Designing Evolution]
@@ -495,25 +493,76 @@ ADMIN CAPABILITY & USER ACCESS:
                18. SAFETY: NEVER use custom hook imports. In-file logic only.
                19. SAFETY: NEVER use '@react-three/fiber' or '@react-three/drei'.
                20. SAFETY: NEVER place [ACTION:] tags inside JSON file boundaries.
-               21. ERESOLVE SAFETY: You MUST use 'eslint': '^8.57.1' and 'eslint-config-next': '14.2.15' in package.json to prevent dependency resolution conflicts with latest ESLint v9.` }]
-                        }]
-                    });
+               21. ERESOLVE SAFETY: You MUST use 'eslint': '^8.57.1' and 'eslint-config-next': '14.2.15' in package.json to prevent dependency resolution conflicts with latest ESLint v9.`;
 
-                    let fullGeneratedText = "";
-                    try {
+                try {
+                    if (rate.plan === "pro") {
+                        // ---------------- PRO PLAN: OPENROUTER ----------------
+                        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                            method: "POST",
+                            headers: {
+                                "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+                                "Content-Type": "application/json",
+                                "HTTP-Referer": "https://ammoue-ai.vercel.app",
+                                "X-Title": "Ammoue AI"
+                            },
+                            body: JSON.stringify({
+                                model: PRO_MODEL,
+                                messages: [
+                                    { role: "system", content: systemInstruction },
+                                    { role: "user", content: userMsg }
+                                ],
+                                stream: true,
+                            }),
+                        });
+
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.error?.message || "OpenRouter API Error");
+                        }
+
+                        const reader = response.body.getReader();
+                        const decoder = new TextDecoder();
+
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+
+                            const chunk = decoder.decode(value);
+                            const lines = chunk.split("\n").filter(line => line.trim() !== "");
+
+                            for (const line of lines) {
+                                if (line.includes("[DONE]")) break;
+                                if (line.startsWith("data: ")) {
+                                    try {
+                                        const data = JSON.parse(line.slice(6));
+                                        const content = data.choices[0]?.delta?.content || "";
+                                        if (content) {
+                                            fullGeneratedText += content;
+                                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: content })}\n\n`));
+                                        }
+                                    } catch (e) {
+                                        continue;
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // ---------------- FREE PLAN: NATIVE GEMINI SDK ----------------
+                        const model = genAI.getGenerativeModel({ model: API_MODEL, systemInstruction });
+                        const result = await model.generateContentStream({
+                            contents: [{ role: "user", parts: [{ text: userMsg }] }]
+                        });
+
                         for await (const chunk of result.stream) {
                             try {
                                 const text = chunk.text();
                                 fullGeneratedText += text;
                                 controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
                             } catch (chunkErr) {
-                                console.error("Chunk parsing error:", chunkErr);
                                 continue;
                             }
                         }
-                    } catch (streamIterErr) {
-                        console.error("Stream iteration error:", streamIterErr);
-                        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: "Stream interrupted" })}\n\n`));
                     }
 
                     if (projectId && fullGeneratedText) {
