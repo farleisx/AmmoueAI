@@ -15,7 +15,6 @@ export async function handleGitHubExport(currentProjectId, currentUser, projectF
             provider.addScope('repo');
             provider.addScope('admin:repo_hook');
             
-            // USE linkWithPopup instead of signInWithPopup to avoid the "account-exists" error
             const result = await linkWithPopup(currentUser, provider);
             const credential = GithubAuthProvider.credentialFromResult(result);
             userGitHubToken = credential.accessToken;
@@ -26,15 +25,24 @@ export async function handleGitHubExport(currentProjectId, currentUser, projectF
                 throw new Error("Failed to retrieve GitHub access token.");
             }
         } catch (authError) {
-            console.error("GitHub Link Error:", authError);
-            
-            // If already linked, we can still try to get the credential via signIn
+            console.error("GitHub Auth Error:", authError);
             if (authError.code === 'auth/credential-already-in-use') {
-                showCustomAlert("GitHub Sync", "This GitHub account is already linked. Try logging out and back in with GitHub.");
+                showCustomAlert("GitHub Linked", "This GitHub account is already linked. Re-authenticating...");
+                try {
+                    const provider = new GithubAuthProvider();
+                    provider.addScope('repo');
+                    const result = await linkWithPopup(currentUser, provider);
+                    const credential = GithubAuthProvider.credentialFromResult(result);
+                    userGitHubToken = credential.accessToken;
+                    if (userGitHubToken) localStorage.setItem('gh_access_token', userGitHubToken);
+                } catch (reAuthError) {
+                    showCustomAlert("Auth Error", "Could not verify GitHub identity.");
+                    return;
+                }
             } else {
-                showCustomAlert("GitHub Auth Error", "Failed to link GitHub. Please ensure popups are enabled.");
+                showCustomAlert("GitHub Auth Error", "You must link GitHub to export. Please ensure popups are enabled.");
+                return;
             }
-            return;
         }
     }
 
