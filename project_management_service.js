@@ -164,3 +164,9 @@ export function getShareableLink(projectId, userId) {
     const baseUrl = window.location.origin;
     return `${baseUrl}/p.html?id=${projectId}&u=${userId}`;
 }
+
+export function generateCoolName() {
+    const adjectives = ["sparkling", "mystic", "rapid", "cosmic", "silent", "bold", "vibrant", "lunar", "epic", "swift"];
+    const nouns = ["wave", "nebula", "pulse", "nexus", "orbit", "flow", "portal", "rift", "core", "vertex"];
+    return `${adjectives[Math.floor(Math.random() * adjectives.length)]}-${nouns[Math.floor(Math.random() * nouns.length)]}`;
+}
