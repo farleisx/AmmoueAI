@@ -39,22 +39,23 @@ export default async function handler(req, res) {
       })
     });
 
-    const createStatus = createRepoRes.status;
-    if (createStatus !== 201 && createStatus !== 422) {
+    if (createRepoRes.status !== 201 && createRepoRes.status !== 422) {
        const err = await createRepoRes.text();
        throw new Error(`Failed to create repo: ${err}`);
     }
 
-    await new Promise(r => setTimeout(r, 2000));
-
-    const refRes = await fetch(`https://api.github.com/repos/${username}/${repoName}/git/refs/heads/main`, { headers });
-    const refData = await refRes.json();
-    
-    if (!refData.object || !refData.object.sha) {
-        throw new Error("Repository initialized but main branch not found. Try again in a moment.");
+    let latestCommitSha = null;
+    for (let i = 0; i < 5; i++) {
+        await new Promise(r => setTimeout(r, 2000));
+        const refRes = await fetch(`https://api.github.com/repos/${username}/${repoName}/git/refs/heads/main`, { headers });
+        if (refRes.ok) {
+            const refData = await refRes.json();
+            latestCommitSha = refData.object.sha;
+            break;
+        }
     }
-    
-    const latestCommitSha = refData.object.sha;
+
+    if (!latestCommitSha) throw new Error("GitHub repository initialization timed out. Please try again.");
 
     const treeItems = Object.entries(files).map(([path, content]) => ({
       path,
