@@ -1,14 +1,34 @@
 // export_service.js
+import { GithubAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+import { auth } from "./fire_prompt.js";
+
 export async function handleGitHubExport(currentProjectId, currentUser, projectFiles, showCustomAlert) {
     if (!currentProjectId) return;
     const btn = document.getElementById('export-github-btn');
     const idToken = await currentUser.getIdToken();
-    const userGitHubToken = localStorage.getItem('gh_access_token');
+    let userGitHubToken = localStorage.getItem('gh_access_token');
     const projectName = document.getElementById('project-name-display').innerText;
 
     if (!userGitHubToken) {
-        showCustomAlert("GitHub Auth Error", "You must be logged in through GitHub to export. Please re-login with GitHub.");
-        return;
+        try {
+            const provider = new GithubAuthProvider();
+            provider.addScope('repo');
+            provider.addScope('admin:repo_hook');
+            
+            const result = await signInWithPopup(auth, provider);
+            const credential = GithubAuthProvider.credentialFromResult(result);
+            userGitHubToken = credential.accessToken;
+            
+            if (userGitHubToken) {
+                localStorage.setItem('gh_access_token', userGitHubToken);
+            } else {
+                throw new Error("Failed to retrieve GitHub access token.");
+            }
+        } catch (authError) {
+            console.error("GitHub Popup Auth Error:", authError);
+            showCustomAlert("GitHub Auth Error", "Failed to connect to GitHub. Please ensure popups are enabled.");
+            return;
+        }
     }
 
     btn.disabled = true;
