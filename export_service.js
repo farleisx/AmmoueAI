@@ -1,5 +1,5 @@
 // export_service.js
-import { GithubAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+import { GithubAuthProvider, linkWithPopup } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 import { auth } from "./fire_prompt.js";
 
 export async function handleGitHubExport(currentProjectId, currentUser, projectFiles, showCustomAlert) {
@@ -15,7 +15,8 @@ export async function handleGitHubExport(currentProjectId, currentUser, projectF
             provider.addScope('repo');
             provider.addScope('admin:repo_hook');
             
-            const result = await signInWithPopup(auth, provider);
+            // USE linkWithPopup instead of signInWithPopup to avoid the "account-exists" error
+            const result = await linkWithPopup(currentUser, provider);
             const credential = GithubAuthProvider.credentialFromResult(result);
             userGitHubToken = credential.accessToken;
             
@@ -25,8 +26,14 @@ export async function handleGitHubExport(currentProjectId, currentUser, projectF
                 throw new Error("Failed to retrieve GitHub access token.");
             }
         } catch (authError) {
-            console.error("GitHub Popup Auth Error:", authError);
-            showCustomAlert("GitHub Auth Error", "Failed to connect to GitHub. Please ensure popups are enabled.");
+            console.error("GitHub Link Error:", authError);
+            
+            // If already linked, we can still try to get the credential via signIn
+            if (authError.code === 'auth/credential-already-in-use') {
+                showCustomAlert("GitHub Sync", "This GitHub account is already linked. Try logging out and back in with GitHub.");
+            } else {
+                showCustomAlert("GitHub Auth Error", "Failed to link GitHub. Please ensure popups are enabled.");
+            }
             return;
         }
     }
