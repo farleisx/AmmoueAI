@@ -310,7 +310,7 @@ if (document.getElementById('export-github-btn')) {
 
 if (document.getElementById('open-tab-btn')) {
     document.getElementById('open-tab-btn').onclick = () => {
-        handleOpenInTab(activeFile, projectFiles);
+        handleOpenInTab(currentProjectId, currentUser?.uid);
     };
 }
 
