@@ -39,7 +39,8 @@ export default async function handler(req, res) {
       })
     });
 
-    if (createRepoRes.status !== 201 && createRepoRes.status !== 422) {
+    const createStatus = createRepoRes.status;
+    if (createStatus !== 201 && createStatus !== 422) {
        const err = await createRepoRes.text();
        throw new Error(`Failed to create repo: ${err}`);
     }
@@ -48,6 +49,11 @@ export default async function handler(req, res) {
 
     const refRes = await fetch(`https://api.github.com/repos/${username}/${repoName}/git/refs/heads/main`, { headers });
     const refData = await refRes.json();
+    
+    if (!refData.object || !refData.object.sha) {
+        throw new Error("Repository initialized but main branch not found. Try again in a moment.");
+    }
+    
     const latestCommitSha = refData.object.sha;
 
     const treeItems = Object.entries(files).map(([path, content]) => ({
