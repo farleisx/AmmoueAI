@@ -70,11 +70,8 @@ export async function handleGitHubExport(currentProjectId, currentUser, projectF
     }
 }
 
-export function handleOpenInTab(activeFile, projectFiles) {
-    const content = projectFiles[activeFile] || "";
-    const win = window.open('about:blank', '_blank');
-    if (win) {
-        win.document.write(activeFile.endsWith('.html') ? content : `<pre>${content}</pre>`);
-        win.document.close();
-    }
+export function handleOpenInTab(projectId, userId) {
+    if (!projectId || !userId) return;
+    const previewUrl = `${window.location.origin}/p.html?id=${projectId}&u=${userId}`;
+    window.open(previewUrl, '_blank');
 }
