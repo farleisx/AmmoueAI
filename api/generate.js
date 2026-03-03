@@ -1,6 +1,8 @@
 // api/generate.js
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
 
 // ---------------- VERCEL RUNTIME CONFIG ----------------
 export const config = {
@@ -17,6 +19,18 @@ const SERVICE_ACCOUNT = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 const PROJECT_ID = SERVICE_ACCOUNT.project_id;
 
 const LIMITS = { free: 5, pro: 10 };
+
+// ---------------- EDGE RATE LIMITER (UPSTASH) ----------------
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
+
+const ratelimit = new Ratelimit({
+  redis: redis,
+  limiter: Ratelimit.slidingWindow(5, "60 s"),
+  analytics: true,
+});
 
 // ---------------- STACK PRESETS ----------------
 const STACK_PRESETS = {
@@ -248,6 +262,20 @@ function extractServices(prompt) {
 // ---------------- MAIN HANDLER ----------------
 export default async function handler(req) {
     if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
+
+    // 1. IP-BASED EDGE RATE LIMIT (FIREWALL)
+    const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
+    const { success, limit, reset, remaining } = await ratelimit.limit(ip);
+    
+    if (!success) {
+        return new Response(JSON.stringify({ 
+            error: "Too many requests. Slow down, architect.",
+            limit, remaining, reset 
+        }), { 
+            status: 429,
+            headers: { "Content-Type": "application/json" }
+        });
+    }
 
     try {
         const body = await req.json();
