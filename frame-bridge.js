@@ -44,6 +44,13 @@ export class FrameBridge {
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
 
+        // SECURITY: Inject Base Tag to fix relative paths (Tailwind CDN, images)
+        if (!doc.querySelector('base')) {
+            const base = doc.createElement('base');
+            base.href = window.location.origin + '/';
+            doc.head.insertBefore(base, doc.head.firstChild);
+        }
+
         // SECURITY: Remove any manual top-level window access attempts in generated code
         doc.querySelectorAll('*').forEach(el => {
             [...el.attributes].forEach(attr => {
@@ -96,12 +103,9 @@ export class FrameBridge {
         `;
         doc.body.appendChild(s);
 
-        // SECURITY: ISOLATED MODE - Use Blob URL to create a unique origin jail
-        if (this.blobUrl) URL.revokeObjectURL(this.blobUrl);
-        const blob = new Blob([doc.documentElement.outerHTML], { type: 'text/html' });
-        this.blobUrl = URL.createObjectURL(blob);
-        
-        this.frame.src = this.blobUrl;
+        // Rendering Fix: Use srcdoc for reliability while maintaining sandbox isolation
+        this.frame.removeAttribute('src');
+        this.frame.srcdoc = doc.documentElement.outerHTML;
 
         if (this.codeView) this.codeView.value = html;
     }
