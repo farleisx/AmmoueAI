@@ -53,7 +53,8 @@ export async function generateProjectStream(prompt, framework, projectId, idToke
                             // Parse Actions from stream: [ACTION: Task Name]
                             const actionMatches = accumulatedText.matchAll(/\[ACTION:\s*([^\]]+)\]/g);
                             for (const match of actionMatches) {
-                                const actionName = match[1].trim();
+                                // SECURITY: Sanitize action name to prevent UI injection
+                                const actionName = match[1].trim().replace(/<[^>]*>?/gm, '');
                                 if (!processedActions.has(actionName)) {
                                     processedActions.add(actionName);
                                     onAction(actionName);
