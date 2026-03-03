@@ -74,13 +74,16 @@ export async function autoSaveProject(
       "projects"
     );
 
+    // XSS PROTECTION: Sanitize project name before saving
+    const sanitizedProjectName = projectName.replace(/<[^>]*>?/gm, '');
+
     // Prepare data including the full pages map
     const projectData = {
       prompt: userPrompt.replace(/\\n/g, "\n"),
       htmlContent: allPages[activePageName] || "", // Primary page for compatibility
       pages: allPages,                             // The map of all generated pages
       actionLogs,
-      projectName,
+      projectName: sanitizedProjectName,
       updatedAt: serverTimestamp()
     };
 
