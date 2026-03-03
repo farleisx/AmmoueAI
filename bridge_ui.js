@@ -7,8 +7,9 @@ export function showCustomAlert(title, message) {
     const t = document.getElementById('alert-title');
     const m = document.getElementById('alert-message');
     const mod = document.getElementById('alert-modal');
-    if (t) t.innerText = title;
-    if (m) m.innerText = message;
+    // SECURITY: Use textContent to prevent HTML injection in alerts
+    if (t) t.textContent = title;
+    if (m) m.textContent = message;
     if (mod) {
         mod.style.zIndex = "9999";
         mod.style.display = 'flex';
@@ -83,6 +84,11 @@ export async function fetchProjectHistory(currentUser, loadExistingProject) {
             historyList.innerHTML = "";
             querySnapshot.forEach((doc) => {
                 const data = doc.data();
+                
+                // SECURITY: Sanitize data for the history sidebar
+                const safeName = (data.projectName || 'Untitled').replace(/<[^>]*>?/gm, '');
+                const safeDate = data.lastUpdated ? new Date(parseInt(data.lastUpdated)).toLocaleDateString() : 'New';
+
                 const item = document.createElement('div');
                 item.className = "p-2 hover:bg-white/5 rounded-lg cursor-pointer transition flex items-center gap-3 group";
                 item.innerHTML = `
@@ -90,10 +96,15 @@ export async function fetchProjectHistory(currentUser, loadExistingProject) {
                         <i data-lucide="file-code" class="w-4 h-4"></i>
                     </div>
                     <div class="flex-1 overflow-hidden">
-                        <p class="text-[13px] text-gray-300 truncate font-medium group-hover:text-white">${data.projectName || 'Untitled'}</p>
-                        <p class="text-[10px] text-gray-600 truncate">${data.lastUpdated ? new Date(parseInt(data.lastUpdated)).toLocaleDateString() : 'New'}</p>
+                        <p class="text-[13px] text-gray-300 truncate font-medium group-hover:text-white history-item-name"></p>
+                        <p class="text-[10px] text-gray-600 truncate history-item-date"></p>
                     </div>
                 `;
+                
+                // Set text securely
+                item.querySelector('.history-item-name').textContent = safeName;
+                item.querySelector('.history-item-date').textContent = safeDate;
+
                 item.onclick = () => { loadExistingProject(doc.id); };
                 historyList.appendChild(item);
             });
