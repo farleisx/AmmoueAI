@@ -15,7 +15,11 @@ export async function refreshFileState(currentProjectId, currentUser, updateFile
         const logsContent = snap.data().logsContent || "";
         const actionContainer = document.getElementById('ai-actions-list');
         if (actionContainer && logsContent) {
-            actionContainer.innerHTML = logsContent;
+            // SECURITY: Sanitize logs before re-injecting into dashboard
+            const parser = new DOMParser();
+            const logDoc = parser.parseFromString(logsContent, 'text/html');
+            logDoc.querySelectorAll('script').forEach(s => s.remove());
+            actionContainer.innerHTML = logDoc.body.innerHTML;
             actionContainer.scrollTop = actionContainer.scrollHeight;
         }
 
@@ -23,7 +27,9 @@ export async function refreshFileState(currentProjectId, currentUser, updateFile
             const linkArea = document.getElementById('deployment-link-area');
             if(linkArea) {
                 const url = snap.data().lastDeploymentUrl;
-                linkArea.innerHTML = `<a href="${url}" target="_blank" class="text-emerald-400 text-xs font-mono hover:underline flex items-center justify-center gap-1 mt-2"><i data-lucide="external-link" class="w-3 h-3"></i> ${url}</a>`;
+                // SECURITY: Validate URL format before rendering
+                const safeUrl = url.startsWith('http') ? url : '#';
+                linkArea.innerHTML = `<a href="${safeUrl}" target="_blank" class="text-emerald-400 text-xs font-mono hover:underline flex items-center justify-center gap-1 mt-2"><i data-lucide="external-link" class="w-3 h-3"></i> ${safeUrl}</a>`;
                 linkArea.classList.remove('hidden');
                 lucide.createIcons();
             }
@@ -41,7 +47,9 @@ export async function loadExistingProject(pid, currentUser, refreshCallback) {
     const projectRef = doc(db, "artifacts", "ammoueai", "users", currentUser.uid, "projects", pid);
     const snap = await getDoc(projectRef);
     if (snap.exists()) {
-        document.getElementById('project-name-display').innerText = snap.data().projectName || "Untitled";
+        // SECURITY: Sanitize display name
+        const safeName = (snap.data().projectName || "Untitled").replace(/<[^>]*>?/gm, '');
+        document.getElementById('project-name-display').innerText = safeName;
         const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?id=' + pid;
         window.history.pushState({ path: newUrl }, '', newUrl);
         await refreshCallback(pid);
@@ -49,7 +57,10 @@ export async function loadExistingProject(pid, currentUser, refreshCallback) {
 }
 
 export async function handleRenameLogic(currentProjectId, currentUser, db, updateDoc, doc, renameRemoteProject, showCustomAlert) {
-    const newName = document.getElementById('new-project-name').value;
+    const rawName = document.getElementById('new-project-name').value;
+    // SECURITY: Sanitize new name input
+    const newName = rawName.replace(/<[^>]*>?/gm, '');
+
     if (!currentProjectId) {
         document.getElementById('rename-modal').style.display = 'none';
         showCustomAlert("Error", "No active project to rename. Start building first!");
