@@ -1,3 +1,4 @@
+// vercel.json
 {
   "headers": [
     {
@@ -22,22 +23,21 @@
       ]
     }
   ],
-  "routes": [
-    { "src": "^/api/(.*)", "dest": "/api/$1" },
-    
-    { "src": "^/api/deploy$", "dest": "/api/deploy.js" },
-    { "src": "^/$", "dest": "/index.prod.html" },
-    { "src": "^/login$", "dest": "/login.prod.html" },
-    { "src": "^/dashboard$", "dest": "/dashboard.prod.html" },
-    { "src": "^/ai_prompt$", "dest": "/ai_prompt.prod.html" },
-    { "src": "^/upgrade$", "dest": "/upgrade.prod.html" },
-    { "src": "^/editor$", "dest": "/editor.prod.html" },
-    { "src": "^/terms$", "dest": "/terms.prod.html" },
-    { "src": "^/privacy$", "dest": "/privacy.prod.html" },
-    { "src": "^/about$", "dest": "/about.prod.html" },
-    { "src": "^/contact$", "dest": "/contact.prod.html" },
-    { "src": "^/careers$", "dest": "/careers.prod.html" },
-    { "src": "^/plans-and-credits$", "dest": "/plans-and-credits.prod.html" },
-    { "src": "^/profile$", "dest": "/profile.prod.html" }
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/api/deploy", "destination": "/api/deploy.js" },
+    { "source": "/", "destination": "/index.prod.html" },
+    { "source": "/login", "destination": "/login.prod.html" },
+    { "source": "/dashboard", "destination": "/dashboard.prod.html" },
+    { "source": "/ai_prompt", "destination": "/ai_prompt.prod.html" },
+    { "source": "/upgrade", "destination": "/upgrade.prod.html" },
+    { "source": "/editor", "destination": "/editor.prod.html" },
+    { "source": "/terms", "destination": "/terms.prod.html" },
+    { "source": "/privacy", "destination": "/privacy.prod.html" },
+    { "source": "/about", "destination": "/about.prod.html" },
+    { "source": "/contact", "destination": "/contact.prod.html" },
+    { "source": "/careers", "destination": "/careers.prod.html" },
+    { "source": "/plans-and-credits", "destination": "/plans-and-credits.prod.html" },
+    { "source": "/profile", "destination": "/profile.prod.html" }
   ]
 }
