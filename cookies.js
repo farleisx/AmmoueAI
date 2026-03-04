@@ -1,16 +1,22 @@
-// /* cookies.js */
+// cookies.js
 
 (function() {
     // 1. Check if user already made a choice
     const userChoice = localStorage.getItem('ammoue_cookies_accepted');
 
     // If they already accepted, update consent immediately on page load
-    if (userChoice === 'true') {
+    if (userChoice === 'true' && typeof gtag === 'function') {
         gtag('consent', 'update', {
             'ad_storage': 'granted',
-            'analytics_storage': 'granted'
+            'analytics_storage': 'granted',
+            'ad_user_data': 'granted',
+            'ad_personalization': 'granted'
         });
         return; 
+    }
+
+    if (userChoice === 'essential') {
+        return;
     }
 
     // 2. Create the HTML Structure (Same as before)
@@ -64,7 +70,9 @@
         if (typeof gtag === 'function') {
             gtag('consent', 'update', {
                 'ad_storage': 'granted',
-                'analytics_storage': 'granted'
+                'analytics_storage': 'granted',
+                'ad_user_data': 'granted',
+                'ad_personalization': 'granted'
             });
         }
         
