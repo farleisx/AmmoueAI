@@ -53,6 +53,9 @@ import { handleGeneration } from "./generation_service_logic.js";
 // REMIX SERVICE IMPORT
 import { forkProject } from "./project_management_service.js";
 
+// IMPORT SERVICE
+import { importFromGitHub } from "./import_service.js";
+
 let currentUser = null;
 let currentProjectId = null;
 let projectFiles = {};
@@ -403,6 +406,49 @@ document.addEventListener('DOMContentLoaded', () => {
                 showCustomAlert("Link Copied", "Your shareable preview link is ready! Send it to anyone.");
             } else {
                 showCustomAlert("Error", "Start a project first to get a shareable link.");
+            }
+        };
+    }
+
+    // IMPORT GITHUB HANDLER
+    if (document.getElementById('import-github-btn')) {
+        document.getElementById('import-github-btn').onclick = async () => {
+            const repoUrl = prompt("Enter GitHub Repository URL:");
+            if (!repoUrl) return;
+
+            try {
+                showLoadingSkeleton(true);
+                showActionLine("Connecting to GitHub...");
+                
+                const importedFiles = await importFromGitHub(repoUrl);
+                
+                projectFiles = importedFiles;
+                activeFile = projectFiles['index.html'] ? 'index.html' : Object.keys(importedFiles)[0];
+
+                if (currentUser) {
+                    showActionLine("Initializing Project...");
+                    const newId = await autoSaveProject(
+                        projectFiles,
+                        "Imported from GitHub",
+                        null,
+                        currentUser.uid,
+                        "",
+                        activeFile,
+                        `github-import-${Date.now()}`
+                    );
+                    currentProjectId = newId;
+                }
+
+                updateFileTabsUI(projectFiles, activeFile);
+                displayActiveFile(projectFiles, activeFile);
+                bridge.update(projectFiles[activeFile]);
+                
+                showLoadingSkeleton(false);
+                showCustomAlert("Import Successful", "Your project has been imported and saved.");
+
+            } catch (err) {
+                showLoadingSkeleton(false);
+                showCustomAlert("Import Error", err.message);
             }
         };
     }
