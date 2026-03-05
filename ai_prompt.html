@@ -322,7 +322,7 @@
     </div>
 
     <div id="download-modal" class="backdrop-blur-md">
-        <div class="bg-[#0a0a0a] border border-white/10 p-8 rounded-3xl w-full max-w-[420px] shadow-2xl">
+        <div class="bg-[#0a0a0a] border border-white/10 p-8 rounded-3xl w-full max-w-[420px] shadow-2xl text-center">
             <div class="flex items-center gap-3 mb-6">
                 <div class="p-3 bg-white/5 rounded-2xl text-white"><i data-lucide="folder-archive" class="w-6 h-6"></i></div>
                 <div>
@@ -335,8 +335,11 @@
                 <button id="confirm-download" class="w-full bg-white/10 text-white py-4 rounded-2xl font-bold hover:bg-white/20 transition flex items-center justify-center gap-2">
                     <i data-lucide="download" class="w-4 h-4"></i> Download ZIP
                 </button>
-                <button id="export-github-btn" class="w-full bg-white text-black py-4 rounded-2xl font-bold hover:bg-emerald-400 transition flex items-center justify-center gap-2">
+                <button id="export-github-btn" class="w-full bg-white/10 text-white py-4 rounded-2xl font-bold hover:bg-white/20 transition flex items-center justify-center gap-2">
                     <i data-lucide="github" class="w-4 h-4"></i> Push to GitHub
+                </button>
+                <button id="import-github-btn" class="w-full bg-white text-black py-4 rounded-2xl font-bold hover:bg-emerald-400 transition flex items-center justify-center gap-2">
+                    <i data-lucide="download-cloud" class="w-4 h-4"></i> Import from GitHub
                 </button>
             </div>
             <button onclick="document.getElementById('download-modal').style.display='none'" class="w-full mt-4 text-sm text-gray-500">Cancel</button>
