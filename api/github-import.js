@@ -28,7 +28,9 @@ export default async function handler(req, res) {
             throw new Error("Invalid GitHub URL. Format should be github.com/owner/repo");
         }
         
-        const [owner, repo] = pathParts;
+        const owner = pathParts[0];
+        const repo = pathParts[1].replace(/\.git$/, ''); 
+        
         const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents`;
         
         console.log(`Fetching repo structure from: ${apiUrl}`);
