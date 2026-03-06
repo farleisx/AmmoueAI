@@ -73,10 +73,28 @@ export class FrameBridge {
         s.textContent = `
             document.querySelectorAll('[contenteditable]').forEach(el => {
                 el.addEventListener('blur', () => {
+                    // FIX: Instead of sending just innerHTML, send the whole document state
+                    // This prevents replacing the entire project file with a single element's text
+                    
+                    // Clone the document to clean it before sending
+                    const clone = document.documentElement.cloneNode(true);
+                    
+                    // Cleanup internal bridge markers from the clone
+                    clone.querySelectorAll('[contenteditable]').forEach(e => {
+                        e.removeAttribute('contenteditable');
+                        e.removeAttribute('data-sync-id');
+                        if (e.style.outline === 'none') e.style.outline = '';
+                    });
+                    
+                    // Remove the bridge scripts from the clone
+                    clone.querySelectorAll('script').forEach(scr => {
+                        if (scr.textContent.includes('SYNC_TEXT')) scr.remove();
+                    });
+
                     window.parent.postMessage({
                         type: 'SYNC_TEXT',
                         syncId: el.getAttribute('data-sync-id'),
-                        newContent: el.innerHTML
+                        newContent: clone.outerHTML
                     }, '*');
                 });
             });
