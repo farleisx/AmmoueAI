@@ -124,10 +124,20 @@ initAuth((user) => {
     if (pid) loadProject(pid, currentUser, async (id) => {
         currentProjectId = id;
         projectFiles = await refreshFiles(currentProjectId, currentUser, updateFileTabsUI, displayActiveFile, activeFile, bridge);
+        // FORCE UI REFRESH ON LOAD
+        if (projectFiles[activeFile]) {
+            displayActiveFile(projectFiles, activeFile);
+            bridge.update(projectFiles[activeFile]);
+        }
     });
     fetchProjectHistory(currentUser, (pid) => loadProject(pid, currentUser, async (id) => {
         currentProjectId = id;
         projectFiles = await refreshFiles(currentProjectId, currentUser, updateFileTabsUI, displayActiveFile, activeFile, bridge);
+        // FORCE UI REFRESH ON HISTORY LOAD
+        if (projectFiles[activeFile]) {
+            displayActiveFile(projectFiles, activeFile);
+            bridge.update(projectFiles[activeFile]);
+        }
     }));
 });
 
