@@ -13,8 +13,14 @@ export function updateFileTabsUI(projectFiles, activeFile) {
 }
 
 export function displayActiveFile(projectFiles, activeFile) {
+    // FIX: Target 'code-editor' for input sync (the element bridge uses)
+    const editor = document.getElementById('code-editor');
     const output = document.getElementById('code-output');
-    if (output) output.innerText = projectFiles[activeFile] || "";
+    const content = projectFiles[activeFile] || "";
+    
+    if (editor) editor.value = content;
+    if (output) output.innerText = content;
+    
     updatePreview(projectFiles, activeFile);
 }
 
