@@ -43,7 +43,7 @@ import { initCommandPaletteLogic, handleGlobalKeyDown } from "./command_palette_
 import { handleGitHubExport, handleOpenInTab } from "./export_service.js";
 
 // MODULAR SERVICE IMPORTS
-import { initPreviewControls } from "./preview_control_service.js";
+import { initPreviewControls, setPreviewSize } from "./preview_control_service.js";
 import { initProjectActions } from "./project_actions_service.js";
 import { initDeploymentLogic, executeDeploymentFlow } from "./deployment_logic_service.js";
 import { initMobileDrawer } from "./mobile_ui_service.js";
@@ -55,6 +55,9 @@ import { forkProject } from "./project_management_service.js";
 
 // IMPORT SERVICE
 import { importFromGitHub } from "./import_service.js";
+
+// BOOKING SERVICE IMPORT
+import { createBooking } from "./booking_service.js";
 
 let currentUser = null;
 let currentProjectId = null;
@@ -137,67 +140,6 @@ async function syncUsageData() {
         startCountdown(data.resetAt, updateCountdown, syncUsageData);
     }
 }
-
-const setPreviewSize = (type) => {
-    const container = document.getElementById('preview-container');
-    const frame = document.getElementById('preview-frame');
-    const btns = { desktop: 'view-desktop', tablet: 'view-tablet', mobile: 'view-mobile' };
-    
-    Object.values(btns).forEach(id => {
-        const btn = document.getElementById(id);
-        if (btn) {
-            btn.classList.remove('text-white', 'bg-white/10');
-            btn.classList.add('text-gray-500');
-        }
-    });
-    
-    const activeBtn = document.getElementById(btns[type]);
-    if (activeBtn) {
-        activeBtn.classList.remove('text-gray-500');
-        activeBtn.classList.add('text-white', 'bg-white/10');
-    }
-
-    container.style.transform = 'scale(1)';
-
-    if (type === 'desktop') { 
-        container.style.width = '100%';
-        container.style.maxWidth = '1100px'; 
-        container.style.height = 'auto';
-        container.classList.add('aspect-video');
-        frame.style.width = '100%'; 
-        frame.style.height = '100%';
-    }
-    else if (type === 'tablet') { 
-        container.classList.remove('aspect-video');
-        container.style.width = '768px'; 
-        container.style.maxWidth = '90%';
-        container.style.height = '70vh';
-        frame.style.width = '100%';
-        frame.style.height = '100%';
-        
-        const parentWidth = container.parentElement.clientWidth;
-        if (parentWidth < 768 + 40) {
-            const scale = (parentWidth - 40) / 768;
-            container.style.transform = `scale(${scale})`;
-            container.style.transformOrigin = 'top center';
-        }
-    }
-    else { 
-        container.classList.remove('aspect-video');
-        container.style.width = '393px'; 
-        container.style.maxWidth = '90%';
-        container.style.height = '75vh';
-        frame.style.width = '100%';
-        frame.style.height = '100%';
-
-        const parentWidth = container.parentElement.clientWidth;
-        if (parentWidth < 393 + 40) {
-            const scale = (parentWidth - 40) / 393;
-            container.style.transform = `scale(${scale})`;
-            container.style.transformOrigin = 'top center';
-        }
-    }
-};
 
 if (document.getElementById('logout-btn')) {
     document.getElementById('logout-btn').onclick = () => signOut(auth);
@@ -454,22 +396,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-async function createBooking(business_id, service_id, customer_name, customer_email, booking_date, booking_time) {
-    try {
-        const res = await fetch('/api/booking', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ business_id, service_id, customer_name, customer_email, booking_date, booking_time })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Booking failed');
-        return data;
-    } catch (err) {
-        showCustomAlert("Booking Error", err.message);
-        return null;
-    }
-}
-window.createBooking = createBooking;
+window.createBooking = (business_id, service_id, customer_name, customer_email, booking_date, booking_time) => 
+    createBooking(business_id, service_id, customer_name, customer_email, booking_date, booking_time, showCustomAlert);
 
 // SAFETY NET LISTENER
 window.addEventListener('beforeunload', (e) => {
