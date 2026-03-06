@@ -203,3 +203,16 @@ body.light-mode nav { background: #ffffff; border-bottom-color: rgba(0,0,0,0.1);
     margin-left: auto;
     margin-right: auto;
 }
+
+/* MODULAR ADDITIONS */
+.premium-highlight {
+    background: linear-gradient(45deg, #10b981, #3b82f6) !important;
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+    border: none !important;
+    transform: scale(1.02);
+    transition: all 0.3s ease;
+}
+.premium-highlight:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 30px rgba(59, 130, 246, 0.4);
+}
