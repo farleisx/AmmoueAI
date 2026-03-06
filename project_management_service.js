@@ -9,7 +9,10 @@ export async function refreshFileState(currentProjectId, currentUser, updateFile
     let files = {};
     if (snap.exists()) {
         const data = snap.data().pages || {};
-        Object.keys(data).forEach(k => { files[k] = data[k].content || ""; });
+        // FIXED MAPPING: Correctly handle both object-style and string-style file storage
+        Object.keys(data).forEach(k => { 
+            files[k] = (typeof data[k] === 'object' && data[k] !== null) ? (data[k].content || "") : (data[k] || ""); 
+        });
         
         // Restore Persistent AI Action Logs
         const logsContent = snap.data().logsContent || "";
