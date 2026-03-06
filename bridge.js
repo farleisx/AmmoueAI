@@ -82,10 +82,18 @@ const bridge = new FrameBridge({
     codeView: document.getElementById('code-editor'),
     callbacks: {
         onSyncText: (syncId, content) => {
+            // FIX: Content is now the full HTML sent from FrameBridge
+            if (!content || content.length < 10) return; 
+
             isUnsaved = true;
             if (projectFiles[activeFile] !== undefined) {
                 projectFiles[activeFile] = content;
             }
+            
+            // Sync the Code Editor UI if it exists
+            const editor = document.getElementById('code-editor');
+            if (editor) editor.value = content;
+
             if (saveDebounceTimer) clearTimeout(saveDebounceTimer);
             saveDebounceTimer = setTimeout(async () => {
                 if (currentProjectId && currentUser) {
@@ -124,7 +132,6 @@ initAuth((user) => {
     if (pid) loadProject(pid, currentUser, async (id) => {
         currentProjectId = id;
         projectFiles = await refreshFiles(currentProjectId, currentUser, updateFileTabsUI, displayActiveFile, activeFile, bridge);
-        // FORCE UI REFRESH ON LOAD
         if (projectFiles[activeFile]) {
             displayActiveFile(projectFiles, activeFile);
             bridge.update(projectFiles[activeFile]);
@@ -133,7 +140,6 @@ initAuth((user) => {
     fetchProjectHistory(currentUser, (pid) => loadProject(pid, currentUser, async (id) => {
         currentProjectId = id;
         projectFiles = await refreshFiles(currentProjectId, currentUser, updateFileTabsUI, displayActiveFile, activeFile, bridge);
-        // FORCE UI REFRESH ON HISTORY LOAD
         if (projectFiles[activeFile]) {
             displayActiveFile(projectFiles, activeFile);
             bridge.update(projectFiles[activeFile]);
@@ -257,7 +263,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const nameDisplay = document.getElementById('project-name-display');
     if (nameDisplay && nameDisplay.innerText === 'lovable-clone') nameDisplay.innerText = generateCoolName();
     
-    // INTERACTION INITIALIZATION
     initInteractions(recognition, document.getElementById('voice-btn'), document.getElementById('prompt-input'));
 
     document.getElementById('ai-protocol-btn')?.addEventListener('click', () => {
@@ -348,9 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 showLoadingSkeleton(true);
                 showActionLine("Connecting to GitHub...");
-                
                 const importedFiles = await importFromGitHub(repoUrl);
-                
                 projectFiles = importedFiles;
                 activeFile = projectFiles['index.html'] ? 'index.html' : Object.keys(importedFiles)[0];
 
@@ -366,8 +369,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         `github-import-${Date.now()}`
                     );
                     currentProjectId = newId;
-                    
-                    // UNLOCK UI: Reveal export buttons now that project exists
                     const exportBtn = document.getElementById('export-github-btn');
                     const downloadBtn = document.getElementById('confirm-download');
                     const importBtn = document.getElementById('import-github-btn');
@@ -379,10 +380,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateFileTabsUI(projectFiles, activeFile);
                 displayActiveFile(projectFiles, activeFile);
                 bridge.update(projectFiles[activeFile]);
-                
                 showLoadingSkeleton(false);
                 showCustomAlert("Import Successful", "Your project has been imported and saved.");
-
             } catch (err) {
                 showLoadingSkeleton(false);
                 showCustomAlert("Import Error", err.message);
