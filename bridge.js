@@ -59,6 +59,11 @@ import { importFromGitHub } from "./import_service.js";
 // BOOKING SERVICE IMPORT
 import { createBooking } from "./booking_service.js";
 
+// NEW MODULAR IMPORTS
+import { syncUsageData, refreshFiles, loadProject } from "./data_sync_service.js";
+import { initInteractions } from "./interaction_service.js";
+import { initAuth } from "./auth_service.js";
+
 let currentUser = null;
 let currentProjectId = null;
 let projectFiles = {};
@@ -110,40 +115,25 @@ const bridge = new FrameBridge({
     }
 });
 
-onAuthStateChanged(auth, (user) => {
-    if (!user) window.location.href = "/login";
-    else { 
-        currentUser = user; 
-        syncUsageData(); 
-        const urlParams = new URLSearchParams(window.location.search);
-        const pid = urlParams.get('id');
-        if (pid) loadProject(pid);
-        fetchProjectHistory(currentUser, loadProject); 
-    }
+// AUTH INITIALIZATION
+initAuth((user) => {
+    currentUser = user;
+    syncUsageData(currentUser, currentUsageData, (data) => { currentUsageData = data; });
+    const urlParams = new URLSearchParams(window.location.search);
+    const pid = urlParams.get('id');
+    if (pid) loadProject(pid, currentUser, async (id) => {
+        currentProjectId = id;
+        projectFiles = await refreshFiles(currentProjectId, currentUser, updateFileTabsUI, displayActiveFile, activeFile, bridge);
+    });
+    fetchProjectHistory(currentUser, (pid) => loadProject(pid, currentUser, async (id) => {
+        currentProjectId = id;
+        projectFiles = await refreshFiles(currentProjectId, currentUser, updateFileTabsUI, displayActiveFile, activeFile, bridge);
+    }));
 });
 
 initUIService();
 initAttachmentService('image-upload', 'attach-btn', 'attachment-rack', 'image-preview-modal', 'modal-img');
 initLiveEditor(document.getElementById('preview-frame'));
-
-async function syncUsageData() {
-    const data = await syncUsage(currentUser);
-    if (data) {
-        if (currentUsageData.count !== data.count) {
-            const creditEl = document.getElementById('credit-display');
-            if (creditEl) {
-                creditEl.classList.add('scale-110', 'text-emerald-400');
-                setTimeout(() => creditEl.classList.remove('scale-110', 'text-emerald-400'), 400);
-            }
-        }
-        currentUsageData = data;
-        startCountdown(data.resetAt, updateCountdown, syncUsageData);
-    }
-}
-
-if (document.getElementById('logout-btn')) {
-    document.getElementById('logout-btn').onclick = () => signOut(auth);
-}
 
 if (document.getElementById('toggle-code')) {
     document.getElementById('toggle-code').onclick = () => {
@@ -171,8 +161,8 @@ if (document.getElementById('generate-btn')) {
             db,
             autoSaveProject,
             generateProjectStream,
-            syncUsageData,
-            refreshFiles
+            syncUsageData: () => syncUsageData(currentUser, currentUsageData, (data) => { currentUsageData = data; }),
+            refreshFiles: async () => { projectFiles = await refreshFiles(currentProjectId, currentUser, updateFileTabsUI, displayActiveFile, activeFile, bridge); }
         });
         if (result) {
             currentProjectId = result.currentProjectId;
@@ -192,17 +182,6 @@ window.switchFile = (fileName) => {
         bridge.update(projectFiles[fileName]);
     }
 };
-
-async function refreshFiles() {
-    projectFiles = await refreshFileState(currentProjectId, currentUser, updateFileTabsUI, displayActiveFile, activeFile, bridge);
-}
-
-async function loadProject(pid) {
-    await loadExistingProject(pid, currentUser, async (id) => {
-        currentProjectId = id;
-        await refreshFiles();
-    });
-}
 
 document.addEventListener('keydown', e => {
     handleGlobalKeyDown(e, 'generate-btn');
@@ -232,7 +211,6 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.interimResults = false;
-    initVoiceRecognition(recognition, document.getElementById('voice-btn'), document.getElementById('prompt-input'));
 }
 
 if (document.getElementById('close-alert')) {
@@ -268,7 +246,9 @@ if (document.getElementById('new-project-btn')) {
 document.addEventListener('DOMContentLoaded', () => {
     const nameDisplay = document.getElementById('project-name-display');
     if (nameDisplay && nameDisplay.innerText === 'lovable-clone') nameDisplay.innerText = generateCoolName();
-    runTypingEffect();
+    
+    // INTERACTION INITIALIZATION
+    initInteractions(recognition, document.getElementById('voice-btn'), document.getElementById('prompt-input'));
 
     document.getElementById('ai-protocol-btn')?.addEventListener('click', () => {
         toggleAiActionsFeed();
@@ -322,7 +302,6 @@ document.addEventListener('DOMContentLoaded', () => {
         onSnapshot
     });
 
-    // FORK PROJECT HANDLER
     if (document.getElementById('remix-project-btn')) {
         document.getElementById('remix-project-btn').onclick = () => {
             forkProject({
@@ -339,7 +318,6 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // SHARE PROJECT HANDLER
     if (document.getElementById('share-project-btn')) {
         document.getElementById('share-project-btn').onclick = () => {
             const link = getShareableLink(currentProjectId, currentUser?.uid);
@@ -352,7 +330,6 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // IMPORT GITHUB HANDLER
     if (document.getElementById('import-github-btn')) {
         document.getElementById('import-github-btn').onclick = async () => {
             const repoUrl = prompt("Enter GitHub Repository URL:");
@@ -399,7 +376,6 @@ document.addEventListener('DOMContentLoaded', () => {
 window.createBooking = (business_id, service_id, customer_name, customer_email, booking_date, booking_time) => 
     createBooking(business_id, service_id, customer_name, customer_email, booking_date, booking_time, showCustomAlert);
 
-// SAFETY NET LISTENER
 window.addEventListener('beforeunload', (e) => {
     if (isUnsaved || isGenerating) {
         e.preventDefault();
