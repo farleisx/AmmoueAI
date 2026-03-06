@@ -356,6 +356,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         `github-import-${Date.now()}`
                     );
                     currentProjectId = newId;
+                    
+                    // UNLOCK UI: Reveal export buttons now that project exists
+                    const exportBtn = document.getElementById('export-github-btn');
+                    const downloadBtn = document.getElementById('confirm-download');
+                    const importBtn = document.getElementById('import-github-btn');
+                    if (exportBtn) exportBtn.style.display = 'flex';
+                    if (downloadBtn) downloadBtn.style.display = 'flex';
+                    if (importBtn) importBtn.classList.remove('premium-highlight');
                 }
 
                 updateFileTabsUI(projectFiles, activeFile);
