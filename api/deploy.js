@@ -101,6 +101,11 @@ function performAudit(files) {
       if (content.includes("@layer") || content.includes("@tailwind")) {
         return { ok: false, error: `Illegal Tailwind directives (@layer/@tailwind) found in ${file.file}. These must be moved to src/index.css.` };
       }
+
+      // Check 5: MIME SAFETY (Detect incorrect type="text/jsx" in index.html)
+      if (file.file === "index.html" && /type=["']text\/jsx["']/gi.test(content)) {
+        return { ok: false, error: `Invalid script type "text/jsx" detected in index.html. Use type="module" for Vite.` };
+      }
     }
 
     if (file.file === "src/index.css") {
