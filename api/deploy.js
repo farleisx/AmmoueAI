@@ -159,8 +159,9 @@ export default async function handler(req, res) {
           const fileData = typeof data === 'string' ? data : (data.content || "");
           let fileName = name;
 
-          // FRAMEWORK SAFE MAPPING: Ensure root entry points are correctly named for build tools
-          if (name === "landing" || name === "index") {
+          // FRAMEWORK SAFE MAPPING & ROOT PROTECTION
+          // Force index.html to the absolute root regardless of AI pathing
+          if (name === "landing" || name === "index" || name === "index.html" || name.endsWith("/index.html")) {
             fileName = "index.html";
           }
 
@@ -172,7 +173,14 @@ export default async function handler(req, res) {
     if (passedFiles && Object.keys(passedFiles).length > 0) {
       vercelFiles = [];
       Object.entries(passedFiles).forEach(([name, data]) => {
-        vercelFiles.push({ file: name, data: String(data || "") });
+        let fileName = name;
+        
+        // RE-MAPPING FOR PASSED FILES
+        if (name === "landing" || name === "index" || name === "index.html" || name.endsWith("/index.html")) {
+          fileName = "index.html";
+        }
+
+        vercelFiles.push({ file: fileName, data: String(data || "") });
       });
     } else if (vercelFiles.length === 0 && htmlContent) {
       vercelFiles.push({ file: "index.html", data: String(htmlContent || "") });
