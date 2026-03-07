@@ -1,4 +1,5 @@
 // api/deploy.js
+
 import fetch from "node-fetch";
 import admin from "firebase-admin";
 import { initializeApp, getApps } from "firebase-admin/app";
@@ -158,15 +159,12 @@ export default async function handler(req, res) {
           const fileData = typeof data === 'string' ? data : (data.content || "");
           let fileName = name;
 
-          if (fileName === "landing") {
-            fileName = (framework === "vanilla" || !framework) ? "index.html" : "index.jsx";
+          // FRAMEWORK SAFE MAPPING: Ensure root entry points are correctly named for build tools
+          if (name === "landing" || name === "index") {
+            fileName = "index.html";
           }
 
           vercelFiles.push({ file: fileName, data: String(fileData || "") });
-          
-          if (framework === "vanilla" && (name === "landing" || name === "index")) {
-            vercelFiles.push({ file: "index.html", data: String(fileData || "") });
-          }
         });
       }
     }
