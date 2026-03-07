@@ -491,6 +491,17 @@ ADMIN CAPABILITY & USER ACCESS:
 `;
         }
 
+        // --- REACT-VITE VERCEL BUILD SAFETY ---
+        if (targetFramework === "react-vite") {
+            systemInstruction += `
+VITE STRUCTURE RULES (STRICT):
+- index.html MUST be at the absolute root.
+- All React source code MUST be in src/.
+- index.html MUST include: <script type="module" src="/src/main.jsx"></script>
+- vite.config.js MUST NOT redefine the root directory.
+`;
+        }
+
         const model = genAI.getGenerativeModel({ model: API_MODEL, systemInstruction });
         const encoder = new TextEncoder();
 
