@@ -96,6 +96,18 @@ function performAudit(files) {
       if (content.trim().endsWith("=") || content.trim().endsWith("<")) {
         return { ok: false, error: `Code appears to be truncated in ${file.file}` };
       }
+
+      // Check 4: ILLEGAL CSS DIRECTIVES IN HTML (Prevent Vite [postcss] error)
+      if (content.includes("@layer") || content.includes("@tailwind")) {
+        return { ok: false, error: `Illegal Tailwind directives (@layer/@tailwind) found in ${file.file}. These must be moved to src/index.css.` };
+      }
+    }
+
+    if (file.file === "src/index.css") {
+      const content = file.data;
+      if (!content.includes("@tailwind base") || !content.includes("@tailwind utilities")) {
+        return { ok: false, error: `Missing mandatory Tailwind directives in src/index.css` };
+      }
     }
   }
   return { ok: true };
