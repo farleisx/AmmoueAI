@@ -106,6 +106,11 @@ function performAudit(files) {
       if (file.file === "index.html" && /type=["']text\/jsx["']/gi.test(content)) {
         return { ok: false, error: `Invalid script type "text/jsx" detected in index.html. Use type="module" for Vite.` };
       }
+      
+      // Check 6: STRICT MIME PATHING (Vite expects absolute /src/)
+      if (file.file === "index.html" && /src=["']src\/main\.jsx["']/gi.test(content)) {
+        return { ok: false, error: `Relative script path "src/main.jsx" detected in index.html. Use "/src/main.jsx" for standard Vite resolution.` };
+      }
     }
 
     if (file.file === "src/index.css") {
