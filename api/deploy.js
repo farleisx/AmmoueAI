@@ -160,7 +160,6 @@ export default async function handler(req, res) {
           let fileName = name;
 
           // FRAMEWORK SAFE MAPPING & ROOT PROTECTION
-          // Force index.html to the absolute root regardless of AI pathing
           if (name === "landing" || name === "index" || name === "index.html" || name.endsWith("/index.html")) {
             fileName = "index.html";
           }
